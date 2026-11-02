@@ -286,6 +286,43 @@ test('decodes instance masks with separate binary pixels, wide class IDs, confid
     assert.equal(frame.layers.find(item => item.payloadType === 'SemanticSegmentationMasks').count, 0);
 });
 
+test('OCR wire payloads preserve text, parent links and malformed numeric values without content-type routing', () => {
+    const envelope = new Envelope();
+    envelope.add(new FrameContextT(1, 0, null, new VideoFrameContextT(new ObjectMetaT(42n), 640n, 480n)));
+    const detectorInfo = layer('');
+    detectorInfo.model = 'detector';
+    envelope.add(new BoxDetectionsT(1, 0, detectorInfo, [
+        new BoxDetectionT(new ObjectMetaT(9007199254740993n, 42n), new BoundingBoxT(20, 30, 100, 40), 0.8, -1, ''),
+    ]));
+    const readerInfo = layer('arbitrary');
+    readerInfo.model = 'reader';
+    envelope.add(new ClassificationsT(1, 0, readerInfo, [new ClassificationT(new ObjectMetaT(10n, 9007199254740993n), [
+        new ClassificationCandidateT(0.9, -1, '東京 <text>'),
+    ])]));
+    const {frame_results: frame} = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')});
+    const reader = frame.layers.find(item => item.payloadType === 'Classifications');
+    assert.equal(reader.detections[0].data.parentUuid, '9007199254740993');
+    const overlay = createOverlay('ocr', outputSource(reader));
+    const resolved = resolveOverlay(indexFrame(frame), overlay);
+    assert.equal(resolved.state, 'ready');
+    assert.equal(resolved.regions[0].text, '東京 <text>');
+    assert.equal(resolved.regions[0].box.x, 20);
+
+    const malformed = new Envelope();
+    malformed.add(new BoxDetectionsT(1, 0, detectorInfo, [
+        new BoxDetectionT(new ObjectMetaT(1n, 42n), new BoundingBoxT(NaN, 0, 10, 10), NaN),
+    ]));
+    malformed.add(new ClassificationsT(1, 0, readerInfo, [new ClassificationT(new ObjectMetaT(2n, 1n), [
+        new ClassificationCandidateT(NaN, -1, 'bad score'),
+    ])]));
+    const decoded = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(malformed.serialize()).toString('base64')}).frame_results;
+    assert.ok(Number.isNaN(decoded.layers[0].detections[0].data.x));
+    assert.ok(Number.isNaN(decoded.layers[0].detections[0].data.confidence));
+    assert.ok(Number.isNaN(decoded.layers[1].detections[0].data.candidates[0].confidence));
+});
+
 test('rejects a packet from an incompatible producer identity', () => {
     const builder = new Builder(128);
     const offset = new WireEnvelopeT(

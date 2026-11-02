@@ -67,6 +67,8 @@ until you enable the model and matching output
 appears. A waiting overlay binds once to the single compatible source discovered
 in this connection, using its real metadata identity. If multiple sources match,
 it shows **Choose a source** instead of guessing; open its row and use **Change source…**.
+OCR always requires an explicit source choice, even when only one compatible
+output is available, because generic boxes/classifications do not identify an OCR task.
 After binding, it never silently switches to another producer. Saved and unsaved
 styles survive discovery, including while the editor is open.
 
@@ -117,6 +119,7 @@ multiple related payloads, and one payload can support multiple features.
 | Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
 | Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with current-frame presence indicators. |
 | Instance segmentation | `InstanceSegmentationMasks` with `instanceSegmentation` semantics: separate binary object masks, contrasting outlines, and optional numbered boxes/class/confidence labels. |
+| OCR | Explicitly selected `Classifications` with parent `BoxDetections`, or a `BoxDetections` source directly: region outlines and spatially attached text, without content-type routing. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
@@ -239,6 +242,7 @@ semantic resolution, rendering, and optional default overrides.
 | `defaults` | Default settings object, or function receiving the source descriptor (an empty object before a source is known). |
 | `validateSettings(settings)` | Return normalized settings, or `null` for invalid saved data. |
 | `discover(catalog)` | Return compatible primary descriptors from the observed-source Map. Match semantic requirements as well as family, and support empty payloads. Also used for unique, one-time binding of waiting overlays. |
+| `requiresExplicitSource` | Optional flag: always offer a source picker when candidates exist and never auto-bind a pending overlay. Used by OCR, whose payload types are shared with other tasks. |
 | `resolve(index, selection, settings)` | Resolve current-frame inputs and relationships. Return `state`, `message`, `items`, and feature-specific resolved data. |
 | `render(target, resolved, settings)` | Draw resolved data. Target supplies canvas/context, video, mapper, shared layout state, time, and the owning overlay for resource caching. |
 | `legend(resolved, settings)` | Optional `{entries: [{id, label, color, present}], message}` for the expanded row. Uses displayed-frame results; controls retain their DOM nodes across frames. |
@@ -353,6 +357,65 @@ inside the contained video rectangle. Missing/unmatched frames clear both raster
 and annotations. Mask validation is cached per indexed output, and one composite
 canvas is cached per overlay rather than allocating a canvas per object.
 
+## OCR
+
+Choose **OCR**, then explicitly select **From**:
+
+- A `Classifications` source supplies recognized text. Each classification's
+  `parent_id` must uniquely identify a current-frame `BoxDetections` object.
+  Geometry comes from that parent box, not candidate coordinates or array order.
+  Only the selected recognition source contributes text.
+- A `BoxDetections` source supplies regions directly. Its optional `text` field
+  is displayed when populated; otherwise the view is region-only. This mode
+  does not borrow results from another classification source.
+
+The OCR feature routes on these schema payload types and object relationships,
+not `contentType`, model names, or parser names. Shared source identity still
+retains the existing provenance fields; this is not a repository-wide removal
+of the legacy content-type contract. Generic box/classification producers can
+also be selected intentionally. When a pending overlay discovers outputs, use
+**Change source…** to choose one rather than automatically binding to the first.
+
+**Regions** and **Recognized text** are independently enabled by default.
+Nonempty text gets a solid region outline and a white-on-dark label above the
+region, or below it when necessary. Empty text uses a dashed outline without
+inventing a recognition result. Labels and outlines stay inside the contained
+video rectangle; regions are not filled. **Color** affects outlines, **Opacity**
+affects the overlay, and **Text size** selects a fixed screen-pixel font size.
+OCR text is bounded to 512 Unicode code points before layout, and labels are
+ellipsized to the available width. Whitespace is collapsed for the single-line overlay;
+the full original text remains available in the inference panel and copy output.
+Text is drawn as data, never evaluated as HTML.
+
+**Region confidence** and **Text confidence** are independent and off by default.
+The region score comes from the box; the text score comes from its linked
+recognition candidate. Enabling both shows, for example,
+`ABC 1234 · Region: 80.0% · Text: 96.3%`. Either score can be shown without the
+recognized string or region outline. Zero scores are retained even for empty
+recognized text; absent/ambiguous text scores never fall back to a region score.
+A detector-only source has only the region score. Long recognized strings are
+shortened first to leave room for requested scores. Existing saved **Confidence**
+settings enable both controls, unless a new explicit choice is already saved.
+In EXPKITS-1443, the text score is the mean retained-character probability after
+CTC decoding, not a calibrated probability that the entire string is correct.
+
+The supported geometry is a finite, positive axis-aligned box in an uncropped
+parent `FrameContext` video's original coordinates. Model-input letterboxing has
+already been removed by the producer. The current OCR integration exports
+axis-aligned envelopes, not its internal rotated quads; rotated/perspective
+regions and nested ROI transforms are not inferred. Missing or duplicate parent
+objects omit the affected regions. Multiple recognition records/candidates for
+one region retain an unlabelled outline and report ambiguity rather than choosing
+arbitrary text. Malformed geometry/text/scores are omitted with status feedback;
+outputs exceeding 4096 records are rejected.
+
+Only displayed-frame-matched metadata draws. Orphan recognition results never
+become floating labels, and absent/unmatched frames clear the overlay. Preferences
+persist per selected source/overlay; recognized strings and frame relationships
+are not saved. For detector regions that remain visible while recognition is
+disabled, add a separate detector-bound OCR overlay and disable **Regions** on
+the recognition overlay to avoid duplicate outlines.
+
 ## Background replacement
 
 Select **Background replacement**, then choose **Solid color** or **Local image**.
@@ -428,6 +491,12 @@ that directory's Playwright configuration with `--grep 'semantic class maps'`.
 Instance coverage checks binary foreground, overlapping and same-class masks,
 outlines, frame-local labels, signed/wide class IDs, aggregate limits, independent
 class preferences, and clearing. Run its browser test with `--grep 'instance masks'`.
+OCR coverage checks explicit selection, parent-ID joins, missing/ambiguous data,
+Unicode and literal markup, confidence semantics, label placement/clipping,
+displayed-frame clearing, and persisted controls. Run its browser test with
+`--grep 'OCR overlays'`. Wire fixtures follow the BoxDetections/Classifications
+contract produced by the EXPKITS-1443 OCR branch; a live OCR pipeline requires
+that runtime and matching producer/browser SDK identities.
 
 In the browser, configure Tracked objects and toggle Boxes/Trails independently.
 Select a tracker through Bounding boxes and verify no trails draw. Add a separate

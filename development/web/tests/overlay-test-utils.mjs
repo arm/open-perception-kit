@@ -46,7 +46,7 @@ export function render(frame, overlays, width = 640, height = 480, videoWidth = 
     const stack = [];
     const ctx = {
         calls, globalAlpha: 1,
-        setTransform() {}, clearRect() {}, beginPath() {}, closePath() {}, moveTo() {}, lineTo() {}, fill() {}, fillRect() {},
+        setTransform() {}, clearRect() {}, beginPath() {}, closePath() {}, moveTo() {}, lineTo() {}, fill() {}, fillRect() {}, rect() {}, clip() {},
         save() { stack.push({globalAlpha: this.globalAlpha, strokeStyle: this.strokeStyle, fillStyle: this.fillStyle}); },
         restore() { Object.assign(this, stack.pop()); },
         setLineDash(value) { calls.push({dash: value}); },

@@ -26,6 +26,7 @@ import performance from './features/performance.js';
 import backgroundReplacement from './features/background-replacement.js';
 import semanticSegmentation from './features/semantic-segmentation.js';
 import instanceSegmentation from './features/instance-segmentation.js';
+import ocr from './features/ocr.js';
 
 export const OVERLAY_FEATURES = [
     boundingBoxes,
@@ -39,6 +40,7 @@ export const OVERLAY_FEATURES = [
     backgroundReplacement,
     semanticSegmentation,
     instanceSegmentation,
+    ocr,
 ];
 
 export function featureFor(id) {
@@ -59,7 +61,9 @@ export function resolveOverlay(index, overlay) {
 }
 
 export function overlayStatus(index, overlay, catalog, resolved = resolveOverlay(index, overlay)) {
-    if (overlay.selection.primary === null && catalog && featureFor(overlay.featureId)?.discover(catalog).length > 1) {
+    const feature = featureFor(overlay.featureId);
+    if (overlay.selection.primary === null && catalog
+        && feature?.discover(catalog).length > (feature?.requiresExplicitSource ? 0 : 1)) {
         return 'Choose a source';
     }
     if (resolved.state === 'unsupported') return `Unsupported · ${resolved.message}`;
