@@ -74,6 +74,7 @@ jobs:
               - '**/meson_options.txt'
               - 'requirements/build.json'
               - 'requirements/mlwl.json'
+              - 'requirements/patches/mlwl/**'
               - 'requirements/meson.txt'
               - 'requirements/sdk.txt'
               - 'requirements/tests.txt'

@@ -18,6 +18,7 @@
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -504,9 +505,13 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             )
             sources = json.loads((REPO_ROOT / "requirements/mlwl.json").read_text())
             (repo_root / "requirements/mlwl.json").write_text(json.dumps(sources))
+            patches = repo_root / "requirements/patches/mlwl"
+            shutil.copytree(REPO_ROOT / "requirements/patches/mlwl", patches)
             receipt = library.with_suffix(".so.provenance.json")
             receipt_data = {
                 "sources": sources,
+                "patches": {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                            for path in patches.glob("*.patch")},
                 "library_sha256": hashlib.sha256(library.read_bytes()).hexdigest(),
             }
             receipt.write_text(json.dumps(receipt_data))
@@ -537,6 +542,9 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                     self.assertEqual(packaged.read_bytes(), source.read_bytes())
                     self.assertEqual(packaged.stat().st_mode & 0o444, 0o444)
             ReleaseTool.validate_mlwl_runtime(packaged_private, repo_root)
+            (patches / "0001-vulkan-device-compatibility.patch").write_text("Changed patch\n")
+            with self.assertRaisesRegex(RuntimeError, "patches do not match"):
+                ReleaseTool.validate_mlwl_runtime(packaged_private, repo_root)
             receipt_data["sources"]["vgf"]["sha256"] = "0" * 64
             (packaged_private / receipt.name).write_text(json.dumps(receipt_data))
             with self.assertRaisesRegex(RuntimeError, "source does not match"):
