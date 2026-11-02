@@ -67,32 +67,45 @@ TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
     EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
 
     constexpr int AutomaticThreads = 0;
+    constexpr int SequentialThreads = 1;
     constexpr int ExplicitThreads = 2;
     constexpr int MaximumThreads = std::numeric_limits<int>::max();
     document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
                           {"attributes", {{"modelDescriptor", "model.json"}}}};
     EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
-    for (const int threads : {AutomaticThreads, ExplicitThreads, MaximumThreads}) {
-        document["ops"][0]["attributes"]["intraOpNumThreads"] = threads;
-        const auto result = opk::config::validateOpChainJson(document.dump());
-        EXPECT_TRUE(result) << threads << '\n' << (result ? "" : result.error().toText());
+    for (const auto *attribute : {"intraOpNumThreads", "interOpNumThreads"}) {
+        document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
+                              {"attributes", {{"modelDescriptor", "model.json"}}}};
+        for (const int threads :
+             {AutomaticThreads, SequentialThreads, ExplicitThreads, MaximumThreads}) {
+            document["ops"][0]["attributes"][attribute] = threads;
+            const auto result = opk::config::validateOpChainJson(document.dump());
+            EXPECT_TRUE(result) << threads << '\n' << (result ? "" : result.error().toText());
+        }
+        const std::array invalidThreads{
+            "-1"s, "1.5"s, "2147483648"s, "2.0"s, "2e0"s, "true"s, R"("2")"s, "null"s};
+        for (const auto &threads : invalidThreads) {
+            const std::string json =
+                R"({"version":"1.6.0","name":"thread-notation","description":"Validate thread notation.",
+                    "ops":[{"id":"opk-onnx-ops/Inference","attributes":{
+                    "modelDescriptor":"model.json",)" +
+                std::string{"\""} + attribute + "\":" + threads + "}}]}";
+            const auto result = opk::config::validateOpChainJson(json);
+            ASSERT_FALSE(result) << attribute << ": " << threads;
+        }
+        document["ops"][0]["attributes"][attribute] = ExplicitThreads;
+        for (const auto *backend : {"opk-executorch-ops/Inference", "opk-future-ops/Inference"}) {
+            document["ops"][0]["id"] = backend;
+            EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << backend;
+        }
     }
-    const std::array invalidThreads{
-        "-1"s, "1.5"s, "2147483648"s, "2.0"s, "2e0"s, "true"s, R"("2")"s, "null"s};
-    for (const auto &threads : invalidThreads) {
-        const std::string json =
-            R"({"version":"1.1.0","name":"thread-notation","description":"Validate thread notation.",
-                "ops":[{"id":"opk-onnx-ops/Inference","attributes":{
-                "modelDescriptor":"model.json","intraOpNumThreads":)" +
-            threads + "}}]}";
-        const auto result = opk::config::validateOpChainJson(json);
-        ASSERT_FALSE(result) << threads;
-    }
-    document["ops"][0]["attributes"]["intraOpNumThreads"] = ExplicitThreads;
-    for (const auto *backend : {"opk-executorch-ops/Inference", "opk-future-ops/Inference"}) {
-        document["ops"][0]["id"] = backend;
-        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << backend;
-    }
+
+    document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
+                          {"attributes",
+                           {{"modelDescriptor", "model.json"},
+                            {"intraOpNumThreads", ExplicitThreads},
+                            {"interOpNumThreads", ExplicitThreads}}}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
 
     document["ops"][0] = {{"id", "custom/InferenceLike"},
                           {"attributes", {{"implementationDefined", true}}}};
@@ -179,6 +192,10 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 }
 
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
+    const auto supportedVersion = opk::config::supportedOpChainVersion();
+    ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
+    EXPECT_EQ(*supportedVersion, "1.6.0");
+
     nlohmann::json document{
         {"version", "1.0.0"},
         {"name", "parser-contract"},
