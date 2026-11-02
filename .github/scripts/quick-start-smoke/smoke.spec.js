@@ -508,3 +508,105 @@ test.describe('semantic class maps', () => {
     await expect.poll(sample).toEqual(clear);
   });
 });
+
+test.describe('instance masks', () => {
+  test.use({ deviceScaleFactor: 2 });
+
+  test('separate binary objects share class controls without losing frame matching', async ({ page }) => {
+    await page.routeWebSocket('**/ws', () => {});
+    await page.addInitScript(() => {
+      window.instanceLabels = new Set();
+      const fillText = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, ...args) {
+        if (this.canvas.id === 'clientOsdCanvas') window.instanceLabels.add(text);
+        return fillText.call(this, text, ...args);
+      };
+    });
+    await page.goto('/', {waitUntil: 'domcontentloaded'});
+    const emit = (options = {}) => page.evaluate(({model = 'instance', classId = 0, byte = 1, empty = false, live = false}) => {
+      const mask = (x, width, id) => {
+        const pixels = new Uint8Array(35);
+        for (let y = 1; y < 4; y++) pixels.fill(byte, y * 7 + x, y * 7 + x + width);
+        return {type: 'InstanceSegmentationMask', data: {width: 7, height: 5, valueType: 'Uint8',
+          pixels, parentUuid: '42', classId: id, confidence: 0.75, box: {x, y: 1, width, height: 3}}};
+      };
+      const frame = {layers: [
+        {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {uuid: '42', originalWidth: 7, originalHeight: 5}}]},
+        {payloadType: 'InstanceSegmentationMasks', contentType: 'instanceSegmentation', model,
+          detections: empty ? [] : [mask(1, 4, 0), mask(3, 3, classId)]},
+      ]};
+      Object.defineProperties(document.getElementById('video'), {
+        videoWidth: {configurable: true, value: 7}, videoHeight: {configurable: true, value: 5},
+      });
+      Object.defineProperties(document.getElementById('clientOsdCanvas'), {
+        clientWidth: {configurable: true, value: 700}, clientHeight: {configurable: true, value: 700},
+      });
+      window.dispatchEvent(new CustomEvent(live ? 'metadata-message' : 'video-frame-results', {
+        detail: live ? {frame_results: frame} : frame,
+      }));
+    }, options);
+    const sample = () => page.locator('#clientOsdCanvas').evaluate(canvas =>
+      [[500, 700], [700, 700], [900, 700], [100, 100]].map(([x, y]) => [...canvas.getContext('2d').getImageData(x, y, 1, 1).data]));
+    const clear = Array.from({length: 4}, () => [0, 0, 0, 0]);
+    await emit({live: true});
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    await page.locator('#addOverlayBtn').click();
+    await page.locator('#overlayFeature').selectOption('instance-segmentation');
+    await page.locator('#saveOverlayBtn').click();
+    const card = page.locator('.overlay-card');
+    await card.locator('.overlay-toggle').click();
+    const boxes = card.getByLabel('Boxes and labels', {exact: true});
+    await expect(boxes).toBeChecked();
+    await boxes.uncheck();
+    await card.getByLabel('Opacity', {exact: true}).fill('1');
+    await card.getByLabel('Opacity', {exact: true}).dispatchEvent('change');
+    await expect.poll(sample).toEqual(clear);
+    await emit();
+    const colors = [[64, 64, 64, 255], [255, 255, 255, 255], [64, 64, 64, 255], [0, 0, 0, 0]];
+    await expect.poll(sample).toEqual(colors);
+    await expect(card.locator('.overlay-class-row')).toHaveCount(1);
+    await emit({empty: true, live: true});
+    await expect.poll(sample).toEqual(colors);
+    await boxes.check();
+    await expect.poll(() => page.evaluate(() => [...window.instanceLabels])).toContain('#2 · Class 0 · 75%');
+    const name = card.getByRole('textbox', {name: 'Class 0 name', exact: true});
+    await name.fill('person');
+    await emit();
+    await expect(name).toBeFocused();
+    await name.press('Enter');
+    await expect.poll(() => page.evaluate(() => [...window.instanceLabels])).toContain('#1 · person · 75%');
+    await boxes.uncheck();
+    await card.getByLabel('Class 0 (0) opacity', {exact: true}).fill('0.5');
+    await card.getByLabel('Class 0 (0) opacity', {exact: true}).dispatchEvent('change');
+    await card.getByLabel('Opacity', {exact: true}).fill('0.5');
+    await card.getByLabel('Opacity', {exact: true}).dispatchEvent('change');
+    await expect.poll(async () => (await sample()).map(pixel => pixel[3])).toEqual([64, 64, 64, 0]);
+    await emit({classId: 500});
+    const visible = card.getByRole('switch', {name: 'Class 0 (0) visible', exact: true});
+    await visible.focus();
+    await page.keyboard.press('Space');
+    await expect.poll(async () => (await sample())[0][3]).toBe(0);
+    await expect.poll(async () => (await sample())[2][3]).toBe(128);
+    await emit({classId: 500, model: 'other'});
+    await expect.poll(sample).toEqual(clear);
+    await emit({byte: 255});
+    await expect(card).toContainText('binary Uint8');
+    await expect.poll(sample).toEqual(clear);
+    await emit({empty: true});
+    await expect.poll(sample).toEqual(clear);
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    await card.locator('.overlay-toggle').click();
+    await expect(name).toHaveValue('person');
+    await expect(boxes).not.toBeChecked();
+    await expect(visible).not.toBeChecked();
+    await emit({classId: 500});
+    await expect.poll(async () => (await sample())[2][3]).toBe(128);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('video-frame-results', {detail: null})));
+    await expect.poll(sample).toEqual(clear);
+    await expect(card).toContainText('Waiting for matching video metadata');
+    await card.locator('.overlay-remove').click();
+    await emit();
+    await expect.poll(sample).toEqual(clear);
+  });
+});

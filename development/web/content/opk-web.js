@@ -7142,7 +7142,9 @@ function decodeBase64(value) {
   } catch (error) {
     throw new FrameResultsDecodeError("invalid frame_results_packet_b64", { cause: error });
   }
-  return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+  const bytes = new Uint8Array(decoded.length);
+  for (let index = 0; index < decoded.length; index++) bytes[index] = decoded.charCodeAt(index);
+  return bytes;
 }
 function decodeFrameResultsMessage(message) {
   if (message?.frame_results_encoding !== FRAME_RESULTS_ENCODING) {
@@ -7249,6 +7251,24 @@ function decodeFrameResultsMessage(message) {
       height: Number(item?.bitmap?.height || 0),
       valueType: text(item?.bitmap?.valueType),
       pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0
+    }
+  })), layers);
+  addPayloadLayers(envelope, InstanceSegmentationMasksT, "InstanceSegmentationMasks", (payload) => payload.masks.map((item) => ({
+    type: "InstanceSegmentationMask",
+    data: {
+      ...objectData(item?.object),
+      width: Number(item?.bitmap?.width || 0),
+      height: Number(item?.bitmap?.height || 0),
+      valueType: text(item?.bitmap?.valueType),
+      pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0,
+      classId: Number(item?.classId ?? -1),
+      confidence: Number(item?.confidence),
+      box: item?.box ? {
+        x: Number(item.box.x),
+        y: Number(item.box.y),
+        width: Number(item.box.width),
+        height: Number(item.box.height)
+      } : null
     }
   })), layers);
   addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => ({
@@ -7801,7 +7821,7 @@ var CONTENT_COLORS = {
   personClassification: "#66ff00",
   trackTrace: "#ffff00"
 };
-function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: resolve3 = (result) => result, reason, ...definition }) {
+function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: resolve4 = (result) => result, reason, ...definition }) {
   return {
     ...definition,
     controls,
@@ -7834,7 +7854,7 @@ function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: reso
       if (reason) return { state: "unsupported", message: reason };
       const output = index.outputs.get(sourceKey(selection.primary));
       if (!output) return { state: "waiting", message: "Waiting for source" };
-      return resolve3({ state: "ready", message: "", output, items: output.items }, index, settings);
+      return resolve4({ state: "ready", message: "", output, items: output.items }, index, settings);
     }
   };
 }
@@ -8074,16 +8094,63 @@ var background_replacement_default = defineFeature({
   render
 });
 
-// development/web/src/features/semantic-segmentation.js
-var palette = Array.from({ length: 256 }, (_, id) => {
-  const rgb = [64 + (id & 7) * 24, 64 + (id >> 3 & 7) * 24, 64 + (id >> 6) * 48];
+// development/web/src/features/segmentation.js
+var MAX_MASK_PIXELS = 16777216;
+var CLASS_CONTROLS = [{ key: "enabled", label: "Visible", type: "checkbox", switch: true, value: true }, ...STYLE_CONTROLS];
+var MASK_CONTROLS = [{ key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.01, value: 0.5 }];
+function classStyle(id, settings) {
+  const key = (id ^ id >>> 8 ^ id >>> 16 ^ id >>> 24) & 255;
+  const rgb = [64 + (key & 7) * 24, 64 + (key >> 3 & 7) * 24, 64 + (key >> 6) * 48];
+  const style = settings?.classes?.[id];
   return {
-    id,
-    label: `Class ${id}`,
-    rgb,
-    color: "#" + rgb.map((value) => value.toString(16).padStart(2, "0")).join("")
+    enabled: true,
+    opacity: 1,
+    color: "#" + rgb.map((value) => value.toString(16).padStart(2, "0")).join(""),
+    ...style,
+    label: style?.label?.trim() || `Class ${id}`
   };
-});
+}
+function classLegend(present, settings, message = "") {
+  const ids = /* @__PURE__ */ new Set([...present, ...Object.keys(settings?.classes || {}).map(Number)]);
+  return { entries: [...ids].sort((a, b) => a - b).map((id) => ({ id, ...classStyle(id, settings), present: present.has(id) })), message };
+}
+function classRenderSignature(settings) {
+  return JSON.stringify(Object.entries(settings.classes).map(([id, style]) => [id, style.enabled, style.color, style.opacity]));
+}
+function withClassSettings(feature, minId = 0, maxId = 255) {
+  return { ...feature, validateSettings(settings) {
+    const result = feature.validateSettings(settings);
+    if (!result) return null;
+    const classes = settings.classes === void 0 ? {} : settings.classes;
+    if (!classes || typeof classes !== "object" || Array.isArray(classes)) return null;
+    result.classes = {};
+    for (const [id, style] of Object.entries(classes)) {
+      const value = Number(id);
+      if (!Number.isInteger(value) || String(value) !== id || value < minId || value > maxId || !style || typeof style.enabled !== "boolean" || typeof style.color !== "string" || !/^#[0-9a-f]{6}$/i.test(style.color) || style.label !== void 0 && (typeof style.label !== "string" || style.label.length > 80) || !Number.isFinite(style.opacity) || style.opacity < 0 || style.opacity > 1) return null;
+      result.classes[id] = { enabled: style.enabled, color: style.color, opacity: style.opacity };
+      if (style.label?.trim()) result.classes[id].label = style.label.trim();
+    }
+    return result;
+  } };
+}
+function maskGeometryError(mask, index) {
+  const { width, height, valueType, pixels, parentUuid } = mask;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS || valueType !== "Uint8" || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
+    return { state: "unsupported", message: "Invalid or oversized Uint8 mask." };
+  }
+  const parentId = objectId(parentUuid);
+  const parents = parentId ? index.frame.layers.flatMap((layer2) => (layer2.detections || []).filter((item) => objectId(item.data?.uuid) === parentId).map((item) => ({ ...item, payloadType: layer2.payloadType }))) : [];
+  if (parents.length !== 1 || parents[0].payloadType !== "FrameContext" || parents[0].type !== "VideoFrame") {
+    return { state: "partial", message: "Waiting for an unambiguous VideoFrame parent." };
+  }
+  const video5 = parents[0].data;
+  if (video5.originalWidth !== width || video5.originalHeight !== height || ["sourceCropLeft", "sourceCropRight", "sourceCropTop", "sourceCropBottom"].some((key) => video5[key])) {
+    return { state: "unsupported", message: "Requires a source-sized mask for an uncropped video frame." };
+  }
+  return null;
+}
+
+// development/web/src/features/semantic-segmentation.js
 var presentClasses = /* @__PURE__ */ new WeakMap();
 var surfaces = /* @__PURE__ */ new WeakMap();
 function classesIn(mask) {
@@ -8091,11 +8158,11 @@ function classesIn(mask) {
   if (!presentClasses.has(mask.pixels)) presentClasses.set(mask.pixels, new Set(mask.pixels));
   return presentClasses.get(mask.pixels);
 }
-function colorize(mask, classes) {
-  const colors = palette.map((entry) => {
-    const style = classes[entry.id];
-    const rgb = style ? style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16)) : entry.rgb;
-    return [...rgb, style ? style.enabled ? Math.round(style.opacity * 255) : 0 : 255];
+function colorize(mask, settings) {
+  const colors = Array.from({ length: 256 }, (_, id) => {
+    const style = classStyle(id, settings);
+    const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
+    return [...rgb, style.enabled ? Math.round(style.opacity * 255) : 0];
   });
   const rgba = new Uint8ClampedArray(mask.pixels.length * 4);
   for (let i = 0; i < mask.pixels.length; i++) {
@@ -8109,25 +8176,14 @@ function resolve2(result, index) {
   if (items.length > 1) return invalid("ambiguous", "Expected one full-frame class map for this source.");
   if (!items.length) return { ...result, items };
   const mask = items[0].data;
-  const { width, height, valueType, pixels, parentUuid } = mask;
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > 16777216 || valueType !== "Uint8" || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
-    return invalid("unsupported", "Invalid or oversized Uint8 class map.");
-  }
-  const parentId = objectId(parentUuid);
-  const parents = parentId ? index.frame.layers.flatMap((layer2) => (layer2.detections || []).filter((item) => objectId(item.data?.uuid) === parentId).map((item) => ({ ...item, payloadType: layer2.payloadType }))) : [];
-  if (parents.length !== 1 || parents[0].payloadType !== "FrameContext" || parents[0].type !== "VideoFrame") {
-    return invalid("partial", "Waiting for an unambiguous VideoFrame parent.");
-  }
-  const video5 = parents[0].data;
-  if (video5.originalWidth !== width || video5.originalHeight !== height || ["sourceCropLeft", "sourceCropRight", "sourceCropTop", "sourceCropBottom"].some((key) => video5[key])) {
-    return invalid("unsupported", "Requires a source-sized class map for an uncropped video frame.");
-  }
+  const error = maskGeometryError(mask, index);
+  if (error) return invalid(error.state, error.message);
   return { ...result, items, mask };
 }
 function render2({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolved.settings) {
   if (!resolved.mask) return;
   const mask = resolved.mask;
-  const signature = JSON.stringify(Object.entries(settings.classes).map(([id, style]) => [id, style.enabled, style.color, style.opacity]));
+  const signature = classRenderSignature(settings);
   let surface = surfaces.get(overlay2);
   if (!surface) {
     surface = { canvas: document.createElement("canvas") };
@@ -8136,7 +8192,7 @@ function render2({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolv
   if (surface.pixels !== mask.pixels || surface.signature !== signature || surface.canvas.width !== mask.width || surface.canvas.height !== mask.height) {
     if (surface.canvas.width !== mask.width) surface.canvas.width = mask.width;
     if (surface.canvas.height !== mask.height) surface.canvas.height = mask.height;
-    surface.canvas.getContext("2d").putImageData(new ImageData(colorize(mask, settings.classes), mask.width, mask.height), 0, 0);
+    surface.canvas.getContext("2d").putImageData(new ImageData(colorize(mask, settings), mask.width, mask.height), 0, 0);
     surface.pixels = mask.pixels;
     surface.signature = signature;
   }
@@ -8144,47 +8200,129 @@ function render2({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolv
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(surface.canvas, x, y, width, height);
 }
-var feature = defineFeature({
+var semantic_segmentation_default = withClassSettings(defineFeature({
   id: "semantic-segmentation",
   label: "Semantic segmentation",
   renderOrder: -1,
   accepts: (source) => source.payloadType === "SemanticSegmentationMasks" && source.contentType === "semanticSegmentation",
-  controls: [{ key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.01, value: 0.5 }],
+  controls: MASK_CONTROLS,
   defaults: () => ({ classes: {} }),
-  classControls: [{ key: "enabled", label: "Visible", type: "checkbox", switch: true, value: true }, ...STYLE_CONTROLS],
+  classControls: CLASS_CONTROLS,
   resolve: resolve2,
   render: render2,
   legend(resolved, settings = resolved.settings) {
-    const present = classesIn(resolved.mask);
-    const entries = palette.filter((entry) => present.has(entry.id) || settings?.classes?.[entry.id]).map(({ id, label, color }) => ({
-      id,
-      color,
-      enabled: true,
-      opacity: 1,
-      ...settings?.classes?.[id],
-      label: settings?.classes?.[id]?.label?.trim() || label,
-      present: present.has(id)
-    }));
     const message = !resolved.mask ? resolved.message || "No class map in the displayed frame." : "";
-    return { entries, message };
+    return classLegend(classesIn(resolved.mask), settings, message);
   }
-});
-var semantic_segmentation_default = {
-  ...feature,
-  validateSettings(settings) {
-    const result = feature.validateSettings(settings);
-    if (!result) return null;
-    const classes = settings.classes === void 0 ? {} : settings.classes;
-    if (!classes || typeof classes !== "object" || Array.isArray(classes)) return null;
-    result.classes = {};
-    for (const [id, style] of Object.entries(classes)) {
-      if (!/^(0|[1-9]\d{0,2})$/.test(id) || Number(id) > 255 || !style || typeof style.enabled !== "boolean" || typeof style.color !== "string" || !/^#[0-9a-f]{6}$/i.test(style.color) || style.label !== void 0 && (typeof style.label !== "string" || style.label.length > 80) || !Number.isFinite(style.opacity) || style.opacity < 0 || style.opacity > 1) return null;
-      result.classes[id] = { enabled: style.enabled, color: style.color, opacity: style.opacity };
-      if (style.label?.trim()) result.classes[id].label = style.label.trim();
+}));
+
+// development/web/src/features/instance-segmentation.js
+var resolvedFrames = /* @__PURE__ */ new WeakMap();
+var surfaces2 = /* @__PURE__ */ new WeakMap();
+function resolve3(result, index) {
+  if (resolvedFrames.has(result.output)) return resolvedFrames.get(result.output);
+  const finish = (value) => {
+    resolvedFrames.set(result.output, value);
+    return value;
+  };
+  const invalid = (state, message) => finish({ ...result, items: [], masks: [], state, message });
+  const items = result.items.filter((item) => item.type === "InstanceSegmentationMask");
+  if (items.length > 512) return invalid("unsupported", "Too many instance masks (maximum 512).");
+  const masks = [];
+  let totalPixels = 0;
+  let parent;
+  for (const [position, item] of items.entries()) {
+    const mask = item.data;
+    const error = maskGeometryError(mask, index);
+    if (error) return invalid(error.state, error.message);
+    totalPixels += mask.pixels.length;
+    if (totalPixels > MAX_MASK_PIXELS) return invalid("unsupported", "Instance masks exceed the total pixel budget.");
+    const parentId = objectId(mask.parentUuid);
+    if (parent && parent !== parentId) return invalid("ambiguous", "Instance masks must share one VideoFrame parent.");
+    parent = parentId;
+    const { box, classId, confidence, width, height } = mask;
+    if (!Number.isInteger(classId) || classId < -1 || classId > 2147483647 || !Number.isFinite(confidence) || confidence < 0 || confidence > 1 || !box || ![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0 || box.x >= width || box.y >= height || box.x + box.width > width + 1e-3 || box.y + box.height > height + 1e-3) {
+      return invalid("unsupported", "Invalid instance class, confidence, or source-image box.");
     }
-    return result;
+    let foreground = false;
+    for (const value of mask.pixels) {
+      if (value !== 0 && value !== 1) return invalid("unsupported", "Instance masks require binary Uint8 pixels (0 or 1).");
+      foreground || (foreground = value === 1);
+    }
+    if (foreground) masks.push({ ...item, number: position + 1 });
   }
-};
+  return finish({ ...result, items: masks, masks });
+}
+function colorize2(masks, settings) {
+  const { width, height } = masks[0].data;
+  const rgba = new Uint8ClampedArray(width * height * 4);
+  for (const { data } of masks) {
+    const style = classStyle(data.classId, settings);
+    if (!style.enabled || style.opacity <= 0) continue;
+    const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
+    const alpha = Math.round(style.opacity * 255);
+    const edge = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 >= 128 ? 0 : 255;
+    const fill = [...rgb, alpha];
+    const outline = [edge, edge, edge, alpha];
+    const pixels = data.pixels;
+    for (let i = 0; i < pixels.length; i++) {
+      if (!pixels[i]) continue;
+      const boundary = i % width === 0 || i % width === width - 1 || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
+      rgba.set(boundary ? outline : fill, i * 4);
+    }
+  }
+  return rgba;
+}
+function render3({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolved.settings) {
+  if (!resolved.masks?.length) return;
+  const { width, height } = resolved.masks[0].data;
+  const signature = classRenderSignature(settings);
+  let surface = surfaces2.get(overlay2);
+  if (!surface) {
+    surface = { canvas: document.createElement("canvas") };
+    surfaces2.set(overlay2, surface);
+  }
+  if (surface.output !== resolved.output || surface.signature !== signature) {
+    if (surface.canvas.width !== width) surface.canvas.width = width;
+    if (surface.canvas.height !== height) surface.canvas.height = height;
+    surface.canvas.getContext("2d").putImageData(new ImageData(colorize2(resolved.masks, settings), width, height), 0, 0);
+    surface.output = resolved.output;
+    surface.signature = signature;
+  }
+  const display = mapper.display;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(surface.canvas, display.x, display.y, display.width, display.height);
+  if (settings.boxes) {
+    for (const { data, number: number2 } of resolved.masks) {
+      const style = classStyle(data.classId, settings);
+      if (!style.enabled || style.opacity <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha *= style.opacity;
+      drawObjectBox(ctx, {
+        ...data.box,
+        width: Math.min(data.box.width, width - data.box.x),
+        height: Math.min(data.box.height, height - data.box.y),
+        label: `#${number2} \xB7 ${style.label} \xB7 ${Math.round(data.confidence * 100)}%`
+      }, mapper, "#ffffff");
+      ctx.restore();
+    }
+  }
+}
+var instance_segmentation_default = withClassSettings(defineFeature({
+  id: "instance-segmentation",
+  label: "Instance segmentation",
+  renderOrder: -1,
+  accepts: (source) => source.payloadType === "InstanceSegmentationMasks" && source.contentType === "instanceSegmentation",
+  controls: [...MASK_CONTROLS, { key: "boxes", label: "Boxes and labels", type: "checkbox", value: true }],
+  defaults: () => ({ classes: {} }),
+  classControls: CLASS_CONTROLS,
+  resolve: resolve3,
+  render: render3,
+  legend(resolved, settings = resolved.settings) {
+    const present = new Set((resolved.masks || []).map((item) => item.data.classId));
+    return classLegend(present, settings, resolved.message || (!present.size ? "No instances in the displayed frame." : ""));
+  }
+}), -1, 2147483647);
 
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
@@ -8197,21 +8335,22 @@ var OVERLAY_FEATURES = [
   camera_contact_default,
   performance_default,
   background_replacement_default,
-  semantic_segmentation_default
+  semantic_segmentation_default,
+  instance_segmentation_default
 ];
 function featureFor(id) {
-  return OVERLAY_FEATURES.find((feature2) => feature2.id === id);
+  return OVERLAY_FEATURES.find((feature) => feature.id === id);
 }
 function defaultSettings(id, source) {
   const defaults = featureFor(id)?.defaults || { color: "#ffffff", opacity: 1 };
   return typeof defaults === "function" ? defaults(source || {}) : { ...defaults };
 }
 function resolveOverlay(index, overlay2) {
-  const feature2 = featureFor(overlay2.featureId);
-  if (!feature2) return { state: "unsupported", message: "Unknown rendering feature." };
-  if (overlay2.selection.primary === null && feature2.render) return { state: "waiting", message: "Waiting for source" };
-  const settings = { ...defaultSettings(feature2.id, overlay2.selection.primary), ...overlay2.settings };
-  return { ...feature2.resolve(index, overlay2.selection, settings), feature: feature2, settings };
+  const feature = featureFor(overlay2.featureId);
+  if (!feature) return { state: "unsupported", message: "Unknown rendering feature." };
+  if (overlay2.selection.primary === null && feature.render) return { state: "waiting", message: "Waiting for source" };
+  const settings = { ...defaultSettings(feature.id, overlay2.selection.primary), ...overlay2.settings };
+  return { ...feature.resolve(index, overlay2.selection, settings), feature, settings };
 }
 function overlayStatus(index, overlay2, catalog, resolved = resolveOverlay(index, overlay2)) {
   if (overlay2.selection.primary === null && catalog && featureFor(overlay2.featureId)?.discover(catalog).length > 1) {
@@ -8294,9 +8433,9 @@ function migrateLegacy(overlay2, saved) {
 function normalizeOverlay(overlay2) {
   const primary = overlay2?.selection?.primary;
   if (!overlay2 || typeof overlay2.featureId !== "string" || !overlay2.featureId || typeof overlay2.enabled !== "boolean" || primary !== null && !validSource(primary)) return null;
-  const feature2 = featureFor(overlay2.featureId);
+  const feature = featureFor(overlay2.featureId);
   if (!overlay2.settings || typeof overlay2.settings !== "object" || Array.isArray(overlay2.settings)) return null;
-  const settings = feature2 ? feature2.validateSettings(overlay2.settings) : overlay2.settings;
+  const settings = feature ? feature.validateSettings(overlay2.settings) : overlay2.settings;
   if (!settings) return null;
   return { featureId: overlay2.featureId, selection: { primary: primary === null ? null : { ...primary } }, enabled: overlay2.enabled, settings };
 }
@@ -8307,9 +8446,9 @@ function bindPendingOverlays(overlays2, catalog) {
   let changed = false;
   for (const overlay2 of overlays2) {
     if (overlay2.selection.primary !== null) continue;
-    const feature2 = featureFor(overlay2.featureId);
-    if (!feature2?.render) continue;
-    const sources = feature2.discover(catalog);
+    const feature = featureFor(overlay2.featureId);
+    if (!feature?.render) continue;
+    const sources = feature.discover(catalog);
     if (sources.length !== 1) continue;
     overlay2.selection.primary = sources[0];
     changed = true;
@@ -8652,16 +8791,16 @@ function renderList() {
 function updateLegends() {
   for (const [overlay2, row] of cardNodes) {
     if (!row.legend) continue;
-    const feature2 = featureFor(overlay2.featureId);
+    const feature = featureFor(overlay2.featureId);
     const resolved = !displayedFrameIndex.frame ? { message: "Waiting for matching video metadata." } : resolveOverlay(displayedFrameIndex, overlay2);
-    const legend = feature2.legend(resolved, overlay2.settings);
+    const legend = feature.legend(resolved, overlay2.settings);
     if (!row.legendNodes) {
       row.legendNodes = /* @__PURE__ */ new Map();
       row.legendMessage = node("p", "overlay-hint wfr-txt-caption");
       row.legendList = node("ul", "overlay-legend-list");
       const header = node("div", "overlay-legend-header");
       header.append(node("p", "wfr-txt-label", "Class legend"));
-      if (feature2.classControls) {
+      if (feature.classControls) {
         const reset = node("button", "wfr-txt-caption", "Reset labels");
         reset.type = "button";
         reset.addEventListener("click", () => {
@@ -8673,7 +8812,7 @@ function updateLegends() {
         header.append(reset);
       }
       row.legend.replaceChildren(header, row.legendMessage, row.legendList);
-      if (feature2.classControls) row.legend.append(node(
+      if (feature.classControls) row.legend.append(node(
         "p",
         "overlay-hint wfr-txt-caption",
         "Class opacity is multiplied by the overlay opacity. Hidden classes reveal the video."
@@ -8690,11 +8829,11 @@ function updateLegends() {
         const element = node("li", "wfr-txt-caption");
         const heading = node("div", "overlay-class-heading");
         const presence = node("span", "overlay-class-presence");
-        const name = node(feature2.classControls ? "input" : "span", "overlay-class-name");
+        const name = node(feature.classControls ? "input" : "span", "overlay-class-name");
         heading.append(swatch, name, presence);
         element.append(heading);
         let resetLabel;
-        if (feature2.classControls) {
+        if (feature.classControls) {
           element.className += " overlay-class-row";
           const settings = { enabled: entry.enabled, color: entry.color, opacity: entry.opacity };
           if (overlay2.settings.classes?.[entry.id]?.label) settings.label = overlay2.settings.classes[entry.id].label;
@@ -8729,7 +8868,7 @@ function updateLegends() {
               name.blur();
             }
           });
-          const controls = feature2.classControls.map((control) => ({
+          const controls = feature.classControls.map((control) => ({
             ...control,
             ariaLabel: `Class ${entry.id} (${entry.id}) ${control.label.toLowerCase()}`
           }));
@@ -8788,7 +8927,7 @@ function availableDescriptors() {
 function refreshFeatures() {
   const previous = featureSelect.value;
   const catalog = availableDescriptors();
-  const features = new Map(OVERLAY_FEATURES.filter((feature2) => feature2.render || feature2.discover(catalog).length).map((feature2) => [feature2.id, feature2.label]));
+  const features = new Map(OVERLAY_FEATURES.filter((feature) => feature.render || feature.discover(catalog).length).map((feature) => [feature.id, feature.label]));
   for (const overlay2 of [editing, draft]) {
     if (overlay2 && !features.has(overlay2.featureId)) features.set(overlay2.featureId, featureFor(overlay2.featureId)?.label || overlay2.featureId);
   }
