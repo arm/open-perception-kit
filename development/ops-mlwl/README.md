@@ -66,9 +66,15 @@ OPK_MLWL=enabled ./scripts/build.sh debug true \
 meson test -C development/build-active --print-errorlogs
 ```
 
-The installer uses checksum-pinned sources from `requirements/mlwl.json` and
-builds them in Release mode. CMake, Ninja and a C++17 compiler are required.
+The installer builds checksum-pinned sources from `requirements/mlwl.json` in
+Release mode. CMake, Ninja, GNU patch and a C++17 compiler are required.
 This is a development snapshot, not an MLWL release.
+
+The [Vulkan compatibility patch](../../requirements/patches/mlwl/0001-vulkan-device-compatibility.patch)
+uses core maintenance5 on Vulkan 1.4 and requires the extension on older devices.
+It enables graph specialization constants only when supported. Required graph
+and tensor capabilities remain checked. Packages include the patch source;
+the installed provenance records its SHA-256.
 
 Keep the installed library and headers together. The build sets `NDEBUG` for
 MLWL targets to match the library's Vulkan-Hpp ABI, including in debug builds.
