@@ -57,6 +57,15 @@ def main():
                 archive.extractall(work_dir, filter="data")
             sources[name] = work_dir / f"{artifact.name}-{artifact.version}"
 
+        patches = REPO / "requirements/patches/mlwl"
+        patch_hashes = {}
+        for patch in sorted(patches.glob("*.patch")):
+            subprocess.run(
+                ["patch", "--batch", "--forward", "--fuzz=0", "-p1", "-i", str(patch)],
+                cwd=sources["library"], check=True,
+            )
+            patch_hashes[patch.name] = hashlib.sha256(patch.read_bytes()).hexdigest()
+
         build_dir = work_dir / "build"
         subprocess.run(
             [
@@ -91,6 +100,7 @@ def main():
         )
         for name, directory in (("library", "mlwl"), ("vgf", "vgf")):
             shutil.copytree(sources[name] / "LICENSES", staging_dir / f"share/doc/mlwl/{directory}/LICENSES")
+        shutil.copytree(patches, staging_dir / "share/doc/mlwl/patches")
         (staging_dir / "share/doc/mlwl/flatbuffers").mkdir()
         shutil.copy2(sources["flatbuffers"] / "LICENSE", staging_dir / "share/doc/mlwl/flatbuffers/LICENSE")
         shutil.copyfile(
@@ -100,6 +110,7 @@ def main():
         runtime = staging_dir / "lib64/libmlworkloadlib.so"
         runtime.with_suffix(".so.provenance.json").write_text(json.dumps({
             "sources": lock,
+            "patches": patch_hashes,
             "library_sha256": hashlib.sha256(runtime.read_bytes()).hexdigest(),
         }, indent=2) + "\n")
         staging_dir.rename(destination)

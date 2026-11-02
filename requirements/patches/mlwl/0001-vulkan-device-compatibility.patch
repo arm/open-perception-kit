@@ -1,0 +1,247 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Based on MLWL 03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9.
+
+diff --git a/src/context.cpp b/src/context.cpp
+index 1033688..bb0726c 100644
+--- a/src/context.cpp
++++ b/src/context.cpp
+@@ -161,13 +161,14 @@ ImageBindingInfo ImageAllocation::binding() const {
+ 
+ Context Context::create(const RuntimeContextDeviceRequirements &deviceRequirements) {
+     auto owned = std::make_unique<Impl::Owned>();
+-    const auto requiredDeviceExtensions = detail::requiredWorkloadDeviceExtensions(deviceRequirements);
+     const auto requiredQueueFlags = detail::requiredWorkloadQueueFlags(deviceRequirements);
+ 
+     owned->instance = detail::createVulkanInstance(owned->raiiContext, "mlworkloadlib");
+ 
+     std::string lastFailure;
+     for (auto &candidate : vk::raii::PhysicalDevices(owned->instance)) {
++        const auto requiredDeviceExtensions =
++            detail::requiredWorkloadDeviceExtensions(deviceRequirements, candidate.getProperties().apiVersion);
+         const auto extensions = candidate.enumerateDeviceExtensionProperties();
+         const auto missingExtension =
+             std::find_if(requiredDeviceExtensions.begin(), requiredDeviceExtensions.end(),
+@@ -188,8 +189,11 @@ Context Context::create(const RuntimeContextDeviceRequirements &deviceRequiremen
+         const vk::DeviceQueueCreateInfo queueCreateInfo({}, *queueFamilyIndex, 1, &queuePriority);
+ 
+         try {
++            const auto supportedGraphFeatures =
++                candidate.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceDataGraphFeaturesARM>()
++                    .get<vk::PhysicalDeviceDataGraphFeaturesARM>();
+             const detail::RuntimeDeviceConfiguration deviceConfiguration(extensions, requiredDeviceExtensions,
+-                                                                         deviceRequirements);
++                                                                         deviceRequirements, supportedGraphFeatures);
+             owned->physicalDevice = candidate;
+             owned->queueFamilyIndex = *queueFamilyIndex;
+             owned->device = vk::raii::Device(candidate, {vk::DeviceCreateFlags(),
+diff --git a/src/internal/utils.cpp b/src/internal/utils.cpp
+index f2a9d4f..93007d8 100644
+--- a/src/internal/utils.cpp
++++ b/src/internal/utils.cpp
+@@ -171,7 +171,8 @@ void validateSpecializationInfo(const SpecializationInfo &specializationInfo, st
+ 
+ vk::raii::Instance createVulkanInstance(vk::raii::Context &context, std::string_view applicationName) {
+     const std::string applicationNameStorage(applicationName);
+-    const vk::ApplicationInfo applicationInfo(applicationNameStorage.c_str(), 1, nullptr, 0, VK_API_VERSION_1_3);
++    // This is the highest API used, not the minimum; Vulkan 1.3 devices use the maintenance5 extension.
++    const vk::ApplicationInfo applicationInfo(applicationNameStorage.c_str(), 1, nullptr, 0, VK_API_VERSION_1_4);
+     std::vector<const char *> instanceExtensions;
+     vk::InstanceCreateFlags instanceFlags;
+     const auto availableInstanceExtensions = context.enumerateInstanceExtensionProperties();
+@@ -228,11 +229,14 @@ void appendExtension(std::vector<const char *> &extensions, const char *name) {
+     }
+ }
+ 
+-std::vector<const char *> requiredWorkloadDeviceExtensions(const RuntimeContextDeviceRequirements &requirements) {
++std::vector<const char *> requiredWorkloadDeviceExtensions(const RuntimeContextDeviceRequirements &requirements,
++                                                           uint32_t apiVersion) {
+     std::vector<const char *> extensions;
+     if (hasCapabilities(requirements.capabilities, RuntimeDeviceCapability::DataGraph)) {
+-        extensions = {VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, VK_KHR_MAINTENANCE_5_EXTENSION_NAME,
+-                      VK_ARM_DATA_GRAPH_EXTENSION_NAME};
++        extensions = {VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, VK_ARM_DATA_GRAPH_EXTENSION_NAME};
++        if (apiVersion < VK_API_VERSION_1_4) {
++            extensions.push_back(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
++        }
+     }
+     if (hasCapabilities(requirements.capabilities, RuntimeDeviceCapability::Tensors)) {
+         extensions.push_back(VK_ARM_TENSORS_EXTENSION_NAME);
+@@ -275,9 +279,10 @@ vk::QueueFlags requiredWorkloadQueueFlags(const RuntimeContextDeviceRequirements
+  * Device configuration
+  *******************************************************************************/
+ 
+-RuntimeDeviceConfiguration::RuntimeDeviceConfiguration(const std::vector<vk::ExtensionProperties> &availableExtensions,
+-                                                       std::vector<const char *> deviceExtensions,
+-                                                       const RuntimeContextDeviceRequirements &requirements)
++RuntimeDeviceConfiguration::RuntimeDeviceConfiguration(
++    const std::vector<vk::ExtensionProperties> &availableExtensions, std::vector<const char *> deviceExtensions,
++    const RuntimeContextDeviceRequirements &requirements,
++    const vk::PhysicalDeviceDataGraphFeaturesARM &supportedGraphFeatures)
+     : deviceExtensions_(std::move(deviceExtensions)), featureChain_(&vulkan13Features_) {
+     const auto capabilities = requirements.capabilities;
+     vulkan12Features_.pNext = requirements.deviceFeaturePNext;
+@@ -312,7 +317,8 @@ RuntimeDeviceConfiguration::RuntimeDeviceConfiguration(const std::vector<vk::Ext
+         dataGraphFeatures_.dataGraph = true;
+         if (hasCapabilities(capabilities, RuntimeDeviceCapability::DataGraphShaderModules)) {
+             dataGraphFeatures_.dataGraphShaderModule = true;
+-            dataGraphFeatures_.dataGraphSpecializationConstants = true;
++            dataGraphFeatures_.dataGraphSpecializationConstants =
++                supportedGraphFeatures.dataGraphSpecializationConstants;
+         }
+         prependPNext(featureChain_, dataGraphFeatures_);
+     }
+diff --git a/src/internal/utils.hpp b/src/internal/utils.hpp
+index 230fe71..0966d7e 100644
+--- a/src/internal/utils.hpp
++++ b/src/internal/utils.hpp
+@@ -50,7 +50,8 @@ bool hasExtension(const std::vector<const char *> &extensions, std::string_view
+ bool hasExtensions(const std::vector<vk::ExtensionProperties> &availableExtensions,
+                    const std::vector<const char *> &requiredExtensions);
+ void appendExtension(std::vector<const char *> &extensions, const char *name);
+-std::vector<const char *> requiredWorkloadDeviceExtensions(const RuntimeContextDeviceRequirements &requirements);
++std::vector<const char *> requiredWorkloadDeviceExtensions(const RuntimeContextDeviceRequirements &requirements,
++                                                           uint32_t apiVersion);
+ vk::QueueFlags requiredWorkloadQueueFlags(const RuntimeContextDeviceRequirements &requirements);
+ 
+ /*******************************************************************************
+@@ -75,7 +76,8 @@ class RuntimeDeviceConfiguration {
+   public:
+     RuntimeDeviceConfiguration(const std::vector<vk::ExtensionProperties> &availableExtensions,
+                                std::vector<const char *> deviceExtensions,
+-                               const RuntimeContextDeviceRequirements &requirements);
++                               const RuntimeContextDeviceRequirements &requirements,
++                               const vk::PhysicalDeviceDataGraphFeaturesARM &supportedGraphFeatures);
+     RuntimeDeviceConfiguration(const RuntimeDeviceConfiguration &) = delete;
+     RuntimeDeviceConfiguration &operator=(const RuntimeDeviceConfiguration &) = delete;
+     RuntimeDeviceConfiguration(RuntimeDeviceConfiguration &&) = delete;
+diff --git a/tests/test_internal_utils.cpp b/tests/test_internal_utils.cpp
+index 3f85556..9eb9cf4 100644
+--- a/tests/test_internal_utils.cpp
++++ b/tests/test_internal_utils.cpp
+@@ -90,14 +90,16 @@ TEST(InternalUtils, RejectsDescriptorSetBeyondDeviceLimit) {
+ 
+ TEST(InternalUtils, PreservesDefaultRuntimeDeviceRequirements) {
+     const RuntimeContextDeviceRequirements requirements;
+-    const auto extensions = requiredWorkloadDeviceExtensions(requirements);
++    const auto extensions = requiredWorkloadDeviceExtensions(requirements, VK_API_VERSION_1_3);
+     EXPECT_TRUE(hasExtension(extensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME));
+     EXPECT_TRUE(hasExtension(extensions, VK_KHR_MAINTENANCE_5_EXTENSION_NAME));
+     EXPECT_TRUE(hasExtension(extensions, VK_ARM_DATA_GRAPH_EXTENSION_NAME));
+     EXPECT_TRUE(hasExtension(extensions, VK_ARM_TENSORS_EXTENSION_NAME));
+     EXPECT_EQ(requiredWorkloadQueueFlags(requirements), vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eDataGraphARM);
+ 
+-    const RuntimeDeviceConfiguration configuration({}, extensions, requirements);
++    vk::PhysicalDeviceDataGraphFeaturesARM supportedGraphFeatures;
++    supportedGraphFeatures.dataGraphSpecializationConstants = true;
++    const RuntimeDeviceConfiguration configuration({}, extensions, requirements, supportedGraphFeatures);
+     EXPECT_TRUE(configuration.features().shaderInt16);
+     EXPECT_TRUE(configuration.features().shaderInt64);
+     const auto *graphFeatures =
+@@ -109,18 +111,27 @@ TEST(InternalUtils, PreservesDefaultRuntimeDeviceRequirements) {
+     EXPECT_TRUE(tensorFeatures->tensors);
+ }
+ 
++TEST(InternalUtils, UsesCoreMaintenance5OnVulkan14) {
++    RuntimeContextDeviceRequirements requirements;
++    EXPECT_FALSE(hasExtension(requiredWorkloadDeviceExtensions(requirements, VK_API_VERSION_1_4),
++                              VK_KHR_MAINTENANCE_5_EXTENSION_NAME));
++    requirements.requiredDeviceExtensions = {VK_KHR_MAINTENANCE_5_EXTENSION_NAME};
++    EXPECT_TRUE(hasExtension(requiredWorkloadDeviceExtensions(requirements, VK_API_VERSION_1_4),
++                             VK_KHR_MAINTENANCE_5_EXTENSION_NAME));
++}
++
+ TEST(InternalUtils, SelectsComputeOnlyRuntimeDeviceCapability) {
+     RuntimeContextDeviceRequirements requirements;
+     requirements.capabilities = RuntimeDeviceCapability::Compute;
+ 
+-    const auto extensions = requiredWorkloadDeviceExtensions(requirements);
++    const auto extensions = requiredWorkloadDeviceExtensions(requirements, VK_API_VERSION_1_3);
+     EXPECT_FALSE(hasExtension(extensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME));
+     EXPECT_FALSE(hasExtension(extensions, VK_KHR_MAINTENANCE_5_EXTENSION_NAME));
+     EXPECT_FALSE(hasExtension(extensions, VK_ARM_DATA_GRAPH_EXTENSION_NAME));
+     EXPECT_FALSE(hasExtension(extensions, VK_ARM_TENSORS_EXTENSION_NAME));
+     EXPECT_EQ(requiredWorkloadQueueFlags(requirements), vk::QueueFlagBits::eCompute);
+ 
+-    const RuntimeDeviceConfiguration configuration({}, extensions, requirements);
++    const RuntimeDeviceConfiguration configuration({}, extensions, requirements, {});
+     EXPECT_TRUE(configuration.features().shaderInt16);
+     const auto *vulkan13Features =
+         static_cast<const vk::PhysicalDeviceVulkan13Features *>(configuration.featureChain());
+@@ -132,14 +143,14 @@ TEST(InternalUtils, SelectsDataGraphOnlyRuntimeDeviceCapability) {
+     RuntimeContextDeviceRequirements requirements;
+     requirements.capabilities = RuntimeDeviceCapability::DataGraph;
+ 
+-    const auto extensions = requiredWorkloadDeviceExtensions(requirements);
++    const auto extensions = requiredWorkloadDeviceExtensions(requirements, VK_API_VERSION_1_3);
+     EXPECT_TRUE(hasExtension(extensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME));
+     EXPECT_TRUE(hasExtension(extensions, VK_KHR_MAINTENANCE_5_EXTENSION_NAME));
+     EXPECT_TRUE(hasExtension(extensions, VK_ARM_DATA_GRAPH_EXTENSION_NAME));
+     EXPECT_FALSE(hasExtension(extensions, VK_ARM_TENSORS_EXTENSION_NAME));
+     EXPECT_EQ(requiredWorkloadQueueFlags(requirements), vk::QueueFlagBits::eDataGraphARM);
+ 
+-    const RuntimeDeviceConfiguration configuration({}, extensions, requirements);
++    const RuntimeDeviceConfiguration configuration({}, extensions, requirements, {});
+     const auto *graphFeatures =
+         static_cast<const vk::PhysicalDeviceDataGraphFeaturesARM *>(configuration.featureChain());
+     EXPECT_TRUE(graphFeatures->dataGraph);
+@@ -151,15 +162,16 @@ TEST(InternalUtils, SelectsDataGraphOnlyRuntimeDeviceCapability) {
+ TEST(InternalUtils, ShaderModulesIncludeDataGraphCapability) {
+     RuntimeContextDeviceRequirements requirements;
+     requirements.capabilities = RuntimeDeviceCapability::DataGraphShaderModules;
+-    const auto extensions = requiredWorkloadDeviceExtensions(requirements);
++    const auto extensions = requiredWorkloadDeviceExtensions(requirements, VK_API_VERSION_1_3);
+     EXPECT_TRUE(hasExtension(extensions, VK_ARM_DATA_GRAPH_EXTENSION_NAME));
+     EXPECT_EQ(requiredWorkloadQueueFlags(requirements), vk::QueueFlagBits::eDataGraphARM);
+ 
+-    const RuntimeDeviceConfiguration configuration({}, extensions, requirements);
++    const RuntimeDeviceConfiguration configuration({}, extensions, requirements, {});
+     const auto *graphFeatures =
+         static_cast<const vk::PhysicalDeviceDataGraphFeaturesARM *>(configuration.featureChain());
+     EXPECT_TRUE(graphFeatures->dataGraph);
+     EXPECT_TRUE(graphFeatures->dataGraphShaderModule);
++    EXPECT_FALSE(graphFeatures->dataGraphSpecializationConstants);
+     EXPECT_TRUE(configuration.features().shaderInt16);
+ }
+ 
+diff --git a/utils/src/application_context.cpp b/utils/src/application_context.cpp
+index ed1d1d4..c67ef49 100644
+--- a/utils/src/application_context.cpp
++++ b/utils/src/application_context.cpp
+@@ -23,9 +23,10 @@ ApplicationContext::ApplicationContext(const RuntimeContextDeviceRequirements &r
+ bool ApplicationContext::initialize(const RuntimeContextDeviceRequirements &requirements) {
+     instance = detail::createVulkanInstance(raiiContext, "mlworkloadlib");
+ 
+-    const auto requiredDeviceExtensions = detail::requiredWorkloadDeviceExtensions(requirements);
+     const auto requiredQueueFlags = detail::requiredWorkloadQueueFlags(requirements);
+     for (auto &candidate : vk::raii::PhysicalDevices(instance)) {
++        const auto requiredDeviceExtensions =
++            detail::requiredWorkloadDeviceExtensions(requirements, candidate.getProperties().apiVersion);
+         const auto extensions = candidate.enumerateDeviceExtensionProperties();
+         if (!detail::hasExtensions(extensions, requiredDeviceExtensions)) {
+             continue;
+@@ -39,8 +40,11 @@ bool ApplicationContext::initialize(const RuntimeContextDeviceRequirements &requ
+         const float queuePriority = 1.0F;
+         const vk::DeviceQueueCreateInfo queueCreateInfo({}, *candidateQueueFamilyIndex, 1, &queuePriority);
+         try {
++            const auto supportedGraphFeatures =
++                candidate.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceDataGraphFeaturesARM>()
++                    .get<vk::PhysicalDeviceDataGraphFeaturesARM>();
+             const detail::RuntimeDeviceConfiguration deviceConfiguration(extensions, requiredDeviceExtensions,
+-                                                                         requirements);
++                                                                         requirements, supportedGraphFeatures);
+             auto candidateDevice = vk::raii::Device(candidate, {vk::DeviceCreateFlags(),
+                                                                 queueCreateInfo,
+                                                                 {},
