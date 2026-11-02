@@ -141,6 +141,7 @@ ARG OPK_MLWL=disabled
 WORKDIR /work
 COPY tools/perception tools/perception
 COPY requirements/mlwl.json requirements/vulkan-emulation.json requirements/
+COPY requirements/patches/mlwl requirements/patches/mlwl
 COPY scripts/private/install-mlwl.py scripts/private/install-vulkan-emulation.py scripts/private/
 RUN set -eu; \
   mkdir -p /opt/opk-mlwl; \
@@ -694,6 +695,7 @@ WORKDIR /work
 COPY --from=opk-release-sources /work/tools/perception tools/perception
 COPY --from=opk-release-sources /work/scripts/private/install-mlwl.py scripts/private/install-mlwl.py
 COPY --from=opk-release-sources /work/requirements/mlwl.json requirements/mlwl.json
+COPY --from=opk-release-sources /work/requirements/patches/mlwl requirements/patches/mlwl
 RUN set -eu; \
   case "${OPK_MLWL}" in \
     enabled) \

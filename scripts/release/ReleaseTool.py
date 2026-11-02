@@ -61,6 +61,7 @@ MLWL_LEGAL_NOTICES = (
     "mlwl/LICENSES/Apache-2.0.txt", "vgf/LICENSES/Apache-2.0.txt", "flatbuffers/LICENSE",
     "Vulkan-Headers/LICENSES/Apache-2.0.txt", "Vulkan-Headers/LICENSES/MIT.txt",
     "ai-ml-workload-library.spdx.json",
+    "patches/0001-vulkan-device-compatibility.patch",
 )
 MLWL_RUNTIME_LIBRARY = "libmlworkloadlib.so"
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
@@ -905,6 +906,12 @@ def validate_mlwl_runtime(private_root: Path, repo_root: Path | None) -> None:
         locked = json_mapping(repo_root / "requirements/mlwl.json")
         if receipt.get("sources") != locked:
             fail("Packaged MLWL source does not match the selected source")
+        patches = {
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in (repo_root / "requirements/patches/mlwl").glob("*.patch")
+        }
+        if receipt.get("patches") != patches:
+            fail("Packaged MLWL patches do not match the selected source")
 
 
 def validate_python_operation_runtime(private_root: Path) -> None:
