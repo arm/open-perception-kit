@@ -37,7 +37,6 @@ InferenceOp::~InferenceOp() = default;
 
 opk::Result<void> InferenceOp::configure(const opk::AttributeMap &attributes) {
     std::string modelDescPath;
-    std::optional<int64_t> intraOpNumThreads;
 
     try {
         modelDescPath = attributes.getString("modelDescriptor");
@@ -48,21 +47,29 @@ opk::Result<void> InferenceOp::configure(const opk::AttributeMap &attributes) {
                       fmt::format("Missing required attribute in InferenceOp: {}", error.what())));
     }
 
-    if (attributes.contains("intraOpNumThreads")) {
-        const auto &value = attributes.at("intraOpNumThreads");
-        if (!value.isInt()) {
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                          fmt::format("intraOpNumThreads must be an integer, got {}",
-                                      nlohmann::json(value).dump())));
-        }
-        intraOpNumThreads = value.asInt();
-    }
+    const auto intraOpAttribute =
+        opk::getCheckedAttribute(attributes, "intraOpNumThreads", &opk::AttributeValue::isInt);
+    if (!intraOpAttribute)
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain, intraOpAttribute.error().info));
+    const auto interOpAttribute =
+        opk::getCheckedAttribute(attributes, "interOpNumThreads", &opk::AttributeValue::isInt);
+    if (!interOpAttribute)
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain, interOpAttribute.error().info));
+
+    const auto intraOpNumThreads = intraOpAttribute->has_value()
+                                       ? std::optional{intraOpAttribute->value().asInt()}
+                                       : std::nullopt;
+    const auto interOpNumThreads = interOpAttribute->has_value()
+                                       ? std::optional{interOpAttribute->value().asInt()}
+                                       : std::nullopt;
 
     try {
         inference = std::make_unique<onnx::Inference>();
 
-        const auto setupResult = inference->setupFromJson(modelDescPath, intraOpNumThreads);
+        const auto setupResult =
+            inference->setupFromJson(modelDescPath, intraOpNumThreads, interOpNumThreads);
         if (!setupResult) {
             return setupResult;
         }

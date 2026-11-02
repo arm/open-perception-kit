@@ -46,10 +46,10 @@
 using namespace opk::onnx;
 
 namespace {
-constexpr int AutomaticIntraOpNumThreads = 0;
+constexpr int AutomaticNumThreads = 0;
 constexpr unsigned int MinimumIntraOpNumThreads = 1;
 constexpr unsigned int ReservedHardwareThreads = 1;
-constexpr int InterOpNumThreads = 1;
+constexpr int SequentialInterOpNumThreads = 1;
 } // namespace
 
 Inference::Inference() = default;
@@ -57,16 +57,18 @@ Inference::Inference() = default;
 Inference::~Inference() = default;
 
 opk::Result<void> Inference::setupFromJson(const std::string &filePath,
-                                           const std::optional<int64_t> intraOpNumThreads) {
+                                           const std::optional<int64_t> intraOpNumThreads,
+                                           const std::optional<int64_t> interOpNumThreads) {
     auto descResult = opk::ModelDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected{descResult.error()};
     }
-    return setup(*descResult, intraOpNumThreads);
+    return setup(*descResult, intraOpNumThreads, interOpNumThreads);
 }
 
 opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
-                                   const std::optional<int64_t> intraOpNumThreads) {
+                                   const std::optional<int64_t> intraOpNumThreads,
+                                   const std::optional<int64_t> interOpNumThreads) {
 
     this->setupReady = false;
     this->api = ApiTensorGlue();
@@ -79,14 +81,17 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
     this->sessionOptions.reset();
     this->environment.reset();
 
-    if (intraOpNumThreads && (*intraOpNumThreads < AutomaticIntraOpNumThreads ||
-                              *intraOpNumThreads > std::numeric_limits<int>::max())) {
-        return tl::unexpected(
-            OPK_ERROR(opk::ErrorFlag::InvalidData,
-                      fmt::format("intraOpNumThreads must be an integer from {} to {}, got {}",
-                                  AutomaticIntraOpNumThreads,
-                                  std::numeric_limits<int>::max(),
-                                  *intraOpNumThreads)));
+    for (const auto &[name, count] : {std::pair{"intraOpNumThreads", intraOpNumThreads},
+                                      std::pair{"interOpNumThreads", interOpNumThreads}}) {
+        if (count && (*count < AutomaticNumThreads || *count > std::numeric_limits<int>::max())) {
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData,
+                          fmt::format("{} must be an integer from {} to {}, got {}",
+                                      name,
+                                      AutomaticNumThreads,
+                                      std::numeric_limits<int>::max(),
+                                      *count)));
+        }
     }
 
     this->modelDescriptor = modelDesc_;
@@ -106,21 +111,30 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
             hwThreads ? std::max(MinimumIntraOpNumThreads, hwThreads - ReservedHardwareThreads)
                       : MinimumIntraOpNumThreads;
         const int intraThreads = static_cast<int>(intraOpNumThreads.value_or(legacyThreads));
-        opk::log::info("ONNX {} ({}): intraOpNumThreads={} ({})\n",
+        const int interThreads =
+            static_cast<int>(interOpNumThreads.value_or(SequentialInterOpNumThreads));
+        const auto executionMode = interThreads == SequentialInterOpNumThreads
+                                       ? ExecutionMode::ORT_SEQUENTIAL
+                                       : ExecutionMode::ORT_PARALLEL;
+        opk::log::info("ONNX {} ({}): intraOpNumThreads={} ({}), interOpNumThreads={} ({})\n",
                        modelDescriptor.name,
                        modelDescriptor.modelFile,
                        intraThreads,
-                       intraThreads == AutomaticIntraOpNumThreads ? "ORT-managed"
-                       : intraOpNumThreads                        ? "explicit"
-                                                                  : "legacy hardware policy");
+                       intraThreads == AutomaticNumThreads ? "ORT-managed"
+                       : intraOpNumThreads                 ? "explicit"
+                                                           : "legacy hardware policy",
+                       interThreads,
+                       executionMode == ExecutionMode::ORT_SEQUENTIAL ? "sequential"
+                       : interThreads == AutomaticNumThreads          ? "parallel, ORT-managed"
+                                                                      : "parallel");
 
         this->sessionOptions = std::make_unique<Ort::SessionOptions>();
         this->sessionOptions->SetLogSeverityLevel(static_cast<int>(ORT_LOGGING_LEVEL_ERROR));
         this->sessionOptions->SetIntraOpNumThreads(intraThreads);
-        this->sessionOptions->SetInterOpNumThreads(InterOpNumThreads);
+        this->sessionOptions->SetInterOpNumThreads(interThreads);
         this->sessionOptions->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
         this->sessionOptions->EnableCpuMemArena();
-        this->sessionOptions->SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+        this->sessionOptions->SetExecutionMode(executionMode);
 
         this->environment.reset(new Ort::Env(ORT_LOGGING_LEVEL_ERROR, "opkinfer"));
         this->memoryInfo = std::make_unique<Ort::MemoryInfo>(

@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "name": "SileroVadSmartTurn",
   "displayName": "VAD + SmartTurn",
   "task": "Voice activity and turn detection",
@@ -16,7 +16,9 @@
     {
       "id": "opk-onnx-ops/Inference",
       "attributes": {
-        "modelDescriptor": "../silero-vad/model.json"
+        "modelDescriptor": "../silero-vad/model.json",
+        "intraOpNumThreads": 3,
+        "interOpNumThreads": 1
       }
     },
     {
@@ -43,7 +45,8 @@
       "id": "opk-onnx-ops/Inference",
       "attributes": {
         "modelDescriptor": "model.json",
-        "intraOpNumThreads": 2
+        "intraOpNumThreads": 3,
+        "interOpNumThreads": 1
       }
     },
     {
