@@ -138,13 +138,15 @@ testing, and long-term support.
 
 ## Tune Runtime Threading Per Target
 
-The ONNX path currently uses intra-op threading for vision models, sets inter-op
-threading to one, and enables graph optimization. The best CPU thread count is
+The ONNX path supports intra-op and inter-op thread tuning and enables graph
+optimization. Inter-op omission or one keeps graph execution sequential; zero
+or a larger count enables parallel execution of independent ONNX operators. See
+[ONNX thread tuning](performance-measurement.md#onnx-thread-tuning). The best CPU thread count is
 target-dependent: a desktop CPU, an Apple Silicon host, and a Raspberry Pi can
 prefer different values.
 
-When an inference element setting is available for thread count, tune it per
-model and per target. Do not assume that the highest thread count is fastest.
+Tune both counts per model and per target. Do not assume that the highest
+thread count or parallel graph execution is fastest.
 Measure end-to-end FPS and per-scope timings, because too many inference threads
 can starve preprocessing, tracking, encoding, or the UI path.
 

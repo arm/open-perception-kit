@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "name": "SileroVad",
   "displayName": "Silero VAD",
   "task": "Voice activity detection",
@@ -16,7 +16,9 @@
     {
       "id": "opk-onnx-ops/Inference",
       "attributes": {
-        "modelDescriptor": "model.json"
+        "modelDescriptor": "model.json",
+        "intraOpNumThreads": 3,
+        "interOpNumThreads": 1
       }
     },
     {
