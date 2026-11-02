@@ -98,6 +98,13 @@ prerelease suffix, or build metadata. Missing versions, legacy integers, and
 malformed strings fail. OPK does not guess a version or rewrite a file while
 loading it. Model and OpChain serialization preserves the full input version.
 
+Advance each edited file from its own current version. For a backward-compatible
+addition, a file at `1.1.0` advances to `1.2.0`, with patch reset to zero.
+Do not copy the schema's `x-opk-supported-version` into every edited descriptor.
+That metadata describes the reader's supported format; file versions record
+that file's evolution. A differing minor still produces the warning described
+above, and the runtime must implement every attribute the file uses.
+
 Each file has its own patch counter. Start newly versioned files at `1.0.0`.
 When editing a command, model path, tensor declaration, dependency lock, or even
 an inert annotation, increment that file's patch in the same change; do not
@@ -243,6 +250,16 @@ OpChain `1.1.0` adds optional `intraOpNumThreads` to
 the option; omitted values retain the previous thread policy. Older runtimes
 can reject the new attribute despite warning rather than failing on the minor
 version mismatch. Rebuild or upgrade the runtime before using it. See
+[ONNX thread tuning](../how-to/performance-measurement.md).
+
+OpChain reader schema `1.6.0` adds optional `interOpNumThreads` to
+`opk-onnx-ops/Inference`. Omission or one preserves sequential graph execution;
+zero enables parallel execution with an automatic pool, and larger integers
+request a parallel pool size. Introducing this new attribute advances the file's
+own minor version, for example `1.1.0` to `1.2.0`; tuning an existing thread count
+advances only its patch version. Rebuild or upgrade the runtime and validator:
+older readers may warn about the minor mismatch and then reject the new
+attribute. Existing chains need no edits. See
 [ONNX thread tuning](../how-to/performance-measurement.md).
 
 OpChain `1.5.0` adds one preprocessing setting for the whole chain:
