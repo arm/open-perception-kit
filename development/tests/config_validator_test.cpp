@@ -62,6 +62,42 @@ TEST(AttributeMap, NumericGettersAndMissingDefaultsRemainStrict) {
     EXPECT_DOUBLE_EQ(attributes.getDouble("integer"), 3.0);
     EXPECT_FLOAT_EQ(attributes.getFloatOrDefault("missing", 1.5F), 1.5F);
     EXPECT_THROW(attributes.getFloatOrDefault("text", 1.5F), std::bad_variant_access);
+
+    const auto integer =
+        opk::getCheckedAttribute(attributes, "integer", &opk::AttributeValue::isInt);
+    ASSERT_TRUE(integer);
+    ASSERT_TRUE(integer->has_value());
+    EXPECT_EQ(integer->value().asInt(), attributes.getInt("integer"));
+
+    const auto text = opk::getCheckedAttribute(attributes, "text", &opk::AttributeValue::isString);
+    ASSERT_TRUE(text);
+    ASSERT_TRUE(text->has_value());
+    EXPECT_EQ(text->value().asString(), attributes.getString("text"));
+
+    const auto missing =
+        opk::getCheckedAttribute(attributes, "missing", &opk::AttributeValue::isInt);
+    ASSERT_TRUE(missing);
+    EXPECT_FALSE(missing->has_value());
+    EXPECT_FALSE(attributes.contains("missing"));
+
+    attributes.set("floating", 3.0).set("boolean", true).setNull("null");
+    for (const auto *name : {"text", "floating", "boolean", "null"}) {
+        const auto invalid =
+            opk::getCheckedAttribute(attributes, name, &opk::AttributeValue::isInt);
+        ASSERT_FALSE(invalid);
+        EXPECT_EQ(invalid.error().flag, opk::ErrorFlag::InvalidData);
+        EXPECT_NE(invalid.error().info.find(name), std::string::npos);
+    }
+
+    const auto nullValue =
+        opk::getCheckedAttribute(attributes, "null", &opk::AttributeValue::isNull);
+    ASSERT_TRUE(nullValue);
+    ASSERT_TRUE(nullValue->has_value());
+    EXPECT_TRUE(nullValue->value().isNull());
+
+    const auto noChecker = opk::getCheckedAttribute(attributes, "integer", nullptr);
+    ASSERT_FALSE(noChecker);
+    EXPECT_EQ(noChecker.error().flag, opk::ErrorFlag::InvalidData);
 }
 
 TEST(ConfigValidator, RejectsNestedDuplicateBeforeSchema) {

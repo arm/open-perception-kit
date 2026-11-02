@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -28,6 +29,8 @@
 #include <vector>
 
 #include <nlohmann/json.hpp>
+
+#include "opk/Result.h"
 
 namespace opk {
 
@@ -444,6 +447,29 @@ inline AttributeValue cloneAttributeValue(const AttributeValue &v) {
 
 inline AttributeMap AttributeMap::cloneDeep() const {
     return cloneAttributeMap(*this);
+}
+
+/// Predicate for validating an attribute value.
+using AttributeCheck = bool (AttributeValue::*)() const;
+
+/**
+ * @brief Returns an attribute copy when its checker succeeds, or an empty optional if absent.
+ * @return InvalidData if the checker is null or rejects a present value.
+ */
+inline Result<std::optional<AttributeValue>> getCheckedAttribute(const AttributeMap &attributes,
+                                                                 const std::string &name,
+                                                                 const AttributeCheck check) {
+    if (!check)
+        return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData,
+                                        fmt::format("Missing checker for attribute '{}'", name)));
+    if (!attributes.contains(name))
+        return std::optional<AttributeValue>{};
+    const auto &value = attributes.at(name);
+    if (!(value.*check)()) {
+        return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData,
+                                        fmt::format("Attribute '{}' failed validation", name)));
+    }
+    return std::optional<AttributeValue>{value};
 }
 
 } // namespace opk

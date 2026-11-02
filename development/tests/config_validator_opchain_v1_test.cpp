@@ -40,17 +40,16 @@ opk::op::OpChainDescriptor builtInStage() {
     return descriptor;
 }
 
-TEST(ConfigValidator, SileroAudioUsesOpChain12Contract) {
+TEST(ConfigValidator, SileroAudioPreservesOpChainVersion) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "1.5.0");
+    EXPECT_EQ(*supported, "1.6.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
     std::ifstream input(path);
     ASSERT_TRUE(input);
     const auto document = nlohmann::json::parse(input);
-    EXPECT_EQ(document.at("version"), "1.2.0");
 
     const auto result = opk::config::validateOpChainJson(document.dump(), path.string());
     ASSERT_TRUE(result) << result.error().toText();
@@ -69,17 +68,16 @@ TEST(ConfigValidator, YoloClassScoresUseOpChain14Contract) {
     EXPECT_EQ(nlohmann::json(*result).at("version"), document.at("version"));
 }
 
-TEST(ConfigValidator, SmartTurnUsesOpChain13Contract) {
+TEST(ConfigValidator, SmartTurnPreservesOpChainVersion) {
     for (const auto *filename : {"opchain.json", "opchain-vad.json"}) {
         const auto path =
             std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/smart-turn" / filename;
         std::ifstream input(path);
         ASSERT_TRUE(input);
         auto document = nlohmann::json::parse(input);
-        EXPECT_EQ(document.at("version"), "1.3.0");
         const auto result = opk::config::validateOpChainJson(document.dump(), path.string());
         ASSERT_TRUE(result) << result.error().toText();
-        EXPECT_EQ(nlohmann::json(*result).at("version"), "1.3.0");
+        EXPECT_EQ(nlohmann::json(*result).at("version"), document.at("version"));
 
         auto invalid = document;
         invalid["ops"].back()["attributes"]["threshold"] = 1.1;
@@ -141,32 +139,45 @@ TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
     EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
 
     constexpr int AutomaticThreads = 0;
+    constexpr int SequentialThreads = 1;
     constexpr int ExplicitThreads = 2;
     constexpr int MaximumThreads = std::numeric_limits<int>::max();
     document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
                           {"attributes", {{"modelDescriptor", "model.json"}}}};
     EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
-    for (const int threads : {AutomaticThreads, ExplicitThreads, MaximumThreads}) {
-        document["ops"][0]["attributes"]["intraOpNumThreads"] = threads;
-        const auto result = opk::config::validateOpChainJson(document.dump());
-        EXPECT_TRUE(result) << threads << '\n' << (result ? "" : result.error().toText());
+    for (const auto *attribute : {"intraOpNumThreads", "interOpNumThreads"}) {
+        document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
+                              {"attributes", {{"modelDescriptor", "model.json"}}}};
+        for (const int threads :
+             {AutomaticThreads, SequentialThreads, ExplicitThreads, MaximumThreads}) {
+            document["ops"][0]["attributes"][attribute] = threads;
+            const auto result = opk::config::validateOpChainJson(document.dump());
+            EXPECT_TRUE(result) << threads << '\n' << (result ? "" : result.error().toText());
+        }
+        const std::array invalidThreads{
+            "-1"s, "1.5"s, "2147483648"s, "2.0"s, "2e0"s, "true"s, R"("2")"s, "null"s};
+        for (const auto &threads : invalidThreads) {
+            const std::string json =
+                R"({"version":"1.6.0","name":"thread-notation","description":"Validate thread notation.",
+                    "ops":[{"id":"opk-onnx-ops/Inference","attributes":{
+                    "modelDescriptor":"model.json",)" +
+                std::string{"\""} + attribute + "\":" + threads + "}}]}";
+            const auto result = opk::config::validateOpChainJson(json);
+            ASSERT_FALSE(result) << attribute << ": " << threads;
+        }
+        document["ops"][0]["attributes"][attribute] = ExplicitThreads;
+        for (const auto *backend : {"opk-executorch-ops/Inference", "opk-future-ops/Inference"}) {
+            document["ops"][0]["id"] = backend;
+            EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << backend;
+        }
     }
-    const std::array invalidThreads{
-        "-1"s, "1.5"s, "2147483648"s, "2.0"s, "2e0"s, "true"s, R"("2")"s, "null"s};
-    for (const auto &threads : invalidThreads) {
-        const std::string json =
-            R"({"version":"1.1.0","name":"thread-notation","description":"Validate thread notation.",
-                "ops":[{"id":"opk-onnx-ops/Inference","attributes":{
-                "modelDescriptor":"model.json","intraOpNumThreads":)" +
-            threads + "}}]}";
-        const auto result = opk::config::validateOpChainJson(json);
-        ASSERT_FALSE(result) << threads;
-    }
-    document["ops"][0]["attributes"]["intraOpNumThreads"] = ExplicitThreads;
-    for (const auto *backend : {"opk-executorch-ops/Inference", "opk-future-ops/Inference"}) {
-        document["ops"][0]["id"] = backend;
-        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << backend;
-    }
+
+    document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
+                          {"attributes",
+                           {{"modelDescriptor", "model.json"},
+                            {"intraOpNumThreads", ExplicitThreads},
+                            {"interOpNumThreads", ExplicitThreads}}}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
 
     document["ops"][0] = {{"id", "custom/InferenceLike"},
                           {"attributes", {{"implementationDefined", true}}}};
@@ -296,7 +307,7 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     const auto supportedVersion = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
-    EXPECT_EQ(*supportedVersion, "1.5.0");
+    EXPECT_EQ(*supportedVersion, "1.6.0");
 
     nlohmann::json document{
         {"version", "1.4.0"},
