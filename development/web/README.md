@@ -284,7 +284,9 @@ numeric labels. Names are saved per overlay and survive reloads; they never
 change the class IDs or incoming metadata. Spaces around a name are trimmed.
 **Reset labels** restores all names in that overlay to their numeric defaults,
 preserving colors, opacity, and visibility; the reset is saved immediately.
-Hover the name for its ID and **In frame** or **Not in frame** status. Controls
+Hover the name for its ID and **In frame** or **Not in frame** status. Presence
+follows matched metadata even when the overlay or class is hidden. **Unavailable**
+means there is no valid matched output, rather than asserting the class is absent. Controls
 retain class-specific accessible labels without visible field labels.
 Rows are ordered by ID. Observed rows stay available when temporarily absent,
 until the list is rebuilt; no complete model class inventory is assumed.

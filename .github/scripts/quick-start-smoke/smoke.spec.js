@@ -463,6 +463,11 @@ test.describe('semantic class maps', () => {
     await page.keyboard.press('Space');
     await expect.poll(sample).toEqual(clear);
     await expect(legend).toContainText('Overlay hidden');
+    await expect(legend.locator('.overlay-class-presence').filter({hasText: /^In frame$/})).toHaveCount(3);
+    await emit('video-frame-results', 'semantic', [18, 18, 18]);
+    await expect.poll(sample).toEqual(clear);
+    await expect(legend.locator('.overlay-class-presence').filter({hasText: /^In frame$/})).toHaveCount(1);
+    expect(await className.evaluate(input => input.parentElement.title)).toContain('Not in frame');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Overlays', exact: true }).click();
     await card.locator('.overlay-toggle').click();
@@ -479,6 +484,7 @@ test.describe('semantic class maps', () => {
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('video-frame-results', { detail: null })));
     await expect.poll(sample).toEqual(clear);
     await expect(legend).toContainText('Waiting for matching video metadata');
+    expect(await className.evaluate(input => input.parentElement.title)).toContain('Unavailable');
     await className.fill('');
     await className.press('Tab');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))

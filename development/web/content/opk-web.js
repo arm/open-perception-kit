@@ -8783,7 +8783,7 @@ function updateLegends() {
   for (const [overlay2, row] of cardNodes) {
     if (!row.legend) continue;
     const feature2 = featureFor(overlay2.featureId);
-    const resolved = !overlay2.enabled ? { message: "Overlay hidden." } : !displayedFrameIndex.frame ? { message: "Waiting for matching video metadata." } : resolveOverlay(displayedFrameIndex, overlay2);
+    const resolved = !displayedFrameIndex.frame ? { message: "Waiting for matching video metadata." } : resolveOverlay(displayedFrameIndex, overlay2);
     const legend = feature2.legend(resolved, overlay2.settings);
     if (!row.legendNodes) {
       row.legendNodes = /* @__PURE__ */ new Map();
@@ -8809,7 +8809,8 @@ function updateLegends() {
         "Class opacity is multiplied by the overlay opacity. Hidden classes reveal the video."
       ));
     }
-    if (row.legendMessage.textContent !== legend.message) row.legendMessage.textContent = legend.message;
+    const message = overlay2.enabled ? legend.message : "Overlay hidden.";
+    if (row.legendMessage.textContent !== message) row.legendMessage.textContent = message;
     const present = new Set(legend.entries.filter((entry) => entry.present).map((entry) => entry.id));
     for (const entry of legend.entries) {
       let item = row.legendNodes.get(entry.id);
@@ -8881,7 +8882,7 @@ function updateLegends() {
       }
     }
     for (const [id, item] of row.legendNodes) {
-      const text2 = present.has(id) ? "In frame" : "Not in frame";
+      const text2 = present.has(id) ? "In frame" : resolved.state === "ready" ? "Not in frame" : "Unavailable";
       if (item.presence.textContent !== text2) {
         item.presence.textContent = text2;
       }

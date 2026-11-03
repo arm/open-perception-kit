@@ -438,11 +438,18 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         visible.checked = false;
         visible.fire('change');
         assert.match(legend.textContent, /Overlay hidden/);
+        const class1Presence = find(legendList.children[1], element => element.className === 'overlay-class-presence');
+        assert.equal(class1Presence.textContent, 'In frame', 'visibility must not change metadata presence');
+        mask.detections[0].data = {...mask.detections[0].data, pixels: new Uint8Array([18, 18, 18])};
+        match();
+        assert.equal(class1Presence.textContent, 'Not in frame', 'hidden overlays still follow matched metadata');
+        assert.equal(find(legendList.children[2], element => element.className === 'overlay-class-presence').textContent, 'In frame');
         visible.checked = true;
         visible.fire('change');
         assert.ok(find(legend, element => element.placeholder === 'Class 1'));
         window.fire('video-frame-results', {detail: null});
         assert.match(legend.textContent, /Waiting for matching video metadata/);
+        assert.equal(class1Presence.textContent, 'Unavailable', 'missing metadata is not evidence of absence');
         assert.deepEqual(saved().at(-1).settings, {opacity: 0.5, classes: {}});
         const beforeClassPreview = storageWrites;
         classColor.value = '#123456';
