@@ -238,14 +238,11 @@ class ByomBlazeFaceExampleTest(unittest.TestCase):
 
     def test_listener_rejects_every_incompatible_producer_identity(self):
         cases = (
-            ({"SDK_NAME": "different_sdk"}, ProducerIdentityStatus.SDK_NAME_MISMATCH),
-            ({"SDK_VERSION": "9.9.9"}, ProducerIdentityStatus.SDK_VERSION_MISMATCH),
-            (
-                {"SCHEMA_SET_SHA256": "f" * 64},
-                ProducerIdentityStatus.SCHEMA_SET_MISMATCH,
-            ),
-            ({"SDK_NAME": ""}, ProducerIdentityStatus.MISSING),
-            ({"SDK_VERSION": "invalid"}, ProducerIdentityStatus.MALFORMED),
+            ({"SDK_NAME": "different_sdk"}, ProducerIdentityStatus.NAME_MISMATCH),
+            ({"SDK_VERSION": "9.9.9"}, ProducerIdentityStatus.VERSION_MISMATCH),
+            ({"SDK_VERSION": "0.1.2"}, ProducerIdentityStatus.VERSION_MISMATCH),
+            ({"SDK_NAME": ""}, ProducerIdentityStatus.NAME_MISMATCH),
+            ({"SDK_VERSION": "invalid"}, ProducerIdentityStatus.VERSION_MISMATCH),
         )
         for overrides, expected_status in cases:
             with self.subTest(status=expected_status.value):
@@ -258,6 +255,12 @@ class ByomBlazeFaceExampleTest(unittest.TestCase):
                     result_support.FaceResultDecoder().decode_record(
                         self._record(17, packet), 1
                     )
+
+    def test_listener_accepts_compatible_identity_with_a_different_digest(self):
+        major = perception_sdk.SDK_VERSION.split(".")[0]
+        packet = self._packet_with_identity({"SDK_VERSION": f"{major}.999.0", "SCHEMA_SET_SHA256": "f" * 64})
+        result = result_support.FaceResultDecoder().decode_record(self._record(18, packet), 1)
+        self.assertEqual(result, result_support.FrameFaces(frame=18, faces=()))
 
     def test_listener_accepts_exact_identity_and_payload(self):
         packet = self._packet_with_identity({})

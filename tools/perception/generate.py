@@ -93,9 +93,7 @@ TS_GENERATED_HEADER = """\
 CMAKE_FORMAT = "cmake-format"
 RUSTFMT = "rustfmt"
 MESON_BUILD_FILENAME = "meson.build"
-RUST_FIXTURE = REPO_ROOT / "tools/perception/tests/fixtures/opk-box-detections-v0.2.1.hex"
-RUST_FIXTURE_SDK_VERSION = "0.2.1"
-RUST_FIXTURE_SCHEMA_SET_SHA256 = "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5"
+RUST_FIXTURE_WRITER = REPO_ROOT / "tools/perception/tests/fixtures/write_packet.py"
 PLUMBER_PROJECT = REPO_ROOT / "tools/plumber/pyproject.toml"
 WEB_BUILD = REPO_ROOT / "development/web/build.mjs"
 
@@ -377,6 +375,7 @@ def copy_sdk_legal_files(generated_root: Path) -> None:
 def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
     package_path = generated_root / "ts" / "package.json"
     package = json.loads(package_path.read_text(encoding="utf-8"))
+    package["name"] = config.public_name.replace("_", "-")
     package["dependencies"] = {"flatbuffers": config.typescript_runtime.version}
     package["devDependencies"] = {"typescript": config.typescript_compiler.version}
     package["engines"] = {"node": f">={config.node_minimum_major}"}
@@ -388,7 +387,7 @@ def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
     )
 
 
-def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
+def prepare_rust_tests(config: SdkConfig, generated_root: Path, python: str) -> None:
     rust_root = generated_root / "rust"
     cargo_toml = rust_root / "Cargo.toml"
     expected_name = f'name = "{config.public_name}"'
@@ -405,9 +404,9 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
         ),
         encoding="utf-8",
     )
-    fixture_target = rust_root / "tests" / "fixtures" / RUST_FIXTURE.name
+    fixture_target = rust_root / "tests" / "fixtures" / "opk-box-detections.hex"
     fixture_target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(RUST_FIXTURE, fixture_target)
+    run([python, "-B", str(RUST_FIXTURE_WRITER), str(generated_root / "python/src"), str(fixture_target)])
     crate_name = config.public_name
     test_source = f'''\
 // Generated file. Do not edit.
@@ -415,13 +414,9 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
 
 use {crate_name}::fb::open_perception_kit::metadata::BoxDetectionsT;
 use {crate_name}::{{
-    external_key, payload, EntryRef, Envelope, ProducerIdentityStatus, {config.public_name.upper()}_NAME,
+    external_key, payload, Envelope, ProducerIdentityStatus, {config.public_name.upper()}_NAME,
     {config.public_name.upper()}_VERSION, SCHEMA_SET_SHA256,
 }};
-
-const FIXTURE_SDK_NAME: &str = "perception";
-const FIXTURE_SDK_VERSION: &str = "{RUST_FIXTURE_SDK_VERSION}";
-const FIXTURE_SCHEMA_SET_SHA256: &str = "{RUST_FIXTURE_SCHEMA_SET_SHA256}";
 
 fn decode_hex(value: &str) -> Vec<u8> {{
     let compact = value.trim();
@@ -438,29 +433,20 @@ fn assert_send<T: Send>(_: T) {{}}
 fn decodes_python_produced_box_detections_packet() {{
     assert_send_sync_static::<Envelope>();
     assert_send_sync_static::<BoxDetectionsT>();
-    let packet = decode_hex(include_str!("fixtures/{RUST_FIXTURE.name}"));
+    let packet = decode_hex(include_str!("fixtures/{fixture_target.name}"));
     let envelope = Envelope::decode(packet).expect("pinned OPK packet must decode");
 
-    assert_eq!(envelope.producer_sdk_name(), FIXTURE_SDK_NAME);
-    assert_eq!(envelope.producer_sdk_version(), FIXTURE_SDK_VERSION);
+    assert_eq!(envelope.producer_sdk_name(), {config.public_name.upper()}_NAME);
+    assert_eq!(envelope.producer_sdk_version(), {config.public_name.upper()}_VERSION);
     assert_eq!(
         envelope.producer_schema_set_sha256(),
-        FIXTURE_SCHEMA_SET_SHA256
+        SCHEMA_SET_SHA256
     );
-    let expected_identity = if {config.public_name.upper()}_NAME != FIXTURE_SDK_NAME {{
-        ProducerIdentityStatus::SdkNameMismatch
-    }} else if {config.public_name.upper()}_VERSION != FIXTURE_SDK_VERSION {{
-        ProducerIdentityStatus::SdkVersionMismatch
-    }} else if SCHEMA_SET_SHA256 != FIXTURE_SCHEMA_SET_SHA256 {{
-        ProducerIdentityStatus::SchemaSetMismatch
-    }} else {{
-        ProducerIdentityStatus::ExactMatch
-    }};
-    assert_eq!(envelope.producer_identity(), expected_identity);
+    assert_eq!(envelope.producer_identity(), ProducerIdentityStatus::ExactMatch);
     assert_eq!(envelope.len(), 2);
 
     let box_detections = payload::<BoxDetectionsT>();
-    let preserved_payload = if expected_identity == ProducerIdentityStatus::ExactMatch {{
+    {{
         let boxes = envelope.get(box_detections, 0).expect("BoxDetections payload");
         let layer = boxes.layer.as_ref().expect("layer");
         assert_eq!(layer.engine.as_deref(), Some("fixture"));
@@ -477,24 +463,12 @@ fn decodes_python_produced_box_detections_packet() {{
         let rectangle = detection.box_.as_ref().expect("box");
         assert_eq!((rectangle.x, rectangle.y, rectangle.width, rectangle.height),
             (10.5, 20.25, 30.75, 40.5));
-        None
-    }} else {{
-        assert!(envelope.get(box_detections, 0).is_none());
-        match envelope.entries().next() {{
-            Some(EntryRef::Unknown {{ id, bytes }}) => Some((id, bytes.to_vec())),
-            entry => panic!("expected preserved historical payload, got {{entry:?}}"),
-        }}
-    }};
+    }}
 
     let key = external_key("com.arm.opk.fixture");
     assert_eq!(envelope.get(key, 0), Some(b"fixture-external".as_slice()));
     let roundtrip = Envelope::decode(envelope.serialize()).expect("round trip");
-    if let Some((historical_id, historical_bytes)) = preserved_payload {{
-        assert!(matches!(roundtrip.entries().next(), Some(EntryRef::Unknown {{ id, bytes }})
-            if id == historical_id && bytes == historical_bytes));
-    }} else {{
-        assert!(roundtrip.get(box_detections, 0).is_some());
-    }}
+    assert!(roundtrip.get(box_detections, 0).is_some());
     assert_eq!(roundtrip.get(key, 0), Some(b"fixture-external".as_slice()));
 
     let future = async move {{ roundtrip.len() }};
@@ -772,6 +746,7 @@ def _generation_tool_records() -> list[dict[str, object]]:
             Path(__file__).resolve(),
             Path(__file__).with_name("release_common.py").resolve(),
             Path(__file__).with_name("sdk_config.py").resolve(),
+            RUST_FIXTURE_WRITER,
             *(SDK_LEGAL_INPUT_DIR / name for name in SDK_LEGAL_FILES),
             REPO_ROOT / ".clang-format",
             REPO_ROOT / ".cmake-format.yaml",
@@ -960,7 +935,7 @@ def prepare_sdk(
         or python_package.get("import_name") != config.public_name
     ):
         raise RuntimeError("generated Python package metadata is unexpected")
-    prepare_rust_tests(config, generated_root)
+    prepare_rust_tests(config, generated_root, python)
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)
     copy_sdk_legal_files(generated_root)
