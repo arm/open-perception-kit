@@ -31,6 +31,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from artifacts import acquire_artifact
 from release_common import sha256
 from sdk_config import (
     PRODUCT_VERSION,
@@ -406,7 +407,10 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path, python: str) -> 
     )
     fixture_target = rust_root / "tests" / "fixtures" / "opk-box-detections.hex"
     fixture_target.parent.mkdir(parents=True, exist_ok=True)
-    run([python, "-B", str(RUST_FIXTURE_WRITER), str(generated_root / "python/src"), str(fixture_target)])
+    with tempfile.TemporaryDirectory(prefix="opk-fixture-runtime-") as tmp:
+        wheel = acquire_artifact(config.flatbuffers_wheel, Path(tmp))
+        run([python, "-I", "-S", "-B", str(RUST_FIXTURE_WRITER),
+             str(generated_root / "python/src"), str(fixture_target), str(wheel)])
     crate_name = config.public_name
     test_source = f'''\
 // Generated file. Do not edit.
@@ -744,6 +748,7 @@ def _generation_tool_records() -> list[dict[str, object]]:
         }
         for path in (
             Path(__file__).resolve(),
+            Path(__file__).with_name("artifacts.py").resolve(),
             Path(__file__).with_name("release_common.py").resolve(),
             Path(__file__).with_name("sdk_config.py").resolve(),
             RUST_FIXTURE_WRITER,

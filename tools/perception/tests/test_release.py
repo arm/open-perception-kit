@@ -25,6 +25,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import venv
 import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import replace
@@ -387,6 +388,29 @@ class ArtifactCacheTests(unittest.TestCase):
 
 
 class GenerationReceiptTests(unittest.TestCase):
+    def test_rust_fixture_generation_without_installed_python_packages(self) -> None:
+        config = release_package.perception_config.load_sdk_config()
+        with tempfile.TemporaryDirectory() as tmp:
+            environment = Path(tmp) / "venv"
+            venv.create(environment, with_pip=False)
+            python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+            subprocess.run(
+                [str(python), "-c",
+                 "import importlib.util; assert importlib.util.find_spec('flatbuffers') is None"],
+                check=True,
+            )
+            generated = Path(tmp) / "generated"
+            shutil.copytree(config.generated_root / "python", generated / "python")
+            (generated / "rust").mkdir()
+            (generated / "rust/Cargo.toml").write_text(
+                f'[package]\nname = "{config.public_name}"\nversion = "{config.version}"\n',
+                encoding="utf-8",
+            )
+            release_package.perception_generate.prepare_rust_tests(config, generated, str(python))
+            fixture = Path("rust/tests/fixtures/opk-box-detections.hex")
+            self.assertEqual((generated / fixture).read_bytes(),
+                             (config.generated_root / fixture).read_bytes())
+
     def test_prerelease_package_versions_keep_the_sdk_version(self) -> None:
         config = replace(
             release_package.perception_config.load_sdk_config(),
