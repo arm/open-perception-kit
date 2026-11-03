@@ -26,6 +26,7 @@ from pathlib import Path
 from ..errors import fail
 from ..schema_set import schema_set_sha256
 from ..types import RESERVED_PAYLOAD_ID_MIN, GenerationContext, SchemaEntry
+from ..wire_schema import ENVELOPE_SCHEMA_TEMPLATE
 from .identifiers import RUST_KEYWORDS
 
 
@@ -33,24 +34,6 @@ RUST_GENERATED_BANNER = (
     "// Generated file. Do not edit.\n"
     "// SDK users: change schemas or generator inputs, then regenerate this file.\n\n"
 )
-
-ENVELOPE_SCHEMA_TEMPLATE = """namespace __SDK_NAME__.internalfb;
-
-table WirePayload {
-  id:ulong;
-  blob:[ubyte];
-}
-
-table WireEnvelope {
-  payloads:[WirePayload];
-  producer_sdk_name:string;
-  producer_sdk_version:string;
-  producer_schema_set_sha256:string;
-}
-
-root_type WireEnvelope;
-file_identifier "FLWD";
-"""
 
 
 def _rust_identifier(value: str) -> str:
@@ -178,10 +161,10 @@ def _cargo_toml(ctx: GenerationContext) -> str:
     return textwrap.dedent(
         f"""\
         [package]
-        name = "{ctx.effective_public_name}"
+        name = "{ctx.sdk_name}"
         version = "{ctx.sdk_version}"
         edition = "2021"
-        description = "Generated {ctx.effective_public_name} Rust SDK"
+        description = "Generated {ctx.sdk_name} Rust SDK"
 
         [dependencies]
         flatbuffers = "={ctx.flatc_version}"
@@ -318,7 +301,7 @@ def _lib_rs(
     entries: list[SchemaEntry],
     bindings: dict[str, RustPayloadBinding],
 ) -> str:
-    sdk_upper = ctx.effective_public_name.upper()
+    sdk_upper = ctx.sdk_name.upper()
     payload_data = _payload_data(entries, bindings)
     native_impls = "\n".join(
         _native_payload_impl(entry, index, len(entries) == 1, bindings)
@@ -337,7 +320,7 @@ def _lib_rs(
         )]
         #![warn(missing_docs)]
 
-        //! Owning Rust API for the generated `{ctx.effective_public_name}` FlowData SDK.
+        //! Owning Rust API for the generated `{ctx.sdk_name}` FlowData SDK.
         //!
         //! Use [`Envelope`] to decode, inspect, modify, and serialize FlowData packets.
         //! Known payloads use [`payload`], while application-defined byte payloads use
@@ -357,12 +340,12 @@ def _lib_rs(
         use crate::flowdata_internal::internalfb as wire;
 
         /// Generated SDK name written into serialized producer identity metadata.
-        pub const {sdk_upper}_NAME: &str = "{ctx.effective_public_name}";
+        pub const {sdk_upper}_NAME: &str = "{ctx.sdk_name}";
         /// Generated SDK version written into serialized producer identity metadata.
         pub const {sdk_upper}_VERSION: &str = "{ctx.sdk_version}";
         /// SHA-256 identity of the complete schema set used for generation.
         pub const SCHEMA_SET_SHA256: &str =
-            "{schema_set_sha256(ctx)}";
+            "{schema_set_sha256(ctx)}"; // pragma: allowlist secret
         /// Exact FlatBuffers runtime version required by this crate.
         pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "=={ctx.flatc_version}";
         /// Lowest numeric key reserved for application-defined external payloads.
@@ -380,18 +363,14 @@ def _lib_rs(
         /// Relationship between packet producer metadata and this generated SDK.
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum ProducerIdentityStatus {{
-            /// SDK name, version, and schema digest all match exactly.
+            /// The producer SDK name is missing, malformed, or different.
+            NameMismatch,
+            /// SDK name and version match exactly; the schema digest is diagnostic only.
             ExactMatch,
-            /// At least one producer identity field is absent.
-            Missing,
-            /// At least one producer identity field has invalid syntax.
-            Malformed,
-            /// The producer used a different SDK name.
-            SdkNameMismatch,
-            /// The producer used a different SDK version.
-            SdkVersionMismatch,
-            /// The producer used a different schema set.
-            SchemaSetMismatch,
+            /// Matching name and differing versions with the same major, including zero.
+            CompatibleMatch,
+            /// The producer version is missing, malformed, or outside the compatibility rule.
+            VersionMismatch,
         }}
 
         /// Opaque, deterministic selector for an application-defined byte payload.
@@ -734,21 +713,23 @@ def _lib_rs(
             /// Returns the producer schema-set digest stored in the decoded packet.
             pub fn producer_schema_set_sha256(&self) -> &str {{ &self.producer_schema_set_sha256 }}
 
-            /// Compares producer identity metadata with this generated SDK.
+            /// Advisory name/version comparison; publishers own wire compatibility promises.
             pub fn producer_identity(&self) -> ProducerIdentityStatus {{
                 let name = self.producer_sdk_name();
                 let version = self.producer_sdk_version();
-                let digest = self.producer_schema_set_sha256();
-                if name.is_empty() || version.is_empty() || digest.is_empty() {{
-                    return ProducerIdentityStatus::Missing;
+                if name != {sdk_upper}_NAME {{
+                    return ProducerIdentityStatus::NameMismatch;
                 }}
-                if !valid_sdk_name(name) || !valid_semver(version) || !valid_sha256(digest) {{
-                    return ProducerIdentityStatus::Malformed;
+                if !valid_semver(version) {{
+                    return ProducerIdentityStatus::VersionMismatch;
                 }}
-                if name != {sdk_upper}_NAME {{ return ProducerIdentityStatus::SdkNameMismatch; }}
-                if version != {sdk_upper}_VERSION {{ return ProducerIdentityStatus::SdkVersionMismatch; }}
-                if digest != SCHEMA_SET_SHA256 {{ return ProducerIdentityStatus::SchemaSetMismatch; }}
-                ProducerIdentityStatus::ExactMatch
+                if version == {sdk_upper}_VERSION {{ return ProducerIdentityStatus::ExactMatch; }}
+                let major = version.split('.').next().unwrap_or_default();
+                if Some(major) == {sdk_upper}_VERSION.split('.').next() {{
+                    ProducerIdentityStatus::CompatibleMatch
+                }} else {{
+                    ProducerIdentityStatus::VersionMismatch
+                }}
             }}
 
             /// Returns whether the envelope has no payload entries.
@@ -837,13 +818,6 @@ def _lib_rs(
             }}
         }}
 
-        fn valid_sdk_name(value: &str) -> bool {{
-            let mut chars = value.chars();
-            matches!(chars.next(), Some('a'..='z'))
-                && chars.all(|character| character.is_ascii_lowercase()
-                    || character.is_ascii_digit() || character == '_')
-        }}
-
         fn valid_semver(value: &str) -> bool {{
             let parts: Vec<_> = value.split('.').collect();
             parts.len() == 3 && parts.iter().all(|part| {{
@@ -853,10 +827,6 @@ def _lib_rs(
             }})
         }}
 
-        fn valid_sha256(value: &str) -> bool {{
-            value.len() == 64 && value.chars().all(|character| character.is_ascii_hexdigit()
-                && !character.is_ascii_uppercase())
-        }}
         """
     )
     body = body.replace("__PAYLOAD_DATA__", payload_data)
@@ -894,7 +864,6 @@ def _tests(
     entries: list[SchemaEntry],
     bindings: dict[str, RustPayloadBinding],
 ) -> str:
-    sdk_upper = ctx.effective_public_name.upper()
     first = entries[0]
     first_type = _type_path(first, bindings)
     unknown_id = next(value for value in range(1, 1024) if all(e.numeric_id != value for e in entries))
@@ -915,8 +884,8 @@ def _tests(
                     blob: Some(blob),
                 }});
                 let payloads = builder.create_vector(&[payload]);
-                let producer_name = builder.create_string({sdk_upper}_NAME);
-                let producer_version = builder.create_string({sdk_upper}_VERSION);
+                let producer_name = builder.create_string({ctx.sdk_name.upper()}_NAME);
+                let producer_version = builder.create_string({ctx.sdk_name.upper()}_VERSION);
                 let producer_digest = builder.create_string(SCHEMA_SET_SHA256);
                 let root = wire::WireEnvelope::create(&mut builder, &wire::WireEnvelopeArgs {{
                     payloads: Some(payloads),
@@ -948,6 +917,33 @@ def _tests(
                 assert_eq!(decoded.get(key, 0), Some(b"external".as_slice()));
                 assert_eq!(decoded.for_each(key).collect::<Vec<_>>(), vec![b"external"]);
                 assert_eq!(decoded.producer_identity(), ProducerIdentityStatus::ExactMatch);
+            }}
+
+            #[test]
+            fn producer_identity_uses_name_and_version_only() {{
+                let mut envelope = Envelope::new();
+                envelope.producer_schema_set_sha256 = "not-a-digest".to_owned();
+                assert_eq!(envelope.producer_identity(), ProducerIdentityStatus::ExactMatch);
+                envelope.producer_schema_set_sha256.clear();
+                assert_eq!(envelope.producer_identity(), ProducerIdentityStatus::ExactMatch);
+
+                let major = {ctx.sdk_name.upper()}_VERSION.split('.').next().unwrap();
+                let mut different = format!("{{major}}.0.0");
+                if different == {ctx.sdk_name.upper()}_VERSION {{ different = format!("{{major}}.1.0"); }}
+                envelope.producer_sdk_version = different;
+                assert_eq!(envelope.producer_identity(), ProducerIdentityStatus::CompatibleMatch);
+
+                envelope.producer_sdk_version = if major == "1" {{ "2.0.0" }} else {{ "1.0.0" }}.to_owned();
+                assert_eq!(envelope.producer_identity(), ProducerIdentityStatus::VersionMismatch);
+                for version in ["", "1.2", "01.2.3", "1.02.3", "1.2.03", "1.2.3-rc.1", "1.2.3+build", "1.2.3\\n"] {{
+                    envelope.producer_sdk_version = version.to_owned();
+                    assert_eq!(envelope.producer_identity(), ProducerIdentityStatus::VersionMismatch);
+                }}
+                let other_name = format!("{{}}_other", {ctx.sdk_name.upper()}_NAME);
+                for name in ["", "Bad Name", other_name.as_str()] {{
+                    envelope.producer_sdk_name = name.to_owned();
+                    assert_eq!(envelope.producer_identity(), ProducerIdentityStatus::NameMismatch);
+                }}
             }}
 
             #[test]
@@ -1035,7 +1031,7 @@ def _write_module_tree(source_root: Path) -> None:
     for directory in directories:
         lines: list[str] = ["use super::*;"]
         for child in sorted(path for path in directory.iterdir() if path.is_dir()):
-            visibility = "pub(crate)" if child.name == "internalfb" else "pub"
+            visibility = "pub(crate)" if child == source_root / "flowdata_internal/internalfb" else "pub"
             lines.append(f"{visibility} mod {_rust_identifier(child.name)};")
         for generated in sorted(directory.glob("*_generated.rs")):
             module = _rust_identifier(generated.stem)
