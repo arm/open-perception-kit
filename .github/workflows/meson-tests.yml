@@ -129,6 +129,9 @@ jobs:
 
       - name: Run tests
         if: *run_checks
+        env:
+          GST_DEBUG: '2,webrtcbin:5'
+          GST_DEBUG_NO_COLOR: '1'
         run: meson test -C development/build-active --print-errorlogs
 
       - name: Upload test logs

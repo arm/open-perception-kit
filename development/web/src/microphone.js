@@ -21,6 +21,9 @@ import {resolveWebRtcIceConfig} from './webrtc_config.js';
 const button = document.getElementById('microphoneBtn');
 const icon = document.getElementById('microphoneIcon');
 const status = document.getElementById('microphoneStatus');
+const cameraButton = document.getElementById('cameraBtn');
+const cameraIcon = document.getElementById('cameraIcon');
+const cameraStatus = document.getElementById('cameraStatus');
 let microphoneAvailable = false;
 const microphoneConfig = window.OPK_CONFIG || {};
 const signalingUrl = new URL(location.href);
@@ -36,12 +39,17 @@ const client = new MicrophoneClient({
     createSocket: url => new WebSocket(url),
     signalingUrl: signalingUrl.href,
     ...resolveWebRtcIceConfig(microphoneConfig),
-    onStatus: (active, message) => {
-        button.setAttribute('aria-pressed', String(active));
-        button.setAttribute('aria-label', active ? 'Stop sharing microphone' : 'Share microphone');
-        button.title = message;
-        icon.dataset.icon = active ? 'mic' : 'mic-off';
-        status.textContent = message;
+    onStatus: (active, message, kind) => {
+        const control = kind === 'video' ? cameraButton : button;
+        const indicator = kind === 'video' ? cameraIcon : icon;
+        const output = kind === 'video' ? cameraStatus : status;
+        const name = kind === 'video' ? 'camera' : 'microphone';
+        const glyph = kind === 'video' ? 'video' : 'mic';
+        control.setAttribute('aria-pressed', String(active));
+        control.setAttribute('aria-label', active ? `Stop sharing ${name}` : `Share ${name}`);
+        control.title = message;
+        indicator.dataset.icon = active ? glyph : `${glyph}-off`;
+        output.textContent = message;
     },
 });
 
@@ -50,6 +58,9 @@ export function enableMicrophoneButton(enable) {
     button.style.display = microphoneAvailable ? 'inline-flex' : 'none';
     button.disabled = !microphoneAvailable;
     status.hidden = !microphoneAvailable;
+    cameraButton.style.display = microphoneAvailable ? 'inline-flex' : 'none';
+    cameraButton.disabled = !microphoneAvailable;
+    cameraStatus.hidden = !microphoneAvailable;
     if (!microphoneAvailable)
         client.stop();
 }
@@ -57,12 +68,22 @@ export function enableMicrophoneButton(enable) {
 button.addEventListener('click', () => {
     if (!microphoneAvailable)
         return;
-    if (client.session) {
-        client.stop();
+    if (client.devices.has('audio')) {
+        client.stopTrack('audio');
     } else if (!navigator.mediaDevices?.getUserMedia) {
         status.textContent = 'Microphone unavailable. Open this page through localhost.';
     } else {
         void client.start();
+    }
+});
+cameraButton.addEventListener('click', () => {
+    if (!microphoneAvailable) return;
+    if (client.devices.has('video')) {
+        client.stopTrack('video');
+    } else if (!navigator.mediaDevices?.getUserMedia) {
+        cameraStatus.textContent = 'Camera unavailable. Open this page through localhost.';
+    } else {
+        void client.start('video');
     }
 });
 window.addEventListener('pagehide', () => client.stop());

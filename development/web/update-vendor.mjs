@@ -28,7 +28,7 @@ const waferCommit = '41ef08db5fb12c1aef580206bd452f9250d6152c';
 const lucideVersion = '1.61.0';
 const lucideIntegrity = 'sha512-yLAiQB3MWUJEstsEDAwenSA3m7vr1tdLvgnC16Q/XMxRRma0DWwMs8M2bWlvgShrIs1m2mWMJ+0AiahqQO4GrA==';
 const icons = ['check', 'chevron-down', 'chevron-right', 'copy', 'eye', 'eye-off',
-    'info', 'layers', 'mic', 'mic-off', 'panel-bottom', 'panel-left', 'pause', 'play', 'trash-2', 'volume-2', 'volume-x'];
+    'info', 'layers', 'mic', 'mic-off', 'panel-bottom', 'panel-left', 'pause', 'play', 'trash-2', 'video', 'video-off', 'volume-2', 'volume-x'];
 const temporary = await mkdtemp(path.join(tmpdir(), 'opk-web-vendor-'));
 const run = (command, args, cwd = temporary) => execFileSync(command, args, {cwd, stdio: 'inherit'});
 

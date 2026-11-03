@@ -23,6 +23,7 @@ test('control availability gates microphone capture and hides it on disconnect',
     const globals = ['document', 'window', 'location', 'navigator'];
     const originals = globals.map(name => Object.getOwnPropertyDescriptor(globalThis, name));
     let click;
+    let cameraClick;
     let grant;
     let requests = 0;
     let stopped = false;
@@ -34,6 +35,12 @@ test('control availability gates microphone capture and hides it on disconnect',
     const status = {hidden: true};
     const icon = {dataset: {icon: 'mic-off'}};
     const elements = {microphoneBtn: button, microphoneStatus: status, microphoneIcon: icon};
+    elements.cameraBtn = {
+        style: {}, setAttribute() {},
+        addEventListener(name, callback) { cameraClick = callback; },
+    };
+    elements.cameraIcon = {dataset: {}};
+    elements.cameraStatus = {};
     const mocks = {
         document: {getElementById: id => elements[id]},
         window: {addEventListener() {}},
@@ -48,11 +55,14 @@ test('control availability gates microphone capture and hides it on disconnect',
             Object.defineProperty(globalThis, name, {configurable: true, value: mocks[name]});
         const {enableMicrophoneButton} = await import('../src/microphone.js');
         click();
+        cameraClick();
         assert.equal(requests, 0);
         enableMicrophoneButton(true);
         assert.equal(button.style.display, 'inline-flex');
         assert.equal(button.disabled, false);
         assert.equal(status.hidden, false);
+        assert.equal(elements.cameraBtn.disabled, false);
+        assert.equal(elements.cameraStatus.hidden, false);
         click();
         assert.equal(requests, 1);
         assert.equal(icon.dataset.icon, 'mic');
@@ -61,12 +71,25 @@ test('control availability gates microphone capture and hides it on disconnect',
         assert.equal(button.style.display, 'none');
         assert.equal(button.disabled, true);
         assert.equal(status.hidden, true);
+        assert.equal(elements.cameraBtn.disabled, true);
+        assert.equal(elements.cameraStatus.hidden, true);
         grant({getTracks: () => [{stop() { stopped = true; }}]});
         await Promise.resolve();
         assert.equal(stopped, true);
         enableMicrophoneButton(undefined);
         click();
         assert.equal(requests, 1);
+        enableMicrophoneButton(true);
+        cameraClick();
+        assert.equal(requests, 2);
+        assert.equal(elements.cameraIcon.dataset.icon, 'video');
+        cameraClick();
+        assert.equal(elements.cameraIcon.dataset.icon, 'video-off');
+        stopped = false;
+        grant({getTracks: () => [{stop() { stopped = true; }}]});
+        await Promise.resolve();
+        assert.equal(stopped, true);
+        enableMicrophoneButton(false);
     } finally {
         globals.forEach((name, index) => {
             if (originals[index])
@@ -84,7 +107,17 @@ function setup(getUserMedia) {
     const candidates = [];
     const statuses = [];
     const pc = {
-        addTransceiver(track, options) { assert.equal(options.direction, 'sendonly'); },
+        transceivers: [],
+        addTransceiver(track, options) {
+            assert.equal(options.direction, 'sendonly');
+            const transceiver = {sender: {track,
+                async replaceTrack(track) { this.track = track; },
+                setStreams(...streams) { this.streams = streams; },
+            }, direction: options.direction};
+            this.transceivers.push(transceiver);
+            return transceiver;
+        },
+        removeTrack(sender) { sender.track = null; },
         async createOffer() { return {type: 'offer', sdp: 'microphone offer'}; },
         async setLocalDescription(offer) {
             this.localDescription = offer;
@@ -165,4 +198,163 @@ test('malformed signaling stops capture', async () => {
     await session.messages;
     assert.ok(state.track.stopped);
     assert.equal(state.client.session, null);
+});
+
+test('camera and microphone share a peer and serialize renegotiation', async () => {
+    const state = setup();
+    const camera = {kind: 'video', stop() { this.stopped = true; }};
+    const constraints = [];
+    state.client.getUserMedia = async options => {
+        constraints.push(options);
+        return options.video ? {getTracks: () => [camera]} : state.stream;
+    };
+    let peers = 0;
+    state.client.createPeer = () => { peers++; return state.pc; };
+    const answer = async () => {
+        await new Promise(resolve => setImmediate(resolve));
+        state.ws.onmessage({data: JSON.stringify({type: 'answer', sdp: 'answer'})});
+        await state.client.session.messages;
+    };
+    try {
+        await state.client.start('video');
+        await state.ws.onopen();
+        await state.client.start('audio');
+        assert.equal(peers, 1);
+        assert.deepEqual(constraints, [
+            {audio: false, video: true},
+            {audio: {echoCancellation: true}, video: false},
+        ]);
+        assert.equal(state.sent.filter(message => message.type === 'offer').length, 1);
+        await answer();
+        assert.equal(state.sent.filter(message => message.type === 'offer').length, 2);
+        await answer();
+        state.client.stopTrack('video');
+        await Promise.resolve();
+        await Promise.resolve();
+        assert.ok(camera.stopped);
+        assert.equal(state.track.stopped, false);
+        assert.ok(!state.pc.closed && !state.ws.closed);
+        assert.ok(state.client.devices.has('audio'));
+        await answer();
+        await state.client.start('video');
+        assert.equal(peers, 1);
+        await Promise.resolve();
+        await answer();
+        state.track.onended();
+        assert.ok(state.client.devices.has('video'));
+        assert.ok(!state.pc.closed);
+    } finally {
+        state.client.stop();
+    }
+    assert.ok(state.pc.closed && state.ws.closed);
+});
+
+test('repeated device restarts reuse transceivers and preserve the other capture', async () => {
+    const state = setup();
+    state.client.getUserMedia = async options => {
+        const track = {kind: options.video ? 'video' : 'audio', stop() { this.stopped = true; }};
+        return {getTracks: () => [track]};
+    };
+    const answer = async () => {
+        await new Promise(resolve => setImmediate(resolve));
+        state.ws.onmessage({data: JSON.stringify({type: 'answer', sdp: 'answer'})});
+        await state.client.session.messages;
+    };
+    try {
+        await state.client.start('audio');
+        await state.ws.onopen();
+        await answer();
+        await state.client.start('video');
+        await answer();
+        for (const kind of ['video', 'audio']) {
+            const other = kind === 'video' ? 'audio' : 'video';
+            const transceiver = state.client.devices.get(kind).transceiver;
+            const otherTrack = state.client.devices.get(other).transceiver.sender.track;
+            for (let cycle = 0; cycle < 20; cycle++) {
+                const previous = transceiver.sender.track;
+                state.client.stopTrack(kind);
+                await answer();
+                assert.ok(previous.stopped);
+                assert.equal(transceiver.sender.track, null);
+                assert.equal(transceiver.direction, 'sendonly');
+                assert.equal(state.sent.filter(message => message.type === 'offer').at(-1).capture[kind], false);
+                await state.client.start(kind);
+                await answer();
+                assert.equal(state.client.devices.get(kind).transceiver, transceiver);
+                assert.notEqual(transceiver.sender.track, previous);
+                assert.equal(transceiver.sender.streams[0], state.client.devices.get(kind).stream);
+                assert.equal(state.pc.transceivers.length, 2);
+                assert.equal(state.sent.filter(message => message.type === 'offer').at(-1).capture[kind], true);
+                assert.ok(!otherTrack.stopped && !state.pc.closed && !state.ws.closed);
+            }
+        }
+    } finally {
+        state.client.stop();
+    }
+});
+
+test('camera permission denial does not stop microphone', async () => {
+    const state = setup();
+    try {
+        await state.client.start();
+        state.client.getUserMedia = async () => { throw new Error('Permission denied'); };
+        await state.client.start('video');
+        assert.ok(state.client.devices.has('audio'));
+        assert.ok(!state.client.devices.has('video'));
+        assert.equal(state.track.stopped, false);
+        assert.ok(!state.pc.closed);
+    } finally {
+        state.client.stop();
+    }
+});
+
+test('cancelling an in-flight replacement detaches it without closing the peer', async () => {
+    const state = setup();
+    state.client.getUserMedia = async options => {
+        const track = {kind: options.video ? 'video' : 'audio', stop() { this.stopped = true; }};
+        return {getTracks: () => [track]};
+    };
+    try {
+        await state.client.start('audio');
+        await state.client.start('video');
+        const transceiver = state.client.devices.get('video').transceiver;
+        state.client.stopTrack('video');
+        await state.client.session.mediaChanges;
+        let finish;
+        transceiver.sender.replaceTrack = track => new Promise(resolve => {
+            finish = () => { transceiver.sender.track = track; resolve(); };
+        });
+        const starting = state.client.start('video');
+        await new Promise(resolve => setImmediate(resolve));
+        const track = state.client.devices.get('video').stream.getTracks()[0];
+        state.client.stopTrack('video');
+        finish();
+        await starting;
+        await state.client.session.mediaChanges;
+        assert.ok(track.stopped);
+        assert.equal(transceiver.sender.track, null);
+        assert.ok(state.client.devices.has('audio'));
+        assert.ok(!state.pc.closed);
+    } finally {
+        state.client.stop();
+    }
+});
+
+test('cancelled camera permission releases late stream without stopping microphone', async () => {
+    const state = setup();
+    let grant;
+    const camera = {kind: 'video', stop() { this.stopped = true; }};
+    try {
+        await state.client.start();
+        state.client.getUserMedia = () => new Promise(resolve => { grant = resolve; });
+        const starting = state.client.start('video');
+        state.client.stopTrack('video');
+        grant({getTracks: () => [camera]});
+        await starting;
+        assert.ok(camera.stopped);
+        assert.equal(state.track.stopped, false);
+        assert.ok(state.client.devices.has('audio'));
+    } finally {
+        state.client.stop();
+    }
 });
