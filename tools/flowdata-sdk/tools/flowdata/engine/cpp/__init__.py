@@ -22,10 +22,8 @@ _CPP_INTEGRATION_GENERATORS: tuple[CppIntegrationGenerator, ...] = (
     MesonIntegrationGenerator(),
 )
 
-
 def supported_integration_names() -> list[str]:
     return [generator.name for generator in _CPP_INTEGRATION_GENERATORS]
-
 
 def get_integration_generators(names: list[str]) -> list[CppIntegrationGenerator]:
     requested = set(names)

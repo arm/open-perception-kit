@@ -30,14 +30,13 @@ The typical model is:
 
 1. The consuming project owns a FlatBuffers schema set.
 2. The consuming project's build or CI pipeline runs the SDK generator.
-3. The generated SDK is compiled or packaged with the modules that use it.
+3. Its manifest is verified before the SDK is compiled or packaged with its consumers.
 4. Runtime components pass serialized envelope bytes.
 5. Components access known payloads through typed APIs.
 6. Components can transport custom opaque bytes through external payload APIs
-   using key handles returned by `external_key()`; bare strings and numeric ids
-   are not accepted.
+   using key handles returned by `external_key()` in every language.
 
-Unknown, changed, or malformed same-id known-domain entries are preserved when
+Unknown or undecodable known-domain entries are preserved when
 an envelope is parsed and serialized again. C++, Python, and TypeScript keep
 them private; Rust additionally exposes read-only diagnostic views. External
 payloads are explicit caller-owned key/blob entries and are never interpreted
@@ -113,9 +112,20 @@ Use a short project-specific lowercase name:
 ```
 
 The name must match `[a-z][a-z0-9_]*` and must not be a target-language
-keyword. The schema namespaces do not need to contain the SDK name.
+keyword or a Python runtime module name (including standard-library modules,
+`flatbuffers`, and `numpy`). The schema namespaces do not need to contain the SDK name.
 
 ## Choose The Release Version
+
+The consuming project that provides the schemas owns the generated SDK's version
+and the decision to bump major, minor, or patch. flowdata-sdk owns the mechanics:
+syntax validation, propagation into generated artifacts and envelope metadata,
+and advisory comparison. The generator's own version is a separate release
+identity owned by the flowdata-sdk repository.
+
+Payload-level schema version markers are separate and optional. A consuming
+project may deliberately omit them; flowdata-sdk does not require or interpret
+such fields or perform schema-level compatibility decisions on the project's behalf.
 
 Every `generate` invocation requires the same stable semantic version for one
 multi-language SDK release:
@@ -126,10 +136,12 @@ multi-language SDK release:
 
 The generator accepts `MAJOR.MINOR.PATCH` without leading zeroes. It propagates
 that value to package metadata and name-derived constants but does not choose or
-validate the release bump. Use patch releases for implementation fixes with an
-unchanged API and schema set, minor releases for compatible API additions or new
-payload types, and major releases for breaking APIs or changes to existing
-payload schemas that alter their generated payload identities.
+validate the release bump. The SDK-producing project owns its compatibility
+promise: use patch releases for compatible fixes, minor releases for compatible
+additions, and major releases for breaking APIs, wire layouts, or semantics.
+Payload ids remain stable across all SDK versions. Accepting newer producers
+with older readers requires compatible wire evolution within the major, not
+just backward-compatible source APIs.
 
 For `--name project_sdk`, consumers can inspect `project_sdk::PROJECT_SDK_VERSION`
 in C++ and Rust, `project_sdk.PROJECT_SDK_VERSION` in Python,
@@ -188,6 +200,10 @@ python3 path/to/tools/flowdata/gen.py generate \
 Use `--flatc /path/to/flatc` when the build environment needs an explicit
 FlatBuffers compiler path.
 
+Each generation replaces the selected language SDK root. Include every needed
+integration/bridge flag on the C++ invocation. Verify the pristine manifests
+before builds, imports or package tools add files under those roots.
+
 ## FlatBuffers Toolchain Contract
 
 Use a `flatc` version satisfying `>=24.3.25,<26.0.0`. The generator checks this
@@ -227,8 +243,9 @@ executable(
 )
 ```
 
-The generated C++ SDK is header-only apart from its FlatBuffers dependency.
-Consumers must compile with C++20.
+The core generated C++ SDK and the FlatBuffers runtime used here are header-only;
+no FlatBuffers library is linked by these integrations. Consumers compile with
+C++20. The optional bridge below adds a compiled source file and CPython linkage.
 
 If the C++ host embeds Python and wants Python callbacks to inspect or append to
 the live C++ envelope, generate the optional bridge:
@@ -240,12 +257,15 @@ python3 path/to/tools/flowdata/gen.py generate \
   --sdk cpp \
   --cpp-python-bridge \
   --cmake \
+  --meson \
   --schema-dir schemas \
   --generated-root generated
 ```
 
 The bridge adds generated files under `generated/cpp/python_bridge/` and is not
-header-only. CMake consumers attach it to a concrete target:
+header-only. Generate the Python SDK too and make it and `flatbuffers` importable
+by the embedded interpreter for `<sdk>.guest` scripts, including read-only ones.
+CMake consumers attach it to a concrete target:
 
 ```cmake
 include("${CMAKE_CURRENT_SOURCE_DIR}/generated/cpp/cmake/project_sdk.cmake")
@@ -264,7 +284,8 @@ The live bridge is scoped by the embedding host:
 - The host owns the `project_sdk::container::envelope`.
 - The host creates `python_bridge::scoped_envelope live(envelope)` while holding
   the Python GIL, keeps `live` alive throughout the callback, and exposes
-  `live.py_object()`.
+  `live.py_object()`. Do not take the pointer from
+  a temporary wrapper that is destroyed before the callback runs.
 - Python known reads return read-only proxy objects backed by C++ payload
   references.
 - Python known writes append new generated object-api payload values.
@@ -305,6 +326,12 @@ Read an envelope and fetch known payloads by type:
 bool consume(std::span<const std::uint8_t> packet) {
     project_sdk::container::envelope envelope(packet);
     if (!envelope.valid()) {
+        return false;
+    }
+
+    using status = project_sdk::container::producer_identity_status;
+    const auto match = envelope.producer_identity();
+    if (match != status::exact_match && match != status::compatible_match) {
         return false;
     }
 
@@ -381,36 +408,93 @@ responsibility.
 
 ## Compatibility Model
 
-Known payload ids are generated from:
+Known payload ids hash only the case-sensitive, fully qualified FlatBuffers
+root name (for example `app.osd.Overlay`). The algorithm uses SHA-256 of its UTF-8
+bytes, the first eight digest bytes interpreted as an unsigned big-endian
+integer, then `value % (2**63 - 1) + 1`. File identifiers, schema contents,
+includes, paths, and SDK versions do not participate. Generation rejects id
+collisions within the schema set. Do not reuse qualified names for unrelated
+payload families.
 
-- Qualified root type.
-- Payload `file_identifier`.
-- Root schema content and transitive include content.
+Compatible table additions keep typed access working: an SDK 3.0.0 reader can
+read its existing fields from a 3.1.0 producer; a 3.1.0 reader sees defaults for
+new fields in a 3.0.0 packet. Append optional/defaulted fields without moving
+existing field slots, and preserve existing defaults, meanings, and file
+identifiers. Apply the same discipline to included support schemas. New payload
+types unknown to an older reader remain preserve-only entries, with Rust diagnostic views.
 
-If a payload schema or included support schema changes, the id for affected
-payload roots changes. Consumers with an older SDK will no longer expose that
-payload through typed APIs, but the entry is preserved when the
-envelope is serialized again.
-
-Unchanged payloads remain readable even when other payloads in the same envelope
-changed.
+An incompatible edit also retains its id if the qualified root name is unchanged.
+Matching ids and successful decoding do not prove compatibility. The SDK publisher
+owns schema/API evolution and version assignment; applications must enforce
+acceptance policy before interpreting payloads.
 
 Every serialized envelope also records the SDK name, SDK semantic version, and
 schema-set SHA-256 of the serializer. The generated envelope API exposes these
-values and a producer-identity status with these outcomes:
+values and a producer-identity status. Evaluate the name first, then the version:
 
-- `exact_match`
-- `missing` for packets created before producer metadata was added
-- `malformed`
-- `sdk_name_mismatch`
-- `sdk_version_mismatch`
-- `schema_set_mismatch`
+| Condition | Status |
+|---|---|
+| Name missing, malformed, or different | `name_mismatch` |
+| Matching name; version missing or malformed | `version_mismatch` |
+| Matching name and full version | `exact_match` |
+| Matching name; different versions sharing a major (including zero) | `compatible_match` |
+| Otherwise | `version_mismatch` |
 
-Parsing remains permissive for every status. Applications can require
-`exact_match` when they need to confirm the precise SDK release and schema set,
-or continue using the payloads that remain compatible. When an envelope is
-serialized again, the output packet records the identity of the SDK performing
-that serialization; the live envelope's stored producer metadata is unchanged.
+Before its first serialization, a newly constructed envelope reports the local
+SDK's metadata. A packet-loaded envelope reports the metadata stored in that packet.
+
+Versions use the stable `MAJOR.MINOR.PATCH` syntax of the generated SDK's
+`--version` input.
+The same-major rule applies uniformly, including `0.x.y`: for example, a `0.1.0`
+reader classifies a `0.2.0` producer as compatible. This is the SDK's application
+policy, not a guarantee from SemVer; publishers using it must preserve wire
+compatibility within major zero too. Schema hashes are excluded from
+classification, even when missing, malformed, or different.
+An exact name/version match therefore does not imply identical schema builds;
+compare `producer_schema_set_sha256` separately when needed.
+
+Parsing and typed reads are not gated by this advisory result. An application
+whose publisher promises same-major wire compatibility can accept both exact
+and compatible matches, for example in Python:
+
+```python
+from metapoc.packet import Envelope, ProducerIdentityStatus
+
+envelope = Envelope(packet)
+if not envelope.valid():
+    raise ValueError(envelope.error())
+if envelope.producer_identity() not in (
+    ProducerIdentityStatus.EXACT_MATCH,
+    ProducerIdentityStatus.COMPATIBLE_MATCH,
+):
+    raise ValueError("unsupported producer SDK")
+```
+
+Applications can inspect the exposed producer version and local SDK version
+constant to apply stricter directional rules. When comparing order, compare
+numeric version components, not strings. Reserialized output records the SDK
+performing that serialization; the live envelope's stored producer metadata is
+unchanged. The output does not retain the first producer's identity.
+
+### Migration From Content-Derived IDs
+
+Generator 0.7.0 replaces the payload-id algorithm and the previous six-state
+producer-identity enum. The 0.6.0 release uses the old content-derived scheme;
+0.7.0 uses canonical root names and the four-state identity API.
+Regenerate producer and reader SDKs together and update applications referencing
+removed enum values. The wire envelope
+layout is unchanged, but older generated SDKs cannot recognize the new ids
+automatically; their payloads remain unknown entries rather than gaining typed
+interoperability retroactively. Coordinate release/deployment of the new SDKs.
+
+Treat adoption as a breaking release of a previously published consuming SDK:
+bump its major version (including `0` to `1`) when relying on same-major acceptance,
+and update application acceptance policies. The generator version is separate
+from the required SDK `--version`; changing the generator does not bump the SDK
+version automatically. Reusing the SDK name/version and unchanged schemas can
+report `exact_match` with a matching schema digest while legacy payload ids remain
+unrecognized. A generator upgrade alone does not make mixed legacy/new packets
+compatible.
 
 External payload key handles are deterministic hashes of user-provided string
 keys with the high bit set. Known generated ids keep the high bit clear, so
@@ -441,9 +525,9 @@ Each generated language root contains `flowdata-manifest.json`. Release tooling
 can consume it to verify the SDK name/version, generator and FlatBuffers compiler
 versions, supported compiler range, selected runtime requirements, enabled
 outputs, schema-set digest, payload identities, and every generated file hash
-before packaging. Generated-file paths are normalized POSIX paths relative to
-the manifest's SDK root, including Meson outputs, and contain no machine-specific
-absolute paths.
+before packaging. Generated artifact paths are relative to the manifest's complete
+SDK root; schema-file and payload `schema` paths are relative to `--schema-dir`.
+Neither contains machine-specific absolute paths.
 
 The current manifest has no independent format version. It also exposes
 descriptors for downstream tooling. Python SDK
@@ -468,6 +552,8 @@ a nonzero status and a specific diagnostic suitable for CI logs.
 If the consuming project adds copyright headers, reformats files, or otherwise
 decorates generated output, it must create final release hashes after that
 postprocessing; the flowdata manifest intentionally records generator output.
+The complete-root check also rejects unlisted build/install by-products such as
+`dist/`, `node_modules/` and `__pycache__/`; verify before creating them.
 
 ## Operational Boundaries
 

@@ -1,0 +1,112 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Literal packet/guest facades and typing declarations for the Python SDK."""
+
+PACKET_TEMPLATE = """
+        from .sdk import (
+            EXTERNAL_KEY_MIN,
+            Envelope,
+            ExternalKey,
+            ProducerIdentityStatus,
+            decode,
+            external_key,
+            is_external_key,
+        )
+
+        __all__ = [
+            "EXTERNAL_KEY_MIN",
+            "Envelope",
+            "ExternalKey",
+            "ProducerIdentityStatus",
+            "decode",
+            "external_key",
+            "is_external_key",
+        ]
+        """
+
+GUEST_TEMPLATE = """
+        from .sdk import EXTERNAL_KEY_MIN, ExternalKey, ProducerIdentityStatus, external_key, is_external_key
+
+        try:
+            from __BRIDGE_MODULE__ import Envelope
+        except ModuleNotFoundError as exc:
+            if exc.name != "__BRIDGE_MODULE__":
+                raise
+            raise ImportError(
+                "__SDK_NAME__.guest is available only inside a C++ host that registered "
+                "the generated __BRIDGE_MODULE__ module"
+            ) from exc
+
+        __all__ = [
+            "EXTERNAL_KEY_MIN",
+            "Envelope",
+            "ExternalKey",
+            "ProducerIdentityStatus",
+            "external_key",
+            "is_external_key",
+        ]
+        """
+
+GUEST_STUB_TEMPLATE = """
+        from typing import TypeVar, overload
+
+        from .sdk import ExternalKey, ProducerIdentityStatus, external_key, is_external_key
+
+        _PayloadT = TypeVar("_PayloadT")
+
+
+        class Envelope:
+            @property
+            def producer_sdk_name(self) -> str: ...
+
+            @property
+            def producer_sdk_version(self) -> str: ...
+
+            @property
+            def producer_schema_set_sha256(self) -> str: ...
+
+            def valid(self) -> bool: ...
+            def producer_identity(self) -> ProducerIdentityStatus: ...
+
+            @overload
+            def count(self, selector: type[_PayloadT]) -> int: ...
+            @overload
+            def count(self, selector: ExternalKey) -> int: ...
+
+            @overload
+            def contains(self, selector: type[_PayloadT]) -> bool: ...
+            @overload
+            def contains(self, selector: ExternalKey) -> bool: ...
+
+            @overload
+            def get(self, selector: type[_PayloadT], index: int = 0) -> _PayloadT | None: ...
+            @overload
+            def get(self, selector: ExternalKey, index: int = 0) -> bytes | None: ...
+
+            @overload
+            def for_each(self, selector: type[_PayloadT]) -> list[_PayloadT]: ...
+            @overload
+            def for_each(self, selector: ExternalKey) -> list[bytes]: ...
+
+            @overload
+            def add(self, value: _PayloadT) -> None: ...
+            @overload
+            def add(
+                self,
+                value: ExternalKey,
+                blob: bytes | bytearray | memoryview,
+            ) -> None: ...
+        """
