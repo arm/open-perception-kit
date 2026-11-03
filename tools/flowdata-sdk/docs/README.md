@@ -76,5 +76,5 @@ checkout, not just the generator sources and documentation.
 In another project, the same API shape applies, but the generated namespaces,
 classes, and imports follow that project's FlatBuffers schemas.
 
-For agent handoff and repository operating rules, read [AGENTS.md](../AGENTS.md)
+For agent handoff and repository operating rules, read [AGENTS.md](../../../AGENTS.md)
 before making broad generator, API, or integration changes.

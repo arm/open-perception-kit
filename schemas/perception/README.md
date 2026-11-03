@@ -62,17 +62,26 @@ Compatibility has distinct layers:
    definitions can interpret the same payload bytes.
 2. **Generated payload identity** determines whether an SDK recognizes a blob
    as a known typed payload. The FlowData generator derives the numeric payload
-   ID from the qualified root type, four-character file identifier, and the
-   content of the root schema and all its dependencies. Any relevant schema
-   change therefore produces a new numeric payload ID.
+   ID solely from the canonical fully qualified root name. Schema contents,
+   includes, file locations, and SDK versions do not change that ID. Renaming
+   a root changes its identity; retyping fields without renaming it does not.
 3. **SDK API compatibility** covers generated C++, Python, Rust, and TypeScript names, fields,
    types, build requirements, and runtime semantics.
 
-An additive FlatBuffers change may be wire-compatible while still producing a
-new generated payload ID and generated API. An older SDK can retain an unknown
-payload blob in a serialized envelope, but it cannot access that revision
-through its generated typed API. Consumers that need typed access must update
-to an SDK generated from the new schema set.
+Compatible additions retain typed access to existing fields. Stable IDs do not
+make incompatible edits safe: readers must check SDK identity before interpreting
+payloads. OPK accepts `exact_match` and `compatible_match` (same SDK name and major
+version), and rejects `name_mismatch` and `version_mismatch`. Schema digests are
+diagnostic only, not compatibility gates. The generator applies the same-major
+rule even to major zero; OPK publishers must honor the compatibility promise.
+
+SDK 1.0 adopts FlowData v0.7.1's name-derived IDs and requires coordinated producer
+and reader upgrades. Earlier content-derived IDs are not supported through typed
+access. No legacy aliases or packet conversion are provided.
+
+Unknown payload entries can be preserved when forwarding. This is different from
+preserving unknown fields inside a recognized payload: older C++ and Rust readers
+can lose those fields when decoding and repacking known types.
 
 The generation manifest records the complete schema-set SHA-256, every payload
 identity, the SDK version, the generator version, the exact FlatBuffers
@@ -81,6 +90,13 @@ and does not regenerate the SDK.
 
 ## Versioning Policy
 
+The unreleased 1.0 refactor uses packet version `1.0.0` and development packages
+(`1.0.0.dev0` for Python, `1.0.0-dev.0` for Rust and npm). Its intermediate
+snapshots are rebuilt and used together; they do not promise interoperability
+with one another. Complete the refactor before publishing stable 1.0 packages.
+The release rules below apply when evolving a published contract, not between
+subtasks of that unreleased refactor.
+
 SDK packages use the OPK product version from `development/meson.build`. Apply
 the schema compatibility impact to that release version:
 
@@ -88,8 +104,8 @@ the schema compatibility impact to that release version:
   including removed or renamed public fields, changed field types, changed
   meanings, or removed payload roots.
 - Increment **MINOR** for backward-compatible additions, including a new payload
-  root or an optional field appended to an existing table. Consumers still need
-  the new SDK version for typed access to the new payload identity.
+  root or an optional field appended to an existing table. Existing root IDs stay
+  stable; readers need a new SDK to access newly introduced types or fields.
 - Increment **PATCH** for compatible generator, packaging, documentation, or
   implementation fixes that do not change the public schema contract. If a
   generator update changes the public generated API, version according to that
@@ -135,9 +151,9 @@ Apply these rules to published tables, enums, unions, and structs:
   fixed inline layout.
 - Prefer tables for data expected to evolve.
 
-Shared definitions in `common.fbs` affect every root that includes them. A
-change there can change several generated payload IDs and public APIs, so review
-and test it as a schema-set-wide change.
+Shared definitions in `common.fbs` affect every root that includes them. Their
+IDs remain stable, but public APIs and semantics may change, so review and test
+shared edits as schema-set-wide changes.
 
 `LayerInfo.producer`, when present, identifies the concrete runtime producer.
 Its instance ID is unique within the running pipeline, its component is the
@@ -211,9 +227,8 @@ Before editing a published schema:
    to establish the current compatibility baseline.
 3. Identify all roots that include the changed file. Changes to `common.fbs`
    have wider impact than changes local to one root.
-4. Decide whether consumers can upgrade together. The content-derived payload
-   ID means mixed SDK versions do not provide typed access to both revisions
-   automatically.
+4. Decide whether the edit honors the published same-major contract. A stable
+   payload ID or successful decoding alone does not prove semantic compatibility.
 5. Prefer appending an optional table field for an additive change.
 6. For an incompatible or meaning-changing redesign, consider a new root and
    file identifier so both contracts can coexist during migration.
