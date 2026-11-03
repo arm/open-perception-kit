@@ -29,7 +29,7 @@ Sources were imported from the [v0.7.1 generator release](https://github.com/Arm
 - Source commit: `3ed972470e9341cd0eec8800ec99c78960f6a628`
 
 Generator sources and consumer documentation match the release, apart from OPK
-licence headers. This README is OPK-owned; upstream demos and release tooling
+licence headers and repository formatting. This README is OPK-owned; upstream demos and release tooling
 are not vendored. Keep generator updates separate from OPK payload redesigns.
 
 No separate checkout, credentials, or generator download is required. Source

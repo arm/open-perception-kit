@@ -117,8 +117,8 @@ def _entrypoint_module_path(entry: SchemaEntry) -> str:
 
 def _registry_text(entries: list[SchemaEntry]) -> str:
     import_lines: list[str] = [
-      TS_GENERATED_BANNER.rstrip(),
-      "import { ByteBuffer } from 'flatbuffers';",
+        TS_GENERATED_BANNER.rstrip(),
+        "import { ByteBuffer } from 'flatbuffers';",
     ]
     factory_lines: list[str] = []
     types_map_lines: list[str] = ["export const _TYPE_REGISTRY = new Map<bigint, TypeInfo>(["]
@@ -131,20 +131,20 @@ def _registry_text(entries: list[SchemaEntry]) -> str:
         root_alias = f"{import_name}_{entry.numeric_id}"
         native_alias = f"{native_name}_{entry.numeric_id}"
         import_lines.append(
-          f"import {{ {import_name} as {root_alias}, {native_name} as {native_alias} }} "
-          f"from './fb/{module_path}.js';"
+            f"import {{ {import_name} as {root_alias}, {native_name} as {native_alias} }} "
+            f"from './fb/{module_path}.js';"
         )
 
         factory_name = f"decode_{entry.numeric_id}"
         factory_lines.append(
-          f"const {factory_name} = (blob: Uint8Array): unknown => "
-          f"{root_alias}.getRootAs{import_name}(new ByteBuffer(blob)).unpack();"
+            f"const {factory_name} = (blob: Uint8Array): unknown => "
+            f"{root_alias}.getRootAs{import_name}(new ByteBuffer(blob)).unpack();"
         )
         # verify function using bufferHasIdentifier
         verify_name = f"verify_{entry.numeric_id}"
         factory_lines.append(
-          f"const {verify_name} = (blob: Uint8Array): boolean => "
-          f"{root_alias}.bufferHasIdentifier(new ByteBuffer(blob));"
+            f"const {verify_name} = (blob: Uint8Array): boolean => "
+            f"{root_alias}.bufferHasIdentifier(new ByteBuffer(blob));"
         )
 
         types_map_lines.extend(
@@ -154,8 +154,8 @@ def _registry_text(entries: list[SchemaEntry]) -> str:
                 f"    root_type: '{entry.root_type_name}',",
                 f"    qualified_root_type: '{entry.qualified_root_type}',",
                 f"    file_identifier: '{entry.file_identifier}',",
-            f"    decode: {factory_name},",
-            f"    verify: {verify_name},",
+                f"    decode: {factory_name},",
+                f"    verify: {verify_name},",
                 "  }],",
             ]
         )
@@ -167,16 +167,16 @@ def _registry_text(entries: list[SchemaEntry]) -> str:
     return "\n".join(
         [
             *import_lines,
-        "export type PayloadClass<T = unknown> = Function & { prototype: T };",
+            "export type PayloadClass<T = unknown> = Function & { prototype: T };",
             "",
-        "export type TypeInfo = {",
-        "  name: string;",
-        "  root_type: string;",
-        "  qualified_root_type: string;",
-        "  file_identifier: string;",
-        "  decode: (blob: Uint8Array) => unknown;",
-        "  verify?: (blob: Uint8Array) => boolean;",
-        "};",
+            "export type TypeInfo = {",
+            "  name: string;",
+            "  root_type: string;",
+            "  qualified_root_type: string;",
+            "  file_identifier: string;",
+            "  decode: (blob: Uint8Array) => unknown;",
+            "  verify?: (blob: Uint8Array) => boolean;",
+            "};",
             "",
             *factory_lines,
             "",

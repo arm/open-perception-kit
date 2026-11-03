@@ -158,6 +158,8 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         default="flatc",
         help="Path to the flatc executable",
     )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sdkgen",

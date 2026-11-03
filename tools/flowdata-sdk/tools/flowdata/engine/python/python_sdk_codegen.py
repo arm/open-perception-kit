@@ -166,7 +166,8 @@ def _rewrite_schema_imports(fb_root: Path, sdk_name: str) -> None:
             if token.type == tokenize.NAME and (line, len(lines[line - 1][:column].encode("utf-8"))) in prefixes:
                 token = token._replace(string=f"{sdk_name}.fb.{token.string}")
             elif token.type == tokenize.COMMENT and token.string.startswith("# type:"):
-                token = token._replace(string=qualified_ref.sub(lambda match: f"{sdk_name}.fb.{match.group()}", token.string))
+                token = token._replace(string=qualified_ref.sub(
+                    lambda match: f"{sdk_name}.fb.{match.group()}", token.string))
             tokens.append(token)
         rewritten = tokenize.untokenize(tokens)
         if rewritten != original:

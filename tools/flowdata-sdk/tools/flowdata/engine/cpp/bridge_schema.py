@@ -220,7 +220,7 @@ def _parse_schema_file(schema_path: Path) -> list[BridgeType]:
         if close_brace < 0:
             bridge.fail(f"unterminated {token} {current_namespace}.{name} in {schema_path}")
 
-        body = text[open_brace + 1 : close_brace]
+        body = text[open_brace + 1: close_brace]
         qualified = f"{current_namespace}.{name}" if current_namespace else name
 
         if token in {"table", "struct"}:
