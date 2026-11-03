@@ -587,6 +587,14 @@ test.describe('instance masks', () => {
     await page.keyboard.press('Space');
     await expect.poll(async () => (await sample())[0][3]).toBe(0);
     await expect.poll(async () => (await sample())[2][3]).toBe(128);
+    const overlayVisible = card.getByRole('switch', {name: /^Show Instance segmentation/});
+    await overlayVisible.focus();
+    await page.keyboard.press('Space');
+    await expect.poll(sample).toEqual(clear);
+    await expect(card.locator('.overlay-class-presence').filter({hasText: /^In frame$/})).toHaveCount(2);
+    await overlayVisible.focus();
+    await page.keyboard.press('Space');
+    await expect.poll(async () => (await sample())[2][3]).toBe(128);
     await emit({classId: 500, model: 'other'});
     await expect.poll(sample).toEqual(clear);
     await emit({byte: 255});
