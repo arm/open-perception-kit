@@ -37,7 +37,7 @@ change, and define its runtime semantics before regenerating derived SDK files.
 
    ```bash
    python3 tools/perception/evaluate_schema_change.py \
-     --base origin/develop
+     --base origin/main
    ```
 
 ## Classify the Change
@@ -50,9 +50,11 @@ change, and define its runtime semantics before regenerating derived SDK files.
 - **Unclear semantics:** stop and document the compatibility decision before
   editing.
 
-Treat changes to `common.fbs` as schema-set-wide. FlowData payload IDs are
-content-derived, so even a wire-compatible schema edit creates new typed payload
-identities. Do not claim mixed-version typed compatibility without fixture tests.
+Treat changes to `common.fbs` as schema-set-wide. FlowData v0.7.1 payload IDs depend
+only on the canonical fully qualified root name, so schema edits retain identity.
+Stable IDs do not prove wire or semantic compatibility. OPK consumers accept exact
+or same-major SDK identities; publishers own that promise. SDK 1.0 intentionally
+breaks from earlier content-derived IDs without aliases or packet conversion.
 
 ## Implement Authored Inputs
 
@@ -86,7 +88,7 @@ Re-run the evaluator after editing and resolve every error:
 
 ```bash
 python3 tools/perception/evaluate_schema_change.py \
-  --base origin/develop
+  --base origin/main
 ```
 
 Run tests for the runtime behavior that produces or consumes the payload. Let

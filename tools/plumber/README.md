@@ -292,7 +292,8 @@ Plumber does not compare raw FlatBuffers bytes directly. It:
 1. validates the NDJSON wrapper
 2. base64-decodes `frame_results_packet_b64`
 3. constructs a `FrameResults` object through the generated `open_perception_kit` SDK
-4. validates the exact producer SDK name, version, and schema-set SHA-256
+4. requires the expected producer SDK name and a matching major version;
+   schema-set SHA-256 is retained for diagnostics rather than used as a gate
 5. normalizes generated payload objects into payload snapshots
 6. matches payload snapshots by generated payload type and stable `LayerInfo`
    fields
