@@ -107,10 +107,14 @@ def check_received_audio(gst, rate):
         release_pipeline(pipeline, gst)
 
 
-def check_black_video(gst):
+def check_black_video(gst, audio_linked=True):
     pipeline = make_pipeline(gst, 16000)
     try:
         source = pipeline.get_by_name("source")
+        if not audio_linked:
+            audio_output = pipeline.get_by_name("output")
+            assert source.get_static_pad("src").unlink(audio_output.get_static_pad("sink"))
+            assert pipeline.remove(audio_output)
         output = gst.ElementFactory.make("appsink", "video-output")
         output.set_property("sync", False)
         pipeline.add(output)
@@ -134,7 +138,8 @@ def check_black_video(gst):
                 if previous_pts is not None:
                     assert buffer.pts > previous_pts
                 previous_pts = buffer.pts
-            assert pipeline.get_by_name("output").emit("try-pull-sample", gst.SECOND) is not None
+            if audio_linked:
+                assert pipeline.get_by_name("output").emit("try-pull-sample", gst.SECOND) is not None
             assert pipeline.get_bus().pop_filtered(gst.MessageType.ERROR) is None
             release_pipeline(pipeline, gst)
     finally:
@@ -144,6 +149,7 @@ def check_black_video(gst):
 if __name__ == "__main__":
     gst = load_gstreamer_plugins([Path(sys.argv[1])])
     check_black_video(gst)
+    check_black_video(gst, audio_linked=False)
     for rate in (16000, 48000, 44100):
         check_silence(gst, rate)
         check_received_audio(gst, rate)

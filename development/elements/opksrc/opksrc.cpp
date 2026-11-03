@@ -202,6 +202,14 @@ static bool init_audio(GstOpkSrc *self) {
         GST_ERROR_OBJECT(self, "Failed to create audio source pad");
         return false;
     }
+    gst_pad_add_probe(
+        ghost_pad,
+        static_cast<GstPadProbeType>(GST_PAD_PROBE_TYPE_BUFFER | GST_PAD_PROBE_TYPE_BUFFER_LIST),
+        [](GstPad *const pad, GstPadProbeInfo *, gpointer) {
+            return gst_pad_is_linked(pad) ? GST_PAD_PROBE_OK : GST_PAD_PROBE_DROP;
+        },
+        nullptr,
+        nullptr);
     if (!gst_element_add_pad(GST_ELEMENT(self), ghost_pad)) {
         gst_object_unref(ghost_pad);
         GST_ERROR_OBJECT(self, "Failed to add audio source pad");

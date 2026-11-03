@@ -19,7 +19,7 @@ gi.require_version("GstSdp", "1.0")
 from gi.repository import GstSdp, GstWebRTC, Soup  # noqa: E402
 
 
-def run(gst, source, port, video_linked=True):
+def run(gst, source, port, video_linked=True, audio_linked=True):
     session = Soup.Session()
     websocket = connect(session, port)
     previous = source.get_by_name("webrtcbin")
@@ -44,7 +44,8 @@ def run(gst, source, port, video_linked=True):
             samples[kind] += 1
         return gst.PadProbeReturn.OK
 
-    pads = [source.get_static_pad("src"),
+    pads = [source.get_static_pad("src") if audio_linked else
+            source.get_by_name("audioresample").get_static_pad("src"),
             source.get_static_pad("video") if video_linked else
             source.get_by_name("video-received").get_static_pad("src")]
     probes = [pads[0].add_probe(gst.PadProbeType.BUFFER, lambda _, info: decoded("audio", info)),
@@ -143,7 +144,7 @@ def run(gst, source, port, video_linked=True):
                 before = dict(samples)
                 offer({"audio": True, "video": True})
                 wait_for_signaling(websocket, lambda: all(samples[media] > before[media] + 3
-                                                        for media in samples), "Reused capture resumed")
+                                                          for media in samples), "Reused capture resumed")
                 assert source.get_by_name("webrtcbin").emit("get-transceivers").len == 2
         replacements = []
         for transceiver, valve, selector_name, fallback_name, remaining in (
@@ -220,6 +221,14 @@ if __name__ == "__main__":
     try:
         assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
         run(gst, pipeline.get_by_name("source"), port, video_linked=False)
+        assert pipeline.get_bus().pop_filtered(gst.MessageType.ERROR) is None
+    finally:
+        cleanup_steps(lambda: release_pipeline(pipeline, gst))
+    pipeline = gst.parse_launch(
+        f"opksrc name=source ws-port={port} source.video ! queue ! fakesink sync=false")
+    try:
+        assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+        run(gst, pipeline.get_by_name("source"), port, audio_linked=False)
         assert pipeline.get_bus().pop_filtered(gst.MessageType.ERROR) is None
     finally:
         cleanup_steps(lambda: release_pipeline(pipeline, gst))

@@ -48,8 +48,17 @@ It scales camera frames to the output size and drops frames above the output rat
 slower cameras retain their cadence. The selector starts on black and selects
 camera video only after decoded frames arrive. Disabling the camera selects
 black before renegotiation, without interrupting audio. The existing `src` pad
-remains the audio output. The video pad can be left
-unlinked: video buffers are discarded without stopping the audio branch.
+remains the audio output. Either output pad can be left unlinked: buffers for
+that output are discarded without stopping the other branch.
+
+For a video-only pipeline, leave the audio pad `source.src` unlinked. Both
+generated silence and received microphone audio are safely discarded; no
+`fakesink` is needed to drain audio:
+
+```sh
+gst-launch-1.0 opksrc name=source \
+  source.video ! queue ! videoconvert ! autovideosink
+```
 
 ## Browser and signaling
 
