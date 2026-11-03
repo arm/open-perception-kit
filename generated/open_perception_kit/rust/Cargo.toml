@@ -14,7 +14,7 @@
 # limitations under the License.
 [package]
 name = "open_perception_kit"
-version = "0.1.2"
+version = "1.0.0-dev.0"
 license = "Apache-2.0"
 edition = "2021"
 description = "Generated open_perception_kit Rust SDK"

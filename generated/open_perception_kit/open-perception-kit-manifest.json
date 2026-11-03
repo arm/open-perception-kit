@@ -1,11 +1,11 @@
 {
   "artifact": {
     "name": "open-perception-kit",
-    "version": "0.1.2"
+    "version": "1.0.0"
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "44b6ee01580844463201b82adbf613e842cf2108bdb6028152ecc727372e725f"
+    "sha256": "cb4bae029c80713b673face612aec8763f9acca0c14ff5d9e7b89ccd17c5437a"
   },
   "files": [
     {
@@ -20,7 +20,7 @@
     },
     {
       "path": "cpp/cmake/open_perception_kit.cmake",
-      "sha256": "f19671e533e4d88a2a976712ba0de826f005307f02346c923d4aefaba26ea0e2",
+      "sha256": "2776667e02553ce5bff5d60a3fb5e01ea98cbbf608e62d44bea86f6d425a5ad0",
       "size": 4266
     },
     {
@@ -100,7 +100,7 @@
     },
     {
       "path": "cpp/meson/open_perception_kit/meson.build",
-      "sha256": "7e54e1fe668c5f97ede0f7c93de5793fc71da2f03ccff26ecef43de05c4f5565",
+      "sha256": "8675e8b6823630471fbf705a23c86cfa75e175da2649b12fe820b73f0d194008",
       "size": 4138
     },
     {
@@ -110,18 +110,18 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "dbbb8a5cc0a432009cc2b50474fa532b61f7915b1cacd8cfe7ddc0a7456f1d3f",
-      "size": 36444
+      "sha256": "50726e1af6d172684275f37e2e76c8f709ff4bdc7a1799ac9ac30b16e0400b32",
+      "size": 35516
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "8749485c671c538d5f0ac7005e658e01ea4eb044ed5e833afd4d68813ff0bc41",
-      "size": 297650
+      "sha256": "a3469856b97fbbc226bb1c8b479f197ae46a5d0f3ad748f7d09b71ab7f0e20bd",
+      "size": 357562
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
-      "sha256": "10ee45f5d3092aafd348ce9c510bb26f0f2740026ef80dda9a3a09a595bf0a57",
-      "size": 1596
+      "sha256": "82d564cf204fc2e33281d658e034de972f0c80e7630e27c1dbc3c84eb849f54c",
+      "size": 1556
     },
     {
       "path": "python/LICENSE",
@@ -135,12 +135,12 @@
     },
     {
       "path": "python/pyproject.toml",
-      "sha256": "778719f318476d117f36c5eba00d0953c688cb3840363749b486c48c20c58da3",
-      "size": 1260
+      "sha256": "b6a1ec86538767e944c92e2b7ac9e70357f95f67a9b7ee950f67d5f570c1a4c0",
+      "size": 1265
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "d10755556acd3db6a4f8fa26df7d4b4ca15f49aa9fc0d189eb5bebb2e15e52b4",
+      "sha256": "645cd7d3aeedfe1183ea721ef1f9fa8309749610ba5972a4b6fb34e26c775601",
       "size": 1166
     },
     {
@@ -365,18 +365,18 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "8c8441f2024f04f8650fcc01fce6c3ac415918db8ba99ccf7b3b115bf85bdb2e",
-      "size": 5910
+      "sha256": "e81040e97035d671537e5df79e3096ef277e8e661fe474f80cb0d23ddf5541f4",
+      "size": 5911
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "f8428d5a36af1b822e7322ec484d85b83b9bde55c9ffa38a8576391af2ab36fd",
-      "size": 16002
+      "sha256": "7860be5e85fa4a2afb373e1d16882296c564f0493797c9b9538c14051173a288",
+      "size": 15484
     },
     {
       "path": "rust/Cargo.toml",
-      "sha256": "9449ea756c43715df07b6474848de6d802c290729e03f10e946c0e49dcc57df2",
-      "size": 853
+      "sha256": "87d34062c3c838764efdd578b713e6a95aeb1d104d3ff3f9536fc059cfbb5d7a",
+      "size": 859
     },
     {
       "path": "rust/LICENSE",
@@ -595,18 +595,18 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "c2fc74f32f104acf8fde3181c89f252102de11f91dcd6da58e67c5118e248600",
-      "size": 53051
+      "sha256": "30ba62dfe1d5c98f359a6dddfc1c0120d6315cb6525c7800cb81a73b3c6f40a0",
+      "size": 54353
     },
     {
-      "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
-      "sha256": "67cef1b807e574f7c1a79689fd4b9ae83f3cd8b32faf78a44ff4de58914fb467",
-      "size": 993
+      "path": "rust/tests/fixtures/opk-box-detections.hex",
+      "sha256": "d659a48b4511c56b0585a131081e1fa712527e1f0b2c44107f8503d55189f372",
+      "size": 929
     },
     {
       "path": "rust/tests/opk_packet.rs",
-      "sha256": "7cf393ea7fcd674e55f7375da6eea4fc15310186a1c4b5103000e2f6b1ee0f53",
-      "size": 4865
+      "sha256": "09744d865d9e3a42ee13e3b07db94f7a8dae6a2ab1932b12169880bcf725ce36",
+      "size": 3588
     },
     {
       "path": "ts/LICENSE",
@@ -620,13 +620,13 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "f7135e83ccee3e391c6d2df343e1727aa190bf0eb3596376536cc201b6735b03",
-      "size": 2941
+      "sha256": "7848f2df2d50a9a6fe5a6ea8644731b71ec036138ca051202fadecdc24b8f9e9",
+      "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "53d24b62534999df48d2fa66b35ad63e3834c2bc2a52d22c35c82bf047eb0070",
-      "size": 14375
+      "sha256": "d0fd049a95def0e212579ddc8783655397f1d35e5792a0390933f1fad60a9da8",
+      "size": 14047
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.d.ts",
@@ -1010,12 +1010,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "f6c6af69495074e8a1bcdc976a3767ef40e5002670942087efd9d2f72e164732",
+      "sha256": "6766e9c0db44c8a1ff55a7daed00871008f250f15f398523e823d0865ea5afd6",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "1df9158a0c472886acd09181772f760d9288f29ecff592f38546f39627902d70",
+      "sha256": "e4783edceff368dee75823440006e22a9469ab38c1b38dc9baebada9e2551fdf",
       "size": 1203
     },
     {
@@ -1025,18 +1025,18 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "a0e63dc4152d2878422cabef18a47c6e5467f78d0acad23e68ba163471b51f17",
-      "size": 12577
+      "sha256": "3057d72532f5bc9485ab8d661a13130c588da034266535ffbdf63b8f1d25ddf1",
+      "size": 12588
     },
     {
       "path": "ts/package.json",
-      "sha256": "4626d53c56f41d24e35d86c6891242a0c1f5998939accbbe0b9c6a6b998c0982",
-      "size": 874
+      "sha256": "8b711342231ca5dab197e9f95cb1d65711fe2e435bf21576758dba3050abb732",
+      "size": 880
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "1d55ddabff5f6a832d2f53596e96164a0254312bc938da874f4d550277a73e96",
-      "size": 13002
+      "sha256": "edc0f4e1d12c09d6ead8e8beeb3ec08441bbe0322c2b76ecfc2ee4122c469b5e",
+      "size": 12726
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.ts",
@@ -1230,13 +1230,13 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "814c679c32ab8076f3c4dccd4c293f638f3652a5f1288e508e5b0a8c86f5d744",
+      "sha256": "0e630abcb864e0fa21767281a391a6a4dedc2fca4a6c1a24e98b9ed33c95298f",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "494fbe6a387e9c711583ac0762e4f3621a457b1e37a14abe57b5a0b75d87713b",
-      "size": 12687
+      "sha256": "5db595492008a8e7343fa47ad8bd600753be1341170f442fbf29b7506bed66d5",
+      "size": 12698
     },
     {
       "path": "ts/tsconfig.json",
@@ -1248,7 +1248,7 @@
     "flowdata_sdk": {
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.1"
+        "version": "0.7.1"
       },
       "sources": [
         {
@@ -1258,8 +1258,8 @@
         },
         {
           "path": "tools/flowdata/engine/app.py",
-          "sha256": "b63519d909bd6b0ff75a32f2cb85c0f56fe75469a560bd957918f04ac35ee698",
-          "size": 13344
+          "sha256": "601c7fcf6e44991fce21fd093fd81838bfccee788cb5908c0b89639ae62bef3c",
+          "size": 11825
         },
         {
           "path": "tools/flowdata/engine/cpp/__init__.py",
@@ -1272,29 +1272,69 @@
           "size": 1111
         },
         {
+          "path": "tools/flowdata/engine/cpp/bridge_dispatch.py",
+          "sha256": "e1293d01eebf462de415b169a651e41041b8536fa3248c8c6a1eb96170b1a262",
+          "size": 16952
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/bridge_module_template.py",
+          "sha256": "d72a89445d12a013212840899d98fd96c02941678996dc82300e06cd113d6c49",
+          "size": 7800
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/bridge_proxies.py",
+          "sha256": "083a3ba1882488b16ebb60ffe1da0fe081a5b628da0b3aaee266f668b09ea2ba",
+          "size": 9677
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/bridge_runtime_template.py",
+          "sha256": "73293be6caa13fa7e0baa8532d4392956905806f173adce7109cb5d5f567b4da",
+          "size": 12309
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/bridge_schema.py",
+          "sha256": "fc090b213de7667095aff834333f18fb48f2a2b1547b72cce7080eddf56d4079",
+          "size": 11257
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/bridge_values.py",
+          "sha256": "fddcdc1462cc10691d7f7ecc96bc49ca99a6b56912a5c830f90d1c4df4ba8e28",
+          "size": 5676
+        },
+        {
           "path": "tools/flowdata/engine/cpp/cmake.py",
-          "sha256": "c0b44ac40aac3db30be278eb9350d26a68cf61c7003ed1e8eeca2d04d1a059e6",
-          "size": 6618
+          "sha256": "cf3ec04d45678f5e2bda9079332457d64fd59536cea17dc610033ce25b38f253",
+          "size": 6461
         },
         {
           "path": "tools/flowdata/engine/cpp/cpp_sdk_codegen.py",
-          "sha256": "1695ff93b0b88e912758a451a44c8958e4eee145aa25905fdb3c313c32a6dddc",
-          "size": 31868
+          "sha256": "c71bc3b4d0272948eea92f37f8e9067e52a4f9e2d23319538d077be07b4680d5",
+          "size": 5691
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/header_template.py",
+          "sha256": "87672d8dace4b40d05e55d9d6f3b3d503cdce145d7c81ee1c3aa5c62323a7dea",
+          "size": 25187
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/identifiers.py",
+          "sha256": "ccd03876d3774996671a4d38e05072bf1ad5a0ab1f9cbeb521be6697434f0aeb",
+          "size": 1546
         },
         {
           "path": "tools/flowdata/engine/cpp/meson.py",
-          "sha256": "45d41c05eeffcfd006ea5ffe57994923c83fb135c66eceec80931e6ea29b4c07",
-          "size": 7150
+          "sha256": "7b23daae31100b29ca4151816fa9e7947b4144504c43b0ba439d287030875e84",
+          "size": 7018
         },
         {
           "path": "tools/flowdata/engine/cpp/python_bridge.py",
-          "sha256": "d8361cc70faf6c114dce7f8ecb43d353ad30478fe2cb3ad07f57bc41d4b9a3b6",
-          "size": 64080
+          "sha256": "b9a1afab20feffdea7f78f152acad3883f763444e1f3b8f5dc621e07fba5b5b8",
+          "size": 11116
         },
         {
           "path": "tools/flowdata/engine/discovery.py",
-          "sha256": "13b5dcec8fe663e276ac0217470c5c33dff469e910146c90b29f64847c244757",
-          "size": 8327
+          "sha256": "269d78817b5e01a0cec08c3859cf6b76a553b21717a51866d2f65d23c6e41f80",
+          "size": 10913
         },
         {
           "path": "tools/flowdata/engine/errors.py",
@@ -1318,8 +1358,8 @@
         },
         {
           "path": "tools/flowdata/engine/generators/cpp.py",
-          "sha256": "7d590c4b3330ff07350bda18598484df8b12541d58aab92d08945e7b2dace832",
-          "size": 2022
+          "sha256": "1bc3f9e454ab77906114fbee682562c6bad23ab8ee35a618d1214a80b710ffc8",
+          "size": 1962
         },
         {
           "path": "tools/flowdata/engine/generators/python.py",
@@ -1338,8 +1378,18 @@
         },
         {
           "path": "tools/flowdata/engine/manifest.py",
-          "sha256": "9a28c1d4d4b9c858b6f9e4bc55ae7c1fccb1ebbb66c710d0749df56f653a508d",
-          "size": 25061
+          "sha256": "e3e4569eb10eb34ea94de9fea4fc9f72e2585bb041b578e7ec16e160687ba5e3",
+          "size": 11867
+        },
+        {
+          "path": "tools/flowdata/engine/manifest_contract.py",
+          "sha256": "0573d0dd0b4f0662a92e34a6c46a87ae5905dd7a1d859f578eb36589cee4998c",
+          "size": 6600
+        },
+        {
+          "path": "tools/flowdata/engine/manifest_files.py",
+          "sha256": "ff0db525409722d22cba822656524c588b3821358f0ac8b76c79c142af90d7c8",
+          "size": 6873
         },
         {
           "path": "tools/flowdata/engine/python/__init__.py",
@@ -1347,9 +1397,19 @@
           "size": 665
         },
         {
+          "path": "tools/flowdata/engine/python/api_templates.py",
+          "sha256": "0fc860d098237f397a183d877b9d8836afa7fe309f2b624b0a427d97524016f9",
+          "size": 3607
+        },
+        {
           "path": "tools/flowdata/engine/python/python_sdk_codegen.py",
-          "sha256": "e0299d702d522213ea3b1e516aefffc97efd78be6ac7cde04c4a611d3a43c375",
-          "size": 31563
+          "sha256": "cdefdc978e44448814f08e80f4f281a605d36d2d21d4ef0790b78824cecf0368",
+          "size": 12589
+        },
+        {
+          "path": "tools/flowdata/engine/python/runtime_template.py",
+          "sha256": "ab9e58e1a342e58ccdfacaaf182822befd40b7fab8f9462108be0875a222f311",
+          "size": 18281
         },
         {
           "path": "tools/flowdata/engine/python_compat.py",
@@ -1368,18 +1428,18 @@
         },
         {
           "path": "tools/flowdata/engine/rust/rust_sdk_codegen.py",
-          "sha256": "d1e5863e5ee45fc2420a30e262dc14dc8c1c646e23b8fab79d75ed4e0285c6cc",
-          "size": 41644
+          "sha256": "586ed75df0e90181110799fa17804cee583a57e70f84d0f4cc2382b4710eedf0",
+          "size": 42446
         },
         {
           "path": "tools/flowdata/engine/schema_set.py",
-          "sha256": "cb47fd6ad453e7761adf882b1889fbec1a647df02e216bbd02b4e963561d4132",
-          "size": 7200
+          "sha256": "a7452fe1341758cdffc44170daffe1d683371445fa638cc10263940d1561ef8e",
+          "size": 2360
         },
         {
           "path": "tools/flowdata/engine/types.py",
-          "sha256": "f2b6344c5d2407242f96bf1729c416a2cfe77eb4226454e8361d7e5fed836b95",
-          "size": 2369
+          "sha256": "eab4515a157f504bbd5d4ec731e84b4bfa57333ba79c27c0748c877d8282107a",
+          "size": 2226
         },
         {
           "path": "tools/flowdata/engine/typescript/__init__.py",
@@ -1387,19 +1447,29 @@
           "size": 757
         },
         {
+          "path": "tools/flowdata/engine/typescript/runtime_template.py",
+          "sha256": "c77543eed3c34b7f2546cd5c9afbda8451ce569715f566f91ccaa8062081179e",
+          "size": 12682
+        },
+        {
           "path": "tools/flowdata/engine/typescript/ts_sdk_codegen.py",
-          "sha256": "9976e5f655923b051bca20a05e9d6dbaa5cc89f0fc67881f775d7f5a52aac436",
-          "size": 24216
+          "sha256": "c3b9a1424d343773ab85a5291785a5ca013ced58ccdbc8c5f1badb7e23867c1c",
+          "size": 11260
         },
         {
           "path": "tools/flowdata/engine/validation.py",
-          "sha256": "a7027fa8e1d24e9b028e14d019e095c7956c9c1d2718285930bd9abb0a12b204",
-          "size": 5404
+          "sha256": "e9453444e36aef14c6e5bb1f0ce758401704b8981c2d7b8a702c8f64f67a2c84",
+          "size": 5320
         },
         {
           "path": "tools/flowdata/engine/version.py",
-          "sha256": "9859241672bb330edc16909c2bb0a56db8136d480bf9a2bcd112ab75eb1b34e9",
+          "sha256": "aef2243dd9e861664ab98692a0936f4c8282f4a2f6fb908f89d406db48cf0826",
           "size": 694
+        },
+        {
+          "path": "tools/flowdata/engine/wire_schema.py",
+          "sha256": "5b0381f7df202e79fe03111ee8cbd6f0bf81aeb832aa97b44ee8c59ecf1977a6",
+          "size": 1053
         },
         {
           "path": "tools/flowdata/gen.py",
@@ -1411,8 +1481,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "fb67d508a2931532fd1c505e2b4795c000ff67f42ad888453502fa0c5f384b07",
-        "size": 48471
+        "sha256": "447b0afad10fd2d287c9d1462a9b1ea1590de3438d194965c23fba8d139f83f6",
+        "size": 47253
       },
       {
         "path": "tools/perception/release_common.py",
@@ -1423,6 +1493,11 @@
         "path": "tools/perception/sdk_config.py",
         "sha256": "8a9424ba02deb56291c36e96ae547fbf2fdd7079cf75ea2e54fc7c16c86ca33c",
         "size": 12000
+      },
+      {
+        "path": "tools/perception/tests/fixtures/write_packet.py",
+        "sha256": "8669740f15a7f5499b775eb32476483a978b57e3c576c02b9c21fb117793bd69",
+        "size": 2168
       },
       {
         "path": "tools/perception/generator-inputs/LICENSE",
@@ -1449,7 +1524,7 @@
   "postprocessing": {
     "cmake_formatter": "0.6.13",
     "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
-    "cpp_formatter": "clang-format version 23.1.5",
+    "cpp_formatter": "clang-format version 23.1.3",
     "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.15.0)",
     "rust": {
       "flatbuffers_runtime": "25.9.23",
@@ -1465,7 +1540,7 @@
   "project_files": [
     {
       "path": "development/perception/meson.build",
-      "sha256": "b92c8aa9edbc166b9c6e3acb15dae5fc8ebdb1ad103138d53067f547cb7752d7",
+      "sha256": "ee2e1bde05d82fcd465a23e5cf8aafaf3873d5f8cfd2d4e9ea0b0dd4fe743d50",
       "size": 1976
     }
   ],
@@ -1474,7 +1549,7 @@
       "files": [
         {
           "path": "cmake/open_perception_kit.cmake",
-          "sha256": "3c33e1bfec1f107acd010027bb46a64d3e766edc21b00ed0131274e308759151",
+          "sha256": "af15775f6b8ecab08708c9f6872e618b45a8941a8a4660ce0d1115354016efc7",
           "size": 3536
         },
         {
@@ -1554,7 +1629,7 @@
         },
         {
           "path": "meson/open_perception_kit/meson.build",
-          "sha256": "d3711603baf3da3adad3a585b496ad255a67b5f54b512024e14a0c2a5b695da8",
+          "sha256": "d2b4fd9a3397ca6b1ae8113b1f559328fb089b9549f07e2cc4b76e92650ccc4a",
           "size": 3479
         },
         {
@@ -1564,18 +1639,18 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "bf6e65d894927039abcf61b1f70c726a35d542e8dd3ebb00e47247ea1f4beebb",
-          "size": 35143
+          "sha256": "fe2b07a79ebaa1d8bc8b350007895c0b4ecf6d7b574e0666af55cc4d2fcaf1e2",
+          "size": 34197
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "92a4790e45ddb89581d584a64513026cc49fd0d324f01b3685eba2dbcd9cd468",
-          "size": 283629
+          "sha256": "dec1742d9702ace16fd5a18026a94024faeb874173f4a4d39c67aae8b1f2af6c",
+          "size": 339626
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
-          "sha256": "26680e311c7cf9153109f11c218896f4da8367e58c56198a460b8d2bdd4a69df",
-          "size": 908
+          "sha256": "bdc5db9188a200f6b049b0db2afa47f090cf648aa26141e87166501185ad08e3",
+          "size": 868
         }
       ],
       "flatbuffers_runtimes": [
@@ -1597,7 +1672,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.1"
+        "version": "0.7.1"
       },
       "outputs": {
         "cpp_python_bridge": true,
@@ -1610,86 +1685,85 @@
       "payloads": [
         {
           "file_identifier": "BDET",
-          "payload_id": "0x07b7ad533c81ab13",
+          "payload_id": "0x2d1395bb212c11d8",
           "qualified_root_type": "open_perception_kit.metadata.BoxDetections",
           "schema": "box_detections.fbs"
         },
         {
           "file_identifier": "CLSF",
-          "payload_id": "0x2796d0d433fc3c8f",
+          "payload_id": "0x2ed69c0344355168",
           "qualified_root_type": "open_perception_kit.metadata.Classifications",
           "schema": "classifications.fbs"
         },
         {
           "file_identifier": "FCTX",
-          "payload_id": "0x1caa0e1496cf7b3c",
+          "payload_id": "0x48cff5010255c14c",
           "qualified_root_type": "open_perception_kit.metadata.FrameContext",
           "schema": "frame_context.fbs"
         },
         {
           "file_identifier": "ISGM",
-          "payload_id": "0x2bb62b2c0f452263",
+          "payload_id": "0x69f3311ef0305cf7",
           "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
           "schema": "instance_segmentation_masks.fbs"
         },
         {
           "file_identifier": "EMBE",
-          "payload_id": "0x52e328051b81535d",
+          "payload_id": "0x54f3819754295a4b",
           "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
           "schema": "object_embeddings.fbs"
         },
         {
           "file_identifier": "TRKS",
-          "payload_id": "0x29161d450dbca0e0",
+          "payload_id": "0x49c670085f4e4541",
           "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
         },
         {
           "file_identifier": "PERF",
-          "payload_id": "0x6b8b676312d27d0c",
+          "payload_id": "0x1d8154ddd740478e",
           "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
           "schema": "performance_overlay.fbs"
         },
         {
           "file_identifier": "POSE",
-          "payload_id": "0x7e7ed10e47a038c9",
+          "payload_id": "0x491bbf7f4e218fc9",
           "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
           "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
-          "payload_id": "0x1bbd8e0aef4d628f",
+          "payload_id": "0x2b6a575fbd8e8e44",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
         },
         {
           "file_identifier": "SSGM",
-          "payload_id": "0x163d7a5eb6eef7ad",
+          "payload_id": "0x01d8af86d238d8b4",
           "qualified_root_type": "open_perception_kit.metadata.SemanticSegmentationMasks",
           "schema": "semantic_segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
-          "payload_id": "0x034e4bd9dd42b505",
+          "payload_id": "0x69ba3321ecdf68ab",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
           "schema": "track_traces.fbs"
         },
         {
           "file_identifier": "TURN",
-          "payload_id": "0x30f80740ac9cd986",
+          "payload_id": "0x63d9a55e589ccb48",
           "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
           "schema": "turn_detections.fbs"
         },
         {
           "file_identifier": "VACT",
-          "payload_id": "0x65b32f6269473218",
+          "payload_id": "0x41edc657d18736e0",
           "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
           "schema": "voice_activity_detections.fbs"
         }
       ],
       "python_bridge": {
         "header": "python_bridge/open_perception_kit_python_bridge.h",
-        "initialization_function": "open_perception_kit::python_bridge::initialize_module",
         "module_name": "open_perception_kit_bridge",
         "registration_function": "open_perception_kit::python_bridge::append_inittab",
         "requires_python": ">=3.10",
@@ -1772,19 +1846,19 @@
       "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "0.1.2"
+        "version": "1.0.0"
       }
     },
     "python": {
       "files": [
         {
           "path": "pyproject.toml",
-          "sha256": "3d057fa45fa25a49ce76297ffcb8da68e7fc64a0af08c8fe00f51a9f807e3f66",
+          "sha256": "c24b2c050bc8ba3350f063f6c54ecaae3c660833554b000a668a0b6ca6534f4e",
           "size": 488
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "1690712ea4dc0807ee2a8aa45661dd203367d3c3f4b4cddc23dbf66b48ea4181",
+          "sha256": "f8726dd9b8f461d27196527f30d68aef78bf6ab5a8093a5c438cc0356db68d73",
           "size": 506
         },
         {
@@ -2009,13 +2083,13 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "e03c3f0fd9bbf7d09b71696897b1f75b532afc8ed1ce35bba242f7778c36dbd8",
-          "size": 5249
+          "sha256": "796ad52592be0ccb62320f5c87961a145061771ccbdaa06a83555faf1d9f44bc",
+          "size": 5250
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "3ff54674d4f8d1c27f90e9e69668cd69f0f45aea3db2b92155b7783bd7e1b56c",
-          "size": 15341
+          "sha256": "31550da378492a7fd2e7206b3607f86928aa350b42e57e137649f7c06bf3ae7e",
+          "size": 14823
         }
       ],
       "flatbuffers_runtimes": [
@@ -2032,7 +2106,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.1"
+        "version": "0.7.1"
       },
       "outputs": {
         "cpp_python_bridge": false,
@@ -2042,79 +2116,79 @@
       "payloads": [
         {
           "file_identifier": "BDET",
-          "payload_id": "0x07b7ad533c81ab13",
+          "payload_id": "0x2d1395bb212c11d8",
           "qualified_root_type": "open_perception_kit.metadata.BoxDetections",
           "schema": "box_detections.fbs"
         },
         {
           "file_identifier": "CLSF",
-          "payload_id": "0x2796d0d433fc3c8f",
+          "payload_id": "0x2ed69c0344355168",
           "qualified_root_type": "open_perception_kit.metadata.Classifications",
           "schema": "classifications.fbs"
         },
         {
           "file_identifier": "FCTX",
-          "payload_id": "0x1caa0e1496cf7b3c",
+          "payload_id": "0x48cff5010255c14c",
           "qualified_root_type": "open_perception_kit.metadata.FrameContext",
           "schema": "frame_context.fbs"
         },
         {
           "file_identifier": "ISGM",
-          "payload_id": "0x2bb62b2c0f452263",
+          "payload_id": "0x69f3311ef0305cf7",
           "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
           "schema": "instance_segmentation_masks.fbs"
         },
         {
           "file_identifier": "EMBE",
-          "payload_id": "0x52e328051b81535d",
+          "payload_id": "0x54f3819754295a4b",
           "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
           "schema": "object_embeddings.fbs"
         },
         {
           "file_identifier": "TRKS",
-          "payload_id": "0x29161d450dbca0e0",
+          "payload_id": "0x49c670085f4e4541",
           "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
         },
         {
           "file_identifier": "PERF",
-          "payload_id": "0x6b8b676312d27d0c",
+          "payload_id": "0x1d8154ddd740478e",
           "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
           "schema": "performance_overlay.fbs"
         },
         {
           "file_identifier": "POSE",
-          "payload_id": "0x7e7ed10e47a038c9",
+          "payload_id": "0x491bbf7f4e218fc9",
           "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
           "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
-          "payload_id": "0x1bbd8e0aef4d628f",
+          "payload_id": "0x2b6a575fbd8e8e44",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
         },
         {
           "file_identifier": "SSGM",
-          "payload_id": "0x163d7a5eb6eef7ad",
+          "payload_id": "0x01d8af86d238d8b4",
           "qualified_root_type": "open_perception_kit.metadata.SemanticSegmentationMasks",
           "schema": "semantic_segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
-          "payload_id": "0x034e4bd9dd42b505",
+          "payload_id": "0x69ba3321ecdf68ab",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
           "schema": "track_traces.fbs"
         },
         {
           "file_identifier": "TURN",
-          "payload_id": "0x30f80740ac9cd986",
+          "payload_id": "0x63d9a55e589ccb48",
           "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
           "schema": "turn_detections.fbs"
         },
         {
           "file_identifier": "VACT",
-          "payload_id": "0x65b32f6269473218",
+          "payload_id": "0x41edc657d18736e0",
           "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
           "schema": "voice_activity_detections.fbs"
         }
@@ -2131,7 +2205,7 @@
             "src/open_perception_kit/guest.pyi"
           ]
         },
-        "version": "0.1.2",
+        "version": "1.0.0",
         "wheel_tag": "py3-none-any"
       },
       "schema_files": [
@@ -2209,14 +2283,14 @@
       "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "0.1.2"
+        "version": "1.0.0"
       }
     },
     "rust": {
       "files": [
         {
           "path": "Cargo.toml",
-          "sha256": "278cb6cd193d1704ac4d378c208e4d1c2d86b37a65c7058b2626233524ec96e7",
+          "sha256": "f7b6028c141560aa460f16d0564d35794392bdbf344836b7ec528e0d4316ce9a",
           "size": 170
         },
         {
@@ -2426,8 +2500,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "76a750d247e1045895f6857a50c1226140e746221fc7e48391fdace85596e4c5",
-          "size": 52370
+          "sha256": "ef18c2d69821f817690b7a2198b6b8e87ef210b3713baddc6db3e040b33098a5",
+          "size": 53672
         }
       ],
       "flatbuffers_runtimes": [
@@ -2444,7 +2518,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.1"
+        "version": "0.7.1"
       },
       "outputs": {
         "cpp_python_bridge": false,
@@ -2454,79 +2528,79 @@
       "payloads": [
         {
           "file_identifier": "BDET",
-          "payload_id": "0x07b7ad533c81ab13",
+          "payload_id": "0x2d1395bb212c11d8",
           "qualified_root_type": "open_perception_kit.metadata.BoxDetections",
           "schema": "box_detections.fbs"
         },
         {
           "file_identifier": "CLSF",
-          "payload_id": "0x2796d0d433fc3c8f",
+          "payload_id": "0x2ed69c0344355168",
           "qualified_root_type": "open_perception_kit.metadata.Classifications",
           "schema": "classifications.fbs"
         },
         {
           "file_identifier": "FCTX",
-          "payload_id": "0x1caa0e1496cf7b3c",
+          "payload_id": "0x48cff5010255c14c",
           "qualified_root_type": "open_perception_kit.metadata.FrameContext",
           "schema": "frame_context.fbs"
         },
         {
           "file_identifier": "ISGM",
-          "payload_id": "0x2bb62b2c0f452263",
+          "payload_id": "0x69f3311ef0305cf7",
           "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
           "schema": "instance_segmentation_masks.fbs"
         },
         {
           "file_identifier": "EMBE",
-          "payload_id": "0x52e328051b81535d",
+          "payload_id": "0x54f3819754295a4b",
           "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
           "schema": "object_embeddings.fbs"
         },
         {
           "file_identifier": "TRKS",
-          "payload_id": "0x29161d450dbca0e0",
+          "payload_id": "0x49c670085f4e4541",
           "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
         },
         {
           "file_identifier": "PERF",
-          "payload_id": "0x6b8b676312d27d0c",
+          "payload_id": "0x1d8154ddd740478e",
           "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
           "schema": "performance_overlay.fbs"
         },
         {
           "file_identifier": "POSE",
-          "payload_id": "0x7e7ed10e47a038c9",
+          "payload_id": "0x491bbf7f4e218fc9",
           "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
           "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
-          "payload_id": "0x1bbd8e0aef4d628f",
+          "payload_id": "0x2b6a575fbd8e8e44",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
         },
         {
           "file_identifier": "SSGM",
-          "payload_id": "0x163d7a5eb6eef7ad",
+          "payload_id": "0x01d8af86d238d8b4",
           "qualified_root_type": "open_perception_kit.metadata.SemanticSegmentationMasks",
           "schema": "semantic_segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
-          "payload_id": "0x034e4bd9dd42b505",
+          "payload_id": "0x69ba3321ecdf68ab",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
           "schema": "track_traces.fbs"
         },
         {
           "file_identifier": "TURN",
-          "payload_id": "0x30f80740ac9cd986",
+          "payload_id": "0x63d9a55e589ccb48",
           "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
           "schema": "turn_detections.fbs"
         },
         {
           "file_identifier": "VACT",
-          "payload_id": "0x65b32f6269473218",
+          "payload_id": "0x41edc657d18736e0",
           "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
           "schema": "voice_activity_detections.fbs"
         }
@@ -2606,20 +2680,20 @@
       "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "0.1.2"
+        "version": "1.0.0"
       }
     },
     "ts": {
       "files": [
         {
           "path": "package.json",
-          "sha256": "c99b58b641b53319c8874888ef6982e000386ffd5b7dc6485654b0314e78c4d2",
+          "sha256": "5e40161a5d343699f2d6c74524955f582d0b31ee5bf92cce2249c05e99bdf1a0",
           "size": 750
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "42fe177421ca35bbc8c098b3588527508242e8d5182f125f4ad9f58b6d871b08",
-          "size": 12321
+          "sha256": "528ad646cc33aefd7ea47cf21892b6aeed4649002df55b47803973857b46bf04",
+          "size": 12045
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/internalfb.ts",
@@ -2813,13 +2887,13 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "14d1e0a9bcc129a549bf3312840f3f4023a40a62e628d3b4fe3e79b6ed0331b8",
+          "sha256": "05e9419dffa9ecdb549a7583dbc43fa1120265fd4b989e362c5d00e4104f7dcf",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "40311ac54337afaed3005a8f3fbfe5a9dcca106c4a905a675bc126f20dfbf3c0",
-          "size": 12006
+          "sha256": "61a891fccaf8852650cf83f704d376a393a1b4bf19ab8582e62995a288b5ae6f",
+          "size": 12017
         },
         {
           "path": "tsconfig.json",
@@ -2841,7 +2915,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.1"
+        "version": "0.7.1"
       },
       "outputs": {
         "cpp_python_bridge": false,
@@ -2851,79 +2925,79 @@
       "payloads": [
         {
           "file_identifier": "BDET",
-          "payload_id": "0x07b7ad533c81ab13",
+          "payload_id": "0x2d1395bb212c11d8",
           "qualified_root_type": "open_perception_kit.metadata.BoxDetections",
           "schema": "box_detections.fbs"
         },
         {
           "file_identifier": "CLSF",
-          "payload_id": "0x2796d0d433fc3c8f",
+          "payload_id": "0x2ed69c0344355168",
           "qualified_root_type": "open_perception_kit.metadata.Classifications",
           "schema": "classifications.fbs"
         },
         {
           "file_identifier": "FCTX",
-          "payload_id": "0x1caa0e1496cf7b3c",
+          "payload_id": "0x48cff5010255c14c",
           "qualified_root_type": "open_perception_kit.metadata.FrameContext",
           "schema": "frame_context.fbs"
         },
         {
           "file_identifier": "ISGM",
-          "payload_id": "0x2bb62b2c0f452263",
+          "payload_id": "0x69f3311ef0305cf7",
           "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
           "schema": "instance_segmentation_masks.fbs"
         },
         {
           "file_identifier": "EMBE",
-          "payload_id": "0x52e328051b81535d",
+          "payload_id": "0x54f3819754295a4b",
           "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
           "schema": "object_embeddings.fbs"
         },
         {
           "file_identifier": "TRKS",
-          "payload_id": "0x29161d450dbca0e0",
+          "payload_id": "0x49c670085f4e4541",
           "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
         },
         {
           "file_identifier": "PERF",
-          "payload_id": "0x6b8b676312d27d0c",
+          "payload_id": "0x1d8154ddd740478e",
           "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
           "schema": "performance_overlay.fbs"
         },
         {
           "file_identifier": "POSE",
-          "payload_id": "0x7e7ed10e47a038c9",
+          "payload_id": "0x491bbf7f4e218fc9",
           "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
           "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
-          "payload_id": "0x1bbd8e0aef4d628f",
+          "payload_id": "0x2b6a575fbd8e8e44",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
         },
         {
           "file_identifier": "SSGM",
-          "payload_id": "0x163d7a5eb6eef7ad",
+          "payload_id": "0x01d8af86d238d8b4",
           "qualified_root_type": "open_perception_kit.metadata.SemanticSegmentationMasks",
           "schema": "semantic_segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
-          "payload_id": "0x034e4bd9dd42b505",
+          "payload_id": "0x69ba3321ecdf68ab",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
           "schema": "track_traces.fbs"
         },
         {
           "file_identifier": "TURN",
-          "payload_id": "0x30f80740ac9cd986",
+          "payload_id": "0x63d9a55e589ccb48",
           "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
           "schema": "turn_detections.fbs"
         },
         {
           "file_identifier": "VACT",
-          "payload_id": "0x65b32f6269473218",
+          "payload_id": "0x41edc657d18736e0",
           "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
           "schema": "voice_activity_detections.fbs"
         }
@@ -3003,7 +3077,7 @@
       "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "0.1.2"
+        "version": "1.0.0"
       }
     }
   }

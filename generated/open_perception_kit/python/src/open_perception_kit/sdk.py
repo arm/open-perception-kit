@@ -31,7 +31,7 @@ from .registry import _TYPE_REGISTRY
 
 ENVELOPE_FILE_IDENTIFIER = b"FLWD"
 SDK_NAME = "open_perception_kit"
-SDK_VERSION = "0.1.2"
+SDK_VERSION = "1.0.0"
 SCHEMA_SET_SHA256 = "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3"
 EXTERNAL_KEY_MIN = 9223372036854775808
 _EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - 1
@@ -47,19 +47,15 @@ class PayloadEntry:
 
 
 class ProducerIdentityStatus(str, Enum):
+    NAME_MISMATCH = "name_mismatch"
     EXACT_MATCH = "exact_match"
-    MISSING = "missing"
-    MALFORMED = "malformed"
-    SDK_NAME_MISMATCH = "sdk_name_mismatch"
-    SDK_VERSION_MISMATCH = "sdk_version_mismatch"
-    SCHEMA_SET_MISMATCH = "schema_set_mismatch"
+    COMPATIBLE_MATCH = "compatible_match"
+    VERSION_MISMATCH = "version_mismatch"
 
 
-_SDK_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _SEMANTIC_VERSION_RE = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$"
 )
-_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 _EXTERNAL_KEY_TOKEN = object()
@@ -211,15 +207,11 @@ def _pack_native_payload(type_id: int, value: Any) -> bytes:
 
 
 def _fb_envelope_module():
-    return importlib.import_module(
-        "open_perception_kit.internalfb.WireEnvelope"
-    )
+    return importlib.import_module("open_perception_kit.internalfb.WireEnvelope")
 
 
 def _fb_payload_module():
-    return importlib.import_module(
-        "open_perception_kit.internalfb.WirePayload"
-    )
+    return importlib.import_module("open_perception_kit.internalfb.WirePayload")
 
 
 def _copy_payload_blob(payload: Any) -> bytes:
@@ -304,25 +296,16 @@ class Envelope:
         return self._producer_schema_set_sha256
 
     def producer_identity(self) -> ProducerIdentityStatus:
-        if not (
-            self._producer_sdk_name
-            and self._producer_sdk_version
-            and self._producer_schema_set_sha256
-        ):
-            return ProducerIdentityStatus.MISSING
-        if not (
-            _SDK_NAME_RE.fullmatch(self._producer_sdk_name)
-            and _SEMANTIC_VERSION_RE.fullmatch(self._producer_sdk_version)
-            and _SHA256_RE.fullmatch(self._producer_schema_set_sha256)
-        ):
-            return ProducerIdentityStatus.MALFORMED
         if self._producer_sdk_name != SDK_NAME:
-            return ProducerIdentityStatus.SDK_NAME_MISMATCH
-        if self._producer_sdk_version != SDK_VERSION:
-            return ProducerIdentityStatus.SDK_VERSION_MISMATCH
-        if self._producer_schema_set_sha256 != SCHEMA_SET_SHA256:
-            return ProducerIdentityStatus.SCHEMA_SET_MISMATCH
-        return ProducerIdentityStatus.EXACT_MATCH
+            return ProducerIdentityStatus.NAME_MISMATCH
+        if not _SEMANTIC_VERSION_RE.fullmatch(self._producer_sdk_version):
+            return ProducerIdentityStatus.VERSION_MISMATCH
+        if self._producer_sdk_version == SDK_VERSION:
+            return ProducerIdentityStatus.EXACT_MATCH
+        major = self._producer_sdk_version.split(".", 1)[0]
+        if major == SDK_VERSION.split(".", 1)[0]:
+            return ProducerIdentityStatus.COMPATIBLE_MATCH
+        return ProducerIdentityStatus.VERSION_MISMATCH
 
     def add(self, value: Any, blob: bytes | bytearray | memoryview | None = None) -> None:
         if not self._valid:

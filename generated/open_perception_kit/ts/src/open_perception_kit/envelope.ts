@@ -38,7 +38,7 @@ type NativePayload = {
 };
 
 export const SDK_NAME = 'open_perception_kit';
-export const SDK_VERSION = '0.1.2';
+export const SDK_VERSION = '1.0.0';
 export const SCHEMA_SET_SHA256 = '80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3';
 export const EXTERNAL_KEY_MIN = BigInt('9223372036854775808');
 const EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
@@ -47,17 +47,13 @@ const EXTERNAL_HASH_PRIME = BigInt('1099511628211');
 const UINT64_MASK = BigInt('0xffffffffffffffff');
 const textEncoder = new TextEncoder();
 const externalKeyToken = Symbol('external-key');
-const SDK_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SEMANTIC_VERSION_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
-const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 export enum ProducerIdentityStatus {
+  NameMismatch = 'name_mismatch',
   ExactMatch = 'exact_match',
-  Missing = 'missing',
-  Malformed = 'malformed',
-  SdkNameMismatch = 'sdk_name_mismatch',
-  SdkVersionMismatch = 'sdk_version_mismatch',
-  SchemaSetMismatch = 'schema_set_mismatch',
+  CompatibleMatch = 'compatible_match',
+  VersionMismatch = 'version_mismatch',
 }
 
 function isExternalKeyValue(value: bigint): boolean {
@@ -213,6 +209,7 @@ export class Envelope {
 
       this.validEnvelope = true;
     } catch (error) {
+      this.payloadEntries = [];
       this.errorMessage = `invalid ${SDK_NAME} envelope: ${String(error)}`;
     }
   }
@@ -239,20 +236,16 @@ export class Envelope {
   }
 
   producerIdentity(): ProducerIdentityStatus {
-    if (!this.producerName || !this.producerVersion || !this.producerSchemaDigest) {
-      return ProducerIdentityStatus.Missing;
+    if (this.producerName !== SDK_NAME) return ProducerIdentityStatus.NameMismatch;
+    const version = SEMANTIC_VERSION_PATTERN.exec(this.producerVersion);
+    if (!version || version[0] !== this.producerVersion) {
+      return ProducerIdentityStatus.VersionMismatch;
     }
-    if (!SDK_NAME_PATTERN.test(this.producerName)
-        || !SEMANTIC_VERSION_PATTERN.test(this.producerVersion)
-        || !SHA256_PATTERN.test(this.producerSchemaDigest)) {
-      return ProducerIdentityStatus.Malformed;
+    if (this.producerVersion === SDK_VERSION) return ProducerIdentityStatus.ExactMatch;
+    if (version[1] === SDK_VERSION.split('.')[0]) {
+      return ProducerIdentityStatus.CompatibleMatch;
     }
-    if (this.producerName !== SDK_NAME) return ProducerIdentityStatus.SdkNameMismatch;
-    if (this.producerVersion !== SDK_VERSION) return ProducerIdentityStatus.SdkVersionMismatch;
-    if (this.producerSchemaDigest !== SCHEMA_SET_SHA256) {
-      return ProducerIdentityStatus.SchemaSetMismatch;
-    }
-    return ProducerIdentityStatus.ExactMatch;
+    return ProducerIdentityStatus.VersionMismatch;
   }
 
   empty(): boolean {
@@ -344,6 +337,7 @@ export class Envelope {
     }
 
     const id = resolvePayloadClass(selector);
+    if (!this.validEnvelope) return;
     for (const entry of this.payloadEntries) {
       if (entry.id !== id) continue;
       const value = this.decodePayloadEntry<T>(id, entry.blob);

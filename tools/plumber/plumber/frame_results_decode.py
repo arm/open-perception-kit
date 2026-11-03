@@ -59,7 +59,10 @@ def decode_frame_results_record(ndjson_record: Mapping[str, Any]) -> FrameResult
         )
 
     producer_identity = frame_results.producer_identity()
-    if producer_identity is not ProducerIdentityStatus.EXACT_MATCH:
+    if producer_identity not in (
+        ProducerIdentityStatus.EXACT_MATCH,
+        ProducerIdentityStatus.COMPATIBLE_MATCH,
+    ):
         raise FrameResultsDecodeError(
             "incompatible frame results producer identity: "
             f"{producer_identity.value}; "
