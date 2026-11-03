@@ -132,7 +132,8 @@ information for guest scripts without importing the live bridge.
 
 `open_perception_kit.guest` intentionally raises an import error in a normal Python
 process. It becomes available only when a C++ host registers the generated
-`open_perception_kit_bridge` module before starting Python.
+`open_perception_kit_bridge` module. A native OPK host registers it before starting
+Python; a supported Python-hosted pipeline attaches it to the existing interpreter.
 
 ## Install the TypeScript SDK
 
@@ -146,7 +147,10 @@ npm install \
 
 Import `Envelope`, `ProducerIdentityStatus`, and generated payload classes from
 the `open-perception-kit` package. Require `Envelope.valid()` and an `exact_match`
-producer identity before typed access. The package contains compiled ES modules,
+or `compatible_match` producer identity before typed access. Both require the
+expected SDK name; compatible versions share the same major. Schema digests are
+diagnostic information, not an acceptance gate. SDK 1.0 producers and consumers
+must be upgraded together from earlier SDKs. The package contains compiled ES modules,
 TypeScript declarations, and generated sources; consumers do not regenerate it.
 
 The embedded `opksink` WebUI bundles this same generated SDK with its authored

@@ -105,10 +105,12 @@ The currently generated payload roots are:
 - `TrackTraces` for tracker history points
 - `PerformanceOverlay` for displayable performance lines
 
-Each payload family is versioned and identified independently. A consumer SDK
-can preserve an unknown payload while forwarding or reserializing the envelope,
-but typed access requires an SDK generated from a schema set that knows that
-payload identity.
+Each payload family has a stable identity derived from its fully qualified root
+name. Compatible field additions preserve that identity. Consumers accept matching
+SDK names and major versions before typed interpretation; schema digests describe
+the producer's build but do not determine compatibility. Unknown payload entries
+can be forwarded without typed access. SDK 1.0 uses FlowData v0.7.1 identities;
+producers and consumers must upgrade together from the earlier ID scheme.
 
 ## Shared Metadata
 
