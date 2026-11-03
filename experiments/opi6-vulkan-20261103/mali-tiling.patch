@@ -1,0 +1,246 @@
+--- a/onnxruntime/core/providers/webgpu/ep/ep.cc
++++ b/onnxruntime/core/providers/webgpu/ep/ep.cc
+@@ -2,6 +2,11 @@
+ // Licensed under the MIT License.
+ 
+ #include "ep.h"
++
++#include <chrono>
++#include <cstdlib>
++#include <iostream>
++#include <string_view>
+ 
+ #include "allocator.h"
+ #include "factory.h"
+@@ -49,6 +54,10 @@
+   ReplayGraph = ReplayGraphImpl;
+   ReleaseCapturedGraph = ReleaseCapturedGraphImpl;
+   GetGraphCaptureNodeAssignmentPolicy = GetGraphCaptureNodeAssignmentPolicyImpl;
++  if (const char* const profile = std::getenv("ORT_WEBGPU_GPU_PROFILE")) {
++    ORT_ENFORCE(std::string_view{profile} == "1", "ORT_WEBGPU_GPU_PROFILE must be unset or 1");
++    diagnostic_profiler_ = EpImpl()->GetProfiler();
++  }
+ }
+ 
+ // OrtEp interface implementations
+@@ -234,6 +243,9 @@
+     }
+   }
+   auto* ep = static_cast<Ep*>(this_ptr);
++  if (ep->diagnostic_profiler_) {
++    ORT_THROW_IF_ERROR(ep->diagnostic_profiler_->StartProfiling(std::chrono::high_resolution_clock::now()));
++  }
+   auto status = ep->EpImpl()->OnRunStart(options);
+   if (!status.IsOK()) {
+     return Api().ort.CreateStatus(static_cast<OrtErrorCode>(status.Code()),
+@@ -252,6 +264,15 @@
+   if (!status.IsOK()) {
+     return Api().ort.CreateStatus(static_cast<OrtErrorCode>(status.Code()),
+                                   status.ErrorMessage().c_str());
++  }
++  if (ep->diagnostic_profiler_) {
++    profiling::Events events;
++    ep->diagnostic_profiler_->EndProfiling(std::chrono::high_resolution_clock::now(), events);
++    std::clog << "MALI_GPU_RUN_BEGIN\n";
++    for (const auto& event : events) {
++      std::clog << "MALI_GPU_US\t" << event.name << '\t' << event.dur << '\t'
++                << event.args.at("shapes") << '\t' << event.ts << '\n';
++    }
+   }
+   return nullptr;
+   EXCEPTION_TO_RETURNED_STATUS_END
+--- a/onnxruntime/core/providers/webgpu/ep/ep.h
++++ b/onnxruntime/core/providers/webgpu/ep/ep.h
+@@ -92,6 +92,8 @@
+   Config config_{};
+   // Copy of the device allocator's OrtMemoryInfo, created by ORT so it is safe to pass to ORT APIs.
+   Ort::MemoryInfo device_memory_info_;
++  // shortcut: sequential-session diagnostic; use the EP profiling API before concurrent profiling.
++  std::unique_ptr<profiling::EpProfiler> diagnostic_profiler_;
+ };
+ 
+ }  // namespace ep
+--- a/onnxruntime/core/providers/webgpu/math/matmul.cc
++++ b/onnxruntime/core/providers/webgpu/math/matmul.cc
+@@ -309,14 +309,13 @@
+ 
+   const bool is_vec4 = dim_inner % 4 == 0 && dim_b_outer % 4 == 0;
+ 
+-  InlinedVector<int64_t> elements_per_thread = dim_a_outer <= 8
+-                                                   ? InlinedVector<int64_t>({4, 1, 1})
+-                                                   : InlinedVector<int64_t>({4, 4, 1});
++  const auto tile = GetMaliMatMulTile(context->AdapterInfo(), is_vec4 && a->IsDataType<float>(), dim_a_outer);
++  InlinedVector<int64_t> elements_per_thread = {4, tile.output_rows_per_thread, 1};
+ 
+   const uint32_t dispatch_x = narrow<uint32_t>((dim_b_outer + MatMul::MATMUL_PACKED_WORKGROUP_SIZE_X * elements_per_thread[0] - 1) /
+                                                (MatMul::MATMUL_PACKED_WORKGROUP_SIZE_X * elements_per_thread[0]));
+-  const uint32_t dispatch_y = narrow<uint32_t>((dim_a_outer + MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Y * elements_per_thread[1] - 1) /
+-                                               (MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Y * elements_per_thread[1]));
++  const uint32_t dispatch_y = narrow<uint32_t>((dim_a_outer + tile.workgroup_rows * elements_per_thread[1] - 1) /
++                                               (tile.workgroup_rows * elements_per_thread[1]));
+   uint32_t dispatch_z = narrow<uint32_t>((static_cast<uint32_t>(batch_size) + MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z * elements_per_thread[2] - 1) /
+                                          (MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z * elements_per_thread[2]));
+ 
+@@ -369,13 +368,13 @@
+ 
+   MatMulProgram matmul_program{activation, use_bias_in_matmul, is_vec4, elements_per_thread, is_channels_last, split_dim_inner};
+   matmul_program
+-      .CacheHint(activation.CacheKey(), absl::StrJoin(elements_per_thread, "-"), std::to_string(is_vec4), components, is_channels_last, split_dim_inner)
++      .CacheHint(activation.CacheKey(), absl::StrJoin(elements_per_thread, "-"), std::to_string(is_vec4), components, is_channels_last, split_dim_inner, tile.workgroup_rows)
+       .AddInputs({{a, ProgramTensorMetadataDependency::TypeAndRank, a_shape_temp, components},
+                   {b, ProgramTensorMetadataDependency::TypeAndRank, b_shape_temp, components}})
+       .AddUniformVariables({{dim_a_outer}, {dim_b_outer}, {dim_inner}, {dispatch_x}, {dispatch_y}, {dispatch_z}, {splits_per_batch}})
+       .AddIndices(outer_dims)
+       .SetDispatchGroupSize(dispatch_x, dispatch_y, dispatch_z)
+-      .SetWorkgroupSize(MatMul::MATMUL_PACKED_WORKGROUP_SIZE_X, MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Y, MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z)
++      .SetWorkgroupSize(MatMul::MATMUL_PACKED_WORKGROUP_SIZE_X, tile.workgroup_rows, MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z)
+       .AddOutput(std::move(output));
+   // Activation uniforms must remain last because definitions and values are matched by index.
+   AppendActivationUniformsData(activation, matmul_program);
+--- a/onnxruntime/core/providers/webgpu/nn/conv.cc
++++ b/onnxruntime/core/providers/webgpu/nn/conv.cc
+@@ -298,7 +298,9 @@
+   inputs[1] = conv_kernel;
+   TensorShape transposed_kernel_shape = conv_kernel->Shape();
+   modified_input_output_shapes[1] = transposed_kernel_shape;
+-  Conv2dMMProgram conv2d_mm_program = CreateConv2dMMProgram(activation_, inputs, pads, strides, dilations, output, dim_a_outer, dim_b_outer, dim_inner, is_channels_last, modified_input_output_shapes);
++  Conv2dMMProgram conv2d_mm_program = CreateConv2dMMProgram(
++      context.AdapterInfo(), activation_, inputs, pads, strides, dilations, output,
++      dim_a_outer, dim_b_outer, dim_inner, is_channels_last, modified_input_output_shapes);
+   return context.RunProgram(conv2d_mm_program);
+ }
+ 
+--- a/onnxruntime/core/providers/webgpu/nn/conv2d_mm.cc
++++ b/onnxruntime/core/providers/webgpu/nn/conv2d_mm.cc
+@@ -168,7 +168,12 @@
+                   : MakeMatMulPackedSource(shader, elements_per_thread_, WorkgroupSizeX(), WorkgroupSizeY(), data_type, /* batch_dims = */ nullptr, /*transpose_a = */ !is_channels_last_, /* transpose_b = */ false, 1.0f, true, tile_inner_, /* split_t = */ false, 0);
+ }
+ 
+-Conv2dMMProgram CreateConv2dMMProgram(const Activation& activation, const std::vector<const Tensor*>& inputs, const std::vector<uint32_t>& pads, const std::vector<uint32_t>& strides, const std::vector<uint32_t>& dilations, Tensor* output, uint32_t dim_a_outer, uint32_t dim_b_outer, uint32_t dim_inner, bool is_channels_last, const std::vector<TensorShape>& input_output_shapes) {
++Conv2dMMProgram CreateConv2dMMProgram(
++    const wgpu::AdapterInfo& adapter_info, const Activation& activation,
++    const std::vector<const Tensor*>& inputs, const std::vector<uint32_t>& pads,
++    const std::vector<uint32_t>& strides, const std::vector<uint32_t>& dilations,
++    Tensor* output, uint32_t dim_a_outer, uint32_t dim_b_outer, uint32_t dim_inner,
++    bool is_channels_last, const std::vector<TensorShape>& input_output_shapes) {
+   const auto* input = inputs[0];
+   const auto* weight = inputs[1];
+   bool has_bias = inputs.size() > 2;
+@@ -186,8 +191,13 @@
+   // TODO: fine tune size
+   const auto dispatch_x = is_channels_last ? output_channels : output_width * output_height;
+   const auto dispatch_y = is_channels_last ? output_width * output_height : output_channels;
+-  std::vector<uint32_t> workgroup_size = {8, 8, 1};
+-  InlinedVector<int64_t> elements_per_thread = {4, static_cast<int64_t>(dim_a_outer <= 8 ? 1 : 4), 1};
++  constexpr uint32_t WorkgroupColumns = 8;
++  constexpr int64_t PackedComponents = 4;
++  const auto tile = GetMaliMatMulTile(adapter_info,
++                                      is_vec4 && in_channels % PackedComponents == 0 && input->IsDataType<float>(),
++                                      dim_a_outer);
++  const std::vector<uint32_t> workgroup_size = {WorkgroupColumns, tile.workgroup_rows, 1};
++  InlinedVector<int64_t> elements_per_thread = {PackedComponents, tile.output_rows_per_thread, 1};
+   auto integer_ceil = [](int64_t a, int64_t b) -> int64_t { return (a + b - 1) / b; };
+ 
+   const std::vector<uint32_t> dispatch = {
+@@ -221,7 +231,7 @@
+     return oss.str();
+   };
+ 
+-  program.CacheHint(activation.CacheKey(), is_channels_last, stringify({inner_element_size, static_cast<uint32_t>(is_vec4 ? 1 : 0), fit_a_outer, fit_b_outer, fit_inner, tile_a_outer, tile_b_outer, tile_inner, static_cast<uint32_t>(components)}))
++  program.CacheHint(activation.CacheKey(), is_channels_last, tile.workgroup_rows, stringify({inner_element_size, static_cast<uint32_t>(is_vec4 ? 1 : 0), fit_a_outer, fit_b_outer, fit_inner, tile_a_outer, tile_b_outer, tile_inner, static_cast<uint32_t>(components)}))
+       .AddOutput({output, ProgramTensorMetadataDependency::TypeAndRank, reduced_output_shape, components})
+       .SetDispatchGroupSize(dispatch[0], dispatch[1], dispatch[2])
+       .SetWorkgroupSize(workgroup_size[0], workgroup_size[1], workgroup_size[2])
+--- a/onnxruntime/core/providers/webgpu/nn/conv2d_mm.h
++++ b/onnxruntime/core/providers/webgpu/nn/conv2d_mm.h
+@@ -57,7 +57,12 @@
+   InlinedVector<int64_t> elements_per_thread_;
+ };
+ 
+-Conv2dMMProgram CreateConv2dMMProgram(const Activation& activation, const std::vector<const Tensor*>& inputs, const std::vector<uint32_t>& pads, const std::vector<uint32_t>& strides, const std::vector<uint32_t>& dilations, Tensor* output, uint32_t dim_a_outer, uint32_t dim_b_outer, uint32_t dim_inner, bool is_channels_last, const std::vector<TensorShape>& modified_input_output_shapes);
++Conv2dMMProgram CreateConv2dMMProgram(
++    const wgpu::AdapterInfo& adapter_info, const Activation& activation,
++    const std::vector<const Tensor*>& inputs, const std::vector<uint32_t>& pads,
++    const std::vector<uint32_t>& strides, const std::vector<uint32_t>& dilations,
++    Tensor* output, uint32_t dim_a_outer, uint32_t dim_b_outer, uint32_t dim_inner,
++    bool is_channels_last, const std::vector<TensorShape>& modified_input_output_shapes);
+ 
+ }  // namespace webgpu
+ }  // namespace onnxruntime
+--- a/onnxruntime/core/providers/webgpu/webgpu_utils.cc
++++ b/onnxruntime/core/providers/webgpu/webgpu_utils.cc
+@@ -2,11 +2,57 @@
+ // Licensed under the MIT License.
+ #include "core/providers/webgpu/webgpu_utils.h"
+ 
++#include <array>
++#include <cstdlib>
++#include <optional>
+ #include <sstream>
++#include <string_view>
++#include "core/common/logging/logging.h"
+ #include "core/providers/webgpu/shader_variable.h"
+ 
+ namespace onnxruntime {
+ namespace webgpu {
++
++MatMulTile GetMaliMatMulTile(const wgpu::AdapterInfo& adapter_info,
++                             const bool eligible, const uint32_t output_rows) {
++  constexpr uint32_t GenericWorkgroupRows = 8;
++  constexpr uint32_t SmallMatrixRows = 8;
++  constexpr int64_t GenericOutputRows = 4;
++  constexpr int64_t SmallOutputRows = 1;
++  const MatMulTile generic{GenericWorkgroupRows,
++                           output_rows <= SmallMatrixRows ? SmallOutputRows : GenericOutputRows};
++  if (!eligible || adapter_info.vendor != std::string_view{"arm"}) {
++    return generic;
++  }
++
++  // Keep the sweep opt-in until complete-model measurements select a Mali tile.
++  static const auto selected = []() -> std::optional<MatMulTile> {
++    const char* const setting = std::getenv("ORT_WEBGPU_MALI_TILE");
++    if (setting == nullptr) {
++      return std::nullopt;
++    }
++    struct Candidate {
++      std::string_view name;
++      MatMulTile tile;
++    };
++    const std::array candidates{
++        Candidate{"8x8-r1", {8, 1}}, Candidate{"8x8-r2", {8, 2}},
++        Candidate{"8x16-r1", {16, 1}}, Candidate{"8x16-r2", {16, 2}},
++        Candidate{"8x4-r2", {4, 2}}};
++    for (const auto& candidate : candidates) {
++      if (candidate.name == setting) {
++        LOGS_DEFAULT(INFO) << "Selected Mali FP32 tile " << candidate.name;
++        return candidate.tile;
++      }
++    }
++    ORT_THROW("Unknown ORT_WEBGPU_MALI_TILE: ", setting);
++  }();
++  if (!selected.has_value()) {
++    return generic;
++  }
++  return {selected->workgroup_rows,
++          output_rows <= SmallMatrixRows ? SmallOutputRows : selected->output_rows_per_thread};
++}
+ 
+ TensorShape ReduceShapeByComponents(const TensorShape& shape, int64_t components) {
+   // Reduce the last dimensions by components creating a new tensor shape.
+--- a/onnxruntime/core/providers/webgpu/webgpu_utils.h
++++ b/onnxruntime/core/providers/webgpu/webgpu_utils.h
+@@ -14,6 +14,14 @@
+ namespace webgpu {
+ 
+ class ShaderVariableHelper;
++
++struct MatMulTile {
++  uint32_t workgroup_rows;
++  int64_t output_rows_per_thread;
++};
++
++MatMulTile GetMaliMatMulTile(const wgpu::AdapterInfo& adapter_info,
++                             const bool eligible, const uint32_t output_rows);
+ 
+ template <typename T>
+ inline T CeilDiv(T numerator, T denominator) {

@@ -1,0 +1,6 @@
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-FileCopyrightText: Copyright Microsoft Corporation
+SPDX-License-Identifier: MIT
+
+This patch modifies ONNX Runtime sources licensed under MIT.
+The upstream MIT notice is retained in the source archive at licenses/onnxruntime-LICENSE.

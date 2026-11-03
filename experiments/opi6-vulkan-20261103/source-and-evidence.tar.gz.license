@@ -1,0 +1,7 @@
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-FileCopyrightText: Copyright Microsoft Corporation
+SPDX-License-Identifier: Apache-2.0 AND MIT
+
+An archival collection of OPK experiment source and measurements (Apache-2.0)
+and ONNX Runtime source excerpts (MIT). Original notices and both licences
+are preserved inside the archive. No model binaries or video are included.

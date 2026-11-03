@@ -1,0 +1,2010 @@
+{
+  "licenses/OPK-LICENSE": {
+    "bytes": 12574,
+    "sha256": "8b5f81b8f584a80bba04b9d64e701a182dfd43e608cb7fb1b4a69d86deae95f5"
+  },
+  "licenses/onnxruntime-LICENSE": {
+    "bytes": 1073,
+    "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+  },
+  "mali-tiling.patch": {
+    "bytes": 13077,
+    "sha256": "623e3d8f8b508e3c159049d710ae1c1536b517355773a680c1085c7d74d93e04"
+  },
+  "shared-harness/cross-extra.ini": {
+    "bytes": 36,
+    "sha256": "6c7939c121bdea0b0c7a64e602c5dfa2ea933bf0f70877d0ef2b63126bb0df0f"
+  },
+  "shared-harness/dmaupload.cpp": {
+    "bytes": 6864,
+    "sha256": "b1fce3eadc14bef48523aa2d56ec44da169a2d5a40823fba7cd5f94caa845006"
+  },
+  "shared-harness/perf-bridge.cpp": {
+    "bytes": 585,
+    "sha256": "0c955d22abdd67cb5cd95813ed37b9531bee667035f208d021c21c131cff78a5"
+  },
+  "webgpu-yolo26-20261103/README.md": {
+    "bytes": 7651,
+    "sha256": "650e8f213be98f760b641bbf4c29866033ab3420341a30b8a170f247ba5324fe"
+  },
+  "webgpu-yolo26-20261103/REPORT.md": {
+    "bytes": 13493,
+    "sha256": "498ab0bab380ba8154558ee0c3a5aa53c853df9e941a9334d3c52442b87834ba"
+  },
+  "webgpu-yolo26-20261103/WebGpuProvider.h": {
+    "bytes": 2743,
+    "sha256": "aac9873619631cb5d749ab8e182d26ee1d4356414c04d0904c4d6accbe5eb522"
+  },
+  "webgpu-yolo26-20261103/YoloFrames.h": {
+    "bytes": 5152,
+    "sha256": "29cfc6cbb9f1519770e45665123a31174c06134198cc1c680270ee531795d5bb"
+  },
+  "webgpu-yolo26-20261103/accuracy.json": {
+    "bytes": 4758,
+    "sha256": "a58e3f469da9f4faeffaf458623ff0494104a1e7f78fdbf249177d2b99f680c6"
+  },
+  "webgpu-yolo26-20261103/analyze.py": {
+    "bytes": 4974,
+    "sha256": "19c10b17aabd54092e3dbf872d1c225d63b78979d56618cc67c69c3a94786b5e"
+  },
+  "webgpu-yolo26-20261103/baseline-build/WebGpuProvider.h": {
+    "bytes": 1862,
+    "sha256": "b90037a7b203f976cfaf02ba71f228b69102a23894d600c69c4da5b84b273cbd"
+  },
+  "webgpu-yolo26-20261103/batch.py": {
+    "bytes": 5606,
+    "sha256": "97062ea4528fb34ceb8a9e58df54e25db554602aadaca71c7ae258c0c7d1188d"
+  },
+  "webgpu-yolo26-20261103/build-diagnostic-final.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "webgpu-yolo26-20261103/build-diagnostic.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "webgpu-yolo26-20261103/build-diagnostic.py": {
+    "bytes": 1263,
+    "sha256": "7b9c11b13273d02d7e5b3c8c99c498d31212295478c6d31dbbcc3e80be7abf12"
+  },
+  "webgpu-yolo26-20261103/build-focused.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "webgpu-yolo26-20261103/build-focused.py": {
+    "bytes": 1254,
+    "sha256": "b166f09a76f953b34c2681d197051499cf8bd2f90f6e2df31981040e6eabc0c4"
+  },
+  "webgpu-yolo26-20261103/build-module-final.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "webgpu-yolo26-20261103/build-module.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "webgpu-yolo26-20261103/build-module.py": {
+    "bytes": 1505,
+    "sha256": "f0184a02e39654c48fb971b71063c07f7322389601ee1d0ad752cc0ffd991ca3"
+  },
+  "webgpu-yolo26-20261103/build-provider-probe.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "webgpu-yolo26-20261103/build-provider-probe.py": {
+    "bytes": 1275,
+    "sha256": "0adef4eb5a711bdcc44baa48b9a3f0d4e660168125b533cf708ca75579739126"
+  },
+  "webgpu-yolo26-20261103/build-session-smoke-final.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "webgpu-yolo26-20261103/build-session-smoke.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "webgpu-yolo26-20261103/build-session-smoke.py": {
+    "bytes": 1272,
+    "sha256": "ae9e9e975044f8a286f2d85ec81b775434a8f25e424e45be7ac5362f2813caa2"
+  },
+  "webgpu-yolo26-20261103/combine-convolutions.log": {
+    "bytes": 4179,
+    "sha256": "ab783317873c0ecfee615936693be1650ebad923d79a4dca98c0eb90ce3f0a57"
+  },
+  "webgpu-yolo26-20261103/combine-convolutions.py": {
+    "bytes": 5935,
+    "sha256": "31cc8c544081ee3d40a09c8da7fc360e0eebc5391679f450757c54287d25d51c"
+  },
+  "webgpu-yolo26-20261103/combined-manifest.json": {
+    "bytes": 4179,
+    "sha256": "ab783317873c0ecfee615936693be1650ebad923d79a4dca98c0eb90ce3f0a57"
+  },
+  "webgpu-yolo26-20261103/compare.py": {
+    "bytes": 7664,
+    "sha256": "9d21aa61b1139c468ae39e1d94a4c89601512a15e3ef92d736473aacd75269e7"
+  },
+  "webgpu-yolo26-20261103/compute-subgraphs/manifest.json": {
+    "bytes": 1375,
+    "sha256": "95b9b8dc5fc3e51866207c2a668c5482b6f7adee3f160a3fd0903d1ce6eddb12"
+  },
+  "webgpu-yolo26-20261103/compute-subgraphs/yolo26n-320/model.json": {
+    "bytes": 425,
+    "sha256": "85f05263e8e240d021aea2a84af90412eac9c44d9b2d3f00318d7dab11c02186"
+  },
+  "webgpu-yolo26-20261103/compute-subgraphs/yolo26s-640/model.json": {
+    "bytes": 425,
+    "sha256": "484b6aa9ac30eef12c5b41fc86f6ceff64fcda5565123c9b2ed8b03c904c1344"
+  },
+  "webgpu-yolo26-20261103/convert-fp16.log": {
+    "bytes": 7022,
+    "sha256": "44f3244a8b22f46cbffd4448ebe4b4fa5a2df4bbed23a81ae22528cf70259957"
+  },
+  "webgpu-yolo26-20261103/convert-fp16.py": {
+    "bytes": 3905,
+    "sha256": "e3cf9b3fcb1cb5cdd7b4a3b86ce86e6170a85c86205d4359b52cf64a6f589e06"
+  },
+  "webgpu-yolo26-20261103/convolution-work.json": {
+    "bytes": 7586,
+    "sha256": "7553742ad14dc8fa52f4ec1d3af8ae19e0c54c4b3c197d33cf8b7ec4a68e115b"
+  },
+  "webgpu-yolo26-20261103/device-discovery-main.cc": {
+    "bytes": 18142,
+    "sha256": "873740b73ad5dcd58a8c996877f3fba78ddf03efa586509d28e2e42b9b6167bd"
+  },
+  "webgpu-yolo26-20261103/diagnostic-results.json": {
+    "bytes": 893,
+    "sha256": "b60128bc642f95bd74edff2b7019d7765e5c8b4a4532b2657cb7bb6c125cb706"
+  },
+  "webgpu-yolo26-20261103/diagnostic.cpp": {
+    "bytes": 13711,
+    "sha256": "b81cf55df9fdc1a83231a2a648bbf3e1a0805c71b7aaa7f47f153ef5ab7620d2"
+  },
+  "webgpu-yolo26-20261103/diagnostics.py": {
+    "bytes": 1695,
+    "sha256": "648e68557808e53f01e190a481b7f9b0307908d913ea0101d8b9b158360d0f09"
+  },
+  "webgpu-yolo26-20261103/evidence/diagnostic-yolo26n-320-fp32-bound-capture0-disabled.log": {
+    "bytes": 1541,
+    "sha256": "e392bf2d3208c817a1c754ea7970cc549a40e330b92893986e574bd5ddb23a82"
+  },
+  "webgpu-yolo26-20261103/evidence/diagnostic-yolo26n-320-fp32-bound-capture1-disabled.log": {
+    "bytes": 1308,
+    "sha256": "ceb0712b68323fc22ebdda5670e47640a2b831c312a38f8d97e03c5cf14e4d32"
+  },
+  "webgpu-yolo26-20261103/evidence/diagnostic-yolo26n-320-fp32-host-capture0-disabled.log": {
+    "bytes": 1542,
+    "sha256": "61c84de39da18b31d2c2ea0c2d8c2ef650145e13326de85928a73d1a3f9cb509"
+  },
+  "webgpu-yolo26-20261103/evidence/diagnostic-yolo26n-320-fp32-host-capture0-wgpuOnly.log": {
+    "bytes": 1541,
+    "sha256": "ed55895ef3315aa10645aca90f981f3af817dcc8c661940309611b4baaa5d23a"
+  },
+  "webgpu-yolo26-20261103/evidence/fp16-load-check-fixed.log": {
+    "bytes": 944986,
+    "sha256": "859a2ee69d02cdb70fc5b65c949e0e122c39c78019c0c4ceb7cd1db0c2a5e0dc"
+  },
+  "webgpu-yolo26-20261103/evidence/fp16-load-check.log": {
+    "bytes": 2615,
+    "sha256": "831d3708bdd693f300bd6188143514e0b2c2b12dbc655cb12070119ecfaf6ce0"
+  },
+  "webgpu-yolo26-20261103/evidence/kernel-before-tuning.log": {
+    "bytes": 71800,
+    "sha256": "bc781c253deb0abc10f4a4a5dfbf8436d281da9b348e17a4dd6108adaa8153f6"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-combined-fp32.csv": {
+    "bytes": 165360,
+    "sha256": "57dcea898d714655697fc54578adf29885253e3d8e22bddd1392480104e3345e"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-combined-fp32.drm.json": {
+    "bytes": 683,
+    "sha256": "526dd4c75ca959e31897b99dc217df038ab7fed58fc834d2192c23054f7595e9"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-combined-fp32.json": {
+    "bytes": 8289,
+    "sha256": "e26f444ef7eb7f003e4f31b19561248dfc8c9a9a500dfa580c37e3f30d4a58be"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-combined-fp32.log": {
+    "bytes": 1585,
+    "sha256": "18ae9e11e1e2006a16801dda3aa004047f45f8e6a301a6db8332f0dd65b740ef"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-combined-fp32.maps": {
+    "bytes": 171330,
+    "sha256": "243ff3b3b17984d2ee33bb802f5838cce717422bc8cb2a72e4d622645295f8a3"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-combined-fp32.ndjson": {
+    "bytes": 890453,
+    "sha256": "19825b9c20dfe63ca46ca6ddb6a21c875471fab535766fd45089272fe8225f36"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-fp16.csv": {
+    "bytes": 152433,
+    "sha256": "99785702ec856890d2b9aa37a76b2d29c54f21fa3bf6fb46598250ad71a3a6cc"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-fp16.drm.json": {
+    "bytes": 679,
+    "sha256": "469ecdb087a1f8736531eca9ed7da0cd3a464e64f7be5530a949b36c42e4f497"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-fp16.json": {
+    "bytes": 8260,
+    "sha256": "3291c2b6e363ebee822571e4f7319531d82030ae2aa2ef87cfc4d122d5b26cc7"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-fp16.log": {
+    "bytes": 1556,
+    "sha256": "e1496741f58bef4c2bab42bd69bb342db5b506b5b9e74d4bb3a560b74b760a74"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-fp16.maps": {
+    "bytes": 173014,
+    "sha256": "afc1ae5805a958b02e0c2d6fbb539c1777361e807e9b38c647e63224663b2921"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26n-320-fp16.ndjson": {
+    "bytes": 884353,
+    "sha256": "c8259fc9aebee605339fcdbd483b0576de8b65ee84e5a209348547c994fb8f99"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-combined-fp32.csv": {
+    "bytes": 165360,
+    "sha256": "13dfc068ae8f7d79cf369ade0fe3b7140e3b99bace8745d2fdddb2ce55a5ee43"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-combined-fp32.drm.json": {
+    "bytes": 683,
+    "sha256": "c279151f2c64f25b789324da1addc4b99bdcfa7fa942e932f48498000321ccf6"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-combined-fp32.json": {
+    "bytes": 8295,
+    "sha256": "4e2203ea03adcb6e1dadcbeb20e95fc08be112dd38dbb3510913278506de66dd"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-combined-fp32.log": {
+    "bytes": 1591,
+    "sha256": "bb922fbbc020991497cbdc0f05ac9525bc746a1fb26d975931fcbe48dade4c66"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-combined-fp32.maps": {
+    "bytes": 172094,
+    "sha256": "66f0d7920b865f74fdaad9e7638f87d7a157e75cc405e7ed073fc78c0561bfd2"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-combined-fp32.ndjson": {
+    "bytes": 1093381,
+    "sha256": "1138a554933b8aeadd3ff6889c9dd301a6268930bcaa941b8ed6adc2939f2077"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-fp16.csv": {
+    "bytes": 152433,
+    "sha256": "b4fc53e303f559b0971445f4b07a9480097deaa3793492418d5c276141d97524"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-fp16.drm.json": {
+    "bytes": 679,
+    "sha256": "26c370f90d8c00d935b597e7b20f2ec1117d12660b7e3d32e455cb6f720d8fb3"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-fp16.json": {
+    "bytes": 8258,
+    "sha256": "0c7a0561e8505dd0c2cb2ee99e36009d936c9b6ef1b8167fb48a32ac0d7dd07f"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-fp16.log": {
+    "bytes": 1554,
+    "sha256": "e673a505d60756cc6d589de4e38d862d82c708e7d3dd4ada04594c4114589fb1"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-fp16.maps": {
+    "bytes": 173288,
+    "sha256": "58ad3ef725328fa470289e386b4566817261546f32d6598d6e3a96def525edc6"
+  },
+  "webgpu-yolo26-20261103/evidence/optimized-yolo26s-640-fp16.ndjson": {
+    "bytes": 1089329,
+    "sha256": "54c372617b43b850e1a6174bec8aa232d38e2881c1831ddafe10db7b63735a4e"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-optimized-yolo26n-320-combined-fp32.log": {
+    "bytes": 832692,
+    "sha256": "2e2cac403802f5d08e070b425fb95925154691c923a827cb1243a64e10111fad"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-optimized-yolo26n-320-combined-fp32_2026-11-03_07-15-54_237.json": {
+    "bytes": 2793718,
+    "sha256": "97eacb0b2686fe877770f9dc7daadfbb189adb472fb01969a1b86dfdc450d6aa"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-optimized-yolo26n-320-fp16.log": {
+    "bytes": 945267,
+    "sha256": "abc4acd84e7f972f607bb617847bdcec3c2646da7832ef89c36491e2b0456fd3"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-optimized-yolo26n-320-fp16_2026-11-03_07-15-56_873.json": {
+    "bytes": 3520874,
+    "sha256": "e47414b716bfca031145c91214a11e9f6e54971b6760661ccf2ac8a5ecdff6fb"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-optimized-yolo26s-640-combined-fp32.log": {
+    "bytes": 875124,
+    "sha256": "62b8671af8fd5061b2b12ffb4249c726caf599128f8233cfa33b99829f7df8c1"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-optimized-yolo26s-640-combined-fp32_2026-11-03_07-15-59_233.json": {
+    "bytes": 2800292,
+    "sha256": "0bdeb0063e4bc4c5594544a80f78ccf69673b297240a05133d9486065cae8f65"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-optimized-yolo26s-640-fp16.log": {
+    "bytes": 987209,
+    "sha256": "319a17610a59605a248a2472a301800dda6993cd5f1f4c2f4f0fdf5c7f26cd43"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-optimized-yolo26s-640-fp16_2026-11-03_07-16-08_875.json": {
+    "bytes": 3529310,
+    "sha256": "7706934220d7cac0b6dc000f7b85d405bfa8ea3b66e912dd885fb02f0f925b03"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-320-cpu.log": {
+    "bytes": 40102,
+    "sha256": "7e2fdd378db20420f976a5218e20794d085e31a34a20141501594e795a427e0e"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-320-cpu_2026-11-03_06-18-41_069.json": {
+    "bytes": 4173983,
+    "sha256": "a784b71fb64aa589f862c70dc623688e72a9427d47b4a2fda7bcc9a4c5977c85"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-320-gpu.log": {
+    "bytes": 923197,
+    "sha256": "a4a6e1e34df45dac26df0a67691b7ffc4cfad28269c32955d01939c961156845"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-320-gpu_2026-11-03_06-18-41_643.json": {
+    "bytes": 3343813,
+    "sha256": "878c06cf96873c070230611c1279ad3e5bb1cb68bf0c4c231f0583ec716814ed"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-480-cpu.log": {
+    "bytes": 40108,
+    "sha256": "c337100afae0bd16f8e0f1a8a8be9337d091fcb55ccfd411f4fb962ca5639745"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-480-cpu_2026-11-03_06-18-44_063.json": {
+    "bytes": 4187404,
+    "sha256": "3995d97e46dcf6629e5c07823174d80139134eb5a7bff9f6a4142a4740aea7c4"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-480-gpu.log": {
+    "bytes": 944940,
+    "sha256": "b697e9f5d73352723e468c0dfd007b8a33d67a1caf8dcc70dc421f97f3ca180d"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-480-gpu_2026-11-03_06-18-44_987.json": {
+    "bytes": 3346723,
+    "sha256": "68572cfb50567afe31f227ed4e3c8fce68a46ad062220262996fde3a43227e77"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-640-cpu.log": {
+    "bytes": 40110,
+    "sha256": "28e6f7d48c009bad7ac89193437c8f5949302384bf222347948a6215db9d1074"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-640-cpu_2026-11-03_06-18-48_461.json": {
+    "bytes": 4193886,
+    "sha256": "994f81476ac8b786244f7ba1382bd975739ae414ef762dd55c80a53e71cfa6f6"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-640-gpu.log": {
+    "bytes": 966795,
+    "sha256": "c67d5e8269a8d8a5b667608470d53314be3fbf272f4a170773f12cabf6cc7dd8"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26n-640-gpu_2026-11-03_06-18-49_736.json": {
+    "bytes": 3348239,
+    "sha256": "edab57c1ce265e290189aff4665ffb4f8acc0c565746dcbf15e303d0fd468c81"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-320-cpu.log": {
+    "bytes": 38139,
+    "sha256": "b4ae0d8a23ca3d67fc01e3a8b5b2af3ad14e5f6d56b4b05a913d5a1591ae18b6"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-320-cpu_2026-11-03_06-18-54_458.json": {
+    "bytes": 4190247,
+    "sha256": "6e32896ac9e8aa84495c09d65838dc0dc497719f4d57936060d45ce7c88aa3ee"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-320-gpu.log": {
+    "bytes": 921830,
+    "sha256": "e5b850e5027e77771006743ec758d8cd23ac731a2fd22a0adda6d234213a4765"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-320-gpu_2026-11-03_06-18-55_700.json": {
+    "bytes": 3347824,
+    "sha256": "c2ce4c07b4c83cc00207c24142e5d88ea20756c5ed646284bfaa7ca781b72b5a"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-480-cpu.log": {
+    "bytes": 38147,
+    "sha256": "d0e4d59b61f34808651ea5f297f7d755eef5295ba6c4e9d1cf0dd38bc0a0847e"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-480-cpu_2026-11-03_06-18-59_427.json": {
+    "bytes": 4199378,
+    "sha256": "913088e1e8b5d43826b7d53d10c7f91ba7f5fd3099a03c5721900d0268691337"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-480-gpu.log": {
+    "bytes": 943406,
+    "sha256": "774d72fd185126cc43b98ffd99b51bb6edcb9c3130086f073719e247e210a2c3"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-480-gpu_2026-11-03_06-19-01_656.json": {
+    "bytes": 3349949,
+    "sha256": "9f7904a775bc38e273226515fc00895cb8658e16eaee04e37e5e3c822c8b961f"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-640-cpu.log": {
+    "bytes": 38154,
+    "sha256": "bf561668cbd3e973acab93d16c32fa150f410c72a838e250cb3599b256922070"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-640-cpu_2026-11-03_06-19-08_138.json": {
+    "bytes": 4207852,
+    "sha256": "dbf4a81c9538bc1ab5a93d23b0793623aa498cbe623f5f41b5f475aebc2e4f02"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-640-gpu.log": {
+    "bytes": 965972,
+    "sha256": "ec84318032cd22ffd7325aaa075e003c552d07c6c563bebe2233ecd3c7b5e32c"
+  },
+  "webgpu-yolo26-20261103/evidence/placement-yolo26s-640-gpu_2026-11-03_06-19-11_523.json": {
+    "bytes": 3351465,
+    "sha256": "53a3f1e0b27341ec0e733996cadf543c65a33785427f6fd082853d719e94a849"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-before-explicit-sync.json": {
+    "bytes": 696,
+    "sha256": "4a4b99b7ca226bc50058af1be9681034b6b16694499bb4b53f0f223866cc9df9"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-before-explicit-sync.log": {
+    "bytes": 2201,
+    "sha256": "8aa5f38561ef4c3943dc6369f7b2ab4e7c2e871548f19302d8633300525f8ab4"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-sync-yolo26n-320-compute-captured.log": {
+    "bytes": 1118,
+    "sha256": "358670c53789677365bebb47f2c1fec25959a2c19f0f37dfe9b02f2d47a2c4b1"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-sync-yolo26n-320-compute-cpu.log": {
+    "bytes": 216,
+    "sha256": "a6be13def5111a1d70fc7e4ee9a6d17e8e0876ba7408ac7ecfb11cebf4a1977a"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-sync-yolo26n-320-compute-gpu.log": {
+    "bytes": 1117,
+    "sha256": "9f07ed15802d3123a693abf04fc2582d92009374e3a412d89e0782b2ebd822ea"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-sync-yolo26n-320-full-bound.log": {
+    "bytes": 1614,
+    "sha256": "5d0ead3c27633f6689b31079537df8654c43577f10a3eeb1fc47fa0633deeb77"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-sync-yolo26s-640-compute-captured.log": {
+    "bytes": 1115,
+    "sha256": "01bcdaa209be02ab0e6e159065770a4f64991c974093918dad7747fb73caab51"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-sync-yolo26s-640-compute-cpu.log": {
+    "bytes": 213,
+    "sha256": "1f2f1da39bb2125b6718a5344c14812b28251a548cc654fbc6c792c3e84a9b58"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-sync-yolo26s-640-compute-gpu.log": {
+    "bytes": 1116,
+    "sha256": "0c03d2173a2e916a77a2b9073b889b49fa5cb84cec92ffeae7f66ab969ebfd7f"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-sync-yolo26s-640-full-bound.log": {
+    "bytes": 1617,
+    "sha256": "3d1f27a90dd7a72bdcad64cffee250a18ef12833707b801c6431481131bebbf9"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-yolo26n-320-compute-cpu.log": {
+    "bytes": 186,
+    "sha256": "cce5b4329e13a1af140be5f5e1c1aa2d24cfc63d505647b2b6de12e229510297"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-yolo26n-320-compute-gpu.log": {
+    "bytes": 1882,
+    "sha256": "27e74dbf1fe12ac7c0014e56992e787b3884b2297658ce2fd6bfe3f2c1358834"
+  },
+  "webgpu-yolo26-20261103/evidence/resident-yolo26n-320-full-bound.log": {
+    "bytes": 1586,
+    "sha256": "54827a0230cb04a11763892fda2e780f377092036a4203596c32ff85b6440e6a"
+  },
+  "webgpu-yolo26-20261103/evidence/shader-stats-system-n320.log": {
+    "bytes": 970708,
+    "sha256": "5d927534e6910c7e128dd473d4685a4271d9e0aa7074584d8389a01651f18343"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26n-320-baseline.log": {
+    "bytes": 1618,
+    "sha256": "dadaee73ec8e9566b47c816eaefcd2cee9ae2675637e1590068db5e15a7f6dd7"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26n-320-combined.log": {
+    "bytes": 1617,
+    "sha256": "0f68e9d26634f575317151a76a5935bbb885ce7492c5795d5ef96d05bd50f946"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26n-320-fp16.log": {
+    "bytes": 281,
+    "sha256": "b0971116130eb59c5a892978fc94d7ac5892b05dd28a5862c331af08f4bc02a0"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26n-320-nchw.log": {
+    "bytes": 1639,
+    "sha256": "259a045b668c597c47bcb85403510613f20a49dad12f03ab2af494781b006985"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26n-320-one-cpu-thread.log": {
+    "bytes": 1618,
+    "sha256": "2d1deb730a7a4fd78bfe603b681e9abcfaa669f9d9c3a0b44314121095b4e77a"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26n-320-submit-256.log": {
+    "bytes": 1645,
+    "sha256": "b722365cb177ecfa25436386389e3fd038be4a6b4b40a77d5682ffaf871be66e"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26n-320-system-driver.log": {
+    "bytes": 1618,
+    "sha256": "61007dbdbbc20f34563c5484384602feae0d6b9883dc0c9a1f989b81b48474d2"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26s-640-baseline.log": {
+    "bytes": 1618,
+    "sha256": "88270ccdb1e6db31c783402d42fba60f60c248487d778af68f71bb783fd315de"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26s-640-combined.log": {
+    "bytes": 1614,
+    "sha256": "82700988f1307411cc025ec86e1eecfbe1130dd081d660ea6abf82c18b6e0503"
+  },
+  "webgpu-yolo26-20261103/evidence/tune-yolo26s-640-fp16.log": {
+    "bytes": 281,
+    "sha256": "69d7c2cb34f347a30d55711918e783831ed9b4be8d15fbbfa20d12ae85256553"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-accuracy.log": {
+    "bytes": 610,
+    "sha256": "fd5c1698dffea823d23c60bd9b46bb035f054828805b7b43a723a461cd6f95d6"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-cpu-validate.csv": {
+    "bytes": 150791,
+    "sha256": "7ef46b41da8484df63c6c9ad0e0c5f1eeeb5c87dd988e60e263ff4971112db3d"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-cpu-validate.drm.json": {
+    "bytes": 3,
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-cpu-validate.json": {
+    "bytes": 8256,
+    "sha256": "9160c5ee2b021c327cc5bd4f496f4640fb178c2bcec3730498bf6276cff300d5"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-cpu-validate.log": {
+    "bytes": 1475,
+    "sha256": "128b4055c98de71b08480a3171680228852a8b29cb8090febf1c44ea2289cfc6"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-cpu-validate.maps": {
+    "bytes": 153502,
+    "sha256": "f41ad4afad19549564a11ae86e11c65ba4261e0f268995559c7be026b110c97f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-cpu-validate.ndjson": {
+    "bytes": 885601,
+    "sha256": "59473f777a57ee7a2381abf4c7f0c85400717b3f6d9efa363d714e33dec8f191"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-cpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "1879d2d18a21163032f6fa4ecdccf03490e60673b03912bdc5111705961ea30f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-cpu-r1-focused.log": {
+    "bytes": 128,
+    "sha256": "a95fe78f1312039eaa6b409f443f104f3c5e9646920f0aa09776e24b436d52d0"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-cpu-r2-focused.json": {
+    "bytes": 250,
+    "sha256": "518cf54b606c9c522e6b5834d86ade00c681fea386744b606b333a236659e4f9"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-cpu-r2-focused.log": {
+    "bytes": 127,
+    "sha256": "146025b349e4969f6358fa9140e569d8084531c5cdce05503f0a8307aa3576ab"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-cpu-r3-focused.json": {
+    "bytes": 252,
+    "sha256": "4cd81e09723d2e671d2af994c7014ce0dd82265f37ba4c873e4501af8d7ebc91"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-cpu-r3-focused.log": {
+    "bytes": 129,
+    "sha256": "a07995c68c880f4273450105533821101ba71f480d013407e9350c79588f8dee"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-gpu-r1-focused.json": {
+    "bytes": 250,
+    "sha256": "daa43bdde5b18ab2f7d1c825e15a34450384a2df78be222da92915a0c69922d5"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-gpu-r1-focused.log": {
+    "bytes": 280,
+    "sha256": "af5dda9e89bae4fe0648388073ae273355a7f4ad48d0237ea963d4424de47586"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-gpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "84dd44f8e663af02ec184bd0153def7e3e38f751ef413c93acc64f62abf56270"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-gpu-r2-focused.log": {
+    "bytes": 281,
+    "sha256": "bf34706fece453057fdca67268ddfe022073ff9caa67c1f1dbe63afb09684ea3"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-gpu-r3-focused.json": {
+    "bytes": 251,
+    "sha256": "1d59e8c0849a1332b80ef10dc989d54931c8e32849d0c443e843c7618cb0f850"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-fp32-gpu-r3-focused.log": {
+    "bytes": 281,
+    "sha256": "ec7bb27d5463c16d0552e3db8290d63530cdd05ccce996c51408094a4b773339"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-gpu-validate.csv": {
+    "bytes": 152433,
+    "sha256": "92fccafacfd69fc0ddef2dcfe028b4755ba2993424aceed10140b192ba939506"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-gpu-validate.drm.json": {
+    "bytes": 683,
+    "sha256": "9bbdfb37e04f29881ead6a92b55a3cf5293258078d0c4d21ee2096eeb42b499f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-gpu-validate.json": {
+    "bytes": 8257,
+    "sha256": "96a57fde8777e6c2732496ee415537ccf6f5c112708ab5b991b314602575c760"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-gpu-validate.log": {
+    "bytes": 1553,
+    "sha256": "89365e2b847bb23288295d0173d63d23bfc25f99691353e92c418853a638e5a8"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-gpu-validate.maps": {
+    "bytes": 172794,
+    "sha256": "9efaf3df6146e5a1eba3731ed7cb5e53e795f0b2034a03327e7846d3ab73d549"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-gpu-validate.ndjson": {
+    "bytes": 885601,
+    "sha256": "ac6148daff0ce27bc40b395de3eaec710e183fd1d873e49e9de7ac3bb28ae455"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-int8-cpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "a524aec74cf0f49e0b34982c2f54614e000cb6756e7012ca0dd231e6d74ac0f5"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-int8-cpu-r1-focused.log": {
+    "bytes": 128,
+    "sha256": "0c800af3c8afbd7544b9aeb758414c6f86d7412d7a4c3a3eb2f15cfc97f6a05e"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-int8-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "b51b60b35e03657c88a639058b6e9c3ddaad3b117140fb9ac83f2f7b27358345"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-int8-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "37d0c0aa97082bcc1e51224c393e42d32919bc39fd6396926d0bb8e9fce2bb42"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-int8-cpu-r3-focused.json": {
+    "bytes": 252,
+    "sha256": "3cb2a3a6c4b007f0d24ccbc1db03d98cc02392f5cdba1fb721071087a8df551d"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-320-int8-cpu-r3-focused.log": {
+    "bytes": 129,
+    "sha256": "01a92faf87ecd71e56591df4e74326c7ef91e78ea585b50bbd3e05a2ce29b1e5"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-accuracy.log": {
+    "bytes": 608,
+    "sha256": "5e840ddc22bae4c23720da4f5e31e045cb7bcbda598203dbf50c59e280e968ed"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-cpu-validate.csv": {
+    "bytes": 150796,
+    "sha256": "050968af2b0ccddaaa05d05f1f7514eedb9edbe3cda63e34d7bce1a7e93ccafc"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-cpu-validate.drm.json": {
+    "bytes": 3,
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-cpu-validate.json": {
+    "bytes": 8252,
+    "sha256": "7be8909b33e91ef30e929cece5530682082757ecdba30361d8ddb8b1f1af85e1"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-cpu-validate.log": {
+    "bytes": 1395,
+    "sha256": "92d6ec9980b4fc3471400b9203598c5783dbbb39aeca7a30cc071f2684fb8820"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-cpu-validate.maps": {
+    "bytes": 145566,
+    "sha256": "3541a439d0cc4e1f7d655464fc1153656da8df3550b7b544a6a87e2193a3c7b3"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-cpu-validate.ndjson": {
+    "bytes": 894597,
+    "sha256": "e6ff51b13094de48d71b11d7111f1d269a305419f3aa3db6575f5c8f0a15f7cd"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-cpu-r1-focused.json": {
+    "bytes": 252,
+    "sha256": "3a4ad63fe263c14b9960fb55b5bf76136876ab1e40e0ba1e6ffe601e5c4c96fe"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-cpu-r1-focused.log": {
+    "bytes": 129,
+    "sha256": "c1014230f145ab65e404c0168d8c25267483d796c8ec7139c82deaa3ccbf558b"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "5901c54314475d9653c20b7c9b4b26d6b568fbfa424501a2b2b7a827ae05fd07"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "f5c740a0de94bf64bbcf5ed2012f48e69564312e9534733e78552e72d77ef781"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-cpu-r3-focused.json": {
+    "bytes": 250,
+    "sha256": "bd022b891a985692105910b357e4f0c7dd24ffcd910846f985436ed3ded616f8"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-cpu-r3-focused.log": {
+    "bytes": 127,
+    "sha256": "c317a70f41328fd76f49c11d9eb9dc96dc0cb373cc521dd59948ab7e573e6562"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-gpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "674dd9312eb0702f1ec05f0983feb2e0e64f8c4a6b596c4952149264e462274f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-gpu-r1-focused.log": {
+    "bytes": 281,
+    "sha256": "d9c5fa9488aa18dd862aa07523b9cdc87669921e0ff9ab988358bb7a607f6adb"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-gpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "af6e2653c7e8565f0948848ba013ca5bc0016f1d7db93ab1446ab04aadd951ee"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-gpu-r2-focused.log": {
+    "bytes": 281,
+    "sha256": "410f8363f95855cc996cb35dbbbc2dad0784b7964961139c4356c999591d7060"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-gpu-r3-focused.json": {
+    "bytes": 251,
+    "sha256": "9d1d1f7932e70d6c370b2d3fbb9f0fc99e4ce0d47d91bcaec74c83eed48a56e6"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-fp32-gpu-r3-focused.log": {
+    "bytes": 281,
+    "sha256": "2fbb2c2cd57c064b7bbda27274204fcf43f0f29de9c70e9eaa3690f80e5eeca9"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-gpu-validate.csv": {
+    "bytes": 152433,
+    "sha256": "ef13b2d74db74038a35ed9d2373e6adf53dd048f6ceb518a45cdce58a9706820"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-gpu-validate.drm.json": {
+    "bytes": 683,
+    "sha256": "a4146547314d56e49ccddf9d4b121eeb7330e76c71932934c44d65b39f9899f8"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-gpu-validate.json": {
+    "bytes": 8254,
+    "sha256": "87585d2292c381eb0da21c336537efc77c1f4accc0e9cd6453877e7c48593a5f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-gpu-validate.log": {
+    "bytes": 1550,
+    "sha256": "d0edebae8a046cbe9ebd6f98214751ae0ba9f69e1a1349609d32668985f321d7"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-gpu-validate.maps": {
+    "bytes": 172637,
+    "sha256": "e62e55ba84a4b8fe225d0dc25f759253bc535449c3748aeddf19c037be58a1ec"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-gpu-validate.ndjson": {
+    "bytes": 894597,
+    "sha256": "7524605a519fdd4e72f0bae45a909e4941c6c26138f1646ee465aa6dc5dfb967"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-int8-cpu-r1-focused.json": {
+    "bytes": 252,
+    "sha256": "2c83e38e2895f931df72af882b99e1b15eef415c656c505b985288e6016f6cb7"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-int8-cpu-r1-focused.log": {
+    "bytes": 129,
+    "sha256": "ea452d598700529078b9886b1387ab80ec398e749ca642bd55dcc26913d4553f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-int8-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "ac208e894ff82a6615331401772beb751e2a011063d89f679b92d1b7507eaae4"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-int8-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "5c530a7daff274d4769799a99702b8e46710b6fd3cb6e51a33bc1cb934587ae1"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-int8-cpu-r3-focused.json": {
+    "bytes": 252,
+    "sha256": "51f9233b29d4f4fbf8422272f84e77523e400df0f9f9660550c27f3f5468ec58"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-480-int8-cpu-r3-focused.log": {
+    "bytes": 129,
+    "sha256": "9ed414f0a470e68859ff53d5b4720d12ea7720ed835bf58bc6d384db9cb45877"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-accuracy.log": {
+    "bytes": 450,
+    "sha256": "3d4e710ed655ab0afecbaece0e56c16fddc64d8d8a3fcf4b54a8e9cea37a9264"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-cpu-validate.csv": {
+    "bytes": 151468,
+    "sha256": "8baa5c2c8375aa5c613b6aae21ec1dbe3b266ccfcbc714ac54a9f7ef46063685"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-cpu-validate.drm.json": {
+    "bytes": 3,
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-cpu-validate.json": {
+    "bytes": 8255,
+    "sha256": "a8fb1847211ae31a00c162a5ccf0e7e4a9653ddf66d17d7278124c6b5ee5b364"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-cpu-validate.log": {
+    "bytes": 1398,
+    "sha256": "579706510f0210f752df12078f573e4868352261603b58d4e9a4b4e342b3f0bb"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-cpu-validate.maps": {
+    "bytes": 145517,
+    "sha256": "fb7b1735cfc3ec600a8dd84177a3414f0f0637c00ea786e4d5e87d4eec31bcec"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-cpu-validate.ndjson": {
+    "bytes": 897849,
+    "sha256": "a4f538a991aa6f3195d45c17a7dd728e733bff94f409ce7e143b8c05e1e4e1f9"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-cpu-r1-focused.json": {
+    "bytes": 252,
+    "sha256": "596698d159d19f61d9dd5925eb8cbbfcf667d7e9e776606eb616219d0fd6204d"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-cpu-r1-focused.log": {
+    "bytes": 129,
+    "sha256": "965fe3a37f7efe6d4d63205a26ea333f1bd668838ab26275f1bb1074322c02ae"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "640db91c62a4141042157f8e33437fdd3057c6ce1eaf5e979cef74833aa103fb"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "c6a9dea43da0c83065f0ebc988261a5e4c223e9d43aaf4cb694119c5ce2bd6e1"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-cpu-r3-focused.json": {
+    "bytes": 251,
+    "sha256": "bc4d31794afbdc8bc0f3c8616987ec176d5da269cd715c12fa4e11f62d5a4a61"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-cpu-r3-focused.log": {
+    "bytes": 128,
+    "sha256": "e1cd12848753ef0376aeb8ab984ab087f5c7ba868dad71795c7b8e301b22cbde"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-gpu-r1-focused.json": {
+    "bytes": 250,
+    "sha256": "8a24d082a809f160ed1ecb0ebcab955d31b27bfcc0f296e96414a7e4d6f35263"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-gpu-r1-focused.log": {
+    "bytes": 280,
+    "sha256": "afc78f6298b54bb335a9b88f1e66698f35944ee2ff168f2c74396720c62730dd"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-gpu-r2-focused.json": {
+    "bytes": 250,
+    "sha256": "1419491adabcdbee2432ed5fc21ec311ae320f59eb7e6cde556ae2f423194b8b"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-gpu-r2-focused.log": {
+    "bytes": 280,
+    "sha256": "50a350c20eb96afdba736359ac46e360bb6d043267ed01a95bb58576d07966e6"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-gpu-r3-focused.json": {
+    "bytes": 250,
+    "sha256": "b77529649f03e7cff454f7fc87e5ffb60a0360f04c27f8657a19f6e8d25c1866"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-fp32-gpu-r3-focused.log": {
+    "bytes": 280,
+    "sha256": "61ccb9696140dcd7fd964d963dd0880029a182ff5420dbdbbbc99cd7f169ee4d"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-gpu-validate.csv": {
+    "bytes": 152433,
+    "sha256": "2af8c0442e0b1160ef1c52c1ac088d005aaff2d8c56491edb2c6ae6f2c6d97ab"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-gpu-validate.drm.json": {
+    "bytes": 683,
+    "sha256": "fbf0e5f21283d0311267e11f26817b6f5fca147f69676606a08659d417e915d8"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-gpu-validate.json": {
+    "bytes": 8254,
+    "sha256": "6a599b8e0bd869058cd3f46f195ae07cbedcd257bd3cfe924d1bbeefbd68b377"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-gpu-validate.log": {
+    "bytes": 1550,
+    "sha256": "47063f1e7b1d57446744b9196d7eeb31d5615490d8fbb6ea9ccfd78c0265ef02"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-gpu-validate.maps": {
+    "bytes": 173195,
+    "sha256": "4dfda49bd28c6bf8b79f8c1f5edde39c80de447446767bcc2b9d6955286e561d"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-gpu-validate.ndjson": {
+    "bytes": 897849,
+    "sha256": "fdeef07eb1335ee8ce619dfbfe058ed3701ac0f6b2322845c70a822afcd3c7d2"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-int8-cpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "085c1d55ed52e9e69688b1aecd4a0e5cff2f2cde0a4bfae361f809e85fe28d55"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-int8-cpu-r1-focused.log": {
+    "bytes": 128,
+    "sha256": "019998c6591eec8b14698670350432c10fdbf5af0748caedc644e81c3309bcfc"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-int8-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "0dfa4b16f3aa51b8316ef8f5f5f9f26cff17ac661bec463f6675d2c92b4400ee"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-int8-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "e470bcadd0af2b774d0ae6fa437002aef41a1d800769b9a2b7c83db437cb519d"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-int8-cpu-r3-focused.json": {
+    "bytes": 252,
+    "sha256": "2f5bc57b770b579739b8263cd4705d4c65b47c23fa4f212309f929b9779b411c"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26n-640-int8-cpu-r3-focused.log": {
+    "bytes": 129,
+    "sha256": "8fac46f37bbe64b2a10b7437a5bd7598e9345574e174ee290ae77eb5371ad119"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-accuracy.log": {
+    "bytes": 449,
+    "sha256": "f4bb7cf4b19c54151293e2a478688e61f607eeda90421731153deff43bfd03e3"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-cpu-validate.csv": {
+    "bytes": 150815,
+    "sha256": "5dcf3f475413625317bfff24f92f06baa0d4e22ed38bfc9b16f09ff505c6c074"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-cpu-validate.drm.json": {
+    "bytes": 3,
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-cpu-validate.json": {
+    "bytes": 8250,
+    "sha256": "feb1f8723bcf4a3e6cead98f16aa3a6b35fc368f5f13c3baa6bce7884e7d2db3"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-cpu-validate.log": {
+    "bytes": 1393,
+    "sha256": "770942fc5a39d83d8b0a12afa5ac1a36da37e7cf8441ac5485668a66fef4f69a"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-cpu-validate.maps": {
+    "bytes": 145566,
+    "sha256": "0e85e890821ad855a51d77cf4c7c41fb77e5b59a9b28d648735f515b45d178f0"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-cpu-validate.ndjson": {
+    "bytes": 905557,
+    "sha256": "a089341edc484841b93e342ae0615ed993d69a339e5579f1e4f98258aafac30b"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-cpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "9ba13c82d2f01e0527f3124f5763e36943a9f6f5bd68a7a32fa2492957a3f789"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-cpu-r1-focused.log": {
+    "bytes": 128,
+    "sha256": "c38b602f92818679f742a38a5cdff75435cddccc287441bed77c77fcc9772f85"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-cpu-r2-focused.json": {
+    "bytes": 252,
+    "sha256": "2c962b2d7abc621e93fb80b9307bc7eaefb98455ccb59b22c0deec3ca98a0f48"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-cpu-r2-focused.log": {
+    "bytes": 129,
+    "sha256": "32ad0904b36cad7274a798f80fdc40a3da6df5608ab115180c7d66e9f120b6c9"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-cpu-r3-focused.json": {
+    "bytes": 251,
+    "sha256": "68e936c9bb575bf2900a821f342cb8722fdb6bb210a78e24d4e986f4f0df750c"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-cpu-r3-focused.log": {
+    "bytes": 128,
+    "sha256": "90c9678b40fe53ec23f3739e3e399e5c9676722767fa1b91d798bbd62e388c64"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-gpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "17577c042d2cf13871c3ca381621aaa905a29ba3aa66a0dc115eeca3552d7113"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-gpu-r1-focused.log": {
+    "bytes": 281,
+    "sha256": "4e6338c3c6e3084ffbaec69ecb6ed6f6f105742703b5280489840297e2b0395c"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-gpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "cffe81c498b8bd405b7f1335715a3b9f0585ab81b4e6ed8773b99a85b2d3b486"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-gpu-r2-focused.log": {
+    "bytes": 281,
+    "sha256": "ee176c665155761df82bfd816fbf3bac69f64306e2cdcb40935b78b492cf059c"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-gpu-r3-focused.json": {
+    "bytes": 251,
+    "sha256": "61f284e74b2306ea3b342c22b3c58e058d45e0f6ba19ab2e63e5453ee6cb468b"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-fp32-gpu-r3-focused.log": {
+    "bytes": 281,
+    "sha256": "250c7ca592e7f374c229ef9d275c12cba868f7933276e13de2c065d46be89201"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-gpu-validate.csv": {
+    "bytes": 152433,
+    "sha256": "017b5cec096a98556d5a679fb45f327d6520fa49b3fdd042031fec8b02563f85"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-gpu-validate.drm.json": {
+    "bytes": 683,
+    "sha256": "71f84eb9d62bb4d843b8a5593cd6f0530db961b78fd32a913a69391ae6bc942f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-gpu-validate.json": {
+    "bytes": 8254,
+    "sha256": "71e1c9d21a8a7c9c332443764cd4ec2e9956bf3d94d3ea8b7d3f9e1bb8cb7bc9"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-gpu-validate.log": {
+    "bytes": 1550,
+    "sha256": "8b8dc4e87b5928d755f3a201f7fe791876d972cb830d7fec99cb8d8455755bed"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-gpu-validate.maps": {
+    "bytes": 172113,
+    "sha256": "d11c4c71ae614da68fb1cda70d1624888fdf113efde22d63ef551f66ca55f26f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-gpu-validate.ndjson": {
+    "bytes": 905557,
+    "sha256": "2118ba8b9586db4727c251a76399a527b2d74a570dd47544c09de57ec33851aa"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-int8-cpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "3e7b821e3eb34045bfe2bc820806302ef1b0da8746cc78f94c2ab3023935bf24"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-int8-cpu-r1-focused.log": {
+    "bytes": 128,
+    "sha256": "31b985d9a93a91bf2881805372c0c69d0ca21bcbedf6674ab163945d4c2f1420"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-int8-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "cea17963e9ba35ce224978e726968580c1a61c22ff75b15bdcb3c9bf6e8f7b7b"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-int8-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "003af6f58a448bde710b2a8ec4f4a70ef78d3fa36d3d5ed959fbd6a3b3a01c52"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-int8-cpu-r3-focused.json": {
+    "bytes": 252,
+    "sha256": "a8639a3095eb205c9a754af83ba209596be4f7024af619eabaffb3f2d1c7f3ed"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-320-int8-cpu-r3-focused.log": {
+    "bytes": 129,
+    "sha256": "0cf8dc561c790cd395863103d5b3d038e4dd4378f4044ae88e6cc919fdafabb2"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-accuracy.log": {
+    "bytes": 450,
+    "sha256": "e5672a8f350f571eb9911c64e39b525efa82725650ab44090d3df4b65b17e226"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-cpu-validate.csv": {
+    "bytes": 152521,
+    "sha256": "5545ac72fa0728b8175debe415348b535aa9fbdf4b00a039b6a576bf71cd306d"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-cpu-validate.drm.json": {
+    "bytes": 3,
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-cpu-validate.json": {
+    "bytes": 8254,
+    "sha256": "67280c07ebc52f2a65fef2a6556513b7ddb8dfe6ee5a4ba05e1e8414ea15724c"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-cpu-validate.log": {
+    "bytes": 1397,
+    "sha256": "024be3cee32fd79df068d1f4938534b521261cba60824384f182a7e750847592"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-cpu-validate.maps": {
+    "bytes": 145517,
+    "sha256": "2ea61fd2456dbcff4d7b194650d15c5b8ccf59c8bd92416795b8bde990bcf7dc"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-cpu-validate.ndjson": {
+    "bytes": 945633,
+    "sha256": "a2e73995466a71c16daffa6db50a4886fc5591aae998ca41ddec4aca187c0284"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-cpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "5a003be70b7c8f01319d14f17d12872064365ee6cdfa01af0d05b74b3ee73eb8"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-cpu-r1-focused.log": {
+    "bytes": 128,
+    "sha256": "f6b677d17b3f4cf0df65cacc5f9b189610023f962aeecd17e068fe90d2a46033"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-cpu-r2-focused.json": {
+    "bytes": 250,
+    "sha256": "2c10d84940b7b7ad56bf22c0d8bc7dfb95abbd56286887b7f3c43d220b457c25"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-cpu-r2-focused.log": {
+    "bytes": 127,
+    "sha256": "ecc851d6aba77618e641edd7d982b2c8b64c64b0e57608556e354a29d4fe3763"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-cpu-r3-focused.json": {
+    "bytes": 250,
+    "sha256": "537c41a0c1fb35715f44b1e092a9d2bb606d15c778cfaa470f817dde1cf3b9d4"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-cpu-r3-focused.log": {
+    "bytes": 127,
+    "sha256": "5ed57c2e15d9329244e166f4341ec913bf39f32b47bec5732f6e54fd6ad51f3f"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-gpu-r1-focused.json": {
+    "bytes": 249,
+    "sha256": "b35a24af385fea1bc7f66f99528d9a54fd67e8d82f4c4c9160d9a5b0fb99800d"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-gpu-r1-focused.log": {
+    "bytes": 279,
+    "sha256": "25388e292459eee488c70bde9ab9dacda496dd80e72640915c29bd957b35321c"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-gpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "39d70cf37d08ce101cbbf77cf5fccf53c59f3f8b7ce4a848a1ab57de7a789dcc"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-gpu-r2-focused.log": {
+    "bytes": 281,
+    "sha256": "f82a681c435799327a6b02f800d528349197fa1a4d2c58a55b35c63eed03b659"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-gpu-r3-focused.json": {
+    "bytes": 251,
+    "sha256": "3aa85e384a5db91f20a6b48b9d0a3a157fed5da5733a18e38e405333191f86a6"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-fp32-gpu-r3-focused.log": {
+    "bytes": 281,
+    "sha256": "3390aa8953bbd68eea63014ae5864ea05d893609315f79433ee095946fee6e06"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-gpu-validate.csv": {
+    "bytes": 152433,
+    "sha256": "10485b59db67ac9befe24e0dec51251009edaf8f4a62d166dd539cf7398bdb58"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-gpu-validate.drm.json": {
+    "bytes": 683,
+    "sha256": "4320d7e3359b40d4aa8c4549478b797d0cfb9a07dfc462a00ad3d60c3c3345a2"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-gpu-validate.json": {
+    "bytes": 8254,
+    "sha256": "fccc71401baeb990dad244829a011e85fe19bd2134e0e13dc0148e2af63337e1"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-gpu-validate.log": {
+    "bytes": 1550,
+    "sha256": "4329c78b172ef113df6860ada41b121f80129d79684f67a97af140002e48cfde"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-gpu-validate.maps": {
+    "bytes": 172774,
+    "sha256": "962aadc2057791d179084741eedcbbffede9f2fda77cc53203ff435fdaf47cf7"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-gpu-validate.ndjson": {
+    "bytes": 945633,
+    "sha256": "71453eaeecf303b2827d9be7b2a8a07e8e2563bad278bccd39d9fcf1aa130597"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-int8-cpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "431e9dc13f5354fe536f99bb6d4bd0367123e4ec4a8d55a29aec9bfb5c214084"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-int8-cpu-r1-focused.log": {
+    "bytes": 128,
+    "sha256": "2feaae19664e33fd4b4c9760856a2dba23c7d9e3ce8b03590050ec9b3b0e0ad0"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-int8-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "e2865f80968991676ff617a3cad4eebcfa7b8f50ca97cfb2d04af8fadd488556"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-int8-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "f411add8b7ea26380e51f53f1188c876b38889a2011089ecd7ab0f8415500cee"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-int8-cpu-r3-focused.json": {
+    "bytes": 251,
+    "sha256": "9716494b0d64ee12d20c053b44f908c270e8df0eba9dabc7feab05cdd4e413d0"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-480-int8-cpu-r3-focused.log": {
+    "bytes": 128,
+    "sha256": "1c32141899b5bd2ca89a419ce0d9f4e8c235f3cd3c1c95bc0d451a06c35c5548"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-accuracy.log": {
+    "bytes": 610,
+    "sha256": "e01a722df7ebcc0fdfe9f0393b8efd1cdef03d47a82e2a6066938f5022bc3c46"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-cpu-validate.csv": {
+    "bytes": 152436,
+    "sha256": "ffe32b683bf3802473bae108ba9ee81486b3caffcc535486d4f6945cc05dbb66"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-cpu-validate.drm.json": {
+    "bytes": 3,
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-cpu-validate.json": {
+    "bytes": 8256,
+    "sha256": "8880535f7897d91a7b5466feb43e82ee3f4e967391a5c6d58b1df2b47a55184a"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-cpu-validate.log": {
+    "bytes": 1399,
+    "sha256": "a031d915836f0d625365d9fcbc930bab0ad24fa68f8ff12c9f9e1208eae31095"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-cpu-validate.maps": {
+    "bytes": 145517,
+    "sha256": "cb27289857ed63661f17aa61369398706973a1c051b06fba19d88c726ba6ede1"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-cpu-validate.ndjson": {
+    "bytes": 1089085,
+    "sha256": "178ceb3aab910e8e37f56de298a32668a0cc97f29eb2024f83f39ff064a69fa5"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-cpu-r1-focused.json": {
+    "bytes": 251,
+    "sha256": "403c4974b592c06e6f4c7fdd977be1408a6197a66fe0c7885cf0af388afc23f6"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-cpu-r1-focused.log": {
+    "bytes": 128,
+    "sha256": "9e987a31d2c3a3ee37a80d71705db8ca6899018645ba6e5f7cb06b1b7f9e6737"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "c3ec29919584e50322e523682b8e7710943323f8721560a37dd620bfdffa2884"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "936955044b18a2d48f82f1c67ea1971fdafbc831ca18ec7f998e3d6afe2ec8da"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-cpu-r3-focused.json": {
+    "bytes": 251,
+    "sha256": "4039d7ab2b1f733137e187ad03b5a2725412ae881763f22f51b4731ca93304cd"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-cpu-r3-focused.log": {
+    "bytes": 128,
+    "sha256": "886d0fe3295cd08728472e55bf5c9ac087cf074a9ff0d74f915309ba62b17c56"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-gpu-r1-focused.json": {
+    "bytes": 249,
+    "sha256": "ead6cbc2eb3d8fc0d1fb3a6fea79209d1361fa1b623ff5017c167cba3cfbd9f5"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-gpu-r1-focused.log": {
+    "bytes": 279,
+    "sha256": "ad8c8cdd526609a55dc7c001c9424b22a57b82cc705d147803d7e3b7144024ca"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-gpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "5023c182e9f2e0df765075fe5b4e6ced57dde6a6e5a26da2bb20ca4e040c1b5c"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-gpu-r2-focused.log": {
+    "bytes": 281,
+    "sha256": "33e88441cd0cd4482ed5d69928f5e34f16c8cd695730c92583f0c64350250721"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-gpu-r3-focused.json": {
+    "bytes": 250,
+    "sha256": "6a0c604fc47bee6421c0417aee0bc261b415078fa5e20b014470e82a0c60861c"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-fp32-gpu-r3-focused.log": {
+    "bytes": 280,
+    "sha256": "6ed50dc1fe8a6365661d524c053cece6287b728514a3f93935857ed3fd932d4b"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-gpu-validate.csv": {
+    "bytes": 152433,
+    "sha256": "90b973aee65e3dfdb0b87be0224dff8b475743daa2c4ab2c4cf1e4a5f30e49f0"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-gpu-validate.drm.json": {
+    "bytes": 683,
+    "sha256": "5485691e69e5cbf4f2b358f70dde4b817c8c86f1ebe2a99d8aaa105856f9a438"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-gpu-validate.json": {
+    "bytes": 8253,
+    "sha256": "db428322b9d30d0347d1f9903b0c46650019abc78e707d216d5c8a1bf27b0239"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-gpu-validate.log": {
+    "bytes": 1549,
+    "sha256": "a530e91b6eab1e2234a1d623cc6aabb01a9f7b8359568a2a53e994c7493f0147"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-gpu-validate.maps": {
+    "bytes": 172906,
+    "sha256": "a64fef7e5e51095ae75f7a9fe5ba3d442de9946669bbd147f747843206837961"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-gpu-validate.ndjson": {
+    "bytes": 1089085,
+    "sha256": "7daab8b233a5e2c81c527224c041811d1eb073d5fa0a24f7d93912cea8de39d5"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-int8-cpu-r1-focused.json": {
+    "bytes": 246,
+    "sha256": "74f625bb9172300e60047b1e34029776e334557f4e4b9f297f5e9c0251d075b7"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-int8-cpu-r1-focused.log": {
+    "bytes": 123,
+    "sha256": "2f0d29913d2bbc7a0b4bf1d8e975f7afb21dc173c6cf6e51e3e4afb9a32a0dd3"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-int8-cpu-r2-focused.json": {
+    "bytes": 251,
+    "sha256": "25ef888014aa5c4c56665939670ac478ce0472121b7c2a909cb6080690499b7e"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-int8-cpu-r2-focused.log": {
+    "bytes": 128,
+    "sha256": "d4c9a33a820736a2c33e2741cf4fdf19a8373d34186cc6c5edaca9b054a72bea"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-int8-cpu-r3-focused.json": {
+    "bytes": 249,
+    "sha256": "6739e2d27f0ac6b30b8b1faea1a3330574445de012d9e8010b8389972ef98c43"
+  },
+  "webgpu-yolo26-20261103/evidence/yolo26s-640-int8-cpu-r3-focused.log": {
+    "bytes": 126,
+    "sha256": "701f6ba89d437979fe027111f9c2b57d4b433cf2795004aa0ef6546a4756c7ec"
+  },
+  "webgpu-yolo26-20261103/extract-compute.py": {
+    "bytes": 1980,
+    "sha256": "b03da1c6aaaba3df3cb35f376aa1c395cc40649d3cfa3fe97763c3fb64cb1b90"
+  },
+  "webgpu-yolo26-20261103/final-board-state.json": {
+    "bytes": 2630,
+    "sha256": "56e54dd65656db4018325e09ac9dc022fb5c515aa54c46505e04d2c1f8ac9959"
+  },
+  "webgpu-yolo26-20261103/focused-fps.png": {
+    "bytes": 157318,
+    "sha256": "bf8d5680a073b47a7403a69cffce517e7a218f64e161964ea6413869cf636482"
+  },
+  "webgpu-yolo26-20261103/focused-fps.svg": {
+    "bytes": 75495,
+    "sha256": "826c92d1fc8ee512cf0a569525b02505f60ca0a1ba94952b288f8d6d4798d2d5"
+  },
+  "webgpu-yolo26-20261103/focused-results.json": {
+    "bytes": 15922,
+    "sha256": "177f2e865c375d92f3da280d382d0ccbcf144edfb483734499d1fcf988c1bba9"
+  },
+  "webgpu-yolo26-20261103/focused.cpp": {
+    "bytes": 2453,
+    "sha256": "20004e7e4c80a985026f539614d436f9c5666e19fe9a02bd3160bece80a004da"
+  },
+  "webgpu-yolo26-20261103/fp16-manifest.json": {
+    "bytes": 5043,
+    "sha256": "4dd5b042534606bcdf0b6dd7232f6d94b6017c5ae7f571486a7d5bce41a41750"
+  },
+  "webgpu-yolo26-20261103/govern.sh": {
+    "bytes": 1772,
+    "sha256": "8229282d5536331a00d999ecef657eade315d7b2e152b9cddea6a49a4e9fa243"
+  },
+  "webgpu-yolo26-20261103/governors-diagnostic-1793684112.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-diagnostic-1793684228.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-diagnostic-1793684345.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-diagnostic-1793684452.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-focused-1793684592.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-full-1793683789.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-full-1793686761.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-optimization-video-1793689257.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-pilot-1793683451.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-pilot-1793683505.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-profile-1793686720.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-resident-1793686190.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-resident-1793686439.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-tune-1793688372.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-tune-1793688683.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-tune-1793688812.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-tune-1793689151.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/governors-tune-large-1793688836.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/hardware-focused.json": {
+    "bytes": 2887386,
+    "sha256": "d53f14704123e8648f9c3ebbee495370d2e90622812390b28eba6fb5b6fc47e2"
+  },
+  "webgpu-yolo26-20261103/hardware-full.json": {
+    "bytes": 2853562,
+    "sha256": "1bc6d2dc65da8c5c6f49a60c04e6a2527e9f68a28afa53215c2d4c0c25974d24"
+  },
+  "webgpu-yolo26-20261103/hardware-optimization-video.json": {
+    "bytes": 1535069,
+    "sha256": "3ac054d861277fd7896c2e7fd395ae095f492b2d537ec8f7222a144e3baed622"
+  },
+  "webgpu-yolo26-20261103/hardware-resident.json": {
+    "bytes": 523563,
+    "sha256": "daf36437470f629c8be849647f476dbd94c582fef636b102b78b5f9efde49e47"
+  },
+  "webgpu-yolo26-20261103/hardware-tune-large.json": {
+    "bytes": 407597,
+    "sha256": "ba4e8dd44e103939de7d27b7b46e35eb5832dea26f8dd1e217dad9b8bae6792b"
+  },
+  "webgpu-yolo26-20261103/hardware-tune.json": {
+    "bytes": 132755,
+    "sha256": "c7adbb496d72f7a56e4a1f5b50ee2f7404d5c64fd03c3d12927dcdebc62b86ba"
+  },
+  "webgpu-yolo26-20261103/hf-yolo26n-320.json": {
+    "bytes": 1598,
+    "sha256": "04edd3b8059946ead43bb616eee54e8091f9c795b92facb7f8ff3cd64e341d81"
+  },
+  "webgpu-yolo26-20261103/inspect-convolutions.py": {
+    "bytes": 1925,
+    "sha256": "c41ed35ca9c2d0b4c77f5cc857120ef340cd704a50ff8b3cc4fbfd5df2b8bd83"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/RESEARCH.md": {
+    "bytes": 6954,
+    "sha256": "d792a890312bd80ee9bf09754c8208b3e9f9a41920e42a265bfbad458109065a"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/arm64-toolchain.cmake": {
+    "bytes": 375,
+    "sha256": "d6756655a93f70e62ae57876470ee886aed937f03f6fbe61bc0191a995f12b25"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/board-frequencies.txt": {
+    "bytes": 436,
+    "sha256": "3910be5630b253c22f059cbb7cc8102abb8244b10f397fa912bf9020f37db661"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/board-vulkaninfo.txt": {
+    "bytes": 48210,
+    "sha256": "22ad59e6428c5bc3c2dc0564d9471d22a438090c9e87fe1251970995ea68531c"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/build-control-compile.log": {
+    "bytes": 3346335,
+    "sha256": "bba74407393030dccd84981683a94c7c103bc7abc869ad281010fd0673e1df53"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/build-control-parallel.log": {
+    "bytes": 325991,
+    "sha256": "48c4beef157f28e01ba56bf2b6dc89be11a75d45a00f4dc80997ffeb75af6394"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/build-control-resume.log": {
+    "bytes": 30043,
+    "sha256": "9639e00cfe7be794041626566851f3764f2148ce4aa0b2b5ad576affd0ceabbc"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/build-control.log": {
+    "bytes": 68438,
+    "sha256": "4684e3a3e8f2167ae8535652800b11356b7317e9132a3caf684e7a95dffdd06c"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/build-environment.json": {
+    "bytes": 890,
+    "sha256": "3752af4199e4f985eb20b3aa08633f69b0e0b7879eb752c49d3a1b65599cfcb8"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/build-help.txt": {
+    "bytes": 18139,
+    "sha256": "97d06dc535598cd4f6fe57735a3bf754e9caa218947a5d1e1b925caf6153304f"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/build-options.txt": {
+    "bytes": 546,
+    "sha256": "55b5b96c0b75e5ccc236ed1852dc2607df45e4b540b1dd619bd4bcda120210df"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/build-remaining.txt": {
+    "bytes": 160,
+    "sha256": "e87721b3e2fc027e805934cdab6c7a91633fa8e5d1c9af3ffb5e34f4724c7ed7"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/clock-1000-results.json": {
+    "bytes": 508,
+    "sha256": "ab930d8cca706eff0ea0afffd8086c4d51b27b8ba49a9f3a6977785a2d2e30a4"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/clock-600-results.json": {
+    "bytes": 506,
+    "sha256": "50e5104004f2c3c77119dda135c023b8da42ed6f970e2a8a71e9b6b8d0aa5a43"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/clock-800-results.json": {
+    "bytes": 507,
+    "sha256": "80ea45dd730013be1de05770685b4770846842287264ec3792f1839cdac6b21c"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/clock-large-1000-results.json": {
+    "bytes": 513,
+    "sha256": "df4b2b099cacdb985b06361ea8cb45b79db97276204b0e76c4813d74a78b2e50"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/clock-large-600-results.json": {
+    "bytes": 511,
+    "sha256": "5841dc92aa8e4e6566450d55df9696a5a63548b0f1a57f41fa84d7987ff166a8"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/cpu-low-results.json": {
+    "bytes": 505,
+    "sha256": "e424249a0d234289cf83ac00799268f7c1930842c88266559f9990dea4113b44"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-1000-yolo26n-320-package-generic.json": {
+    "bytes": 472,
+    "sha256": "e2ca8848ba3b7944801da90996cf609ca0214ae79170c3ba07e585f6fe1cf5f1"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-1000-yolo26n-320-package-generic.log": {
+    "bytes": 1618,
+    "sha256": "7ca1f0ab058cde5d875878fd84a67649bee81bcd6f5682e270d53261a481e330"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-600-yolo26n-320-package-generic.json": {
+    "bytes": 470,
+    "sha256": "98218c896715898e3a855ef404a7bac58bcda06ab1fc0b0706c657dea6ae768b"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-600-yolo26n-320-package-generic.log": {
+    "bytes": 1617,
+    "sha256": "9b9f08a604d01deceb22f41c9f2e926e5a5c5383fe5b0246cb777ddbc889bb71"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-800-yolo26n-320-package-generic.json": {
+    "bytes": 471,
+    "sha256": "60e8b6984129a44ef9b49c2ea47ac1c2629020d4e663bb268504e70256a0c212"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-800-yolo26n-320-package-generic.log": {
+    "bytes": 1618,
+    "sha256": "ef8be25c8474068129a1ce42e155d2057e2e28e3a5465ca68802f2b7494c6588"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-large-1000-yolo26s-640-package-generic.json": {
+    "bytes": 477,
+    "sha256": "32b84a88d20673c8c9b1ac718ef359b9f0ec4528e685f7f4808537163d423e1c"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-large-1000-yolo26s-640-package-generic.log": {
+    "bytes": 1617,
+    "sha256": "8f2e0c79977734f527c624a22cbb12cfccf326129ed16e21be75d636b1c08616"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-large-600-yolo26s-640-package-generic.json": {
+    "bytes": 475,
+    "sha256": "4e35ae9f13de73b990a7e711b5768582a1aec2ed47481d33c48e86f341279a38"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-clock-large-600-yolo26s-640-package-generic.log": {
+    "bytes": 1616,
+    "sha256": "9eef4c3fc4be4b9093bddfca9a261256b2f4503c4931002b91945e5236ecd548"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-cpu-low-yolo26n-320-package-generic.json": {
+    "bytes": 469,
+    "sha256": "f95590d37983bf052bc6b1c77a19f0a658ecce816b9f9481614373134039d4a4"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/evidence/mali-cpu-low-yolo26n-320-package-generic.log": {
+    "bytes": 1618,
+    "sha256": "4c3094d787732b9cefb972169f9023393812787ac16184492bc450766252ac98"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/govern.sh": {
+    "bytes": 2076,
+    "sha256": "cafc76eab3a9ec134bc5f5c5e98ba989cbd1d29e5c5f09dc09e69f982827cf6b"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/governors-clock-1000-1793694232.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/governors-clock-600-1793694185.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/governors-clock-800-1793694209.txt": {
+    "bytes": 437,
+    "sha256": "4fe772dc422944b07ce27599ee9990bb5be221b1687d2673287b6d2e57969782"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/hardware-clock-1000.json": {
+    "bytes": 44876,
+    "sha256": "efe3f1886e8fe38a39f901d2ec8c1a86a97055e1d6f4669573371fbe7c32711d"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/hardware-clock-600.json": {
+    "bytes": 44854,
+    "sha256": "b0b70e986ebecf7a01c1671217f0cff8ad9a7b50bbc6100af871d65b14b36121"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/hardware-clock-800.json": {
+    "bytes": 44855,
+    "sha256": "1e1d37313dccf2e159ea718c56c77740fb18241be579269dafc69c8ba3b4e646"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/hardware-clock-large-1000.json": {
+    "bytes": 143979,
+    "sha256": "bea875fd4f7cd093e5125e150ac4765cf7b6b82b09449ca95d9c5be1cb503864"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/hardware-clock-large-600.json": {
+    "bytes": 143905,
+    "sha256": "7240c1c854fef379809fda4cad3b160b1472e1d39165f6412bb2d216a0130a5e"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/hardware-cpu-low.json": {
+    "bytes": 46623,
+    "sha256": "31de0bea9d0bf19cfb51a0682dfe770ab154e6b8cb2d0ba3aa4b0f67ed632895"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/lint-init.log": {
+    "bytes": 1557,
+    "sha256": "e5725d92bdd9737ab6276840e4877636ce26b575d88c5261caf612f66dd5a7eb"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/lint-setup.log": {
+    "bytes": 2256,
+    "sha256": "f421ec866589bdcc48b35579f7a8e41d8c4fd3d930230ded9008954e8b557bdf"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/run-clock-1000.log": {
+    "bytes": 407,
+    "sha256": "9ccc76011f11343548eec05007c910a245a91937e5c98f2225045fa708a5e7f9"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/run-clock-600.log": {
+    "bytes": 404,
+    "sha256": "30a7df6c9fc67ab6c9e665502c6cfa999e6c19dafbbdf15d4ecb7df8d8f35df0"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/run-clock-800.log": {
+    "bytes": 405,
+    "sha256": "647396df650dda2da8c3c90abba5a78db907b8970760533ac5369cef091c6bbf"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/run-clock-large-1000.log": {
+    "bytes": 418,
+    "sha256": "b88839c765517c587c499d64e056e40090114b8ccd5279ff1d0121b1efd23433"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/run-clock-large-600.log": {
+    "bytes": 415,
+    "sha256": "ebbc141c0e9bb75d152737d910d71027529e674520dbbdb3ed9550d5168e59fe"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/run-cpu-low.log": {
+    "bytes": 401,
+    "sha256": "f6f3b01da26a38cebb506937cad59063ca36d70edd7a51c7044383e73c50ebf9"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/run-experiments.py": {
+    "bytes": 4319,
+    "sha256": "76c312c1a9ed15204a1afe4d16a4b947aba8f63f3eed59fa046285d8bf3ac326"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/run.sh": {
+    "bytes": 1778,
+    "sha256": "62f7efc7d5ad3455c412ad9d3294fb79b5ce27d0faff7be78274d698bdfd839d"
+  },
+  "webgpu-yolo26-20261103/mali-tiling-20261103/source-fetch.log": {
+    "bytes": 631,
+    "sha256": "42f3e3269344153e2abf7015a8842e1f7d73b6045d54e8750153a51f553634a3"
+  },
+  "webgpu-yolo26-20261103/model-weights-check.json": {
+    "bytes": 915,
+    "sha256": "7a915d678109eaab16b6689bca8345874a0157148674fe8efcdd75695da4a888"
+  },
+  "webgpu-yolo26-20261103/models-inspected.json": {
+    "bytes": 19977,
+    "sha256": "77f32a5308553769995f0c1666109ee81a42c138cf8315e66e4eb2b18fa73c8b"
+  },
+  "webgpu-yolo26-20261103/models-source.json": {
+    "bytes": 2571,
+    "sha256": "ca3b0215205b42a7ce7c28ac556ace2bc3ec6d5c7df9865ff2e94b687f78b1e9"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-320-combined-fp32/model.json": {
+    "bytes": 429,
+    "sha256": "903e0243a5371d865f48c6ed1aab20845e130dfc740a202746db81bd23d54895"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-320-combined-fp32/opchain.json": {
+    "bytes": 965,
+    "sha256": "c89f119f8b7b9f0928770ad94b65359addcd6eecef0425173b11b1aef0dc73ef"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-320-fp16/model.json": {
+    "bytes": 416,
+    "sha256": "79d813ad047a3ff96d5c7b939b1d3d29cc1eb8d9c5cb4060579381ae4fe57ade"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-320-fp16/opchain.json": {
+    "bytes": 970,
+    "sha256": "eb3c4f4204959e60e641551bcbd5a23db21b54ae907244b4fe1a5f1bfe17e6de"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-320-fp32/model.json": {
+    "bytes": 714,
+    "sha256": "8371c462ffd1f2b18cf8ebd3794fdccf8edacdc3d39ebf3a5b2f94510dc9a4c5"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-320-fp32/opchain.json": {
+    "bytes": 993,
+    "sha256": "614abda4a0bfde30d657a5ef2698e3cd4988bb772e5688e3cb467f871b249f64"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-320-int8/model.json": {
+    "bytes": 438,
+    "sha256": "2d86d77a6583991875e818ac0710d518be774adb1c413d40f93b81b5f68eda2b"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-320-int8/opchain.json": {
+    "bytes": 993,
+    "sha256": "43f24f939b9166282d3bc267f468fff169085b856283ae43fa50ec430f34062c"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-480-fp16/model.json": {
+    "bytes": 416,
+    "sha256": "bfda60d1629fec89d2ebe7c3ebb5bb5372f6562c223f9166f73195c7f4e9de50"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-480-fp16/opchain.json": {
+    "bytes": 970,
+    "sha256": "5256c3a3025f19b7f25680281a9acf8e1bad1d1413827efaa67d59948c677fa5"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-480-fp32/model.json": {
+    "bytes": 714,
+    "sha256": "95da5749c48d74dc96f8562587eee824f9d05ab94992c9b622103e83569a7faa"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-480-fp32/opchain.json": {
+    "bytes": 993,
+    "sha256": "c6211f2c554def7a86f180c1000a5e89565ab9d21951d76a25a0d8411ab626b5"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-480-int8/model.json": {
+    "bytes": 438,
+    "sha256": "8270b15d6a106a694aa74aa285941f9b59be2d82acb2bd95bbcfdebed6515a44"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-480-int8/opchain.json": {
+    "bytes": 993,
+    "sha256": "7a43561e97ee8be8135af875aaa8f94dc270e93a656cf74d946c6bca1a3b1a09"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-640-fp16/model.json": {
+    "bytes": 416,
+    "sha256": "3bfa298716ff952201ac6a4b50157fb695f2f855b0c9483a3a75450a8e45ed85"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-640-fp16/opchain.json": {
+    "bytes": 970,
+    "sha256": "744eaebe33fddb1f8ca6cb38417688a21adee605982fc26133146cb237d63aab"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-640-fp32/model.json": {
+    "bytes": 714,
+    "sha256": "483145f508b2a0fcf06c77942c837cbece6db48249537e1facbfe95772185fc1"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-640-fp32/opchain.json": {
+    "bytes": 993,
+    "sha256": "031ca5af2c8c846f06fdead8d74a49595d3d09989ef8a77d957aedbb5009acf2"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-640-int8/model.json": {
+    "bytes": 438,
+    "sha256": "bb7a02292e2cf541f71b17f5d0f1d40ea8cab6975cfb56619f87182421d5c16a"
+  },
+  "webgpu-yolo26-20261103/models/yolo26n-640-int8/opchain.json": {
+    "bytes": 993,
+    "sha256": "67a15ea043c92c60174063f7d02e6145d765be87ba108d63945ca59c6892d1c7"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-320-fp16/model.json": {
+    "bytes": 416,
+    "sha256": "f0d6bc33eb5be9bc25b8e639c89a928556407844f6dc275f8408f90935d8166a"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-320-fp16/opchain.json": {
+    "bytes": 970,
+    "sha256": "9e68a6d2e6cd73092e02df6023399944538c3ec5ed2c2fb5d643ac79227e67b0"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-320-fp32/model.json": {
+    "bytes": 714,
+    "sha256": "8fb780405a776d69afe2b290ac9d64aaec5ee8d9bb70d709311a3dcaa9de1cba"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-320-fp32/opchain.json": {
+    "bytes": 993,
+    "sha256": "0348cf71b5065dc6634e4803dc18c2e47d2538e740df97f9020f685a8a0b0ac0"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-320-int8/model.json": {
+    "bytes": 438,
+    "sha256": "fa69922c23dbb9870f8570af39a44bf576c618e319493131f4581b724459d369"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-320-int8/opchain.json": {
+    "bytes": 993,
+    "sha256": "d786b76bd1a6e99e5b0181655d3be1acfd61dda1ea810a632db964ef3928b828"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-480-fp16/model.json": {
+    "bytes": 416,
+    "sha256": "29bcf62e5f595f60918695803aa99fc46849e88748978761cb315f350a8229d2"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-480-fp16/opchain.json": {
+    "bytes": 970,
+    "sha256": "b2c9451db806dcd78d57ec7028e66876a7c564ae2a431db5fbc54339c9e717c2"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-480-fp32/model.json": {
+    "bytes": 714,
+    "sha256": "e956ca35293bc4e3aefcb48f2e5624ebac76c1de4d3018d695332a7618a553b1"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-480-fp32/opchain.json": {
+    "bytes": 993,
+    "sha256": "43d2af29058372517340b402bf5c166b1ca04d5942182ee72a301dd77fdf36ea"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-480-int8/model.json": {
+    "bytes": 438,
+    "sha256": "4569803ca84269c7f271f7f773e101c1736063149993400599f6025d2c7f2b86"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-480-int8/opchain.json": {
+    "bytes": 993,
+    "sha256": "527a840e6c9db7a6a5fa32ba6d436edf0ad60bc76886b2b8bcf8096c152c57d6"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-640-combined-fp32/model.json": {
+    "bytes": 429,
+    "sha256": "50dffbb5e48d4d7e53f0177dbcd17d830f2627e711d6b65dfc9b7eac831f9055"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-640-combined-fp32/opchain.json": {
+    "bytes": 965,
+    "sha256": "c3b667c47d674f18126722676379248e630f0f85c3b9a78e31d4b7a77b8d34ac"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-640-fp16/model.json": {
+    "bytes": 416,
+    "sha256": "684a0dc632ecd4c676522e048bed28629d9fd07ecca152c6b499d720374fed0c"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-640-fp16/opchain.json": {
+    "bytes": 970,
+    "sha256": "aa02c039bfeecc65b95cf453673a06692aa7644d7655a037690a5990310c820b"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-640-fp32/model.json": {
+    "bytes": 714,
+    "sha256": "091dbbf287671dbcd087f7bf89527b4d06cb2773501d21cfb4e82a960cb20084"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-640-fp32/opchain.json": {
+    "bytes": 993,
+    "sha256": "12afc712b57237c6e7df3d994ae78b00efd4afad9b6d27405f85980ffd7c1586"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-640-int8/model.json": {
+    "bytes": 438,
+    "sha256": "14be89e45df53a6918e492450ee34526526d9acf1105968855d6d6e4e1162c65"
+  },
+  "webgpu-yolo26-20261103/models/yolo26s-640-int8/opchain.json": {
+    "bytes": 993,
+    "sha256": "e844025b104445e37945a050f0e89b4e8457d9723b33c26450385504c14b046e"
+  },
+  "webgpu-yolo26-20261103/ops-onnx/Inference.cpp": {
+    "bytes": 23880,
+    "sha256": "af3dd086db31292ed34fdf4f5c94609a9291479925128c8f3f35c3065e4611af"
+  },
+  "webgpu-yolo26-20261103/ops-onnx/Inference.h": {
+    "bytes": 9035,
+    "sha256": "addf784358b049a917656e4bad3fc8005802706eeefd01fcc45ddb864649b3c8"
+  },
+  "webgpu-yolo26-20261103/ops-onnx/InferenceOp.cpp": {
+    "bytes": 3695,
+    "sha256": "3aa6cfd117bb5fc839c3afb975a936e013240b727c9a184460e1778ddb8a752d"
+  },
+  "webgpu-yolo26-20261103/ops-onnx/InferenceOp.h": {
+    "bytes": 1824,
+    "sha256": "d3c8add29b81628a2e5648e955bd9f2e41c60a6482213e741bd88670bfe1363d"
+  },
+  "webgpu-yolo26-20261103/ops-onnx/Plugin.cpp": {
+    "bytes": 1146,
+    "sha256": "735003315fbc430e28e9dcd1386408e555d6b4d7efe8e34047ef7cdc927e5e12"
+  },
+  "webgpu-yolo26-20261103/optimization-accuracy.json": {
+    "bytes": 251559,
+    "sha256": "8384c0a00eb35557101ead89d92c31a30b100b4b3337329f8b419917a0791d47"
+  },
+  "webgpu-yolo26-20261103/optimization-placement.json": {
+    "bytes": 15462,
+    "sha256": "2fd4fa38b6b1f8422587c2487af937809ed60651717721b47df8c2f9b5150b1e"
+  },
+  "webgpu-yolo26-20261103/optimization-video-results.json": {
+    "bytes": 36669,
+    "sha256": "12991d9e9eedc65c5a39e9c0d0fd45a64485b759ef233467f0bed6b9a4a8b3f9"
+  },
+  "webgpu-yolo26-20261103/optimization-video.py": {
+    "bytes": 1446,
+    "sha256": "4051fdffbcc266573061b2d07033b1ffa354a5f11fb5dd2d049a828f6fd27888"
+  },
+  "webgpu-yolo26-20261103/pipeline-fps.png": {
+    "bytes": 153898,
+    "sha256": "0df023df9476342d816f40ae7a045281d0b266e0b04f8ad00a08202ab13434b0"
+  },
+  "webgpu-yolo26-20261103/pipeline-fps.svg": {
+    "bytes": 67911,
+    "sha256": "4cdb7fded9e8b130852e6262468b69f653bb17e84ebaaeb69289a4566d533618"
+  },
+  "webgpu-yolo26-20261103/placement-summary.json": {
+    "bytes": 319501,
+    "sha256": "ce82f66c2eec3e351c8aaa605f08cc69c535d751c8663794dee37623bca6c2de"
+  },
+  "webgpu-yolo26-20261103/profile-all.py": {
+    "bytes": 953,
+    "sha256": "2097943d1c9026ae93f5db063dd161d98822d055758607ed87dc504490743feb"
+  },
+  "webgpu-yolo26-20261103/profile-candidates.py": {
+    "bytes": 616,
+    "sha256": "83e9c0cf8fb23e43fbacb593113cb5c5b15e73b7d578553a92957ce1768c6c99"
+  },
+  "webgpu-yolo26-20261103/profile-summary.py": {
+    "bytes": 3222,
+    "sha256": "36ab066477c9d4b50b3c2d273f5ebaed37679fee3b33422503677b7c9c9f1b35"
+  },
+  "webgpu-yolo26-20261103/provenance.json": {
+    "bytes": 44037,
+    "sha256": "0b932f20c6b02ee3202109434f1858fbf94191b52eec49da40fad0c9cee6dd01"
+  },
+  "webgpu-yolo26-20261103/provider-probe.cpp": {
+    "bytes": 1304,
+    "sha256": "0eee504b4a8a195389b340241ff80cf3b8a4fc736a134c4d7ca39f90a0f7f057"
+  },
+  "webgpu-yolo26-20261103/research/NOTES.md": {
+    "bytes": 9878,
+    "sha256": "86ff6936caee0ee69c200e7b8198ccf238bca11ae73b64e717031f06b7e7a872"
+  },
+  "webgpu-yolo26-20261103/research/ep-ep.cc": {
+    "bytes": 13708,
+    "sha256": "2c14e48a47b7fe7d77a4b57580ca22f3f5e478e210e8f8fa987e753d3b919690"
+  },
+  "webgpu-yolo26-20261103/research/ep-ep.h": {
+    "bytes": 4048,
+    "sha256": "fe9e5652378bf57fe3f2b4869f767f8cc3d6edee1043458c85723caff2cdeb58"
+  },
+  "webgpu-yolo26-20261103/research/math-matmul.cc": {
+    "bytes": 22256,
+    "sha256": "6fe6b3a7767d1d9500f34fc8394c45ba298e0dc55f345209bd6b8b94852ab19b"
+  },
+  "webgpu-yolo26-20261103/research/math-matmul_packed.cc": {
+    "bytes": 4636,
+    "sha256": "eeae26b79d7a87dd30573fdf46500b75276522617fb7726f561db19c604460bc"
+  },
+  "webgpu-yolo26-20261103/research/model-card-pinned.md": {
+    "bytes": 12555,
+    "sha256": "ba097092b2709603f71a7776b5de0ab8e0462774a6fddc95430116264883a3fb"
+  },
+  "webgpu-yolo26-20261103/research/nn-conv.cc": {
+    "bytes": 26096,
+    "sha256": "bb7fe0fdeddba26f9292883231d3678dc45590ac58099dee4926a8301c94309f"
+  },
+  "webgpu-yolo26-20261103/research/nn-conv2d_mm.cc": {
+    "bytes": 15674,
+    "sha256": "3a3cd75d07301c13be0f2b627e9f74a1bbc9f41e9ea288f279594ff640739f53"
+  },
+  "webgpu-yolo26-20261103/research/nn-im2col_matmul.cc": {
+    "bytes": 12213,
+    "sha256": "004a565c27691ec53e38ec1d2667df4f2765fb8ece3e7b968d1b93f79e44e9f4"
+  },
+  "webgpu-yolo26-20261103/research/webgpu_context.cc": {
+    "bytes": 70960,
+    "sha256": "75a49cc4bd83f4302434e9ed9e23dbc849819932ccc44053d5caae8f7dbbe38b"
+  },
+  "webgpu-yolo26-20261103/research/webgpu_context.h": {
+    "bytes": 21291,
+    "sha256": "ac361aeeb8f0d6261dbbb41c16798a7f4ca95c50538205f870eb6ca3082ff48d"
+  },
+  "webgpu-yolo26-20261103/research/webgpu_execution_provider.h": {
+    "bytes": 8069,
+    "sha256": "8d7565a8de8d590306b6ef88dd7767f00a9afb9792fdf30307aaa3ee37f88ac4"
+  },
+  "webgpu-yolo26-20261103/research/webgpu_provider_factory.cc": {
+    "bytes": 29343,
+    "sha256": "2b36b1e1912b4554ac89ca580e61b73184db0519a02ae1d21fe41831e9c07691"
+  },
+  "webgpu-yolo26-20261103/research/webgpu_provider_options.h": {
+    "bytes": 6247,
+    "sha256": "5a00f2ffb4d5956f80fe40c4cdab278bd95ae9b4e32940094b47cb4ef162db48"
+  },
+  "webgpu-yolo26-20261103/resident-checks.py": {
+    "bytes": 1792,
+    "sha256": "4651b4a4e29787b442f214d5c211b593e5957608cc48abc18b1dff4d6d0cdb86"
+  },
+  "webgpu-yolo26-20261103/resident-results.json": {
+    "bytes": 3139,
+    "sha256": "d1bb1e8d17caca04d75396f22a0e7a49c6a6be9a9481c8de7847e08581307338"
+  },
+  "webgpu-yolo26-20261103/results.json": {
+    "bytes": 109996,
+    "sha256": "e190a296bb05aa3b426a48015b3cbeeea06d39a219932373e6084d5a4640d0c0"
+  },
+  "webgpu-yolo26-20261103/run-focused.log": {
+    "bytes": 14515,
+    "sha256": "1012c2b53cd1146d03dd441bdde69fb86a058c5cc620848067fbceb45e259233"
+  },
+  "webgpu-yolo26-20261103/run-full.log": {
+    "bytes": 1788,
+    "sha256": "d252cb84a3e59615bc63c4a6347dcf708cc88f658b2353d0084d8dffb89734bc"
+  },
+  "webgpu-yolo26-20261103/run-optimization-video.log": {
+    "bytes": 2164,
+    "sha256": "1cfe976ddef5a39d7cfc967b54b4cc8ebe6f6538b096e272aa9af3d78ea77361"
+  },
+  "webgpu-yolo26-20261103/run-profile-candidates.log": {
+    "bytes": 190,
+    "sha256": "8bf9569e73e3125a7aa3d1285e00753c652b5aff06ea1a59e3f7bccdce9a624c"
+  },
+  "webgpu-yolo26-20261103/run-profile.log": {
+    "bytes": 300,
+    "sha256": "6780b83878032c4642c51ce52897d907a9ccf92360bc1f249014bcef119932c6"
+  },
+  "webgpu-yolo26-20261103/run-resident.log": {
+    "bytes": 3056,
+    "sha256": "6607e46ecd267ef3902e9236c8093232b02c56a3d90c416efd8c180a9e50d8e0"
+  },
+  "webgpu-yolo26-20261103/run.sh": {
+    "bytes": 1751,
+    "sha256": "7d51781892ada29dd4b3a2b289f8c2b1af574ff817feb19cb05127ad3cd63b70"
+  },
+  "webgpu-yolo26-20261103/session-smoke-n320.log": {
+    "bytes": 265416,
+    "sha256": "2ecb2bd6bdfc731d7ac4a1c93547876b48b54c474ab268535aa395141538139e"
+  },
+  "webgpu-yolo26-20261103/session-smoke.cpp": {
+    "bytes": 3845,
+    "sha256": "803debe35da489fd863aa883c6892300c08fc113b79b707e908cd501d6c551d9"
+  },
+  "webgpu-yolo26-20261103/shader-statistics.json": {
+    "bytes": 417,
+    "sha256": "b1b0baf5ebb449413ef0bc22f89db126de0d9ed3a099e6be98216217afcf6942"
+  },
+  "webgpu-yolo26-20261103/speaker-draft.md": {
+    "bytes": 1785,
+    "sha256": "6bb84347b3b6a9195867e766992704bf38fcc019a8f604e58adc777f66ed603b"
+  },
+  "webgpu-yolo26-20261103/summary.json": {
+    "bytes": 20593,
+    "sha256": "55317ab885c106636574404b2779d9abf9608051660690da45efe70d9ffa96c9"
+  },
+  "webgpu-yolo26-20261103/system-panfrost.json": {
+    "bytes": 136,
+    "sha256": "27f17778762a131dd0b6ebe1e7e55ce12e1353783389a927d832dd21577323b9"
+  },
+  "webgpu-yolo26-20261103/tune.py": {
+    "bytes": 2797,
+    "sha256": "a3052f1cf528d63bc9aa2d44513005aa74eaa85e05bef9c3125284102068f5ff"
+  },
+  "webgpu-yolo26-20261103/tuning-build/WebGpuProvider.h": {
+    "bytes": 2827,
+    "sha256": "8939648041aad3d4520acd7e325fb63b9ac8481bf6f1108f0e7055858274fa6b"
+  },
+  "webgpu-yolo26-20261103/tuning-results.json": {
+    "bytes": 4277,
+    "sha256": "26a69a6439f1fdc56c908ac48b94108368c515c19fbfb1223b3dabf7e1c1ac9b"
+  },
+  "webgpu-yolo26-20261103/video-run.py": {
+    "bytes": 8436,
+    "sha256": "9524f8a2bb2d7e110a78f2f5c21101fcc3381f3d4df6f9c99baf479609119862"
+  },
+  "webgpu-yolo26-20261103/webgpu-ep-api.cc": {
+    "bytes": 6853,
+    "sha256": "1106cb067dac8faa4b08304c7e40e484dcad3fddfb63d4366ed461b00f414d05"
+  },
+  "webgpu-yolo26-20261103/webgpu-ep-ep.cc": {
+    "bytes": 14360,
+    "sha256": "633e8dee81ab5d423e3617b9f4406accd994d0612dc8a86abe4a2c8ba7e607d9"
+  },
+  "webgpu-yolo26-20261103/webgpu-ep-factory.cc": {
+    "bytes": 13947,
+    "sha256": "d189b890b1faa212440a4ca1370f8d90fdf0ea130f2e3a800a7a7069223e8920"
+  },
+  "webgpu-yolo26-20261103/webgpu-ep-files.json": {
+    "bytes": 16447,
+    "sha256": "3cc9592e6f90b2b0f17189ae8b313ea8ac579b2e2cb600e4f71fab3d6cf44752"
+  },
+  "webgpu-yolo26-20261103/webgpu-files.json": {
+    "bytes": 66657,
+    "sha256": "4eb0777b8773ee229d75b4d4fbd9a819af63f53874b3f6c2647e03b8103e4cbe"
+  },
+  "webgpu-yolo26-20261103/webgpu-plugin-readme.md": {
+    "bytes": 4034,
+    "sha256": "16d795822e1910f4fa894e853ac271e8ab358d5b678c09c15923f20d89ea399a"
+  },
+  "webgpu-yolo26-20261103/webgpu_execution_provider-main.cc": {
+    "bytes": 66007,
+    "sha256": "ad1de0f7558b30a9ef99181e7755ad0b7f9f9616e455fb8035c2e746e4ff63a2"
+  },
+  "webgpu-yolo26-20261103/webgpu_execution_provider.cc": {
+    "bytes": 74099,
+    "sha256": "f47ab7f26bf329c9e8136f61f6ee0b9ed0d21c950b167cd8b28e3dfa01bd4c43"
+  },
+  "webgpu-yolo26-20261103/write-report.py": {
+    "bytes": 15944,
+    "sha256": "2e516a5e3dba2c4ed3fca0f649989a2254f1b43c21f5430bc4a2fd54242a43c0"
+  }
+}
