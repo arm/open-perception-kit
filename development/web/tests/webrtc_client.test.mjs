@@ -375,9 +375,9 @@ test('frame timeout can be disabled without reconnect loop', async () => {
     env.latestSocket().receive(metadata);
     env.video.emitFrame(99);
     assert.deepEqual(frames.at(-1), metadata);
-    env.latestSocket().receive(metadata);
+    env.latestSocket().receive({...metadata, rtp_timestamp: 100});
     env.clock.tick(2100);
-    env.video.emitFrame(99);
+    env.video.emitFrame(100);
     assert.equal(frames.at(-1), null);
 
     assert.equal(env.peerConnections.length, 1);
