@@ -214,6 +214,26 @@ test('frame heartbeat keeps the session alive', async () => {
     assert.equal(client.getDebugState().restartTimerCount, 0);
 });
 
+test('late metadata updates only the displayed video frame', async () => {
+    const env = createEnv();
+    const frames = [];
+    const client = env.createClient({onVideoFrame: (message) => frames.push(message)});
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+
+    env.video.emitFrame(42);
+    assert.equal(frames.at(-1), null);
+    const metadata = {type: 'frame-metadata', rtp_timestamp: 42};
+    env.latestSocket().receive(metadata);
+    assert.deepEqual(frames.at(-1), metadata);
+
+    env.video.emitFrame(43);
+    env.latestSocket().receive(metadata);
+    assert.equal(frames.at(-1), null);
+});
+
 test('ICE failed schedules exactly one restart', async () => {
     const env = createEnv();
     const client = env.createClient({reconnectDelayMs: 25});
@@ -355,9 +375,9 @@ test('frame timeout can be disabled without reconnect loop', async () => {
     env.latestSocket().receive(metadata);
     env.video.emitFrame(99);
     assert.deepEqual(frames.at(-1), metadata);
-    env.latestSocket().receive(metadata);
+    env.latestSocket().receive({...metadata, rtp_timestamp: 100});
     env.clock.tick(2100);
-    env.video.emitFrame(99);
+    env.video.emitFrame(100);
     assert.equal(frames.at(-1), null);
 
     assert.equal(env.peerConnections.length, 1);
