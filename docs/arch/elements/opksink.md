@@ -87,8 +87,9 @@ SDK and FlatBuffers runtime. The client requires the
 `perception-frame-results+base64` encoding marker, validates exact producer
 identity, and maps typed payloads into the existing OSD, inference-output, and
 performance views. Browser overlays use per-frame metadata from the signaling
-WebSocket, matched to `requestVideoFrameCallback`'s RTP timestamp. Missing or late
-metadata leaves that frame without overlays; older metadata is never reused.
+WebSocket, matched to `requestVideoFrameCallback`'s RTP timestamp. Missing metadata
+leaves that frame without overlays. Late metadata applies only while its matching
+frame is still displayed; older metadata is never reused.
 Browsers without this callback or its RTP timestamp display video without overlays.
 
 Authored modules live under `development/web/src`; deployable files live under
