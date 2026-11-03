@@ -24,7 +24,12 @@ from .types import SchemaEntry
 _DECL_RE = re.compile(
     r"\b(?P<kind>namespace|root_type)\s+"
     r"(?P<value>[A-Za-z_][A-Za-z0-9_]*(?:(?:\.|::)[A-Za-z_][A-Za-z0-9_]*)*)\s*;"
+    r"|\b(?P<reset>namespace)\s*;"
 )
+_TYPE_DECL_RE = re.compile(
+    _DECL_RE.pattern + r"|\b(?:table|struct)\s+(?P<type_name>[A-Za-z_][A-Za-z0-9_]*)\b"
+)
+_INCLUDE_RE = re.compile(r'\binclude\s+"([^"]+)"\s*;')
 _NAMESPACE_RE = re.compile(r"\bnamespace\s+[A-Za-z_][A-Za-z0-9_\.]*\s*;")
 _FILE_ID_RE = re.compile(r'\bfile_identifier\s+"([^"]*)"\s*;')
 _PAYLOAD_SCHEMA_EXAMPLE = (
@@ -52,68 +57,107 @@ def _canonical_root_type(namespace_cpp: str, root_type_name: str) -> str:
     return f"{namespace_cpp.replace('::', '.')}.{root_type_name}"
 
 
-def _quoted_string_end(source: str, index: int) -> int:
-    index += 1
-    escaped = False
-    while index < len(source):
-        char = source[index]
-        index += 1
-        if escaped:
-            escaped = False
-        elif char == "\\":
-            escaped = True
-        elif char == '"':
-            break
-    return index
-
-
-def _blank_comment(source: str, index: int) -> tuple[str, int]:
-    if source.startswith("//", index):
-        end = index + 2
-        while end < len(source) and source[end] not in "\r\n":
-            end += 1
-        return " " * (end - index), end
-
-    closing = source.find("*/", index + 2)
-    end = len(source) if closing == -1 else closing + 2
-    return "".join("\n" if char in "\r\n" else " " for char in source[index:end]), end
+def _mask_strings(source: str) -> str:
+    """Hide quoted text without changing offsets used to read the original source."""
+    return re.sub(r'"(?:\\.|[^"\\])*"', lambda match: " " * len(match.group()), source, flags=re.S)
 
 
 def _strip_comments(source: str) -> str:
     result: list[str] = []
     index = 0
+    in_string = False
+    escaped = False
+
     while index < len(source):
         char = source[index]
+        next_char = source[index + 1] if index + 1 < len(source) else ""
+
+        if in_string:
+            result.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            index += 1
+            continue
+
         if char == '"':
-            end = _quoted_string_end(source, index)
-            result.append(source[index:end])
-            index = end
-        elif source.startswith(("//", "/*"), index):
-            blanked, index = _blank_comment(source, index)
-            result.append(blanked)
-        else:
+            in_string = True
             result.append(char)
             index += 1
+            continue
+
+        if char == "/" and next_char == "/":
+            result.extend("  ")
+            index += 2
+            while index < len(source) and source[index] not in "\r\n":
+                result.append(" ")
+                index += 1
+            continue
+
+        if char == "/" and next_char == "*":
+            result.extend("  ")
+            index += 2
+            while index < len(source):
+                if source[index] == "*" and index + 1 < len(source) and source[index + 1] == "/":
+                    result.extend("  ")
+                    index += 2
+                    break
+                result.append("\n" if source[index] in "\r\n" else " ")
+                index += 1
+            continue
+
+        result.append(char)
+        index += 1
 
     return "".join(result)
 
 
-def _root_type_namespace(schema_path: Path, text: str) -> tuple[str, str] | None:
-    active_namespace: str | None = None
-    roots: list[tuple[str, str | None]] = []
+def _schema_type_names(schema_path: Path, text: str, schema_dir: Path, seen: set[Path]) -> set[str]:
+    seen.add(schema_path.resolve())
+    declarations = _mask_strings(text)
+    namespace = ""
+    names: set[str] = set()
+    for match in _TYPE_DECL_RE.finditer(declarations):
+        if match.group("reset"):
+            namespace = ""
+        elif name := match.group("type_name"):
+            names.add(f"{namespace}.{name}" if namespace else name)
+        elif match.group("kind") == "namespace":
+            namespace = match.group("value").replace("::", ".")
+    for match in _INCLUDE_RE.finditer(text):
+        if not declarations.startswith("include", match.start()):
+            continue
+        for directory in (schema_path.parent, schema_dir):
+            included = (directory / match.group(1)).resolve()
+            if included.is_file():
+                if included not in seen:
+                    names.update(_schema_type_names(
+                        included, _strip_comments(included.read_text(encoding="utf-8")), schema_dir, seen,
+                    ))
+                break
+    return names
 
-    for match in _DECL_RE.finditer(text):
+
+def _root_type_namespace(
+    schema_path: Path, text: str, schema_dir: Path | None = None,
+) -> tuple[str, str] | None:
+    active_namespace: str | None = None
+    roots: list[tuple[str, str | None, int]] = []
+
+    for match in _DECL_RE.finditer(_mask_strings(text)):
+        if match.group("reset"):
+            active_namespace = None
+            continue
         kind = match.group("kind")
         value = match.group("value").replace("::", ".")
         if kind == "namespace":
             active_namespace = value
             continue
 
-        if "." in value:
-            namespace, root_type_name = value.rsplit(".", 1)
-            roots.append((root_type_name, namespace))
-        else:
-            roots.append((value, active_namespace))
+        roots.append((value, active_namespace, match.start()))
 
     if not roots:
         return None
@@ -126,7 +170,19 @@ def _root_type_namespace(schema_path: Path, text: str) -> tuple[str, str] | None
             "keep helper types in the schema, but declare only one payload root_type per file.",
         )
 
-    root_type_name, namespace = roots[0]
+    value, namespace, root_position = roots[0]
+    names = _schema_type_names(schema_path, text[:root_position], schema_dir or schema_path.parent, set())
+    # Unlike field types, flatc resolves roots by exact name, then the active
+    # namespace only. Later declarations cannot shadow a root already selected.
+    for candidate in (value, f"{namespace}.{value}" if namespace else value):
+        if candidate in names:
+            value = candidate
+            namespace = None  # An actual global type has no namespace, even inside a namespace block.
+            break
+    if "." in value:
+        namespace, root_type_name = value.rsplit(".", 1)
+    else:
+        root_type_name = value
     if namespace is None:
         _schema_error(
             schema_path,
@@ -138,13 +194,14 @@ def _root_type_namespace(schema_path: Path, text: str) -> tuple[str, str] | None
     return namespace.replace(".", "::"), root_type_name
 
 
-def _parse_schema_entry(schema_path: Path) -> SchemaEntry | None:
+def _parse_schema_entry(schema_path: Path, schema_dir: Path | None = None) -> SchemaEntry | None:
     text = _strip_comments(schema_path.read_text(encoding="utf-8"))
-    root = _root_type_namespace(schema_path, text)
+    root = _root_type_namespace(schema_path, text, schema_dir)
     if root is None:
         return None
 
-    if not _NAMESPACE_RE.search(text):
+    declarations = _mask_strings(text)
+    if not _NAMESPACE_RE.search(declarations):
         _schema_error(
             schema_path,
             "payload root schema is missing a FlatBuffers namespace declaration",
@@ -154,7 +211,8 @@ def _parse_schema_entry(schema_path: Path) -> SchemaEntry | None:
 
     namespace_cpp, root_type_name = root
 
-    file_id_match = _FILE_ID_RE.search(text)
+    file_id_match = next((match for match in _FILE_ID_RE.finditer(text)
+                          if declarations.startswith("file_identifier", match.start())), None)
     if not file_id_match:
         _schema_error(
             schema_path,
@@ -227,7 +285,7 @@ def discover_schema_set(schema_dir: Path) -> tuple[list[Path], list[SchemaEntry]
 
     entries = [
         entry
-        for entry in (_parse_schema_entry(schema_path) for schema_path in schema_paths)
+        for entry in (_parse_schema_entry(schema_path, resolved_dir) for schema_path in schema_paths)
         if entry is not None
     ]
     if not entries:

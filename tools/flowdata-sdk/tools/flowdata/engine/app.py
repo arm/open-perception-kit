@@ -18,12 +18,14 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
+import sys
 import tempfile
 from dataclasses import replace
 from pathlib import Path
-from typing import cast
 
 from .cpp import get_integration_generators
+from .cpp.identifiers import CPP_KEYWORDS
 from .discovery import discover_schema_set
 from .errors import fail
 from .flatbuffers_compat import require_supported_flatc
@@ -41,100 +43,7 @@ _SDK_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _SEMANTIC_VERSION_RE = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$", re.ASCII
 )
-_RESERVED_SDK_NAMES = {
-    # C++ keywords and alternative tokens that cannot be used as namespace names.
-    "alignas",
-    "alignof",
-    "and",
-    "and_eq",
-    "asm",
-    "auto",
-    "bitand",
-    "bitor",
-    "bool",
-    "break",
-    "case",
-    "catch",
-    "char",
-    "char8_t",
-    "char16_t",
-    "char32_t",
-    "class",
-    "compl",
-    "concept",
-    "const",
-    "consteval",
-    "constexpr",
-    "constinit",
-    "const_cast",
-    "continue",
-    "co_await",
-    "co_return",
-    "co_yield",
-    "decltype",
-    "default",
-    "delete",
-    "do",
-    "double",
-    "dynamic_cast",
-    "else",
-    "enum",
-    "explicit",
-    "export",
-    "extern",
-    "false",
-    "float",
-    "for",
-    "friend",
-    "goto",
-    "if",
-    "inline",
-    "int",
-    "long",
-    "mutable",
-    "namespace",
-    "new",
-    "noexcept",
-    "not",
-    "not_eq",
-    "nullptr",
-    "operator",
-    "or",
-    "or_eq",
-    "private",
-    "protected",
-    "public",
-    "register",
-    "reinterpret_cast",
-    "requires",
-    "return",
-    "short",
-    "signed",
-    "sizeof",
-    "static",
-    "static_assert",
-    "static_cast",
-    "struct",
-    "switch",
-    "template",
-    "this",
-    "thread_local",
-    "throw",
-    "true",
-    "try",
-    "typedef",
-    "typeid",
-    "typename",
-    "union",
-    "unsigned",
-    "using",
-    "virtual",
-    "void",
-    "volatile",
-    "wchar_t",
-    "while",
-    "xor",
-    "xor_eq",
+_RESERVED_SDK_NAMES = set(CPP_KEYWORDS) | {
     # Python keywords that cannot be used in normal import statements.
     "as",
     "assert",
@@ -172,17 +81,10 @@ def _sdk_name_arg(value: str) -> str:
             f"--name '{value}' is reserved by one of the generated target languages; "
             "choose a non-keyword package/namespace name"
         )
-    return value
-
-
-def _public_name_arg(value: str) -> str:
-    if not _SDK_NAME_RE.fullmatch(value):
+    if value in sys.stdlib_module_names or value in {"flatbuffers", "numpy"}:
         raise argparse.ArgumentTypeError(
-            "--public-name must match [a-z][a-z0-9_]*"
-        )
-    if value in _RESERVED_SDK_NAMES:
-        raise argparse.ArgumentTypeError(
-            f"--public-name '{value}' is reserved; choose a non-keyword name"
+            f"--name '{value}' conflicts with a Python runtime module; "
+            "choose a distinct SDK package name"
         )
     return value
 
@@ -204,7 +106,6 @@ def _build_context(
     generated_root: Path,
     flatc_bin: str,
     cpp_python_bridge: bool = False,
-    public_name: str | None = None,
 ) -> GenerationContext:
     package_dir = Path(__file__).resolve().parent
     entrypoint_path = package_dir.parent / "gen.py"
@@ -230,7 +131,6 @@ def _build_context(
         flatc_version_output=flatc.output,
         tool_sources=tool_sources,
         cpp_python_bridge=cpp_python_bridge,
-        public_name=public_name,
     )
 
 
@@ -239,7 +139,7 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--name",
         required=True,
         type=_sdk_name_arg,
-        help="Schema namespace and default public SDK name. Must match [a-z][a-z0-9_]*.",
+        help="Generated SDK name. Must match [a-z][a-z0-9_]*.",
     )
     parser.add_argument(
         "--schema-dir",
@@ -258,8 +158,6 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         default="flatc",
         help="Path to the flatc executable",
     )
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sdkgen",
@@ -305,11 +203,6 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Generate the optional embedded-Python live bridge (cpp only)",
     )
-    generate_parser.add_argument(
-        "--public-name",
-        type=_public_name_arg,
-        help="Public SDK name for all languages. Defaults to --name.",
-    )
     verify_parser = subparsers.add_parser(
         "verify-manifest",
         help="Validate generation-manifest metadata and generated file hashes",
@@ -341,7 +234,7 @@ def _run_generate(
 
     schema_paths, entries = discover_schema_set(context.schema_dir)
     validate_schema_namespaces(schema_paths, context.sdk_name)
-    entries = assign_payload_ids(entries, context.schema_dir, context.flatc_bin)
+    entries = assign_payload_ids(entries)
     validate_entries(entries, context.sdk_name)
     context = replace(
         context,
@@ -350,14 +243,12 @@ def _run_generate(
 
     target_root = manifest_root(context, sdk_kind)
     target_root.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(
+    temporary_root = Path(tempfile.mkdtemp(
         prefix=f".{context.sdk_name}-{sdk_kind}-", dir=target_root.parent
-    ) as temporary_directory:
-        temporary_root = Path(temporary_directory)
-        staged_context = cast(
-            GenerationContext,
-            replace(context, generated_root=temporary_root / "generated"),
-        )
+    ))
+    retain_recovery = False
+    try:
+        staged_context = replace(context, generated_root=temporary_root / "generated")
         staged_root = manifest_root(staged_context, sdk_kind)
 
         sdk_generators = get_sdk_generators([sdk_kind])
@@ -388,16 +279,25 @@ def _run_generate(
                 os.replace(target_root, backup_root)
             os.replace(staged_root, target_root)
             installed = True
-        except Exception:
-            if installed and target_root.exists():
-                os.replace(target_root, staged_root)
-            if backup_root.exists():
-                os.replace(backup_root, target_root)
+        except BaseException:
+            try:
+                if installed and target_root.exists():
+                    os.replace(target_root, staged_root)
+                if backup_root.exists():
+                    os.replace(backup_root, target_root)
+            except BaseException as exc:
+                retain_recovery = True
+                raise RuntimeError(
+                    f"SDK rollback failed; recovery directory retained at {temporary_root}"
+                ) from exc
             raise
 
         for path in sorted(generated_paths):
             relative = path.relative_to(staged_root)
             print(f"Wrote {target_root / relative}")
+    finally:
+        if not retain_recovery:
+            shutil.rmtree(temporary_root)
 
     return 0
 
@@ -444,7 +344,6 @@ def main(argv: list[str] | None = None) -> int:
             generated_root,
             flatc_bin,
             cpp_python_bridge,
-            args.public_name,
         )
         sdk_kind = args.sdk or DEFAULT_SDK
         integration_names: list[str] = []

@@ -50,16 +50,21 @@ python3 tools/flowdata/gen.py generate \
 ```
 
 ```bash
-cd generated/ts
-npm install
-npm run typecheck
-npm run build
+python3 tools/flowdata/gen.py verify-manifest generated/ts/flowdata-manifest.json --schema-root payloads
+npm --prefix generated/ts install
+npm --prefix generated/ts run typecheck
+npm --prefix generated/ts run build
 ```
+
+Run these commands from the repository root. Verification precedes dependency
+installation and compilation because they add files to the generated SDK root.
+To use the resulting package in another npm project, install it there with
+`npm install /absolute/path/to/generated/ts` after building it.
 
 ## Important Generated Names
 
 ```ts
-import { Envelope } from 'metapoc';
+import { Envelope, ProducerIdentityStatus } from 'metapoc';
 import { BoundingBoxT } from 'metapoc/fb/demo/common/bounding-box.js';
 import { GeoPointT } from 'metapoc/fb/demo/common/geo-point.js';
 import { Vector3T } from 'metapoc/fb/demo/common/vector3.js';
@@ -74,7 +79,7 @@ expose fields such as `sensorId`, `frameId`, `vehicleId`, and `temperaturesC`.
 
 ```ts
 import { readFile } from 'node:fs/promises';
-import { Envelope } from 'metapoc';
+import { Envelope, ProducerIdentityStatus } from 'metapoc';
 import { PerceptionT } from 'metapoc/fb/demo/perception/perception.js';
 import { TelemetryT } from 'metapoc/fb/demo/telemetry/telemetry.js';
 
@@ -83,6 +88,12 @@ const envelope = new Envelope(packet);
 
 if (!envelope.valid()) {
   throw new Error(envelope.error() ?? 'invalid packet');
+}
+
+// This application accepts the publisher's same-major wire contract.
+const match = envelope.producerIdentity();
+if (match !== ProducerIdentityStatus.ExactMatch && match !== ProducerIdentityStatus.CompatibleMatch) {
+  throw new Error('unsupported producer SDK');
 }
 
 const front = envelope.get(PerceptionT, 0);
@@ -119,7 +130,8 @@ envelope.add(front);
 const packet = envelope.serialize();
 ```
 
-The single-argument `add()` overload accepts generated native payload objects only.
+The one-argument `add()` form accepts generated native objects. The two-argument
+form accepts an external key handle and opaque bytes, as shown below.
 
 ## External And Unknown Payloads
 
@@ -138,7 +150,7 @@ const payload = envelope.get(tracksKey);
 
 TypeScript can also parse and reserialize envelopes that contain low-domain
 payload ids not known by the generated SDK, or known ids whose blobs do not
-verify as the expected type. Those entries are private preserve-only data and
+decode as the expected type. Those entries are private preserve-only data and
 remain in the packet when `serialize()` is called. Typed `count()`, `contains()`,
 `get()`, and `for_each()` only include entries that successfully decode as the
 requested type.
@@ -179,17 +191,31 @@ Producer identity:
 - `producerSchemaSetSha256() -> string`
 - `producerIdentity() -> ProducerIdentityStatus`
 
-Parsing does not reject a missing or mismatched identity. `serialize()` stamps
-the current generated SDK identity, including when forwarding an envelope
-produced by another SDK.
+`ProducerIdentityStatus` has `NameMismatch`, `ExactMatch`, `CompatibleMatch`, and
+`VersionMismatch` values. Classification checks the SDK name first. With a
+matching name, identical versions are exact and different versions sharing a
+major are compatible, including major zero. Missing or
+malformed names/versions produce their respective mismatch status. Schema hashes
+do not affect the result.
+
+The result is advisory; publishers own compatibility promises and applications
+apply acceptance policy before typed reads. Parsing does not reject a missing
+or mismatched identity. `serialize()` stamps the current generated SDK identity,
+including when forwarding an envelope produced by another SDK. See the
+[compatibility model](integration-guide.md#compatibility-model).
 
 `new Envelope(packet)` checks the outer envelope file identifier and parses the
 outer packet through generated FlatBuffers accessors. It does not provide
 verifier-equivalent structural validation, so boundary code should still apply
-practical size and trust limits. Payload compatibility is checked per payload id
-and blob when typed APIs are called: entries that do not decode through the typed
+practical size and trust limits. Payload selection and decoding are checked per
+entry when typed APIs are called: entries that do not decode through the typed
 API are preserved internally for roundtrip serialization. If an envelope is
 invalid, `add()` and `serialize()` throw.
+
+On an outer-envelope parse failure, partially loaded entries are discarded.
+`count()` returns zero, `contains()` returns false, `get()` returns `null`, and
+`for_each()` yields nothing for known types and external keys. Always check
+`valid()` to distinguish invalid input from a valid envelope with no matches.
 
 `get()` and `for_each()` return copied `Uint8Array` values for `ExternalKey`
 selectors. The SDK does not expose mutable views into stored external blobs.

@@ -34,6 +34,12 @@ python3 tools/flowdata/gen.py generate \
 cargo test --manifest-path generated/rust/Cargo.toml
 ```
 
+In a full repository checkout, run the standalone producer/consumer demo with
+`cargo run --manifest-path demo/rust/Cargo.toml` after generation. Its source is
+`demo/rust/src/main.rs`; `demo/rust/README.md` describes the workflow. It uses
+public APIs, owned packet transfer between threads, and an explicit application
+compatibility policy. Regression assertions remain in the test suite.
+
 ## Generated Types
 
 Owned FlatBuffers object types are exported below `fb`, preserving their schema
@@ -94,6 +100,26 @@ FlatBuffers remain preserved but are excluded from typed reads.
 Preserved entries survive serialization unchanged. Serializing any valid
 envelope stamps the current generated SDK name, version, and schema-set digest,
 matching the C++, Python, and TypeScript SDK behavior.
+
+## Producer identity and compatibility
+
+Payload IDs depend only on the fully qualified schema root name and remain
+stable across SDK releases. `producer_identity()` checks the SDK name first:
+`NameMismatch` covers missing, malformed, or different names; `VersionMismatch`
+covers missing/malformed versions or incompatible majors. Matching names and
+full versions yield `ExactMatch`; differing versions sharing a major
+yield `CompatibleMatch`, including major zero.
+The schema digest is diagnostic only. Publishers own the wire-compatibility
+promise, and applications decide whether to accept the advisory result.
+
+This comparison concerns the generated SDK version, not payload-level schema
+versions. Payload version fields are optional, consumer-defined data; the SDK
+does not interpret them or require them to be present.
+
+Rust decodes recognized payloads eagerly into native values. Unlike preserved
+unknown/undecodable entries, these known values are repacked on serialization;
+fields unknown to an older reader are not retained. Do not assume lossless
+forwarding through an older Rust SDK, even when typed reads are compatible.
 
 ## Concurrency
 
