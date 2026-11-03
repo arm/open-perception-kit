@@ -1,10 +1,10 @@
 {
-  "version": "1.0.1",
-  "description": "PP-OCRv6 tiny text detection and recognition on the plates video.",
-  "sourceInfo": "plates.mov; local PP-OCRv6_tiny_det.onnx and PP-OCRv6_tiny_rec.onnx required",
+  "version": "1.0.2",
+  "description": "Text detection and recognition on a local image.",
+  "sourceInfo": "GettyImages-2220092613-thumbnail.jpg; local PP-OCRv6_tiny_det.onnx and PP-OCRv6_tiny_rec.onnx required",
   "pipeline": [
-    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/plates.mov\" !",
-    "decodebin !",
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-2220092613-thumbnail.jpg\" !",
+    "jpegdec ! imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/opchains/pp-ocrv6-tiny/opchain.json\" active=true !",
     "opkperformance show-all-metrics=true update-interval=1 !",
