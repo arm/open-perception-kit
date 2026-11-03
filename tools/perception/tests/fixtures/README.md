@@ -25,6 +25,9 @@ and the external payload `com.arm.opk.fixture`, then round-trip both entries.
 This tests current Python-to-Rust interoperability rather than compatibility
 with a historical SDK's content-derived IDs. The writer uses explicit field
 assignments so it also works with the minimum supported FlatBuffers compiler.
+Generation obtains the checksum-locked FlatBuffers wheel from the SDK descriptor
+and runs the writer with site packages and environment-based imports disabled.
+The wheel is used directly without installing anything into the host interpreter.
 
 The fixture is OPK-owned test data. The generic FlowData generator does not
 contain Open Perception Kit schemas, values, or product-specific compatibility tests.

@@ -22,6 +22,7 @@ import json
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -118,6 +119,38 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(identity("sample", "1.1.0"), original)
         self.schema.write_text(self.schema.read_text().replace("Payload", "Other"))
         self.assertNotEqual(identity("sample", "1.1.0"), original)
+
+    def test_bridge_enum_lookup_matches_flatc_before_nearer_table(self) -> None:
+        self.schema.write_text('''
+            namespace Demo;
+            enum State:byte { Off, On }
+            table Mode { value:int; }
+            namespace Demo.Child;
+            table State { value:int; }
+            enum Mode:byte { Off, On }
+            struct Point { state:State; }
+            table Payload {
+                state:State;
+                states:[State];
+                optional_state:State = null;
+                mode:Mode;
+                child:Demo.Child.State;
+                point:Point;
+            }
+            root_type Payload;
+            file_identifier "TEST";
+        ''', encoding="utf-8")
+        output = self.root / "generated"
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(app.main([
+                "generate", "--name", "sample", "--version", "1.0.0", "--sdk", "cpp",
+                "--schema-dir", str(self.root), "--generated-root", str(output), "--cpp-python-bridge",
+            ]), 0)
+        compiled = subprocess.run([
+            "c++", "-std=c++20", "-fsyntax-only", f"-I{sysconfig.get_path('include')}",
+            f"-I{output / 'cpp'}", str(output / "cpp/python_bridge/sample_python_bridge.cpp"),
+        ], capture_output=True, text=True)
+        self.assertEqual(compiled.returncode, 0, compiled.stderr)
 
     def test_cli_arguments(self) -> None:
         self.assertEqual(app._sdk_name_arg("sdk_123"), "sdk_123")

@@ -18,7 +18,9 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, sys.argv[1])
+# The pure-Python runtime is imported directly from its verified wheel. The
+# caller disables site packages so generation cannot depend on the host runtime.
+sys.path[:0] = [sys.argv[1], sys.argv[3]]
 
 from open_perception_kit.packet import Envelope, external_key  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.BoundingBox import BoundingBoxT  # noqa: E402

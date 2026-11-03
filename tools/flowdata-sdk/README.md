@@ -28,9 +28,11 @@ Sources were imported from the [v0.7.1 generator release](https://github.com/Arm
 - SHA-256: `8cbe38225fe140c9a1b88187415aec16d2312883c71594a29ad832922e2d0dc4`
 - Source commit: `3ed972470e9341cd0eec8800ec99c78960f6a628`
 
-Generator sources and consumer documentation match the release, apart from OPK
-licence headers and repository formatting. This README is OPK-owned; upstream demos and release tooling
-are not vendored. Keep generator updates separate from OPK payload redesigns.
+Local adaptations are OPK licence/formatting decoration, repository documentation
+links, and a bridge type-resolution fix that matches flatc's enum-first namespace
+lookup. The latter has a generated C++ compilation regression. This README is
+OPK-owned; upstream demos and release tooling are not vendored. Keep generator
+updates separate from OPK payload redesigns.
 
 No separate checkout, credentials, or generator download is required. Source
 updates are manual repository changes; there is no fetch or update command.
