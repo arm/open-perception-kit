@@ -261,12 +261,13 @@ def _parse_schema_file(schema_path: Path) -> list[BridgeType]:
 
 
 def _resolve_named_type(name: str, namespace: str, types: dict[str, BridgeType]) -> str:
-    # FlatBuffers resolves relative names in the current namespace, then parents.
+    # flatc searches enum namespaces first, then table/struct namespaces.
     parts = namespace.split(".") if namespace else []
-    for length in range(len(parts), -1, -1):
-        candidate = ".".join([*parts[:length], name])
-        if candidate in types:
-            return candidate
+    for enum_lookup in (True, False):
+        for length in range(len(parts), -1, -1):
+            candidate = ".".join([*parts[:length], name])
+            if candidate in types and (types[candidate].kind == "enum") == enum_lookup:
+                return candidate
 
     bridge.fail(
         f"cannot resolve FlatBuffers type reference '{name}' in namespace '{namespace}' "
