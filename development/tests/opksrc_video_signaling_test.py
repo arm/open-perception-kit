@@ -84,12 +84,15 @@ def run(gst, source, port, video_linked=True):
 
     peer.connect("on-ice-candidate", local_candidate)
 
-    def offer():
+    def offer(capture=None):
         count = len(answers)
         reply = invoke(gst, peer, "create-offer", None)
         description = reply.get_value("offer")
         invoke(gst, peer, "set-local-description", description)
-        websocket.send_text(json.dumps({"type": "offer", "sdp": description.sdp.as_text()}))
+        message = {"type": "offer", "sdp": description.sdp.as_text()}
+        if capture is not None:
+            message["capture"] = capture
+        websocket.send_text(json.dumps(message))
         wait_for_signaling(websocket, lambda: errors or len(answers) > count,
                            "Renegotiation answer")
         assert not errors, errors
@@ -121,6 +124,27 @@ def run(gst, source, port, video_linked=True):
         audio_bin.sync_state_with_parent()
         offer()
         wait_for_signaling(websocket, lambda: samples["audio"] > 3, "Decoded audio alongside video")
+        for kind, valve, selector_name, fallback_name in (
+            ("video", sender.get_by_name("camera"), "video-selector", "video-black"),
+            ("audio", audio_bin.get_by_name("microphone"), "input-selector", "audiotestsrc"),
+        ):
+            for cycle in range(3):
+                valve.set_property("drop", True)
+                capture = {"audio": True, "video": True}
+                capture[kind] = False
+                offer(capture)
+                fallback = source.get_by_name(fallback_name).get_static_pad("src").get_peer()
+                assert source.get_by_name(selector_name).get_property("active-pad") == fallback
+                remaining = "audio" if kind == "video" else "video"
+                before = samples[remaining]
+                wait_for_signaling(websocket, lambda: samples[remaining] > before + 3,
+                                   "Other capture interrupted during reuse")
+                valve.set_property("drop", False)
+                before = dict(samples)
+                offer({"audio": True, "video": True})
+                wait_for_signaling(websocket, lambda: all(samples[media] > before[media] + 3
+                                                        for media in samples), "Reused capture resumed")
+                assert source.get_by_name("webrtcbin").emit("get-transceivers").len == 2
         replacements = []
         for transceiver, valve, selector_name, fallback_name, remaining in (
             (video, sender.get_by_name("camera"), "video-selector", "video-black", "audio"),

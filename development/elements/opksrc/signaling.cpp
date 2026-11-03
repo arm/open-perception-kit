@@ -354,7 +354,16 @@ struct OpkSrcSignaling::Impl {
                                             decltype(&gst_webrtc_session_description_free)>;
         Description remote(gst_webrtc_session_description_new(GST_WEBRTC_SDP_TYPE_OFFER, sdp),
                            gst_webrtc_session_description_free);
-        const auto offered = validate_offer(sdp);
+        auto offered = validate_offer(sdp);
+        if (message.contains("capture")) {
+            const auto &capture = message.at("capture");
+            const bool audio = capture.at("audio").get<bool>();
+            const bool video = capture.at("video").get<bool>();
+            if ((audio && !offered.audio) || (video && !offered.video))
+                throw std::runtime_error("Capture enabled without a sending track");
+            offered.audio = audio;
+            offered.video = video;
+        }
         const bool newly_enabled = (!session->audio_enabled && offered.audio) ||
                                    (!session->video_enabled && offered.video);
         if (!offered.audio) {

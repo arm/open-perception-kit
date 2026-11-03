@@ -107,11 +107,17 @@ function setup(getUserMedia) {
     const candidates = [];
     const statuses = [];
     const pc = {
+        transceivers: [],
         addTransceiver(track, options) {
             assert.equal(options.direction, 'sendonly');
-            return {sender: {track}, direction: options.direction};
+            const transceiver = {sender: {track,
+                async replaceTrack(track) { this.track = track; },
+                setStreams(...streams) { this.streams = streams; },
+            }, direction: options.direction};
+            this.transceivers.push(transceiver);
+            return transceiver;
         },
-        removeTrack() {},
+        removeTrack(sender) { sender.track = null; },
         async createOffer() { return {type: 'offer', sdp: 'microphone offer'}; },
         async setLocalDescription(offer) {
             this.localDescription = offer;
@@ -205,6 +211,7 @@ test('camera and microphone share a peer and serialize renegotiation', async () 
     let peers = 0;
     state.client.createPeer = () => { peers++; return state.pc; };
     const answer = async () => {
+        await new Promise(resolve => setImmediate(resolve));
         state.ws.onmessage({data: JSON.stringify({type: 'answer', sdp: 'answer'})});
         await state.client.session.messages;
     };
@@ -242,6 +249,50 @@ test('camera and microphone share a peer and serialize renegotiation', async () 
     assert.ok(state.pc.closed && state.ws.closed);
 });
 
+test('repeated device restarts reuse transceivers and preserve the other capture', async () => {
+    const state = setup();
+    state.client.getUserMedia = async options => {
+        const track = {kind: options.video ? 'video' : 'audio', stop() { this.stopped = true; }};
+        return {getTracks: () => [track]};
+    };
+    const answer = async () => {
+        await new Promise(resolve => setImmediate(resolve));
+        state.ws.onmessage({data: JSON.stringify({type: 'answer', sdp: 'answer'})});
+        await state.client.session.messages;
+    };
+    try {
+        await state.client.start('audio');
+        await state.ws.onopen();
+        await answer();
+        await state.client.start('video');
+        await answer();
+        for (const kind of ['video', 'audio']) {
+            const other = kind === 'video' ? 'audio' : 'video';
+            const transceiver = state.client.devices.get(kind).transceiver;
+            const otherTrack = state.client.devices.get(other).transceiver.sender.track;
+            for (let cycle = 0; cycle < 20; cycle++) {
+                const previous = transceiver.sender.track;
+                state.client.stopTrack(kind);
+                await answer();
+                assert.ok(previous.stopped);
+                assert.equal(transceiver.sender.track, null);
+                assert.equal(transceiver.direction, 'sendonly');
+                assert.equal(state.sent.filter(message => message.type === 'offer').at(-1).capture[kind], false);
+                await state.client.start(kind);
+                await answer();
+                assert.equal(state.client.devices.get(kind).transceiver, transceiver);
+                assert.notEqual(transceiver.sender.track, previous);
+                assert.equal(transceiver.sender.streams[0], state.client.devices.get(kind).stream);
+                assert.equal(state.pc.transceivers.length, 2);
+                assert.equal(state.sent.filter(message => message.type === 'offer').at(-1).capture[kind], true);
+                assert.ok(!otherTrack.stopped && !state.pc.closed && !state.ws.closed);
+            }
+        }
+    } finally {
+        state.client.stop();
+    }
+});
+
 test('camera permission denial does not stop microphone', async () => {
     const state = setup();
     try {
@@ -251,6 +302,38 @@ test('camera permission denial does not stop microphone', async () => {
         assert.ok(state.client.devices.has('audio'));
         assert.ok(!state.client.devices.has('video'));
         assert.equal(state.track.stopped, false);
+        assert.ok(!state.pc.closed);
+    } finally {
+        state.client.stop();
+    }
+});
+
+test('cancelling an in-flight replacement detaches it without closing the peer', async () => {
+    const state = setup();
+    state.client.getUserMedia = async options => {
+        const track = {kind: options.video ? 'video' : 'audio', stop() { this.stopped = true; }};
+        return {getTracks: () => [track]};
+    };
+    try {
+        await state.client.start('audio');
+        await state.client.start('video');
+        const transceiver = state.client.devices.get('video').transceiver;
+        state.client.stopTrack('video');
+        await state.client.session.mediaChanges;
+        let finish;
+        transceiver.sender.replaceTrack = track => new Promise(resolve => {
+            finish = () => { transceiver.sender.track = track; resolve(); };
+        });
+        const starting = state.client.start('video');
+        await new Promise(resolve => setImmediate(resolve));
+        const track = state.client.devices.get('video').stream.getTracks()[0];
+        state.client.stopTrack('video');
+        finish();
+        await starting;
+        await state.client.session.mediaChanges;
+        assert.ok(track.stopped);
+        assert.equal(transceiver.sender.track, null);
+        assert.ok(state.client.devices.has('audio'));
         assert.ok(!state.pc.closed);
     } finally {
         state.client.stop();

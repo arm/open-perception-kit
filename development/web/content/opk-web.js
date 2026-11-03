@@ -821,8 +821,12 @@ var MicrophoneClient = class {
     this.devices.delete(kind);
     device.stream?.getTracks().forEach((track) => track.stop());
     if (device.transceiver) {
-      this.session.pc.removeTrack(device.transceiver.sender);
-      device.transceiver.direction = "inactive";
+      const session = this.session;
+      session.mediaChanges = session.mediaChanges.then(() => {
+        if (this.session !== session) return;
+        session.pc.removeTrack(device.transceiver.sender);
+        device.transceiver.direction = "sendonly";
+      });
     }
     this.onStatus(false, message, kind);
   }
@@ -853,7 +857,22 @@ var MicrophoneClient = class {
       const track = stream.getTracks().find((track2) => track2.kind === kind);
       if (!track) throw new Error(`No ${label.toLowerCase()} track`);
       if (!this.session) this.connect();
-      device.transceiver = this.session.pc.addTransceiver(track, { direction: "sendonly", streams: [stream] });
+      const session = this.session;
+      device.transceiver = session.transceivers.get(kind);
+      if (device.transceiver) {
+        const change = session.mediaChanges.then(async () => {
+          if (this.session !== session || this.devices.get(kind) !== device) return;
+          await device.transceiver.sender.replaceTrack(track);
+          device.transceiver.sender.setStreams(stream);
+        });
+        session.mediaChanges = change.catch(() => {
+        });
+        await change;
+        if (this.session !== session || this.devices.get(kind) !== device) return;
+      } else {
+        device.transceiver = session.pc.addTransceiver(track, { direction: "sendonly", streams: [stream] });
+        session.transceivers.set(kind, device.transceiver);
+      }
       track.onended = () => {
         if (this.devices.get(kind) === device)
           this.stopTrack(kind, `${label} disconnected`);
@@ -866,7 +885,14 @@ var MicrophoneClient = class {
     }
   }
   connect() {
-    const session = { localIce: [], remoteIce: [], offered: false, messages: Promise.resolve() };
+    const session = {
+      localIce: [],
+      remoteIce: [],
+      offered: false,
+      messages: Promise.resolve(),
+      mediaChanges: Promise.resolve(),
+      transceivers: /* @__PURE__ */ new Map()
+    };
     this.session = session;
     const current = () => this.session === session;
     const fail = (error) => {
@@ -913,15 +939,17 @@ var MicrophoneClient = class {
         clearTimeout(session.timer);
         session.timer = setTimeout(() => fail(new Error("Negotiation timed out")), this.timeoutMs);
         try {
+          await session.mediaChanges;
           if (!current())
             return;
+          const capture = Object.fromEntries(["audio", "video"].map((kind) => [kind, Boolean(this.devices.get(kind)?.transceiver)]));
           const offer = await pc.createOffer();
           if (!current())
             return;
           await pc.setLocalDescription(offer);
           if (!current())
             return;
-          send({ type: "offer", sdp: pc.localDescription.sdp });
+          send({ type: "offer", sdp: pc.localDescription.sdp, capture });
           session.offered = true;
           for (const message of session.localIce)
             send(message);

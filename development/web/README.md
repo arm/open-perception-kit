@@ -29,9 +29,11 @@ release all capture devices.
 
 Offers are serialized: adding or removing a device while an answer is pending
 queues a new offer after that answer. The receiver must support repeated offers,
-optional audio/video media sections, and inactive sections for stopped devices.
+optional audio/video media sections, and explicit `capture` flags for stopped devices.
 The native receiver supports Opus audio and VP8 video with independent fallback
-to silence and black frames. Re-enabling a device creates a new transceiver.
+to silence and black frames. Re-enabling a device reuses its session transceiver
+with a replacement track. Stopping capture releases the hardware but retains a
+send-only SDP section so older GStreamer receivers can resume the same pad.
 Use localhost or an SSH tunnel; HTTPS support is outside this change.
 
 ## Visual design

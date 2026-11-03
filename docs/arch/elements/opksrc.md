@@ -64,7 +64,7 @@ take effect at the next startup. The browser uses the page hostname and port
 
 The signaling protocol matches the browser client:
 
-- Browser offer: `{"type":"offer","sdp":"..."}`.
+- Browser offer: `{"type":"offer","sdp":"...","capture":{"audio":true,"video":false}}`.
 - Receiver answer: `{"type":"answer","sdp":"..."}`.
 - ICE in either direction:
   `{"type":"candidate","ice":{"candidate":"...","sdpMLineIndex":0}}`.
@@ -75,8 +75,13 @@ video section (90 kHz RTP clock), in either order. Inactive and rejected audio/v
 sections are accepted for stopped tracks. Other media types and unsupported
 active codecs are rejected. Payload types and ICE media indices come from SDP.
 The receiver answers with receive-only codec preferences and uses BUNDLE.
-Repeated offers on the same WebSocket add or disable tracks. The browser creates
-a new transceiver when re-enabling a device; inactive sections remain in SDP.
+Repeated offers on the same WebSocket add or disable capture. The browser retains
+one transceiver per kind and replaces its sender track when re-enabling a device.
+Stopped devices release their hardware tracks but retain send-only SDP sections.
+The offer's `capture` flags select silence or black immediately without making
+the receiver pads inactive, allowing reuse on GStreamer versions before 1.26.
+Enabling capture requires a corresponding sending SDP section. Offers without
+`capture` derive enabled tracks from SDP directions.
 
 One WebSocket connection owns the receiver. Additional clients are closed without
 replacing the active sender. A track without decoded media for 15 seconds falls
