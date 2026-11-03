@@ -91,8 +91,6 @@ class ManifestFixture:
             "schema_set_sha256": schema_digest.hexdigest(),
             "sdk": {"name": public_name, "version": "1.2.3"},
         }
-        if public_name != "example":
-            self.manifest["sdk"]["schema_namespace"] = "example"
         if sdk == "python":
             self.manifest["python_package"] = {
                 "build_backend": "setuptools.build_meta",
@@ -119,7 +117,6 @@ class ManifestFixture:
             )
             self.manifest["python_bridge"] = {
                 "header": f"python_bridge/{public_name}_python_bridge.h",
-                "initialization_function": f"{public_name}::python_bridge::initialize_module",
                 "module_name": f"{public_name}_bridge",
                 "registration_function": f"{public_name}::python_bridge::append_inittab",
                 "requires_python": ">=3.10",
@@ -403,8 +400,17 @@ class GeneratorManifestTests(unittest.TestCase):
             for value in ("01.2.3", "1.02.3", "1.2.03", "1.2.3-rc1", "1.2.3+build", "1.2", "1.2.3\n", "1\u0661.2.3", "1.2\u0662.3", "1.2.3\u0663"):
                 with self.subTest(section=section, value=value):
                     self.fixture.manifest[section][field] = value
-                    self.assert_invalid(f"{section}.{field} must be a stable MAJOR.MINOR.PATCH {suffix}")
+                    message = ("generator.version must be MAJOR.MINOR.PATCH with an optional -dev suffix"
+                               if section == "generator"
+                               else f"{section}.{field} must be a stable MAJOR.MINOR.PATCH {suffix}")
+                    self.assert_invalid(message)
             self.fixture.manifest[section][field] = original
+
+    def test_generator_development_version_is_separate_from_sdk_version(self) -> None:
+        self.fixture.manifest["generator"]["version"] = "0.7.1-dev"
+        self.assertEqual(self.fixture.verify(), self.fixture.manifest)
+        self.fixture.manifest["sdk"]["version"] = "1.0.0-dev"
+        self.assert_invalid("sdk.version must be a stable MAJOR.MINOR.PATCH semantic version")
 
     def test_compiler_and_runtime_contracts(self) -> None:
         flatc = self.fixture.manifest["flatc"]
@@ -497,7 +503,6 @@ class GeneratorManifestTests(unittest.TestCase):
 class PythonPackageNamingTests(unittest.TestCase):
     def test_public_name_is_used_for_wire_sdk_identity(self) -> None:
         source = python_codegen._sdk_text(
-            "open_perception_kit",
             "open_perception_kit",
             "1.2.3",
             "0" * 64,
