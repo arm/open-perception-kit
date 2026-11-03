@@ -1,0 +1,70 @@
+{
+  "model": "YOLO26n-320 INT8",
+  "board": "Raspberry Pi 5 lecso",
+  "date": "2026-11-03",
+  "frames_per_run": 417,
+  "warmup_frames": 30,
+  "runs": 36,
+  "total_frames": 15012,
+  "all_detections_match": true,
+  "fps_gain_percent": 7.877802797838007,
+  "ranking": [
+    {
+      "pair": [
+        2,
+        2
+      ],
+      "median_fps": 21.693949940945352,
+      "min_fps": 21.65088578231238,
+      "max_fps": 21.7254139742723,
+      "semantic_output_matches": true,
+      "median_inference_ms": 37.19843067183463,
+      "median_cpu_ms_per_frame": 159.96887140932643
+    },
+    {
+      "pair": [
+        2,
+        0
+      ],
+      "median_fps": 21.65999483974191,
+      "min_fps": 21.615412225929205,
+      "max_fps": 21.741101338595392,
+      "semantic_output_matches": true,
+      "median_inference_ms": 37.20535427131783,
+      "median_cpu_ms_per_frame": 159.68797182642487
+    },
+    {
+      "pair": [
+        2,
+        1
+      ],
+      "median_fps": 20.25677071545889,
+      "min_fps": 20.17629432327618,
+      "max_fps": 20.260268929024566,
+      "semantic_output_matches": true,
+      "median_inference_ms": 40.64632030749354,
+      "median_cpu_ms_per_frame": 128.81108036787563
+    },
+    {
+      "pair": [
+        3,
+        1
+      ],
+      "median_fps": 20.221505055648862,
+      "min_fps": 20.21143873246953,
+      "max_fps": 20.26281440051004,
+      "semantic_output_matches": true,
+      "median_inference_ms": 40.53280719896641,
+      "median_cpu_ms_per_frame": 174.39370416839378
+    },
+    {
+      "pair": null,
+      "median_fps": 20.109743967996465,
+      "min_fps": 20.081004966745404,
+      "max_fps": 20.121340404667805,
+      "semantic_output_matches": true,
+      "median_inference_ms": 40.80425145994832,
+      "median_cpu_ms_per_frame": 175.02705777202073
+    }
+  ]
+}
