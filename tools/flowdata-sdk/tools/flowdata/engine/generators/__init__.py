@@ -26,8 +26,10 @@ _SDK_GENERATORS: tuple[SdkGenerator, ...] = (
     RustSdkGenerator(),
 )
 
+
 def supported_sdk_names() -> list[str]:
     return [g.name for g in _SDK_GENERATORS]
+
 
 def get_sdk_generators(names: list[str]) -> list[SdkGenerator]:
     requested = set(names)
