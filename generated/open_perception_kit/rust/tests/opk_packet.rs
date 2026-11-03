@@ -19,14 +19,9 @@
 
 use open_perception_kit::fb::open_perception_kit::metadata::BoxDetectionsT;
 use open_perception_kit::{
-    external_key, payload, EntryRef, Envelope, ProducerIdentityStatus, OPEN_PERCEPTION_KIT_NAME,
+    external_key, payload, Envelope, ProducerIdentityStatus, OPEN_PERCEPTION_KIT_NAME,
     OPEN_PERCEPTION_KIT_VERSION, SCHEMA_SET_SHA256,
 };
-
-const FIXTURE_SDK_NAME: &str = "perception";
-const FIXTURE_SDK_VERSION: &str = "0.2.1";
-const FIXTURE_SCHEMA_SET_SHA256: &str =
-    "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5";
 
 fn decode_hex(value: &str) -> Vec<u8> {
     let compact = value.trim();
@@ -43,29 +38,20 @@ fn assert_send<T: Send>(_: T) {}
 fn decodes_python_produced_box_detections_packet() {
     assert_send_sync_static::<Envelope>();
     assert_send_sync_static::<BoxDetectionsT>();
-    let packet = decode_hex(include_str!("fixtures/opk-box-detections-v0.2.1.hex"));
+    let packet = decode_hex(include_str!("fixtures/opk-box-detections.hex"));
     let envelope = Envelope::decode(packet).expect("pinned OPK packet must decode");
 
-    assert_eq!(envelope.producer_sdk_name(), FIXTURE_SDK_NAME);
-    assert_eq!(envelope.producer_sdk_version(), FIXTURE_SDK_VERSION);
+    assert_eq!(envelope.producer_sdk_name(), OPEN_PERCEPTION_KIT_NAME);
+    assert_eq!(envelope.producer_sdk_version(), OPEN_PERCEPTION_KIT_VERSION);
+    assert_eq!(envelope.producer_schema_set_sha256(), SCHEMA_SET_SHA256);
     assert_eq!(
-        envelope.producer_schema_set_sha256(),
-        FIXTURE_SCHEMA_SET_SHA256
-    );
-    let expected_identity = if OPEN_PERCEPTION_KIT_NAME != FIXTURE_SDK_NAME {
-        ProducerIdentityStatus::SdkNameMismatch
-    } else if OPEN_PERCEPTION_KIT_VERSION != FIXTURE_SDK_VERSION {
-        ProducerIdentityStatus::SdkVersionMismatch
-    } else if SCHEMA_SET_SHA256 != FIXTURE_SCHEMA_SET_SHA256 {
-        ProducerIdentityStatus::SchemaSetMismatch
-    } else {
+        envelope.producer_identity(),
         ProducerIdentityStatus::ExactMatch
-    };
-    assert_eq!(envelope.producer_identity(), expected_identity);
+    );
     assert_eq!(envelope.len(), 2);
 
     let box_detections = payload::<BoxDetectionsT>();
-    let preserved_payload = if expected_identity == ProducerIdentityStatus::ExactMatch {
+    {
         let boxes = envelope
             .get(box_detections, 0)
             .expect("BoxDetections payload");
@@ -89,26 +75,12 @@ fn decodes_python_produced_box_detections_packet() {
             (rectangle.x, rectangle.y, rectangle.width, rectangle.height),
             (10.5, 20.25, 30.75, 40.5)
         );
-        None
-    } else {
-        assert!(envelope.get(box_detections, 0).is_none());
-        match envelope.entries().next() {
-            Some(EntryRef::Unknown { id, bytes }) => Some((id, bytes.to_vec())),
-            entry => panic!("expected preserved historical payload, got {entry:?}"),
-        }
-    };
+    }
 
     let key = external_key("com.arm.opk.fixture");
     assert_eq!(envelope.get(key, 0), Some(b"fixture-external".as_slice()));
     let roundtrip = Envelope::decode(envelope.serialize()).expect("round trip");
-    if let Some((historical_id, historical_bytes)) = preserved_payload {
-        assert!(
-            matches!(roundtrip.entries().next(), Some(EntryRef::Unknown { id, bytes })
-            if id == historical_id && bytes == historical_bytes)
-        );
-    } else {
-        assert!(roundtrip.get(box_detections, 0).is_some());
-    }
+    assert!(roundtrip.get(box_detections, 0).is_some());
     assert_eq!(roundtrip.get(key, 0), Some(b"fixture-external".as_slice()));
 
     let future = async move { roundtrip.len() };

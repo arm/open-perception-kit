@@ -48,10 +48,10 @@ use crate::flowdata_internal::internalfb as wire;
 /// Generated SDK name written into serialized producer identity metadata.
 pub const OPEN_PERCEPTION_KIT_NAME: &str = "open_perception_kit";
 /// Generated SDK version written into serialized producer identity metadata.
-pub const OPEN_PERCEPTION_KIT_VERSION: &str = "0.1.2";
+pub const OPEN_PERCEPTION_KIT_VERSION: &str = "1.0.0";
 /// SHA-256 identity of the complete schema set used for generation.
 pub const SCHEMA_SET_SHA256: &str =
-    "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
+    "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3"; // pragma: allowlist secret
 /// Exact FlatBuffers runtime version required by this crate.
 pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.9.23";
 /// Lowest numeric key reserved for application-defined external payloads.
@@ -69,18 +69,14 @@ mod private {
 /// Relationship between packet producer metadata and this generated SDK.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProducerIdentityStatus {
-    /// SDK name, version, and schema digest all match exactly.
+    /// The producer SDK name is missing, malformed, or different.
+    NameMismatch,
+    /// SDK name and version match exactly; the schema digest is diagnostic only.
     ExactMatch,
-    /// At least one producer identity field is absent.
-    Missing,
-    /// At least one producer identity field has invalid syntax.
-    Malformed,
-    /// The producer used a different SDK name.
-    SdkNameMismatch,
-    /// The producer used a different SDK version.
-    SdkVersionMismatch,
-    /// The producer used a different schema set.
-    SchemaSetMismatch,
+    /// Matching name and differing versions with the same major, including zero.
+    CompatibleMatch,
+    /// The producer version is missing, malformed, or outside the compatibility rule.
+    VersionMismatch,
 }
 
 /// Opaque, deterministic selector for an application-defined byte payload.
@@ -1013,43 +1009,43 @@ fn decode_entry<T: NativePayload>(id: u64, bytes: Vec<u8>) -> Entry {
 
 fn decode_known(id: u64, bytes: Vec<u8>) -> Entry {
     match id {
-        556103652012567315 => {
+        3248104387212218840 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::BoxDetectionsT>(id, bytes)
         }
-        2852697023809600655 => {
+        3375056508603945320 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::ClassificationsT>(id, bytes)
         }
-        2065478860695108412 => {
+        5246681475592864076 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::FrameContextT>(id, bytes)
         }
-        3149752457626985059 => decode_entry::<
+        7634499802271603959 => decode_entry::<
             crate::fb::open_perception_kit::metadata::InstanceSegmentationMasksT,
         >(id, bytes),
-        5972661533224817501 => {
+        6121378805478677067 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::ObjectEmbeddingsT>(id, bytes)
         }
-        2960585987463094496 => {
+        5316059591418463553 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::ObjectTracksT>(id, bytes)
         }
-        7749401259036278028 => {
+        2126073810871404430 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::PerformanceOverlayT>(id, bytes)
         }
-        9114952555105892553 => {
+        5268014742632501193 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::PoseEstimationsT>(id, bytes)
         }
-        1998909987238011535 => {
+        3128408959875976772 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::SegmentationMasksT>(id, bytes)
         }
-        1602571589628393389 => decode_entry::<
+        133049182594848948 => decode_entry::<
             crate::fb::open_perception_kit::metadata::SemanticSegmentationMasksT,
         >(id, bytes),
-        238211229389337861 => {
+        7618457940451616939 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::TrackTracesT>(id, bytes)
         }
-        3528578282400045446 => {
+        7194963704333257544 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::TurnDetectionsT>(id, bytes)
         }
-        7328253118381503000 => decode_entry::<
+        4750671262425495264 => decode_entry::<
             crate::fb::open_perception_kit::metadata::VoiceActivityDetectionsT,
         >(id, bytes),
         _ if id >= EXTERNAL_KEY_MIN => Entry::External { id, bytes },
@@ -1160,27 +1156,25 @@ impl Envelope {
         &self.producer_schema_set_sha256
     }
 
-    /// Compares producer identity metadata with this generated SDK.
+    /// Advisory name/version comparison; publishers own wire compatibility promises.
     pub fn producer_identity(&self) -> ProducerIdentityStatus {
         let name = self.producer_sdk_name();
         let version = self.producer_sdk_version();
-        let digest = self.producer_schema_set_sha256();
-        if name.is_empty() || version.is_empty() || digest.is_empty() {
-            return ProducerIdentityStatus::Missing;
-        }
-        if !valid_sdk_name(name) || !valid_semver(version) || !valid_sha256(digest) {
-            return ProducerIdentityStatus::Malformed;
-        }
         if name != OPEN_PERCEPTION_KIT_NAME {
-            return ProducerIdentityStatus::SdkNameMismatch;
+            return ProducerIdentityStatus::NameMismatch;
         }
-        if version != OPEN_PERCEPTION_KIT_VERSION {
-            return ProducerIdentityStatus::SdkVersionMismatch;
+        if !valid_semver(version) {
+            return ProducerIdentityStatus::VersionMismatch;
         }
-        if digest != SCHEMA_SET_SHA256 {
-            return ProducerIdentityStatus::SchemaSetMismatch;
+        if version == OPEN_PERCEPTION_KIT_VERSION {
+            return ProducerIdentityStatus::ExactMatch;
         }
-        ProducerIdentityStatus::ExactMatch
+        let major = version.split('.').next().unwrap_or_default();
+        if Some(major) == OPEN_PERCEPTION_KIT_VERSION.split('.').next() {
+            ProducerIdentityStatus::CompatibleMatch
+        } else {
+            ProducerIdentityStatus::VersionMismatch
+        }
     }
 
     /// Returns whether the envelope has no payload entries.
@@ -1286,14 +1280,6 @@ impl Envelope {
     }
 }
 
-fn valid_sdk_name(value: &str) -> bool {
-    let mut chars = value.chars();
-    matches!(chars.next(), Some('a'..='z'))
-        && chars.all(|character| {
-            character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_'
-        })
-}
-
 fn valid_semver(value: &str) -> bool {
     let parts: Vec<_> = value.split('.').collect();
     parts.len() == 3
@@ -1304,28 +1290,21 @@ fn valid_semver(value: &str) -> bool {
         })
 }
 
-fn valid_sha256(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .chars()
-            .all(|character| character.is_ascii_hexdigit() && !character.is_ascii_uppercase())
-}
-
 fn encode_known(data: &PayloadData) -> (u64, Vec<u8>) {
     match data {
-        PayloadData::Payload0(value) => (556103652012567315, value.encode_payload()),
-        PayloadData::Payload1(value) => (2852697023809600655, value.encode_payload()),
-        PayloadData::Payload2(value) => (2065478860695108412, value.encode_payload()),
-        PayloadData::Payload3(value) => (3149752457626985059, value.encode_payload()),
-        PayloadData::Payload4(value) => (5972661533224817501, value.encode_payload()),
-        PayloadData::Payload5(value) => (2960585987463094496, value.encode_payload()),
-        PayloadData::Payload6(value) => (7749401259036278028, value.encode_payload()),
-        PayloadData::Payload7(value) => (9114952555105892553, value.encode_payload()),
-        PayloadData::Payload8(value) => (1998909987238011535, value.encode_payload()),
-        PayloadData::Payload9(value) => (1602571589628393389, value.encode_payload()),
-        PayloadData::Payload10(value) => (238211229389337861, value.encode_payload()),
-        PayloadData::Payload11(value) => (3528578282400045446, value.encode_payload()),
-        PayloadData::Payload12(value) => (7328253118381503000, value.encode_payload()),
+        PayloadData::Payload0(value) => (3248104387212218840, value.encode_payload()),
+        PayloadData::Payload1(value) => (3375056508603945320, value.encode_payload()),
+        PayloadData::Payload2(value) => (5246681475592864076, value.encode_payload()),
+        PayloadData::Payload3(value) => (7634499802271603959, value.encode_payload()),
+        PayloadData::Payload4(value) => (6121378805478677067, value.encode_payload()),
+        PayloadData::Payload5(value) => (5316059591418463553, value.encode_payload()),
+        PayloadData::Payload6(value) => (2126073810871404430, value.encode_payload()),
+        PayloadData::Payload7(value) => (5268014742632501193, value.encode_payload()),
+        PayloadData::Payload8(value) => (3128408959875976772, value.encode_payload()),
+        PayloadData::Payload9(value) => (133049182594848948, value.encode_payload()),
+        PayloadData::Payload10(value) => (7618457940451616939, value.encode_payload()),
+        PayloadData::Payload11(value) => (7194963704333257544, value.encode_payload()),
+        PayloadData::Payload12(value) => (4750671262425495264, value.encode_payload()),
     }
 }
 
@@ -1388,6 +1367,62 @@ mod tests {
     }
 
     #[test]
+    fn producer_identity_uses_name_and_version_only() {
+        let mut envelope = Envelope::new();
+        envelope.producer_schema_set_sha256 = "not-a-digest".to_owned();
+        assert_eq!(
+            envelope.producer_identity(),
+            ProducerIdentityStatus::ExactMatch
+        );
+        envelope.producer_schema_set_sha256.clear();
+        assert_eq!(
+            envelope.producer_identity(),
+            ProducerIdentityStatus::ExactMatch
+        );
+
+        let major = OPEN_PERCEPTION_KIT_VERSION.split('.').next().unwrap();
+        let mut different = format!("{major}.0.0");
+        if different == OPEN_PERCEPTION_KIT_VERSION {
+            different = format!("{major}.1.0");
+        }
+        envelope.producer_sdk_version = different;
+        assert_eq!(
+            envelope.producer_identity(),
+            ProducerIdentityStatus::CompatibleMatch
+        );
+
+        envelope.producer_sdk_version = if major == "1" { "2.0.0" } else { "1.0.0" }.to_owned();
+        assert_eq!(
+            envelope.producer_identity(),
+            ProducerIdentityStatus::VersionMismatch
+        );
+        for version in [
+            "",
+            "1.2",
+            "01.2.3",
+            "1.02.3",
+            "1.2.03",
+            "1.2.3-rc.1",
+            "1.2.3+build",
+            "1.2.3\n",
+        ] {
+            envelope.producer_sdk_version = version.to_owned();
+            assert_eq!(
+                envelope.producer_identity(),
+                ProducerIdentityStatus::VersionMismatch
+            );
+        }
+        let other_name = format!("{}_other", OPEN_PERCEPTION_KIT_NAME);
+        for name in ["", "Bad Name", other_name.as_str()] {
+            envelope.producer_sdk_name = name.to_owned();
+            assert_eq!(
+                envelope.producer_identity(),
+                ProducerIdentityStatus::NameMismatch
+            );
+        }
+    }
+
+    #[test]
     fn unknown_and_malformed_known_payloads_are_preserved() {
         let unknown_bytes = b"future-payload";
         let unknown = Envelope::decode(raw_packet(1, unknown_bytes))
@@ -1403,18 +1438,18 @@ mod tests {
         );
 
         let malformed_bytes = b"not-a-flatbuffer";
-        let malformed = Envelope::decode(raw_packet(556103652012567315, malformed_bytes))
+        let malformed = Envelope::decode(raw_packet(3248104387212218840, malformed_bytes))
             .expect("malformed known payload keeps envelope valid");
         assert!(
             matches!(malformed.entries().next(), Some(EntryRef::MalformedKnown {
-            id: 556103652012567315, bytes, ..
+            id: 3248104387212218840, bytes, ..
         }) if bytes == malformed_bytes)
         );
         let malformed_roundtrip =
             Envelope::decode(malformed.serialize()).expect("malformed known round trip");
         assert!(
             matches!(malformed_roundtrip.entries().next(), Some(EntryRef::MalformedKnown {
-            id: 556103652012567315, bytes, ..
+            id: 3248104387212218840, bytes, ..
         }) if bytes == malformed_bytes)
         );
     }

@@ -244,9 +244,11 @@ int main() {
 
     pipeline.onFrameResultsPacket([&](const std::vector<uint8_t> &packet) {
         const Results results{std::span<const uint8_t>{packet}};
+        const auto identity = results.producer_identity();
         if (!results.valid() ||
-            results.producer_identity() !=
-                open_perception_kit::container::producer_identity_status::exact_match) {
+            (identity != open_perception_kit::container::producer_identity_status::exact_match &&
+             identity !=
+                 open_perception_kit::container::producer_identity_status::compatible_match)) {
             std::fprintf(stderr, "Invalid or incompatible FrameResults packet\n");
             failed = true;
             done = true;

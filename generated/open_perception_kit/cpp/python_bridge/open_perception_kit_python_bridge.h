@@ -27,7 +27,6 @@
 namespace open_perception_kit::python_bridge {
 
 void append_inittab();
-[[nodiscard]] bool initialize_module();
 
 [[nodiscard]] PyObject *wrap(container::envelope &envelope);
 bool invalidate(PyObject *object) noexcept;

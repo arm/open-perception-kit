@@ -117,11 +117,12 @@ class FrameResultsDecodeTests(unittest.TestCase):
 
     def test_rejects_nonmatching_producer_identity(self) -> None:
         cases = [
-            (None, None, None, "missing"),
-            (OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION, "bad", "malformed"),
-            ("other_sdk", OPEN_PERCEPTION_KIT_VERSION, SCHEMA_SET_SHA256, "sdk_name_mismatch"),
-            (OPEN_PERCEPTION_KIT_NAME, "9.9.9", SCHEMA_SET_SHA256, "sdk_version_mismatch"),
-            (OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION, "0" * 64, "schema_set_mismatch"),
+            (None, None, None, "name_mismatch"),
+            ("other_sdk", OPEN_PERCEPTION_KIT_VERSION, SCHEMA_SET_SHA256, "name_mismatch"),
+            (OPEN_PERCEPTION_KIT_NAME, "invalid", SCHEMA_SET_SHA256, "version_mismatch"),
+            (OPEN_PERCEPTION_KIT_NAME, None, SCHEMA_SET_SHA256, "version_mismatch"),
+            (OPEN_PERCEPTION_KIT_NAME, "0.1.2", SCHEMA_SET_SHA256, "version_mismatch"),
+            (OPEN_PERCEPTION_KIT_NAME, "9.9.9", SCHEMA_SET_SHA256, "version_mismatch"),
         ]
 
         for name, version, schema_set_sha256, expected_status in cases:
@@ -134,6 +135,14 @@ class FrameResultsDecodeTests(unittest.TestCase):
                     f"producer identity: {expected_status}",
                 ):
                     decode_frame_results_record(record)
+
+    def test_accepts_same_major_versions_independently_of_schema_digest(self) -> None:
+        major = OPEN_PERCEPTION_KIT_VERSION.split(".")[0]
+        for version in (OPEN_PERCEPTION_KIT_VERSION, f"{major}.999.0"):
+            for digest in (None, "bad", "0" * 64):
+                with self.subTest(version=version, digest=digest):
+                    record = make_record(make_identity_packet(OPEN_PERCEPTION_KIT_NAME, version, digest))
+                    self.assertTrue(decode_frame_results_record(record).frame_results.valid())
 
 
 if __name__ == "__main__":

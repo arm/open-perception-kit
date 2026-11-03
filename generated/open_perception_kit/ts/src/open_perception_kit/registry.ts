@@ -17,19 +17,19 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import { ByteBuffer } from 'flatbuffers';
-import { BoxDetections as BoxDetections_556103652012567315, BoxDetectionsT as BoxDetectionsT_556103652012567315 } from './fb/open-perception-kit/metadata/box-detections.js';
-import { Classifications as Classifications_2852697023809600655, ClassificationsT as ClassificationsT_2852697023809600655 } from './fb/open-perception-kit/metadata/classifications.js';
-import { FrameContext as FrameContext_2065478860695108412, FrameContextT as FrameContextT_2065478860695108412 } from './fb/open-perception-kit/metadata/frame-context.js';
-import { InstanceSegmentationMasks as InstanceSegmentationMasks_3149752457626985059, InstanceSegmentationMasksT as InstanceSegmentationMasksT_3149752457626985059 } from './fb/open-perception-kit/metadata/instance-segmentation-masks.js';
-import { ObjectEmbeddings as ObjectEmbeddings_5972661533224817501, ObjectEmbeddingsT as ObjectEmbeddingsT_5972661533224817501 } from './fb/open-perception-kit/metadata/object-embeddings.js';
-import { ObjectTracks as ObjectTracks_2960585987463094496, ObjectTracksT as ObjectTracksT_2960585987463094496 } from './fb/open-perception-kit/metadata/object-tracks.js';
-import { PerformanceOverlay as PerformanceOverlay_7749401259036278028, PerformanceOverlayT as PerformanceOverlayT_7749401259036278028 } from './fb/open-perception-kit/metadata/performance-overlay.js';
-import { PoseEstimations as PoseEstimations_9114952555105892553, PoseEstimationsT as PoseEstimationsT_9114952555105892553 } from './fb/open-perception-kit/metadata/pose-estimations.js';
-import { SegmentationMasks as SegmentationMasks_1998909987238011535, SegmentationMasksT as SegmentationMasksT_1998909987238011535 } from './fb/open-perception-kit/metadata/segmentation-masks.js';
-import { SemanticSegmentationMasks as SemanticSegmentationMasks_1602571589628393389, SemanticSegmentationMasksT as SemanticSegmentationMasksT_1602571589628393389 } from './fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
-import { TrackTraces as TrackTraces_238211229389337861, TrackTracesT as TrackTracesT_238211229389337861 } from './fb/open-perception-kit/metadata/track-traces.js';
-import { TurnDetections as TurnDetections_3528578282400045446, TurnDetectionsT as TurnDetectionsT_3528578282400045446 } from './fb/open-perception-kit/metadata/turn-detections.js';
-import { VoiceActivityDetections as VoiceActivityDetections_7328253118381503000, VoiceActivityDetectionsT as VoiceActivityDetectionsT_7328253118381503000 } from './fb/open-perception-kit/metadata/voice-activity-detections.js';
+import { BoxDetections as BoxDetections_3248104387212218840, BoxDetectionsT as BoxDetectionsT_3248104387212218840 } from './fb/open-perception-kit/metadata/box-detections.js';
+import { Classifications as Classifications_3375056508603945320, ClassificationsT as ClassificationsT_3375056508603945320 } from './fb/open-perception-kit/metadata/classifications.js';
+import { FrameContext as FrameContext_5246681475592864076, FrameContextT as FrameContextT_5246681475592864076 } from './fb/open-perception-kit/metadata/frame-context.js';
+import { InstanceSegmentationMasks as InstanceSegmentationMasks_7634499802271603959, InstanceSegmentationMasksT as InstanceSegmentationMasksT_7634499802271603959 } from './fb/open-perception-kit/metadata/instance-segmentation-masks.js';
+import { ObjectEmbeddings as ObjectEmbeddings_6121378805478677067, ObjectEmbeddingsT as ObjectEmbeddingsT_6121378805478677067 } from './fb/open-perception-kit/metadata/object-embeddings.js';
+import { ObjectTracks as ObjectTracks_5316059591418463553, ObjectTracksT as ObjectTracksT_5316059591418463553 } from './fb/open-perception-kit/metadata/object-tracks.js';
+import { PerformanceOverlay as PerformanceOverlay_2126073810871404430, PerformanceOverlayT as PerformanceOverlayT_2126073810871404430 } from './fb/open-perception-kit/metadata/performance-overlay.js';
+import { PoseEstimations as PoseEstimations_5268014742632501193, PoseEstimationsT as PoseEstimationsT_5268014742632501193 } from './fb/open-perception-kit/metadata/pose-estimations.js';
+import { SegmentationMasks as SegmentationMasks_3128408959875976772, SegmentationMasksT as SegmentationMasksT_3128408959875976772 } from './fb/open-perception-kit/metadata/segmentation-masks.js';
+import { SemanticSegmentationMasks as SemanticSegmentationMasks_133049182594848948, SemanticSegmentationMasksT as SemanticSegmentationMasksT_133049182594848948 } from './fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
+import { TrackTraces as TrackTraces_7618457940451616939, TrackTracesT as TrackTracesT_7618457940451616939 } from './fb/open-perception-kit/metadata/track-traces.js';
+import { TurnDetections as TurnDetections_7194963704333257544, TurnDetectionsT as TurnDetectionsT_7194963704333257544 } from './fb/open-perception-kit/metadata/turn-detections.js';
+import { VoiceActivityDetections as VoiceActivityDetections_4750671262425495264, VoiceActivityDetectionsT as VoiceActivityDetectionsT_4750671262425495264 } from './fb/open-perception-kit/metadata/voice-activity-detections.js';
 export type PayloadClass<T = unknown> = Function & { prototype: T };
 
 export type TypeInfo = {
@@ -41,152 +41,152 @@ export type TypeInfo = {
   verify?: (blob: Uint8Array) => boolean;
 };
 
-const decode_556103652012567315 = (blob: Uint8Array): unknown => BoxDetections_556103652012567315.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
-const verify_556103652012567315 = (blob: Uint8Array): boolean => BoxDetections_556103652012567315.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_2852697023809600655 = (blob: Uint8Array): unknown => Classifications_2852697023809600655.getRootAsClassifications(new ByteBuffer(blob)).unpack();
-const verify_2852697023809600655 = (blob: Uint8Array): boolean => Classifications_2852697023809600655.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_2065478860695108412 = (blob: Uint8Array): unknown => FrameContext_2065478860695108412.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
-const verify_2065478860695108412 = (blob: Uint8Array): boolean => FrameContext_2065478860695108412.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_3149752457626985059 = (blob: Uint8Array): unknown => InstanceSegmentationMasks_3149752457626985059.getRootAsInstanceSegmentationMasks(new ByteBuffer(blob)).unpack();
-const verify_3149752457626985059 = (blob: Uint8Array): boolean => InstanceSegmentationMasks_3149752457626985059.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_5972661533224817501 = (blob: Uint8Array): unknown => ObjectEmbeddings_5972661533224817501.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
-const verify_5972661533224817501 = (blob: Uint8Array): boolean => ObjectEmbeddings_5972661533224817501.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_2960585987463094496 = (blob: Uint8Array): unknown => ObjectTracks_2960585987463094496.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
-const verify_2960585987463094496 = (blob: Uint8Array): boolean => ObjectTracks_2960585987463094496.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_7749401259036278028 = (blob: Uint8Array): unknown => PerformanceOverlay_7749401259036278028.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
-const verify_7749401259036278028 = (blob: Uint8Array): boolean => PerformanceOverlay_7749401259036278028.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_9114952555105892553 = (blob: Uint8Array): unknown => PoseEstimations_9114952555105892553.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
-const verify_9114952555105892553 = (blob: Uint8Array): boolean => PoseEstimations_9114952555105892553.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_1998909987238011535 = (blob: Uint8Array): unknown => SegmentationMasks_1998909987238011535.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
-const verify_1998909987238011535 = (blob: Uint8Array): boolean => SegmentationMasks_1998909987238011535.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_1602571589628393389 = (blob: Uint8Array): unknown => SemanticSegmentationMasks_1602571589628393389.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
-const verify_1602571589628393389 = (blob: Uint8Array): boolean => SemanticSegmentationMasks_1602571589628393389.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_238211229389337861 = (blob: Uint8Array): unknown => TrackTraces_238211229389337861.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
-const verify_238211229389337861 = (blob: Uint8Array): boolean => TrackTraces_238211229389337861.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_3528578282400045446 = (blob: Uint8Array): unknown => TurnDetections_3528578282400045446.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
-const verify_3528578282400045446 = (blob: Uint8Array): boolean => TurnDetections_3528578282400045446.bufferHasIdentifier(new ByteBuffer(blob));
-const decode_7328253118381503000 = (blob: Uint8Array): unknown => VoiceActivityDetections_7328253118381503000.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
-const verify_7328253118381503000 = (blob: Uint8Array): boolean => VoiceActivityDetections_7328253118381503000.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_3248104387212218840 = (blob: Uint8Array): unknown => BoxDetections_3248104387212218840.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
+const verify_3248104387212218840 = (blob: Uint8Array): boolean => BoxDetections_3248104387212218840.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_3375056508603945320 = (blob: Uint8Array): unknown => Classifications_3375056508603945320.getRootAsClassifications(new ByteBuffer(blob)).unpack();
+const verify_3375056508603945320 = (blob: Uint8Array): boolean => Classifications_3375056508603945320.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_5246681475592864076 = (blob: Uint8Array): unknown => FrameContext_5246681475592864076.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
+const verify_5246681475592864076 = (blob: Uint8Array): boolean => FrameContext_5246681475592864076.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_7634499802271603959 = (blob: Uint8Array): unknown => InstanceSegmentationMasks_7634499802271603959.getRootAsInstanceSegmentationMasks(new ByteBuffer(blob)).unpack();
+const verify_7634499802271603959 = (blob: Uint8Array): boolean => InstanceSegmentationMasks_7634499802271603959.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_6121378805478677067 = (blob: Uint8Array): unknown => ObjectEmbeddings_6121378805478677067.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
+const verify_6121378805478677067 = (blob: Uint8Array): boolean => ObjectEmbeddings_6121378805478677067.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_5316059591418463553 = (blob: Uint8Array): unknown => ObjectTracks_5316059591418463553.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
+const verify_5316059591418463553 = (blob: Uint8Array): boolean => ObjectTracks_5316059591418463553.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_2126073810871404430 = (blob: Uint8Array): unknown => PerformanceOverlay_2126073810871404430.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
+const verify_2126073810871404430 = (blob: Uint8Array): boolean => PerformanceOverlay_2126073810871404430.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_5268014742632501193 = (blob: Uint8Array): unknown => PoseEstimations_5268014742632501193.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
+const verify_5268014742632501193 = (blob: Uint8Array): boolean => PoseEstimations_5268014742632501193.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_3128408959875976772 = (blob: Uint8Array): unknown => SegmentationMasks_3128408959875976772.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
+const verify_3128408959875976772 = (blob: Uint8Array): boolean => SegmentationMasks_3128408959875976772.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_133049182594848948 = (blob: Uint8Array): unknown => SemanticSegmentationMasks_133049182594848948.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
+const verify_133049182594848948 = (blob: Uint8Array): boolean => SemanticSegmentationMasks_133049182594848948.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_7618457940451616939 = (blob: Uint8Array): unknown => TrackTraces_7618457940451616939.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
+const verify_7618457940451616939 = (blob: Uint8Array): boolean => TrackTraces_7618457940451616939.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_7194963704333257544 = (blob: Uint8Array): unknown => TurnDetections_7194963704333257544.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
+const verify_7194963704333257544 = (blob: Uint8Array): boolean => TurnDetections_7194963704333257544.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_4750671262425495264 = (blob: Uint8Array): unknown => VoiceActivityDetections_4750671262425495264.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
+const verify_4750671262425495264 = (blob: Uint8Array): boolean => VoiceActivityDetections_4750671262425495264.bufferHasIdentifier(new ByteBuffer(blob));
 
 export const _TYPE_REGISTRY = new Map<bigint, TypeInfo>([
-  [556103652012567315n, {
+  [3248104387212218840n, {
     name: 'open_perception_kit::metadata::BoxDetections',
     root_type: 'BoxDetections',
     qualified_root_type: 'open_perception_kit.metadata.BoxDetections',
     file_identifier: 'BDET',
-    decode: decode_556103652012567315,
-    verify: verify_556103652012567315,
+    decode: decode_3248104387212218840,
+    verify: verify_3248104387212218840,
   }],
-  [2852697023809600655n, {
+  [3375056508603945320n, {
     name: 'open_perception_kit::metadata::Classifications',
     root_type: 'Classifications',
     qualified_root_type: 'open_perception_kit.metadata.Classifications',
     file_identifier: 'CLSF',
-    decode: decode_2852697023809600655,
-    verify: verify_2852697023809600655,
+    decode: decode_3375056508603945320,
+    verify: verify_3375056508603945320,
   }],
-  [2065478860695108412n, {
+  [5246681475592864076n, {
     name: 'open_perception_kit::metadata::FrameContext',
     root_type: 'FrameContext',
     qualified_root_type: 'open_perception_kit.metadata.FrameContext',
     file_identifier: 'FCTX',
-    decode: decode_2065478860695108412,
-    verify: verify_2065478860695108412,
+    decode: decode_5246681475592864076,
+    verify: verify_5246681475592864076,
   }],
-  [3149752457626985059n, {
+  [7634499802271603959n, {
     name: 'open_perception_kit::metadata::InstanceSegmentationMasks',
     root_type: 'InstanceSegmentationMasks',
     qualified_root_type: 'open_perception_kit.metadata.InstanceSegmentationMasks',
     file_identifier: 'ISGM',
-    decode: decode_3149752457626985059,
-    verify: verify_3149752457626985059,
+    decode: decode_7634499802271603959,
+    verify: verify_7634499802271603959,
   }],
-  [5972661533224817501n, {
+  [6121378805478677067n, {
     name: 'open_perception_kit::metadata::ObjectEmbeddings',
     root_type: 'ObjectEmbeddings',
     qualified_root_type: 'open_perception_kit.metadata.ObjectEmbeddings',
     file_identifier: 'EMBE',
-    decode: decode_5972661533224817501,
-    verify: verify_5972661533224817501,
+    decode: decode_6121378805478677067,
+    verify: verify_6121378805478677067,
   }],
-  [2960585987463094496n, {
+  [5316059591418463553n, {
     name: 'open_perception_kit::metadata::ObjectTracks',
     root_type: 'ObjectTracks',
     qualified_root_type: 'open_perception_kit.metadata.ObjectTracks',
     file_identifier: 'TRKS',
-    decode: decode_2960585987463094496,
-    verify: verify_2960585987463094496,
+    decode: decode_5316059591418463553,
+    verify: verify_5316059591418463553,
   }],
-  [7749401259036278028n, {
+  [2126073810871404430n, {
     name: 'open_perception_kit::metadata::PerformanceOverlay',
     root_type: 'PerformanceOverlay',
     qualified_root_type: 'open_perception_kit.metadata.PerformanceOverlay',
     file_identifier: 'PERF',
-    decode: decode_7749401259036278028,
-    verify: verify_7749401259036278028,
+    decode: decode_2126073810871404430,
+    verify: verify_2126073810871404430,
   }],
-  [9114952555105892553n, {
+  [5268014742632501193n, {
     name: 'open_perception_kit::metadata::PoseEstimations',
     root_type: 'PoseEstimations',
     qualified_root_type: 'open_perception_kit.metadata.PoseEstimations',
     file_identifier: 'POSE',
-    decode: decode_9114952555105892553,
-    verify: verify_9114952555105892553,
+    decode: decode_5268014742632501193,
+    verify: verify_5268014742632501193,
   }],
-  [1998909987238011535n, {
+  [3128408959875976772n, {
     name: 'open_perception_kit::metadata::SegmentationMasks',
     root_type: 'SegmentationMasks',
     qualified_root_type: 'open_perception_kit.metadata.SegmentationMasks',
     file_identifier: 'SGMS',
-    decode: decode_1998909987238011535,
-    verify: verify_1998909987238011535,
+    decode: decode_3128408959875976772,
+    verify: verify_3128408959875976772,
   }],
-  [1602571589628393389n, {
+  [133049182594848948n, {
     name: 'open_perception_kit::metadata::SemanticSegmentationMasks',
     root_type: 'SemanticSegmentationMasks',
     qualified_root_type: 'open_perception_kit.metadata.SemanticSegmentationMasks',
     file_identifier: 'SSGM',
-    decode: decode_1602571589628393389,
-    verify: verify_1602571589628393389,
+    decode: decode_133049182594848948,
+    verify: verify_133049182594848948,
   }],
-  [238211229389337861n, {
+  [7618457940451616939n, {
     name: 'open_perception_kit::metadata::TrackTraces',
     root_type: 'TrackTraces',
     qualified_root_type: 'open_perception_kit.metadata.TrackTraces',
     file_identifier: 'TRCE',
-    decode: decode_238211229389337861,
-    verify: verify_238211229389337861,
+    decode: decode_7618457940451616939,
+    verify: verify_7618457940451616939,
   }],
-  [3528578282400045446n, {
+  [7194963704333257544n, {
     name: 'open_perception_kit::metadata::TurnDetections',
     root_type: 'TurnDetections',
     qualified_root_type: 'open_perception_kit.metadata.TurnDetections',
     file_identifier: 'TURN',
-    decode: decode_3528578282400045446,
-    verify: verify_3528578282400045446,
+    decode: decode_7194963704333257544,
+    verify: verify_7194963704333257544,
   }],
-  [7328253118381503000n, {
+  [4750671262425495264n, {
     name: 'open_perception_kit::metadata::VoiceActivityDetections',
     root_type: 'VoiceActivityDetections',
     qualified_root_type: 'open_perception_kit.metadata.VoiceActivityDetections',
     file_identifier: 'VACT',
-    decode: decode_7328253118381503000,
-    verify: verify_7328253118381503000,
+    decode: decode_4750671262425495264,
+    verify: verify_4750671262425495264,
   }],
 ]);
 
 export const _CLASS_TO_ID = new Map<PayloadClass, bigint>([
-  [BoxDetectionsT_556103652012567315, 556103652012567315n],
-  [ClassificationsT_2852697023809600655, 2852697023809600655n],
-  [FrameContextT_2065478860695108412, 2065478860695108412n],
-  [InstanceSegmentationMasksT_3149752457626985059, 3149752457626985059n],
-  [ObjectEmbeddingsT_5972661533224817501, 5972661533224817501n],
-  [ObjectTracksT_2960585987463094496, 2960585987463094496n],
-  [PerformanceOverlayT_7749401259036278028, 7749401259036278028n],
-  [PoseEstimationsT_9114952555105892553, 9114952555105892553n],
-  [SegmentationMasksT_1998909987238011535, 1998909987238011535n],
-  [SemanticSegmentationMasksT_1602571589628393389, 1602571589628393389n],
-  [TrackTracesT_238211229389337861, 238211229389337861n],
-  [TurnDetectionsT_3528578282400045446, 3528578282400045446n],
-  [VoiceActivityDetectionsT_7328253118381503000, 7328253118381503000n],
+  [BoxDetectionsT_3248104387212218840, 3248104387212218840n],
+  [ClassificationsT_3375056508603945320, 3375056508603945320n],
+  [FrameContextT_5246681475592864076, 5246681475592864076n],
+  [InstanceSegmentationMasksT_7634499802271603959, 7634499802271603959n],
+  [ObjectEmbeddingsT_6121378805478677067, 6121378805478677067n],
+  [ObjectTracksT_5316059591418463553, 5316059591418463553n],
+  [PerformanceOverlayT_2126073810871404430, 2126073810871404430n],
+  [PoseEstimationsT_5268014742632501193, 5268014742632501193n],
+  [SegmentationMasksT_3128408959875976772, 3128408959875976772n],
+  [SemanticSegmentationMasksT_133049182594848948, 133049182594848948n],
+  [TrackTracesT_7618457940451616939, 7618457940451616939n],
+  [TurnDetectionsT_7194963704333257544, 7194963704333257544n],
+  [VoiceActivityDetectionsT_4750671262425495264, 4750671262425495264n],
 ]);

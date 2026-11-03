@@ -137,7 +137,7 @@ export function decodeFrameResultsMessage(message) {
         );
     }
     const producerIdentity = envelope.producerIdentity();
-    if (producerIdentity !== ProducerIdentityStatus.ExactMatch) {
+    if (![ProducerIdentityStatus.ExactMatch, ProducerIdentityStatus.CompatibleMatch].includes(producerIdentity)) {
         throw new FrameResultsDecodeError(
             `incompatible frame results producer identity: ${producerIdentity}`,
         );

@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -53,7 +52,7 @@
 
 namespace open_perception_kit {
 
-inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "0.1.2";
+inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "1.0.0";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
     "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
@@ -69,7 +68,7 @@ template <> struct native_traits<open_perception_kit::metadata::BoxDetectionsT> 
     using table_type = open_perception_kit::metadata::BoxDetections;
     using native_type = open_perception_kit::metadata::BoxDetectionsT;
 
-    static constexpr id_t id = 556103652012567315ULL;
+    static constexpr id_t id = 3248104387212218840ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.BoxDetections";
 
@@ -86,7 +85,7 @@ template <> struct native_traits<open_perception_kit::metadata::ClassificationsT
     using table_type = open_perception_kit::metadata::Classifications;
     using native_type = open_perception_kit::metadata::ClassificationsT;
 
-    static constexpr id_t id = 2852697023809600655ULL;
+    static constexpr id_t id = 3375056508603945320ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.Classifications";
 
@@ -103,7 +102,7 @@ template <> struct native_traits<open_perception_kit::metadata::FrameContextT> {
     using table_type = open_perception_kit::metadata::FrameContext;
     using native_type = open_perception_kit::metadata::FrameContextT;
 
-    static constexpr id_t id = 2065478860695108412ULL;
+    static constexpr id_t id = 5246681475592864076ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.FrameContext";
 
@@ -120,7 +119,7 @@ template <> struct native_traits<open_perception_kit::metadata::InstanceSegmenta
     using table_type = open_perception_kit::metadata::InstanceSegmentationMasks;
     using native_type = open_perception_kit::metadata::InstanceSegmentationMasksT;
 
-    static constexpr id_t id = 3149752457626985059ULL;
+    static constexpr id_t id = 7634499802271603959ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.InstanceSegmentationMasks";
 
@@ -137,7 +136,7 @@ template <> struct native_traits<open_perception_kit::metadata::ObjectEmbeddings
     using table_type = open_perception_kit::metadata::ObjectEmbeddings;
     using native_type = open_perception_kit::metadata::ObjectEmbeddingsT;
 
-    static constexpr id_t id = 5972661533224817501ULL;
+    static constexpr id_t id = 6121378805478677067ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.ObjectEmbeddings";
 
@@ -154,7 +153,7 @@ template <> struct native_traits<open_perception_kit::metadata::ObjectTracksT> {
     using table_type = open_perception_kit::metadata::ObjectTracks;
     using native_type = open_perception_kit::metadata::ObjectTracksT;
 
-    static constexpr id_t id = 2960585987463094496ULL;
+    static constexpr id_t id = 5316059591418463553ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.ObjectTracks";
 
@@ -171,7 +170,7 @@ template <> struct native_traits<open_perception_kit::metadata::PerformanceOverl
     using table_type = open_perception_kit::metadata::PerformanceOverlay;
     using native_type = open_perception_kit::metadata::PerformanceOverlayT;
 
-    static constexpr id_t id = 7749401259036278028ULL;
+    static constexpr id_t id = 2126073810871404430ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.PerformanceOverlay";
 
@@ -188,7 +187,7 @@ template <> struct native_traits<open_perception_kit::metadata::PoseEstimationsT
     using table_type = open_perception_kit::metadata::PoseEstimations;
     using native_type = open_perception_kit::metadata::PoseEstimationsT;
 
-    static constexpr id_t id = 9114952555105892553ULL;
+    static constexpr id_t id = 5268014742632501193ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.PoseEstimations";
 
@@ -205,7 +204,7 @@ template <> struct native_traits<open_perception_kit::metadata::SegmentationMask
     using table_type = open_perception_kit::metadata::SegmentationMasks;
     using native_type = open_perception_kit::metadata::SegmentationMasksT;
 
-    static constexpr id_t id = 1998909987238011535ULL;
+    static constexpr id_t id = 3128408959875976772ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.SegmentationMasks";
 
@@ -222,7 +221,7 @@ template <> struct native_traits<open_perception_kit::metadata::SemanticSegmenta
     using table_type = open_perception_kit::metadata::SemanticSegmentationMasks;
     using native_type = open_perception_kit::metadata::SemanticSegmentationMasksT;
 
-    static constexpr id_t id = 1602571589628393389ULL;
+    static constexpr id_t id = 133049182594848948ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.SemanticSegmentationMasks";
 
@@ -239,7 +238,7 @@ template <> struct native_traits<open_perception_kit::metadata::TrackTracesT> {
     using table_type = open_perception_kit::metadata::TrackTraces;
     using native_type = open_perception_kit::metadata::TrackTracesT;
 
-    static constexpr id_t id = 238211229389337861ULL;
+    static constexpr id_t id = 7618457940451616939ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.TrackTraces";
 
@@ -256,7 +255,7 @@ template <> struct native_traits<open_perception_kit::metadata::TurnDetectionsT>
     using table_type = open_perception_kit::metadata::TurnDetections;
     using native_type = open_perception_kit::metadata::TurnDetectionsT;
 
-    static constexpr id_t id = 3528578282400045446ULL;
+    static constexpr id_t id = 7194963704333257544ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.TurnDetections";
 
@@ -273,7 +272,7 @@ template <> struct native_traits<open_perception_kit::metadata::VoiceActivityDet
     using table_type = open_perception_kit::metadata::VoiceActivityDetections;
     using native_type = open_perception_kit::metadata::VoiceActivityDetectionsT;
 
-    static constexpr id_t id = 7328253118381503000ULL;
+    static constexpr id_t id = 4750671262425495264ULL;
     static constexpr std::string_view qualified_root_type =
         "open_perception_kit.metadata.VoiceActivityDetections";
 
@@ -322,12 +321,10 @@ struct external_key_access;
 namespace container {
 
 enum class producer_identity_status {
+    name_mismatch,
     exact_match,
-    missing,
-    malformed,
-    sdk_name_mismatch,
-    sdk_version_mismatch,
-    schema_set_mismatch,
+    compatible_match,
+    version_mismatch,
 };
 
 class external_payload_ref;
@@ -464,7 +461,7 @@ class envelope {
     }
 
     envelope(envelope &&other) noexcept
-        : mutex_(other.mutex_), payloads_(std::move(other.payloads_)), valid_(other.valid_),
+        : payloads_(std::move(other.payloads_)), valid_(other.valid_),
           error_(std::move(other.error_)), producer_sdk_name_(std::move(other.producer_sdk_name_)),
           producer_sdk_version_(std::move(other.producer_sdk_version_)),
           producer_schema_set_sha256_(std::move(other.producer_schema_set_sha256_)) {}
@@ -519,16 +516,17 @@ class envelope {
         if (const auto *payloads = envelope->payloads()) {
             payloads_.reserve(payloads->size());
             for (const auto *entry : *payloads) {
-                if (!entry || !entry->blob()) {
+                if (!entry) {
                     continue;
                 }
-                const auto *data = entry->blob()->Data();
-                const auto size = entry->blob()->size();
+                std::vector<std::uint8_t> blob;
+                if (const auto *bytes = entry->blob()) {
+                    blob.assign(bytes->Data(), bytes->Data() + bytes->size());
+                }
                 payloads_.push_back(std::make_shared<open_perception_kit::detail::payload_entry>(
                     entry->id(),
                     open_perception_kit::detail::payload_data{
-                        open_perception_kit::detail::encoded_payload{
-                            std::vector<std::uint8_t>(data, data + size)}}));
+                        open_perception_kit::detail::encoded_payload{std::move(blob)}}));
             }
         }
 
@@ -570,24 +568,21 @@ class envelope {
 
     [[nodiscard]] producer_identity_status producer_identity() const {
         std::scoped_lock lock(mutex());
-        if (producer_sdk_name_.empty() || producer_sdk_version_.empty() ||
-            producer_schema_set_sha256_.empty()) {
-            return producer_identity_status::missing;
-        }
-        if (!valid_sdk_name(producer_sdk_name_) || !valid_semantic_version(producer_sdk_version_) ||
-            !valid_sha256(producer_schema_set_sha256_)) {
-            return producer_identity_status::malformed;
-        }
         if (producer_sdk_name_ != OPEN_PERCEPTION_KIT_NAME) {
-            return producer_identity_status::sdk_name_mismatch;
+            return producer_identity_status::name_mismatch;
         }
-        if (producer_sdk_version_ != OPEN_PERCEPTION_KIT_VERSION) {
-            return producer_identity_status::sdk_version_mismatch;
+        if (!valid_semantic_version(producer_sdk_version_)) {
+            return producer_identity_status::version_mismatch;
         }
-        if (producer_schema_set_sha256_ != OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256) {
-            return producer_identity_status::schema_set_mismatch;
+        if (producer_sdk_version_ == OPEN_PERCEPTION_KIT_VERSION) {
+            return producer_identity_status::exact_match;
         }
-        return producer_identity_status::exact_match;
+        const auto producer_major =
+            std::string_view(producer_sdk_version_).substr(0, producer_sdk_version_.find('.'));
+        const auto sdk_major =
+            OPEN_PERCEPTION_KIT_VERSION.substr(0, OPEN_PERCEPTION_KIT_VERSION.find('.'));
+        return producer_major == sdk_major ? producer_identity_status::compatible_match
+                                           : producer_identity_status::version_mismatch;
     }
 
     [[nodiscard]] bool empty() const noexcept {
@@ -772,16 +767,6 @@ class envelope {
     using entry_ptr = std::shared_ptr<open_perception_kit::detail::payload_entry>;
     using entry_list = std::vector<entry_ptr>;
 
-    [[nodiscard]] static bool valid_sdk_name(std::string_view value) {
-        if (value.empty() || value.front() < 'a' || value.front() > 'z') {
-            return false;
-        }
-        return std::ranges::all_of(value, [](const char character) {
-            return (character >= 'a' && character <= 'z') ||
-                   (character >= '0' && character <= '9') || character == '_';
-        });
-    }
-
     [[nodiscard]] static bool valid_semantic_version(std::string_view value) {
         std::size_t component_start = 0;
         int component_count = 0;
@@ -800,15 +785,6 @@ class envelope {
             component_start = index + 1;
         }
         return component_count == 3;
-    }
-
-    [[nodiscard]] static bool valid_sha256(std::string_view value) {
-        if (value.size() != 64) {
-            return false;
-        }
-        return std::ranges::all_of(value, [](const char character) {
-            return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f');
-        });
     }
 
     void add_keyed_blob_entry(open_perception_kit::detail::id_t key,
@@ -956,10 +932,10 @@ class envelope {
     }
 
     [[nodiscard]] std::mutex &mutex() const noexcept {
-        return *mutex_;
+        return mutex_;
     }
 
-    std::shared_ptr<std::mutex> mutex_ = std::make_shared<std::mutex>();
+    mutable std::mutex mutex_;
     mutable entry_list payloads_;
     bool valid_ = true;
     std::string error_;
