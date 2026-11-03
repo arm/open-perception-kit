@@ -1,0 +1,230 @@
+{
+  "yolo26n-320": {
+    "baseline": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 18.050857914415236,
+      "fps_min": 17.96597087211762,
+      "fps_max": 18.40563647451854,
+      "inference_mean_ms": 39.64955639018088,
+      "inference_p95_ms": 41.020483,
+      "cpu_ms_per_frame": 201.2106885569948
+    },
+    "intra": {
+      "threads": [
+        2,
+        1
+      ],
+      "fps_median": 17.797162613690347,
+      "fps_min": 17.787017657696868,
+      "fps_max": 18.12287321571373,
+      "inference_mean_ms": 40.66146577002584,
+      "inference_p95_ms": 41.38006,
+      "cpu_ms_per_frame": 144.9180789689119
+    },
+    "inter": {
+      "threads": [
+        2,
+        2
+      ],
+      "fps_median": 19.281052893014987,
+      "fps_min": 19.247694109279315,
+      "fps_max": 19.680244123153834,
+      "inference_mean_ms": 36.04782955297158,
+      "inference_p95_ms": 37.118445,
+      "cpu_ms_per_frame": 185.52637793523314
+    }
+  },
+  "yolo26n-480": {
+    "baseline": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 9.582181840679716,
+      "fps_min": 9.541570071682889,
+      "fps_max": 9.59103789470347,
+      "inference_mean_ms": 87.58063296640827,
+      "inference_p95_ms": 89.702831,
+      "cpu_ms_per_frame": 354.68448233937823
+    },
+    "intra": {
+      "threads": [
+        2,
+        1
+      ],
+      "fps_median": 9.098781403723537,
+      "fps_min": 9.092103155146216,
+      "fps_max": 9.103126796797232,
+      "inference_mean_ms": 93.14461392764858,
+      "inference_p95_ms": 94.747946,
+      "cpu_ms_per_frame": 255.91541574870467
+    },
+    "inter": {
+      "threads": [
+        2,
+        2
+      ],
+      "fps_median": 10.062643721796109,
+      "fps_min": 10.030755058490117,
+      "fps_max": 10.069914706127772,
+      "inference_mean_ms": 82.64981607751938,
+      "inference_p95_ms": 84.786088,
+      "cpu_ms_per_frame": 331.5624206139896
+    }
+  },
+  "yolo26n-640": {
+    "baseline": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 5.525104721222085,
+      "fps_min": 5.520830114742713,
+      "fps_max": 5.580987373374451,
+      "inference_mean_ms": 161.90388552971575,
+      "inference_p95_ms": 164.434303,
+      "cpu_ms_per_frame": 587.3987182720207
+    },
+    "intra": {
+      "threads": [
+        2,
+        1
+      ],
+      "fps_median": 5.382985635831946,
+      "fps_min": 5.380195553517854,
+      "fps_max": 5.405713985073522,
+      "inference_mean_ms": 166.8241488501292,
+      "inference_p95_ms": 169.326945,
+      "cpu_ms_per_frame": 409.38327009844556
+    },
+    "inter": {
+      "threads": [
+        2,
+        2
+      ],
+      "fps_median": 5.930042117941633,
+      "fps_min": 5.920517046169933,
+      "fps_max": 5.935519480342558,
+      "inference_mean_ms": 150.08725642118864,
+      "inference_p95_ms": 153.475169,
+      "cpu_ms_per_frame": 541.8905635673575
+    }
+  },
+  "yolo26s-320": {
+    "baseline": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 10.043593208318633,
+      "fps_min": 10.04106697595309,
+      "fps_max": 10.060565080049695,
+      "inference_mean_ms": 83.9793371369509,
+      "inference_p95_ms": 85.573451,
+      "cpu_ms_per_frame": 339.25826593523317
+    },
+    "intra": {
+      "threads": [
+        2,
+        1
+      ],
+      "fps_median": 9.40701904878397,
+      "fps_min": 9.401510064798535,
+      "fps_max": 9.43233467003485,
+      "inference_mean_ms": 90.73901959689923,
+      "inference_p95_ms": 91.857917,
+      "cpu_ms_per_frame": 247.65439893782383
+    },
+    "inter": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 10.039858985358297,
+      "fps_min": 10.031420342549918,
+      "fps_max": 10.042251782899307,
+      "inference_mean_ms": 84.04074748062015,
+      "inference_p95_ms": 85.615299,
+      "cpu_ms_per_frame": 340.0967606994819
+    }
+  },
+  "yolo26s-480": {
+    "baseline": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 4.919219313781817,
+      "fps_min": 4.896949370555092,
+      "fps_max": 4.93217123381962,
+      "inference_mean_ms": 186.360513498708,
+      "inference_p95_ms": 188.717112,
+      "cpu_ms_per_frame": 653.3515616321243
+    },
+    "intra": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 4.910797698104255,
+      "fps_min": 4.904129629912849,
+      "fps_max": 4.951621413317989,
+      "inference_mean_ms": 186.76191908268734,
+      "inference_p95_ms": 189.032631,
+      "cpu_ms_per_frame": 655.4124858290155
+    },
+    "inter": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 4.903588992629995,
+      "fps_min": 4.902192592581101,
+      "fps_max": 4.9230682001456945,
+      "inference_mean_ms": 186.99116575710593,
+      "inference_p95_ms": 189.776303,
+      "cpu_ms_per_frame": 655.9051568108808
+    }
+  },
+  "yolo26s-640": {
+    "baseline": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 2.69613789317801,
+      "fps_min": 2.6943963210940245,
+      "fps_max": 2.702155283314715,
+      "inference_mean_ms": 351.87660422997413,
+      "inference_p95_ms": 354.840233,
+      "cpu_ms_per_frame": 1157.0083719404145
+    },
+    "intra": {
+      "threads": [
+        3,
+        1
+      ],
+      "fps_median": 2.693164981923807,
+      "fps_min": 2.6872854393628045,
+      "fps_max": 2.716975427254731,
+      "inference_mean_ms": 352.2857546744186,
+      "inference_p95_ms": 355.488784,
+      "cpu_ms_per_frame": 1157.4043905544042
+    },
+    "inter": {
+      "threads": [
+        3,
+        2
+      ],
+      "fps_median": 2.8000736583140173,
+      "fps_min": 2.798796346902261,
+      "fps_max": 2.808972286904921,
+      "inference_mean_ms": 334.6705296020672,
+      "inference_p95_ms": 356.448871,
+      "cpu_ms_per_frame": 1417.359191126943
+    }
+  }
+}

@@ -1,18 +1,20 @@
+diff --git a/onnxruntime/core/providers/webgpu/ep/ep.cc b/onnxruntime/core/providers/webgpu/ep/ep.cc
+index de4bac1..b69423c 100644
 --- a/onnxruntime/core/providers/webgpu/ep/ep.cc
 +++ b/onnxruntime/core/providers/webgpu/ep/ep.cc
-@@ -2,6 +2,11 @@
- // Licensed under the MIT License.
+@@ -3,6 +3,11 @@
  
  #include "ep.h"
-+
+ 
 +#include <chrono>
 +#include <cstdlib>
 +#include <iostream>
 +#include <string_view>
- 
++
  #include "allocator.h"
  #include "factory.h"
-@@ -49,6 +54,10 @@
+ #include "sync_stream.h"
+@@ -49,6 +54,10 @@ Ep::Ep(std::unique_ptr<IExecutionProvider> impl, Factory& factory, const OrtLogg
    ReplayGraph = ReplayGraphImpl;
    ReleaseCapturedGraph = ReleaseCapturedGraphImpl;
    GetGraphCaptureNodeAssignmentPolicy = GetGraphCaptureNodeAssignmentPolicyImpl;
@@ -23,7 +25,7 @@
  }
  
  // OrtEp interface implementations
-@@ -234,6 +243,9 @@
+@@ -234,6 +243,9 @@ OrtStatus* ORT_API_CALL Ep::OnRunStartImpl(_In_ OrtEp* this_ptr,
      }
    }
    auto* ep = static_cast<Ep*>(this_ptr);
@@ -33,11 +35,10 @@
    auto status = ep->EpImpl()->OnRunStart(options);
    if (!status.IsOK()) {
      return Api().ort.CreateStatus(static_cast<OrtErrorCode>(status.Code()),
-@@ -252,6 +264,15 @@
-   if (!status.IsOK()) {
+@@ -253,6 +265,15 @@ OrtStatus* ORT_API_CALL Ep::OnRunEndImpl(_In_ OrtEp* this_ptr,
      return Api().ort.CreateStatus(static_cast<OrtErrorCode>(status.Code()),
                                    status.ErrorMessage().c_str());
-+  }
+   }
 +  if (ep->diagnostic_profiler_) {
 +    profiling::Events events;
 +    ep->diagnostic_profiler_->EndProfiling(std::chrono::high_resolution_clock::now(), events);
@@ -46,12 +47,15 @@
 +      std::clog << "MALI_GPU_US\t" << event.name << '\t' << event.dur << '\t'
 +                << event.args.at("shapes") << '\t' << event.ts << '\n';
 +    }
-   }
++  }
    return nullptr;
    EXCEPTION_TO_RETURNED_STATUS_END
+ }
+diff --git a/onnxruntime/core/providers/webgpu/ep/ep.h b/onnxruntime/core/providers/webgpu/ep/ep.h
+index f18f0f2..571e95c 100644
 --- a/onnxruntime/core/providers/webgpu/ep/ep.h
 +++ b/onnxruntime/core/providers/webgpu/ep/ep.h
-@@ -92,6 +92,8 @@
+@@ -92,6 +92,8 @@ class Ep : public onnxruntime::ep::adapter::Ep {
    Config config_{};
    // Copy of the device allocator's OrtMemoryInfo, created by ORT so it is safe to pass to ORT APIs.
    Ort::MemoryInfo device_memory_info_;
@@ -60,9 +64,11 @@
  };
  
  }  // namespace ep
+diff --git a/onnxruntime/core/providers/webgpu/math/matmul.cc b/onnxruntime/core/providers/webgpu/math/matmul.cc
+index fb6580a..c8dd758 100644
 --- a/onnxruntime/core/providers/webgpu/math/matmul.cc
 +++ b/onnxruntime/core/providers/webgpu/math/matmul.cc
-@@ -309,14 +309,13 @@
+@@ -309,14 +309,13 @@ Status ComputeMatMul(ComputeContext* context,
  
    const bool is_vec4 = dim_inner % 4 == 0 && dim_b_outer % 4 == 0;
  
@@ -81,7 +87,7 @@
    uint32_t dispatch_z = narrow<uint32_t>((static_cast<uint32_t>(batch_size) + MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z * elements_per_thread[2] - 1) /
                                           (MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z * elements_per_thread[2]));
  
-@@ -369,13 +368,13 @@
+@@ -369,13 +368,13 @@ Status ComputeMatMul(ComputeContext* context,
  
    MatMulProgram matmul_program{activation, use_bias_in_matmul, is_vec4, elements_per_thread, is_channels_last, split_dim_inner};
    matmul_program
@@ -97,9 +103,11 @@
        .AddOutput(std::move(output));
    // Activation uniforms must remain last because definitions and values are matched by index.
    AppendActivationUniformsData(activation, matmul_program);
+diff --git a/onnxruntime/core/providers/webgpu/nn/conv.cc b/onnxruntime/core/providers/webgpu/nn/conv.cc
+index 6ffb917..098bbf2 100644
 --- a/onnxruntime/core/providers/webgpu/nn/conv.cc
 +++ b/onnxruntime/core/providers/webgpu/nn/conv.cc
-@@ -298,7 +298,9 @@
+@@ -298,7 +298,9 @@ Status Conv<is_channels_last, is_fused>::ComputeInternal(ComputeContext& context
    inputs[1] = conv_kernel;
    TensorShape transposed_kernel_shape = conv_kernel->Shape();
    modified_input_output_shapes[1] = transposed_kernel_shape;
@@ -110,9 +118,11 @@
    return context.RunProgram(conv2d_mm_program);
  }
  
+diff --git a/onnxruntime/core/providers/webgpu/nn/conv2d_mm.cc b/onnxruntime/core/providers/webgpu/nn/conv2d_mm.cc
+index 7c325fe..9e2d294 100644
 --- a/onnxruntime/core/providers/webgpu/nn/conv2d_mm.cc
 +++ b/onnxruntime/core/providers/webgpu/nn/conv2d_mm.cc
-@@ -168,7 +168,12 @@
+@@ -168,7 +168,12 @@ Status Conv2dMMProgram::GenerateShaderCode(ShaderHelper& shader) const {
                    : MakeMatMulPackedSource(shader, elements_per_thread_, WorkgroupSizeX(), WorkgroupSizeY(), data_type, /* batch_dims = */ nullptr, /*transpose_a = */ !is_channels_last_, /* transpose_b = */ false, 1.0f, true, tile_inner_, /* split_t = */ false, 0);
  }
  
@@ -126,7 +136,7 @@
    const auto* input = inputs[0];
    const auto* weight = inputs[1];
    bool has_bias = inputs.size() > 2;
-@@ -186,8 +191,13 @@
+@@ -186,8 +191,13 @@ Conv2dMMProgram CreateConv2dMMProgram(const Activation& activation, const std::v
    // TODO: fine tune size
    const auto dispatch_x = is_channels_last ? output_channels : output_width * output_height;
    const auto dispatch_y = is_channels_last ? output_width * output_height : output_channels;
@@ -142,7 +152,7 @@
    auto integer_ceil = [](int64_t a, int64_t b) -> int64_t { return (a + b - 1) / b; };
  
    const std::vector<uint32_t> dispatch = {
-@@ -221,7 +231,7 @@
+@@ -221,7 +231,7 @@ Conv2dMMProgram CreateConv2dMMProgram(const Activation& activation, const std::v
      return oss.str();
    };
  
@@ -151,9 +161,11 @@
        .AddOutput({output, ProgramTensorMetadataDependency::TypeAndRank, reduced_output_shape, components})
        .SetDispatchGroupSize(dispatch[0], dispatch[1], dispatch[2])
        .SetWorkgroupSize(workgroup_size[0], workgroup_size[1], workgroup_size[2])
+diff --git a/onnxruntime/core/providers/webgpu/nn/conv2d_mm.h b/onnxruntime/core/providers/webgpu/nn/conv2d_mm.h
+index 01212b7..c6a135f 100644
 --- a/onnxruntime/core/providers/webgpu/nn/conv2d_mm.h
 +++ b/onnxruntime/core/providers/webgpu/nn/conv2d_mm.h
-@@ -57,7 +57,12 @@
+@@ -57,7 +57,12 @@ class Conv2dMMProgram final : public Program<Conv2dMMProgram> {
    InlinedVector<int64_t> elements_per_thread_;
  };
  
@@ -167,9 +179,74 @@
  
  }  // namespace webgpu
  }  // namespace onnxruntime
+diff --git a/onnxruntime/core/providers/webgpu/webgpu_context.cc b/onnxruntime/core/providers/webgpu/webgpu_context.cc
+index bca1d72..ee1a9c6 100644
+--- a/onnxruntime/core/providers/webgpu/webgpu_context.cc
++++ b/onnxruntime/core/providers/webgpu/webgpu_context.cc
+@@ -3,6 +3,8 @@
+ 
+ #include <algorithm>
+ #include <cmath>
++#include <cstdlib>
++#include <string_view>
+ #include <memory>
+ #include <mutex>
+ #include <string>
+@@ -81,10 +83,22 @@ void WebGpuContext::Initialize(const WebGpuContextConfig& config) {
+ 
+ #if !defined(__wasm__)
+       auto enabled_adapter_toggles = GetEnabledAdapterToggles();
++      std::vector<const char*> disabled_adapter_toggles;
++      if (const char* const setting = std::getenv("ORT_WEBGPU_DISABLE_VULKAN_MEMORY_MODEL")) {
++        ORT_ENFORCE(std::string_view{setting} == "1", "Expected memory-model override 1");
++        // Isolate the r53p0 convolution watchdog without changing the default control.
++        std::erase_if(enabled_adapter_toggles, [](const char* const toggle) {
++          return std::string_view{toggle} == "use_vulkan_memory_model";
++        });
++        disabled_adapter_toggles.push_back("use_vulkan_memory_model");
++        LOGS_DEFAULT(WARNING) << "Diagnostic: Vulkan memory model disabled";
++      }
+ 
+       wgpu::DawnTogglesDescriptor adapter_toggles_desc = {};
+       adapter_toggles_desc.enabledToggleCount = enabled_adapter_toggles.size();
+       adapter_toggles_desc.enabledToggles = enabled_adapter_toggles.data();
++      adapter_toggles_desc.disabledToggleCount = disabled_adapter_toggles.size();
++      adapter_toggles_desc.disabledToggles = disabled_adapter_toggles.data();
+ 
+       req_adapter_options.nextInChain = &adapter_toggles_desc;
+ #endif
+@@ -853,6 +867,11 @@ std::vector<const char*> WebGpuContext::GetEnabledDeviceToggles() const {
+   if (!enable_robustness_) {
+     enabled_toggles.push_back("disable_robustness");
+   }
++  if (const char* const setting = std::getenv("ORT_WEBGPU_DISABLE_WORKGROUP_INIT")) {
++    ORT_ENFORCE(std::string_view{setting} == "1", "Expected workgroup-init override 1");
++    enabled_toggles.push_back("disable_workgroup_init");
++    LOGS_DEFAULT(WARNING) << "Diagnostic: workgroup initialization disabled";
++  }
+   enabled_toggles.push_back("lazy_clear_resource_on_first_use");
+   return enabled_toggles;
+ }
+@@ -861,7 +880,13 @@ std::vector<const char*> WebGpuContext::GetDisabledDeviceToggles() const {
+   constexpr const char* toggles[] = {
+       "timestamp_quantization",
+   };
+-  return std::vector<const char*>(std::begin(toggles), std::end(toggles));
++  std::vector<const char*> disabled_toggles(std::begin(toggles), std::end(toggles));
++  if (const char* const setting = std::getenv("ORT_WEBGPU_DISABLE_SPIRV14")) {
++    ORT_ENFORCE(std::string_view{setting} == "1", "Expected SPIR-V override 1");
++    disabled_toggles.push_back("use_spirv_1_4");
++    LOGS_DEFAULT(WARNING) << "Diagnostic: SPIR-V 1.4 disabled";
++  }
++  return disabled_toggles;
+ }
+ 
+ #if !defined(__wasm__)
+diff --git a/onnxruntime/core/providers/webgpu/webgpu_utils.cc b/onnxruntime/core/providers/webgpu/webgpu_utils.cc
+index 62d7b99..04cbabd 100644
 --- a/onnxruntime/core/providers/webgpu/webgpu_utils.cc
 +++ b/onnxruntime/core/providers/webgpu/webgpu_utils.cc
-@@ -2,11 +2,57 @@
+@@ -2,12 +2,58 @@
  // Licensed under the MIT License.
  #include "core/providers/webgpu/webgpu_utils.h"
  
@@ -183,7 +260,7 @@
  
  namespace onnxruntime {
  namespace webgpu {
-+
+ 
 +MatMulTile GetMaliMatMulTile(const wgpu::AdapterInfo& adapter_info,
 +                             const bool eligible, const uint32_t output_rows) {
 +  constexpr uint32_t GenericWorkgroupRows = 8;
@@ -209,7 +286,7 @@
 +    const std::array candidates{
 +        Candidate{"8x8-r1", {8, 1}}, Candidate{"8x8-r2", {8, 2}},
 +        Candidate{"8x16-r1", {16, 1}}, Candidate{"8x16-r2", {16, 2}},
-+        Candidate{"8x4-r2", {4, 2}}};
++        Candidate{"8x4-r2", {4, 2}}, Candidate{"8x32-r1", {32, 1}}};
 +    for (const auto& candidate : candidates) {
 +      if (candidate.name == setting) {
 +        LOGS_DEFAULT(INFO) << "Selected Mali FP32 tile " << candidate.name;
@@ -224,16 +301,18 @@
 +  return {selected->workgroup_rows,
 +          output_rows <= SmallMatrixRows ? SmallOutputRows : selected->output_rows_per_thread};
 +}
- 
++
  TensorShape ReduceShapeByComponents(const TensorShape& shape, int64_t components) {
    // Reduce the last dimensions by components creating a new tensor shape.
+   TensorShapeVector shape_vector = shape.AsShapeVector();
+diff --git a/onnxruntime/core/providers/webgpu/webgpu_utils.h b/onnxruntime/core/providers/webgpu/webgpu_utils.h
+index d4bb245..45c6bf7 100644
 --- a/onnxruntime/core/providers/webgpu/webgpu_utils.h
 +++ b/onnxruntime/core/providers/webgpu/webgpu_utils.h
-@@ -14,6 +14,14 @@
- namespace webgpu {
+@@ -15,6 +15,14 @@ namespace webgpu {
  
  class ShaderVariableHelper;
-+
+ 
 +struct MatMulTile {
 +  uint32_t workgroup_rows;
 +  int64_t output_rows_per_thread;
@@ -241,6 +320,7 @@
 +
 +MatMulTile GetMaliMatMulTile(const wgpu::AdapterInfo& adapter_info,
 +                             const bool eligible, const uint32_t output_rows);
- 
++
  template <typename T>
  inline T CeilDiv(T numerator, T denominator) {
+   return (numerator + denominator - 1) / denominator;

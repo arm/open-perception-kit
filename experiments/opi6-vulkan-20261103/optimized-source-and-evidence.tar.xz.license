@@ -1,0 +1,9 @@
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-FileCopyrightText: Copyright Microsoft Corporation
+SPDX-FileCopyrightText: Copyright 2023 The Dawn & Tint Authors
+SPDX-License-Identifier: Apache-2.0 AND MIT AND BSD-3-Clause
+
+An archival collection of OPK experiment source and measurements (Apache-2.0),
+ONNX Runtime source excerpts (MIT) and Dawn/Tint source excerpts (BSD-3-Clause).
+Original notices and licences are preserved inside the archive.
+No downloaded model binaries or video are included.

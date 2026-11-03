@@ -17,6 +17,8 @@ limitations under the License.
 
 # OPi6 benchmark after the driver update
 
+> Historical checkpoint, before the completed initialization fix and Mali tuning. See [the current benchmark](OPTIMIZED.md) for final results and current driver capabilities.
+
 3 November 2026. Vulkan preprocessing completed; ONNX GPU inference is blocked by a reproducible execution failure. No post-update YOLO GPU FPS or Mali-tiling speedup is claimed.
 
 ## Environment and build

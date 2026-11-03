@@ -21,29 +21,34 @@ Wednesday, 4 November 2026. About 90 seconds of explanation and 30 seconds for r
 
 **Overview — approximately 90 seconds**
 
-ONNX Runtime offers two ways to divide CPU work. IntraOp splits one operator, such as a convolution, across several threads. InterOp runs independent operators in the same model graph at the same time. An operator must still wait for its inputs, so the graph determines how much work can overlap.
+ONNX Runtime has two ways to divide CPU work. IntraOp splits one operator, such as a convolution, across threads. InterOp runs independent operators in the same model graph concurrently. Operators still wait for their inputs, and neither setting runs separate video frames in parallel.
 
-OPK exposes both settings on each inference Op. IntraOp includes the calling thread. With InterOp omitted or set to one, OPK keeps graph execution sequential. Setting it above one enables parallel graph execution; zero lets ONNX Runtime choose the pool size. These options do not make separate video frames run in parallel.
+Originally, OPK chose the inference thread count from the hardware. On a four-core Raspberry Pi, that meant three IntraOp threads and sequential graph execution. The IntraOp change made the count configurable per inference Op. The later InterOp change exposed parallel graph execution and retuned the model presets.
 
-More threads can also mean more synchronization and competition for CPU time. The decoder, preprocessing and postprocessing need CPU time too, so the best inference setting must be checked in the pipeline that uses it.
+More threads are not always faster. They add synchronization and compete with decoding, preprocessing and result handling. Some models benefit from two threads within each operator and two threads between independent operators. Others work better with three IntraOp threads and a sequential graph.
 
-We tested YOLO26 nano at 320 pixels on a Raspberry Pi 5, entirely on the CPU. Every run used the same 417-frame real video from the ONNX example. We tested all pairs from zero to four, then repeated the leading settings and the default. We checked every frame's detections and monitored temperature and throttling.
+We measured the changes in their actual order: baseline, IntraOp, then InterOp. All six YOLO nano and small configurations ran on lecso, entirely on the CPU, using the same ONNX Runtime version and real video. Each stage was repeated three times, and every frame's detections were checked.
 
 **Results — final 30 seconds**
 
-The default reached 20.11 frames per second. Two IntraOp threads and two InterOp threads reached 21.69: a 7.9 percent gain. Mean inference time fell from 40.80 to 37.20 milliseconds. All detections matched. With two IntraOp threads and sequential execution, throughput stayed near the default while process CPU time fell. The useful setting depends on whether throughput or spare CPU capacity matters more.
+The InterOp stage improves nano-model pipeline throughput by 8.3 to 10.6 percent over the IntraOp stage. The small-320 control gains 6.5 percent by changing IntraOp from two threads to three. Small-480 stays essentially unchanged. These are step-by-step gains: compared with the original baseline, nano gains 5.0 to 7.3 percent, while small-320 returns to roughly its original speed.
 
 **Slide table — medians of three real-video runs**
 
-| Configuration | Pipeline FPS | Mean inference ms | Process CPU ms/frame |
-| --- | ---: | ---: | ---: |
-| Default: IntraOp 3, sequential | 20.11 | 40.80 | 175.03 |
-| IntraOp 2, sequential | 20.26 | 40.65 | 128.81 |
-| IntraOp 2, InterOp 2 | 21.69 | 37.20 | 159.97 |
+| Model | Baseline FPS | + IntraOp FPS | + InterOp FPS | IntraOp step | InterOp step | Total vs baseline |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| yolo26n-320 | 18.05 | 17.80 | 19.28 | -1.4% | +8.3% | +6.8% |
+| yolo26n-480 | 9.58 | 9.10 | 10.06 | -5.0% | +10.6% | +5.0% |
+| yolo26n-640 | 5.53 | 5.38 | 5.93 | -2.6% | +10.2% | +7.3% |
+| yolo26s-320 | 10.04 | 9.41 | 10.04 | -6.3% | +6.7% | 0.0% |
+| yolo26s-480 | 4.92 | 4.91 | 4.90 | -0.2% | -0.1% | -0.3% |
+| yolo26s-640 | 2.70 | 2.69 | 2.80 | -0.1% | +4.0% | +3.9% |
 
-Process CPU time is summed across threads, so it can exceed elapsed frame time. It is not a power measurement. The model is the optimized INT8 YOLO26n/320 file; these numbers should not be compared directly with the OPi6 FP32 GPU experiment.
+Every run processes all 417 frames, with 30 warm-up frames. All six files are optimized INT8 YOLO26 models, using ONNX Runtime 1.31.1 throughout. The source stages are actual cherry-picked merges. CPU preprocessing, inference, tracking, serialization and output scaling are included; encoding and browser/network delivery are excluded.
 
-Configuration fragment for the existing `opk-onnx-ops/Inference` attributes:
+The small-320 change is an IntraOp preset adjustment included in the later InterOp merge; its graph execution remains sequential. The detailed report includes a same-source two-versus-three-thread control and explains differences from ticket EXPKITS-1360's 8% result.
+
+Configuration fragment for `opk-onnx-ops/Inference` attributes:
 
 ```json
 {
@@ -52,4 +57,4 @@ Configuration fragment for the existing `opk-onnx-ops/Inference` attributes:
 }
 ```
 
-[Full grid, methods, validation and saved evidence](experiments/onnx-threads-20261103/README.md) · [ONNX Runtime threading reference](https://onnxruntime.ai/docs/performance/tune-performance/threading.html)
+[Full chronological benchmark, settings and validation](experiments/onnx-threads-stages-20261103/README.md) · [ONNX Runtime threading reference](https://onnxruntime.ai/docs/performance/tune-performance/threading.html)

@@ -21,28 +21,31 @@ Wednesday, 4 November 2026. About 90 seconds of overview and 30 seconds for resu
 
 **Overview — approximately 90 seconds**
 
-Originally, the OpChain prepared images, ran inference and interpreted results on the CPU. Reading DMA-backed video could also require a bridge into CPU memory before processing began.
+Originally, the OpChain prepared images, ran inference and interpreted results on the CPU. DMA-backed video could require a copying bridge before processing.
 
-DMA-BUF support preserves the video allocation. Deferred mapping means the CPU maps the pixels only when a stage needs them. Vulkan preprocessing can resize the image, convert its colour format and normalize it on the GPU.
+DMA-BUF support now lets the chain preserve the video allocation. Deferred mapping means waiting until a CPU stage needs the pixels before mapping that allocation into CPU address space. Vulkan preprocessing can resize, convert colours and normalize the image on the GPU.
 
-The experimental inference backend loads the ONNX model through ONNX Runtime's native WebGPU provider. On the OPi6, Dawn translates the GPU operations into Vulkan compute work. CPU stages and unsupported operations can still introduce transfers, so this is not yet an entirely GPU-resident pipeline.
+The experimental inference path loads the ONNX model through ONNX Runtime's native WebGPU provider. Dawn translates its work into Vulkan compute commands on the OPi6's Mali GPU.
 
-We use frames from the same real video as the full ONNX pipeline. We measure individual stages separately from complete-pipeline throughput and compare their outputs. That tells us whether a change makes the computation faster and whether it improves the application.
+After the driver update, we isolated an execution failure in generated shared-memory initialization. The working implementation preserves initialization and changes how those stores are generated. We then tuned convolution and matrix-multiplication workgroups for Mali. The same FP32 model files now run faster on the GPU.
 
-After the driver update, native Vulkan preprocessing works and matches the CPU output. ONNX inference currently fails with a GPU watchdog timeout, including a test containing just the model's first convolution. The Mali-specific kernels compile, but their performance cannot be validated until this execution failure is resolved.
+The measured video pipeline still uses CPU preprocessing and result handling, with transfers at the inference boundary. It already improves throughput, but keeping tensors on the GPU between preprocessing and inference needs further integration. We checked every frame's detections and measured both individual stages and complete video processing.
 
 **Results — final 30 seconds**
 
-For a 1080p video frame converted to a 320-by-320 input tensor, CPU preprocessing takes 0.840 milliseconds. Vulkan takes 0.439 milliseconds, including upload and completion: about 1.9 times faster. The previous GPU driver took 1.253 milliseconds with the same helper. These are preprocessing times, not application FPS. There is no valid post-update YOLO GPU FPS result yet.
+With the same FP32 models and real video, nano-320 improves from 20.90 to 34.27 frames per second. Small-640 improves from 3.28 to 6.50. All six tested models improve pipeline throughput by 53 to 99 percent. Separately, Vulkan preprocessing takes 0.439 milliseconds against 0.840 on the CPU. That preprocessing gain is not yet included in the GPU inference pipeline.
 
-**Slide table — preprocessing only**
+**Slide table — pipeline FPS, medians of three runs**
 
-| Execution | Mean time per image, median of three runs | Range of run means |
-| --- | ---: | ---: |
-| CPU, updated system | 0.840 ms | 0.839–0.842 ms |
-| Vulkan, previous PanVK driver, 1 GHz | 1.253 ms | 1.240–1.269 ms |
-| Vulkan, updated Arm driver | 0.439 ms | 0.431–0.441 ms |
+| Model | CPU FPS | GPU FPS | GPU gain |
+| --- | ---: | ---: | ---: |
+| yolo26n-320 | 20.90 | 34.27 | +64.0% |
+| yolo26n-480 | 12.89 | 19.76 | +53.2% |
+| yolo26n-640 | 8.92 | 14.14 | +58.6% |
+| yolo26s-320 | 9.57 | 19.01 | +98.6% |
+| yolo26s-480 | 5.10 | 9.95 | +95.2% |
+| yolo26s-640 | 3.28 | 6.50 | +98.4% |
 
-The helper reads 417 decoded GettyImages video frames, then cycles through them during timed trials. Decode is outside the timer. Input is 1920×1080 NV12; output is 320×320 FP32 RGB CHW. GPU time includes input upload and synchronous completion. All 128,102,400 output values passed the CPU comparison at absolute tolerance 0.00001. No full-pipeline speedup follows directly from this table.
+All 417 video frames were processed in every run; the first 30 were warm-up. The pipeline includes decode, CPU preprocessing, transfers, inference and result serialization, ending at an unpaced sink. It excludes encoding and browser/network delivery. The CPU uses the existing 11-IntraOp/1-InterOp setting; this was not an exhaustive CPU tuning exercise. GPU inference is experimental and uses the updated Arm driver plus the saved initialization and Mali-kernel patches.
 
-[Updated-driver evidence and remaining blocker](experiments/opi6-vulkan-20261103/RESUMED.md) · [Historical same-model CPU/GPU matrix on PanVK](experiments/opi6-vulkan-20261103/RESULTS.md)
+[Methods, focused timings, validation and saved implementation](experiments/opi6-vulkan-20261103/OPTIMIZED.md)

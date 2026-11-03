@@ -1,0 +1,26 @@
+{
+  "validated_trials": 57,
+  "total_video_frames": 23769,
+  "all_detection_comparisons_passed": true,
+  "all_packet_counts_and_timestamps_passed": true,
+  "all_source_and_runtime_maps_passed": true,
+  "summary_matches_trials": true,
+  "hardware_samples": 909,
+  "temperature_celsius_min": 47.2,
+  "temperature_celsius_max": 67.5,
+  "arm_clock_hz_min": 2200022272,
+  "arm_clock_hz_max": 2400037120,
+  "maximum_other_container_cpu_cores": 0.0,
+  "swap_counter_delta": {
+    "pswpin": 1,
+    "pswpout": 0
+  },
+  "throttled_samples": 0,
+  "monitor_errors": [],
+  "original_governors": {
+    "/sys/devices/system/cpu/cpufreq/policy0/scaling_governor": "ondemand"
+  },
+  "restored_governors": {
+    "/sys/devices/system/cpu/cpufreq/policy0/scaling_governor": "ondemand"
+  }
+}

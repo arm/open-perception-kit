@@ -1,0 +1,6 @@
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-FileCopyrightText: Copyright 2023 The Dawn & Tint Authors
+SPDX-License-Identifier: BSD-3-Clause
+
+This patch modifies Dawn/Tint sources. The upstream notice is retained
+in optimized-source-and-evidence.tar.xz at fix-20261103/DAWN-LICENSE.

@@ -17,6 +17,8 @@ limitations under the License.
 
 # GPU performance investigation
 
+> Historical checkpoint, before the completed initialization fix and Mali tuning. See [the current benchmark](OPTIMIZED.md) for final results and current driver capabilities.
+
 Sources checked on 3 November 2026. These notes distinguish implementation evidence from hardware measurements.
 
 Follow-up source lookup located the WebGPU plugin 0.5.0 release tag at `c44523c625e21f713df88e5462d09316298efe28`. Source links below now point to that tag commit. The NuGet package itself omits a source commit; this is a release association, not a reproducible-build attestation. Compiler statistics and baseline execution measurements below come from the packaged binaries. The subsequent Mali experiment builds an unmodified source control and its candidate with identical settings.

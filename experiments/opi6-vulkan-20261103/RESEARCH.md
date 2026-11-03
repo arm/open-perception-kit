@@ -17,6 +17,8 @@ limitations under the License.
 
 # Mali-G720 inference tuning research — 2026-11-03
 
+> Historical checkpoint, before the completed initialization fix and Mali tuning. See [the current benchmark](OPTIMIZED.md) for final results and current driver capabilities.
+
 This experiment retains the original FP32 YOLO26 ONNX files and ONNX Runtime 1.31.1. The native WebGPU plugin dispatches through Dawn to Vulkan/PanVK on OPi6. Research suggestions below are not measured improvements unless the experiment report says so.
 
 ## GPU frequency

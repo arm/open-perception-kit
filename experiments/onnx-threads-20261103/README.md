@@ -17,6 +17,8 @@ limitations under the License.
 
 # ONNX CPU thread benchmark on Raspberry Pi 5
 
+> Earlier configuration sweep. The requested baseline → IntraOp → InterOp comparison, using actual cherry-picked merges and all six YOLO models on lecso, is in [the chronological benchmark](../onnx-threads-stages-20261103/README.md).
+
 3 November 2026. On lecso, YOLO26n/320 improved from **20.11 to 21.69 pipeline FPS (7.9%)** with `intraOpNumThreads=2` and `interOpNumThreads=2`. Mean inference time fell from **40.80 to 37.20 ms**. These are medians of three complete real-video runs per finalist.
 
 [Two-minute presentation](../../presentation-onnx-threads-2026-11-04.md) · [All trials](trials.csv) · [Machine-readable summary](summary.json)

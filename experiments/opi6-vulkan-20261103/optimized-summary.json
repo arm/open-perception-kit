@@ -1,0 +1,200 @@
+{
+  "yolo26n-320": {
+    "cpu": {
+      "focused_ms": 26.5472,
+      "focused_ms_min": 26.031,
+      "focused_ms_max": 29.358,
+      "focused_fps": 37.6687,
+      "pipeline_fps": 20.898984431621095,
+      "pipeline_fps_min": 20.35942542622638,
+      "pipeline_fps_max": 22.042390803201297,
+      "pipeline_inference_ms": 38.11487902842377,
+      "pipeline_preprocess_ms": 1.3608962144702843,
+      "pipeline_cpu_ms_per_frame": 560.4793020466321
+    },
+    "gpu": {
+      "focused_ms": 23.9099,
+      "focused_ms_min": 23.7549,
+      "focused_ms_max": 23.9501,
+      "focused_fps": 41.8237,
+      "pipeline_fps": 34.271325803156834,
+      "pipeline_fps_min": 34.17177991277997,
+      "pipeline_fps_max": 34.64885524417782,
+      "pipeline_inference_ms": 23.458446206718346,
+      "pipeline_preprocess_ms": 1.06354338501292,
+      "pipeline_cpu_ms_per_frame": 51.90496450259068
+    },
+    "accuracy": {
+      "detections_per_video": 2898,
+      "maximum_box_error_pixels": 0.0010986328125,
+      "maximum_confidence_error": 6.750226020812988e-05
+    },
+    "pipeline_gain_percent": 63.9856037755729,
+    "focused_gain_percent": 11.030378006143039
+  },
+  "yolo26n-480": {
+    "cpu": {
+      "focused_ms": 59.7388,
+      "focused_ms_min": 59.6856,
+      "focused_ms_max": 59.7462,
+      "focused_fps": 16.7395,
+      "pipeline_fps": 12.894065624737895,
+      "pipeline_fps_min": 12.0928591152508,
+      "pipeline_fps_max": 13.361219887043504,
+      "pipeline_inference_ms": 67.70917051679587,
+      "pipeline_preprocess_ms": 2.810346976744186,
+      "pipeline_cpu_ms_per_frame": 902.0497720466321
+    },
+    "gpu": {
+      "focused_ms": 43.4368,
+      "focused_ms_min": 43.1926,
+      "focused_ms_max": 43.6396,
+      "focused_fps": 23.0219,
+      "pipeline_fps": 19.7577494902807,
+      "pipeline_fps_min": 19.736818764335514,
+      "pipeline_fps_max": 19.76719446863139,
+      "pipeline_inference_ms": 43.63580603617571,
+      "pipeline_preprocess_ms": 2.2625180103359175,
+      "pipeline_cpu_ms_per_frame": 53.21780603108808
+    },
+    "accuracy": {
+      "detections_per_video": 2961,
+      "maximum_box_error_pixels": 0.00140380859375,
+      "maximum_confidence_error": 7.650256156921387e-05
+    },
+    "pipeline_gain_percent": 53.231339635611064,
+    "focused_gain_percent": 37.530392186146535
+  },
+  "yolo26n-640": {
+    "cpu": {
+      "focused_ms": 100.333,
+      "focused_ms_min": 100.235,
+      "focused_ms_max": 116.813,
+      "focused_fps": 9.96686,
+      "pipeline_fps": 8.917744560375665,
+      "pipeline_fps_min": 8.750059522449915,
+      "pipeline_fps_max": 8.960481487908988,
+      "pipeline_inference_ms": 101.13615449870801,
+      "pipeline_preprocess_ms": 4.9296916201550385,
+      "pipeline_cpu_ms_per_frame": 1289.5478632642487
+    },
+    "gpu": {
+      "focused_ms": 61.4504,
+      "focused_ms_min": 61.1402,
+      "focused_ms_max": 61.6831,
+      "focused_fps": 16.2733,
+      "pipeline_fps": 14.14244612111825,
+      "pipeline_fps_min": 14.139287942752226,
+      "pipeline_fps_max": 14.153749865406319,
+      "pipeline_inference_ms": 61.92140054263566,
+      "pipeline_preprocess_ms": 3.9245800801033592,
+      "pipeline_cpu_ms_per_frame": 56.425469772020726
+    },
+    "accuracy": {
+      "detections_per_video": 2999,
+      "maximum_box_error_pixels": 0.0008544921875,
+      "maximum_confidence_error": 0.00019282102584838867
+    },
+    "pipeline_gain_percent": 58.58770146834629,
+    "focused_gain_percent": 63.27409033537141
+  },
+  "yolo26s-320": {
+    "cpu": {
+      "focused_ms": 75.5916,
+      "focused_ms_min": 75.1454,
+      "focused_ms_max": 86.39,
+      "focused_fps": 13.229,
+      "pipeline_fps": 9.568582442398371,
+      "pipeline_fps_min": 9.35436575174894,
+      "pipeline_fps_max": 11.651789066766483,
+      "pipeline_inference_ms": 93.29943526614987,
+      "pipeline_preprocess_ms": 1.7070745943152454,
+      "pipeline_cpu_ms_per_frame": 1204.7465947409326
+    },
+    "gpu": {
+      "focused_ms": 46.9617,
+      "focused_ms_min": 46.8838,
+      "focused_ms_max": 46.9924,
+      "focused_fps": 21.2939,
+      "pipeline_fps": 19.005237363609023,
+      "pipeline_fps_min": 18.925226197376407,
+      "pipeline_fps_max": 19.04939371696215,
+      "pipeline_inference_ms": 46.92231276744186,
+      "pipeline_preprocess_ms": 1.0596826279069766,
+      "pipeline_cpu_ms_per_frame": 50.68151630569948
+    },
+    "accuracy": {
+      "detections_per_video": 3052,
+      "maximum_box_error_pixels": 0.0008544921875,
+      "maximum_confidence_error": 0.0003968477249145508
+    },
+    "pipeline_gain_percent": 98.6212427809249,
+    "focused_gain_percent": 60.96379166981634
+  },
+  "yolo26s-480": {
+    "cpu": {
+      "focused_ms": 187.879,
+      "focused_ms_min": 177.354,
+      "focused_ms_max": 219.045,
+      "focused_fps": 5.32257,
+      "pipeline_fps": 5.096175288652861,
+      "pipeline_fps_min": 4.96360251887164,
+      "pipeline_fps_max": 5.137661639749395,
+      "pipeline_inference_ms": 186.8617068268734,
+      "pipeline_preprocess_ms": 3.0602834263565892,
+      "pipeline_cpu_ms_per_frame": 2221.701875492228
+    },
+    "gpu": {
+      "focused_ms": 93.3172,
+      "focused_ms_min": 93.2341,
+      "focused_ms_max": 93.5021,
+      "focused_fps": 10.7161,
+      "pipeline_fps": 9.947212989023345,
+      "pipeline_fps_min": 9.927844254095362,
+      "pipeline_fps_max": 9.95884324898163,
+      "pipeline_inference_ms": 93.53205199224806,
+      "pipeline_preprocess_ms": 2.2612033100775193,
+      "pipeline_cpu_ms_per_frame": 53.76168960103627
+    },
+    "accuracy": {
+      "detections_per_video": 3367,
+      "maximum_box_error_pixels": 0.00067138671875,
+      "maximum_confidence_error": 9.071826934814453e-05
+    },
+    "pipeline_gain_percent": 95.18977322408433,
+    "focused_gain_percent": 101.333190545169
+  },
+  "yolo26s-640": {
+    "cpu": {
+      "focused_ms": 312.785,
+      "focused_ms_min": 286.311,
+      "focused_ms_max": 351.329,
+      "focused_fps": 3.19709,
+      "pipeline_fps": 3.2770847967570966,
+      "pipeline_fps_min": 3.257414864377828,
+      "pipeline_fps_max": 3.307506418799989,
+      "pipeline_inference_ms": 294.97188193023254,
+      "pipeline_preprocess_ms": 4.494987645994832,
+      "pipeline_cpu_ms_per_frame": 3416.272392253886
+    },
+    "gpu": {
+      "focused_ms": 145.076,
+      "focused_ms_min": 144.61,
+      "focused_ms_max": 145.288,
+      "focused_fps": 6.89292,
+      "pipeline_fps": 6.501846983605745,
+      "pipeline_fps_min": 6.500266571174764,
+      "pipeline_fps_max": 6.505289444586474,
+      "pipeline_inference_ms": 144.9852352635659,
+      "pipeline_preprocess_ms": 3.9224060852713176,
+      "pipeline_cpu_ms_per_frame": 56.923579766839374
+    },
+    "accuracy": {
+      "detections_per_video": 4552,
+      "maximum_box_error_pixels": 0.00177001953125,
+      "maximum_confidence_error": 0.0002073049545288086
+    },
+    "pipeline_gain_percent": 98.4033794316148,
+    "focused_gain_percent": 115.59981107819924
+  }
+}

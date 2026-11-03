@@ -17,47 +17,42 @@ limitations under the License.
 
 # OPi6 Vulkan inference experiment — 3 November 2026
 
-Resumed after the GPU driver update. Both provider builds completed. Vulkan preprocessing passed; ONNX GPU inference hits a reproducible watchdog timeout. This branch preserves experimental source and measurements, not a production backend change.
+The updated Arm driver now runs all six FP32 YOLO models successfully with the saved Dawn initialization fix and Mali-specific kernels. Three repeated real-video runs per model/provider show 53–99% higher pipeline FPS on the GPU with the tested CPU configuration. The source, patches, raw evidence and two-minute presentation are saved on this branch.
 
-- [Updated-driver results and remaining blocker](RESUMED.md).
+- [Completed benchmark, implementation and limitations](OPTIMIZED.md).
 - [Two-minute presentation](../../presentation-dma-vulkan-2026-11-04.md).
-- [Original PanVK same-model CPU/GPU matrix](RESULTS.md), [investigation](INVESTIGATION.md) and [optimization research](RESEARCH.md).
-- [Separate CPU-only Raspberry Pi threading benchmark](../onnx-threads-20261103/README.md).
+- [Chronological CPU-only thread benchmark on lecso](../onnx-threads-stages-20261103/README.md).
 
 ## Saved source and evidence
 
-`source-and-evidence.tar.gz` and `snapshot-manifest.json` preserve the original checkpoint unchanged: experimental OPK source, benchmark runners, raw timings, output captures, hardware samples, profiles, build recipes and hashes. Its `mali-tiling.patch` was an unbuilt draft at that checkpoint.
+| Archive | Contents |
+| --- | --- |
+| `optimized-source-and-evidence.tar.xz` | Final runner, ORT and Dawn patches, build provenance, repeated timings, detection comparisons, hardware samples and profile |
+| `source-and-evidence.tar.gz` | Original OPK experimental adapter, base helpers and pre-update checkpoint |
+| `resumed-source-and-evidence.tar.gz` | Intermediate driver-update investigation and build checkpoint, before the initialization fix |
 
-`resumed-source-and-evidence.tar.gz` preserves the work after the driver update: the completed control/candidate build logs and hashes, full candidate patch, current runners, preprocessing results, ONNX failure logs and the small probe-generation script. Its internal `manifest.json` records file hashes. The candidate now compiles; tile numerical correctness, GPU timestamps and performance remain unvalidated because model execution fails.
+The original archives remain unchanged. Their dated reports describe historical states: [pre-update results](RESULTS.md), [investigation](INVESTIGATION.md), [research](RESEARCH.md) and [intermediate execution blocker](RESUMED.md). Use [OPTIMIZED.md](OPTIMIZED.md) for the current result. The standalone `mali-tiling.patch` is now the measured ORT patch; `dawn-zero-init.patch` is the separate dependency patch. Archived earlier versions retain their original provenance.
 
-Neither archive includes downloaded model binaries, licensed video, credentials or local plans. Model acquisition remains owned by OPK's `scripts/download-models.py`; original descriptors and source hashes are in the checkpoint. The scripts retain the dated local paths used during measurement.
-
-Verify the repository artifacts from this directory:
+Each new archive contains a verified SHA-256 member manifest. Downloaded models, licensed video, compiled libraries, credentials and local plans are excluded. Reuse OPK's model and demo-media download owners when recovering assets. The scripts preserve the actual dated paths used during measurement.
 
 ```sh
 sha256sum -c SHA256SUMS
-mkdir checkpoint resumed
-tar -xzf source-and-evidence.tar.gz -C checkpoint
-tar -xzf resumed-source-and-evidence.tar.gz -C resumed
+mkdir original optimized
+tar -xzf source-and-evidence.tar.gz -C original
+tar -xJf optimized-source-and-evidence.tar.xz -C optimized
 ```
 
-## Build state
+## Rebuild and recovery
 
-| Component | Version |
-| --- | --- |
-| OPK benchmark source basis | `c5c1aac6cc3fc3a639e5170d375936130447174d` |
-| ONNX Runtime core | 1.31.1 |
-| WebGPU source tag | `plugin-ep-webgpu/v0.5.0` |
-| WebGPU source commit | `c44523c625e21f713df88e5462d09316298efe28` |
-| Pinned Dawn | `v20260916.214021` |
+The final source is based on ONNX Runtime commit `c44523c625e21f713df88e5462d09316298efe28`, provider tag `plugin-ep-webgpu/v0.5.0`, with Dawn `v20260916.214021`. Both CPU and GPU use ONNX Runtime 1.31.1. Follow the patch order and archived build settings described in [OPTIMIZED.md](OPTIMIZED.md). The Dawn dependency patch must survive dependency population.
 
-The clean control was saved before applying the candidate. The local source now contains the candidate, so rebuilding it does not produce a clean control. Both libraries are under `mali-tiling-20261103/lib/{control,candidate}/` within:
+The final local provider and evidence are under:
 
 ```text
-/home/sanmeg01/.cache/opk-benchmarks/opi6-four-stage-20261102/webgpu-yolo26-20261103/
+/home/sanmeg01/.cache/opk-benchmarks/opi6-four-stage-20261102/webgpu-yolo26-20261103/fix-20261103/
 ```
 
-The incremental cross-build uses the existing OPK container and sysroot:
+The existing cross-build can be resumed with:
 
 ```sh
 docker start opk-opi6-four-stage-build-20261102
@@ -68,16 +63,8 @@ docker exec opk-opi6-four-stage-build-20261102 bash -lc '
 '
 ```
 
-The original runner defaults to a private PanVK ICD. The resumed runner explicitly selects `/etc/vulkan/icd.d/mali.json`. Use the resumed runner for the updated system; confirm loaded libraries before collecting new data. Do not overwrite the colleague's driver with archived libraries.
+The final runner selects `/etc/vulkan/icd.d/mali.json` and checks physical Mali mappings. Do not restore archived driver libraries over the colleague's updated system.
 
-## Binary and media recovery
+Earlier runtime/media backups remain at `C:\Users\sanmeg01\OPK-backups\opi6-gpu-20261103\`; those binaries predate the final fix. The pushed source archives preserve the new implementation without depending on the OPi6 filesystem. No task-owned benchmark remains running on OPi6. Its CPU governors are restored to `schedutil` and the DMA heap to `0600 root:root`.
 
-The pre-update board/runtime/media backup and laptop source/build cache remain at:
-
-```text
-C:\Users\sanmeg01\OPK-backups\opi6-gpu-20261103\
-```
-
-`board-benchmark-and-dependencies.tar.gz` contains the old board tree, private runtimes and video inputs, relative to `/home/opi6`. `laptop-experiment-cache.tar.gz` contains the old local cache, relative to `/home/sanmeg01/.cache/opk-benchmarks`. Their existing `SHA256SUMS` verifies those archives. `resumed-builds/` additionally holds the completed control and candidate binaries, their provenance and the current patch.
-
-Restore archives into an empty directory before copying anything into an existing installation. After the resumed tests, no task-owned GPU benchmark remains running; all CPU governors are restored to `schedutil` and the DMA heap to `0600 root:root`. Native macOS, Windows/WSL GPU execution and other GPUs remain untested.
+This is an experimental backend. Other GPUs, native macOS/Windows GPU execution and GPU execution inside WSL are untested.

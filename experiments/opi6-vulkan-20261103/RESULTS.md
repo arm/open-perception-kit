@@ -17,6 +17,8 @@ limitations under the License.
 
 # OPi6: native ONNX inference through Vulkan
 
+> Historical checkpoint, before the completed initialization fix and Mali tuning. See [the current benchmark](OPTIMIZED.md) for final results and current driver capabilities.
+
 Measured 3 November 2026. Local experimental implementation; no production backend changes committed.
 
 The CPU was faster in every tested FP32 model/size pair. Increasing from YOLO26n to YOLO26s and from 320 to 640 pixels did not produce a GPU crossover on this runtime and driver. The GPU-resident compute diagnostics also remained slower than CPU compute; bulk input/output transfers do not explain most of the difference.
