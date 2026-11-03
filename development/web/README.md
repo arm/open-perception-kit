@@ -362,8 +362,11 @@ ROI. Boxes must be finite, positive-sized, and within the source frame (subpixel
 Float32 rounding at the edge is tolerated and clipped for drawing); confidence
 must be finite and within `[0,1]`. The renderer rejects the selected source's
 entire mask set when an item is malformed, rather than displaying a misleading
-partial result. It supports at most 512 masks and 16,777,216 total mask pixels per
-source/frame, with the same per-bitmap dimension limits as semantic segmentation.
+partial result. It supports at most 512 masks and 67,108,864 total mask pixels per
+source/frame, checked before scanning pixel values. This aggregate budget is
+separate from the unchanged per-bitmap limits (8192 per side, 16,777,216 pixels)
+and permits 32 full-HD or eight UHD full-frame masks. Binary validation and
+compositing remain bounded even when many large masks are supplied.
 
 Drawing uses only displayed-frame-matched metadata and nearest-neighbor scaling
 inside the contained video rectangle. Missing/unmatched frames clear both raster

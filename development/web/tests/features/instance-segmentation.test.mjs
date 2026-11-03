@@ -96,8 +96,27 @@ test('invalid instance metadata fails closed; empty masks do not report present 
     const large = mask();
     Object.assign(large.data, {width: 512, height: 512, pixels: new Uint8Array(512 * 512)});
     const largeVideo = {...video, detections: [{type: 'VideoFrame', data: {...video.detections[0].data, originalWidth: 512, originalHeight: 512}}]};
-    const largeOutput = layer(Array(65).fill(large));
+    const atLimit = layer(Array(256).fill(large));
+    assert.equal(resolve(atLimit, [largeVideo, atLimit]).state, 'ready');
+    const largeOutput = layer(Array(257).fill(large));
     assert.match(resolve(largeOutput, [largeVideo, largeOutput]).message, /pixel budget/);
+});
+
+test('aggregate instance budget supports nine full-HD and three UHD masks', () => {
+    for (const [width, height, count] of [[1920, 1080, 9], [3840, 2160, 3]]) {
+        // Reuse storage in the fixture; the budget must still count every declared mask.
+        const pixels = new Uint8Array(width * height);
+        pixels[0] = 1;
+        const output = layer(Array.from({length: count}, () => ({type: 'InstanceSegmentationMask', data: {
+            ...mask().data, width, height, pixels, box: {x: 0, y: 0, width: 1, height: 1},
+        }})));
+        const parent = {...video, detections: [{type: 'VideoFrame', data: {
+            ...video.detections[0].data, originalWidth: width, originalHeight: height,
+        }}]};
+        const result = resolve(output, [parent, output]);
+        assert.equal(result.state, 'ready');
+        assert.equal(result.masks.length, count);
+    }
 });
 
 test('binary foreground, outlines, overlap order, class alpha and frame-local annotations render correctly', () => {

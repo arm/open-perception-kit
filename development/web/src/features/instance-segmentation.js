@@ -18,11 +18,12 @@
 import {defineFeature} from '../overlay-feature.js';
 import {drawObjectBox} from '../overlay-drawing.js';
 import {objectId} from '../overlay-sources.js';
-import {CLASS_CONTROLS, MASK_CONTROLS, MAX_MASK_PIXELS, classStyle, classLegend,
+import {CLASS_CONTROLS, MASK_CONTROLS, classStyle, classLegend,
     classRenderSignature, withClassSettings, maskGeometryError} from './segmentation.js';
 
 const resolvedFrames = new WeakMap();
 const surfaces = new WeakMap();
+const MAX_TOTAL_MASK_PIXELS = 64 * 1024 * 1024;
 
 function resolve(result, index) {
     if (resolvedFrames.has(result.output)) return resolvedFrames.get(result.output);
@@ -30,15 +31,14 @@ function resolve(result, index) {
     const invalid = (state, message) => finish({...result, items: [], masks: [], state, message});
     const items = result.items.filter(item => item.type === 'InstanceSegmentationMask');
     if (items.length > 512) return invalid('unsupported', 'Too many instance masks (maximum 512).');
+    const totalPixels = items.reduce((total, {data}) => total + (data.pixels instanceof Uint8Array ? data.pixels.length : 0), 0);
+    if (totalPixels > MAX_TOTAL_MASK_PIXELS) return invalid('unsupported', `Instance masks exceed the total pixel budget (${MAX_TOTAL_MASK_PIXELS}).`);
     const masks = [];
-    let totalPixels = 0;
     let parent;
     for (const [position, item] of items.entries()) {
         const mask = item.data;
         const error = maskGeometryError(mask, index);
         if (error) return invalid(error.state, error.message);
-        totalPixels += mask.pixels.length;
-        if (totalPixels > MAX_MASK_PIXELS) return invalid('unsupported', 'Instance masks exceed the total pixel budget.');
         const parentId = objectId(mask.parentUuid);
         if (parent && parent !== parentId) return invalid('ambiguous', 'Instance masks must share one VideoFrame parent.');
         parent = parentId;
@@ -53,7 +53,8 @@ function resolve(result, index) {
             return invalid('unsupported', 'Invalid instance class, confidence, or source-image box.');
         }
         let foreground = false;
-        for (const value of mask.pixels) {
+        for (let pixelIndex = 0; pixelIndex < mask.pixels.length; pixelIndex++) {
+            const value = mask.pixels[pixelIndex];
             if (value !== 0 && value !== 1) return invalid('unsupported', 'Instance masks require binary Uint8 pixels (0 or 1).');
             foreground ||= value === 1;
         }
