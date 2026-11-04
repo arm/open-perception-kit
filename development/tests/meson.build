@@ -510,6 +510,23 @@ test(
     opkinferpre,
   ],
 )
+test(
+  'element_properties_tests',
+  gst_python,
+  args : [
+    files('element_properties_test.py'),
+    qos_delay_op.full_path(),
+    gstopkinfer.full_path(),
+    gstopktracker.full_path(),
+    gstopkosd.full_path(),
+    gstopkperformance.full_path(),
+    opkcomm.full_path(),
+    opkinferpre.full_path(),
+    opksrc.full_path(),
+  ],
+  depends : [qos_delay_op, gstopkinfer, gstopktracker, gstopkosd,
+             gstopkperformance, opkcomm, opkinferpre, opksrc],
+)
 test('model_descriptor_tests', model_descriptor_tests)
 test('base64_tests', base64_tests)
 test('surface_painter_tests', surface_painter_tests)

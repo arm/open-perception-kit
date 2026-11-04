@@ -54,11 +54,25 @@ def main():
         pipeline = gst.parse_launch(
             "videotestsrc is-live=true ! "
             "video/x-raw,format=I420,width=160,height=120,framerate=5/1 ! "
-            f"opkcomm method=websocket ws-port={comm} ! "
+            f"opkcomm name=publisher method=websocket ws-port={comm} ! "
             f"opksink http-port={http} ws-port={webrtc} ctrl-port={ctrl}"
         )
+    publisher = pipeline.get_by_name("publisher")
+    disconnect_endpoints = []
+
+    def read_endpoint_on_disconnect(category, level, filename, function, line, obj, message, data):
+        if obj == publisher and message.get() == "opkcomm WebSocket client disconnected":
+            disconnect_endpoints.append(publisher.get_property("endpoint"))
+
+    category = next(category for category in gst.debug_get_all_categories()
+                    if category.get_name() == "default")
+    previous_threshold = category.get_threshold()
+    gst.debug_set_threshold_for_name("default", gst.DebugLevel.INFO)
+    gst.debug_add_log_function(read_endpoint_on_disconnect, None)
     try:
-        for port in (webrtc, ctrl, comm):
+        for port, replacement in ((webrtc, None), (ctrl, None), (comm, "/replacement"), (comm, None)):
+            publisher.set_property("endpoint", "/ws")
+            disconnect_endpoints.clear()
             assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
             assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
             with socket.create_connection(("127.0.0.1", port), timeout=3) as client:
@@ -76,19 +90,32 @@ def main():
                     # Pong confirms the server has finished opening the connection.
                     send_frame(stream, 9, b"ready")
                     assert receive_until(stream, 10) == b"ready"
-                    stopper = threading.Thread(
-                        target=release_pipeline, args=(pipeline, gst), daemon=True
-                    )
+                    if replacement is None:
+                        stopper = threading.Thread(
+                            target=release_pipeline, args=(pipeline, gst), daemon=True
+                        )
+                    else:
+                        stopper = threading.Thread(
+                            target=publisher.set_property,
+                            args=("endpoint", replacement), daemon=True
+                        )
                     stopper.start()
                     close = receive_until(stream, 8)
                     assert close == b"\x03\xe9", close  # Going away (1001).
                     send_frame(stream, 8, close)
                     assert stream.read(1) == b""
                     stopper.join(3)
-                    assert not stopper.is_alive(), "Pipeline shutdown hung"
+                    assert not stopper.is_alive(), "Writer shutdown or reconfiguration hung"
+                    if port == comm:
+                        assert disconnect_endpoints == [replacement or "/ws"]
+                    if replacement is not None:
+                        assert pipeline.get_state(0)[1] == gst.State.PLAYING
+                        release_pipeline(pipeline, gst)
                     assert pipeline.get_state(0)[1] == gst.State.NULL
             check_released_ports(ports)
     finally:
+        gst.debug_remove_log_function(read_endpoint_on_disconnect)
+        gst.debug_set_threshold_for_name("default", previous_threshold)
         release_pipeline(pipeline, gst)
 
 
