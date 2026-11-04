@@ -658,6 +658,7 @@ ARG NO_EXAMPLE_CONTENT=false
 ARG OPK_RELEASE_BUILD=false
 ARG OPK_MLWL=disabled
 
+COPY --from=opk-release-sources /work/tools/perception/sdk.json /work/tools/perception/sdk.json
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
 # ignore version pinning
 # hadolint ignore=DL3008
@@ -667,7 +668,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   case "${TARGETARCH}" in amd64 | arm64) ;; *) exit 1 ;; esac; \
   if [ "${TARGETARCH}" != "$(dpkg --print-architecture)" ]; then \
     test "${TARGETARCH}" = arm64; \
-    install-target-sysroot "${TARGETARCH}"; \
+    install-target-sysroot "${TARGETARCH}" /work/tools/perception/sdk.json; \
   elif [ "${OPK_RELEASE_BUILD}" = true ]; then \
     apt-get update; \
     apt-get install -y --no-install-recommends \

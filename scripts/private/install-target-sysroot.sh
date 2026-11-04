@@ -25,6 +25,8 @@ if [[ "${architecture}" != arm64 ]]; then
     exit 1
 fi
 
+descriptor="${2:?Perception SDK descriptor is required}"
+
 compiler_packages=(
     gcc-aarch64-linux-gnu
     g++-aarch64-linux-gnu
@@ -70,3 +72,11 @@ done < <(dpkg-query --show --showformat='${binary:Package} ${Architecture}\n' |
     done |
     tar --directory=/ --null --files-from=- --create --file=- |
     tar --extract --file=- --directory="${sysroot}"
+
+# flatc runs on the build host; the sysroot only needs the target library.
+DESTDIR="${sysroot}" install-perception-flatbuffers "${descriptor}" \
+    -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+    -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib/aarch64-linux-gnu \
+    -DFLATBUFFERS_BUILD_FLATC=OFF
