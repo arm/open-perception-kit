@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <span>
 #include <stdexcept>
 #include <utility>
@@ -127,6 +128,15 @@ struct GradientCase {
     bool horizontal;
     std::size_t firstForeground;
 };
+
+// GoogleTest's raw-byte fallback would read the struct's uninitialized padding.
+std::ostream &operator<<(std::ostream &stream, const GradientCase &geometry) {
+    return stream << "width=" << geometry.width << ", height=" << geometry.height
+                  << ", leadingPadding=" << geometry.leadingPadding
+                  << ", trailingPadding=" << geometry.trailingPadding
+                  << ", horizontal=" << geometry.horizontal
+                  << ", firstForeground=" << geometry.firstForeground;
+}
 
 class InstanceMaskGeometry : public testing::TestWithParam<GradientCase> {};
 
