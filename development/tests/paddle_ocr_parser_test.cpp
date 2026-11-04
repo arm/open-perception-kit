@@ -42,7 +42,7 @@ TEST(PaddleOcrDbDetectionParser, RestoresSourcePixelBoxAndParentFromPaddedProbab
     attributes.set("minBoxSize", 1.0);
     attributes.set("minExpandedBoxSize", 1.0);
 
-    std::vector<float> probabilities(16U * 16U, 0.0f);
+    std::vector<float> probabilities(size_t{16} * 16, 0.0f);
     for (size_t y = 6; y <= 8; ++y)
         for (size_t x = 5; x <= 9; ++x)
             probabilities[y * 16 + x] = 0.9f;
