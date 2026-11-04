@@ -170,7 +170,9 @@ enum class DataKind {
     Value,   ///< Single scalar value.
     Vector2, ///< Two scalar values.
     Vector3, ///< Three scalar values.
-    Vector4  ///< Four scalar values.
+    Vector4, ///< Four scalar values.
+
+    ImageBgrChw ///< Planar BGR image, layout BBBGGGRRR.
 };
 
 /**

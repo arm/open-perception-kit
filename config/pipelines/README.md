@@ -90,6 +90,7 @@ Focused detector and cascade presets:
 
 - `mlwl-vgf-demo` — YOLO26n-320 and UltraFace RFB-320 FP32 detection through
   MLWL on bundled video. Both start enabled; toggle each in the web UI.
+- `pp-ocrv6-tiny` — text detection and recognition.
 - `ultraface-rfb-320` — UltraFace face detection on bundled video.
 - `nitec-resnet-18` — UltraFace followed by NITEC camera-contact inference on
   detected face crops.

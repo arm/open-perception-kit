@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:paddle-ocr-preprocess-op:v1",
+  "title": "PaddleOcrPreprocess Op v1",
+  "if": {
+    "properties": {
+      "id": {
+        "const": "opk-std-ops/PaddleOcrPreprocess"
+      }
+    },
+    "required": ["id"]
+  },
+  "then": {
+    "required": ["attributes"],
+    "properties": {
+      "attributes": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "paddingValue"],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["detection", "recognition"]
+          },
+          "paddingValue": {
+            "description": "Padding value after normalization, shared by all tensor channels.",
+            "type": "number",
+            "minimum": -3.4028234663852886e38,
+            "maximum": 3.4028234663852886e38
+          },
+          "inputImageSourceName": {
+            "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString",
+            "default": "pipelineVideoFrame"
+          },
+          "inputImageTensorIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15,
+            "default": 0
+          }
+        }
+      }
+    }
+  }
+}

@@ -34,6 +34,8 @@
 #include "postproc/ImageNetClassificationParser.h"
 #include "postproc/ModNetSegmentationParser.h"
 #include "postproc/ObjectEmbeddingParser.h"
+#include "postproc/PaddleOcrDbDetectionParser.h"
+#include "postproc/PaddleOcrRecognitionParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
 #include "postproc/RvmParser.h"
@@ -67,7 +69,9 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
          make<opk::stdop::postproc::ImageNetClassificationParser>()},
         {"ModNetSegmentationParser", make<opk::stdop::postproc::ModNetSegmentationParser>()},
         {"ObjectEmbeddingParser", make<opk::stdop::postproc::ObjectEmbeddingParser>()},
+        {"PaddleOcrDbDetectionParser", make<opk::stdop::postproc::PaddleOcrDbDetectionParser>()},
         {"PaddleOcrDetectionParser", make<opk::stdop::postproc::PaddleOcrDetectionParser>()},
+        {"PaddleOcrRecognitionParser", make<opk::stdop::postproc::PaddleOcrRecognitionParser>()},
         {"PersonClassificationParser", make<opk::stdop::postproc::PersonClassificationParser>()},
         {"RvmParser", make<opk::stdop::postproc::RvmParser>()},
         {"ScrfdParser", make<opk::stdop::postproc::ScrfdParser>()},

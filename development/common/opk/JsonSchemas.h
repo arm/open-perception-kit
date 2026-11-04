@@ -101,6 +101,7 @@ inline void from_json(const json &j, opk::Shape &s) {
 NLOHMANN_JSON_SERIALIZE_ENUM(opk::DataKind,
                              {
                                  {DataKind::ImageRgbChw, "ImageRgbChw"},
+                                 {DataKind::ImageBgrChw, "ImageBgrChw"},
                                  {DataKind::ImageRgbHwc, "ImageRgbHwc"},
                                  {DataKind::ImageGray, "ImageGray"},
                                  {DataKind::RawTensorData, "RawTensorData"},

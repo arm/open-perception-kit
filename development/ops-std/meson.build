@@ -20,6 +20,7 @@ stdops = shared_module(
     'GenericPostprocessOp.cpp',
     'GenericImagePreprocessOp.cpp',
     'GenericAudioPreprocessOp.cpp',
+    'PaddleOcrPreprocessOp.cpp',
     'InferenceControllerOp.cpp',
     'TurnDetectorOp.cpp',
 
@@ -31,6 +32,8 @@ stdops = shared_module(
     'postproc/YoloXParser.cpp',
     'postproc/UltrafaceParser.cpp',
     'postproc/PaddleocrParser.cpp',
+    'postproc/PaddleOcrDbDetectionParser.cpp',
+    'postproc/PaddleOcrRecognitionParser.cpp',
     'postproc/GazeDetectionParser.cpp',
     'postproc/CameraContactParser.cpp',
     'postproc/SileroVadParser.cpp',

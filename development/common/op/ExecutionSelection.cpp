@@ -93,7 +93,8 @@ Result<void> ExecutionSelection::prepareDevices(const std::vector<Op *> &ops) {
             continue;
         }
         if (!gpu) {
-            if (operation->as<OpInterfaceAudioPreprocessor>())
+            if (operation->as<OpInterfaceAudioPreprocessor>() ||
+                operation->as<OpInterfaceCpuPreprocessor>())
                 return tl::unexpected(
                     unavailableGpu(operation->instanceId, "this Op has only a CPU implementation"));
             continue;
