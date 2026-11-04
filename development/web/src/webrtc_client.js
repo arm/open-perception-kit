@@ -18,6 +18,7 @@
 const MAX_RTP_TIMESTAMP = 0xffffffff;
 const MAX_FRAME_METADATA_ENTRIES = 64;
 const FRAME_METADATA_MAX_AGE_MS = 2000;
+const ICE_DISCONNECT_GRACE_MS = 10000;
 
 export function createWebRtcClient(config) {
     return new WebRtcClient(config);
@@ -184,6 +185,7 @@ class WebRtcClient {
             frameCallbackHandle: null,
             fallbackTimer: null,
             frameWatchdogTimer: null,
+            iceDisconnectTimer: null,
             loadedDataHandler: null,
             frameMetadata: new Map(),
             videoTimestamp: null,
@@ -264,10 +266,24 @@ class WebRtcClient {
             const state = pc.iceConnectionState;
             this.log(`ICE connection state: ${state}`);
             if (state === 'connected' || state === 'completed') {
+                if (session.iceDisconnectTimer) {
+                    this.clearTimeout(session.iceDisconnectTimer);
+                    session.iceDisconnectTimer = null;
+                    this.log('ICE recovered during disconnect grace period.');
+                }
                 if (!session.hasVideoFrame && !this.statusError) {
                     this.onStatus('connecting', 'Connecting', 'Waiting for video…');
                 }
-            } else if (state === 'failed' || state === 'disconnected') {
+            } else if (state === 'disconnected') {
+                if (!session.iceDisconnectTimer) {
+                    this.log(`ICE disconnected; waiting ${ICE_DISCONNECT_GRACE_MS}ms for recovery.`);
+                    session.iceDisconnectTimer = this.setTimeout(() => {
+                        session.iceDisconnectTimer = null;
+                        if (this.isCurrent(session) && pc.iceConnectionState === 'disconnected')
+                            this.scheduleRestart(session, 'ICE disconnected');
+                    }, ICE_DISCONNECT_GRACE_MS);
+                }
+            } else if (state === 'failed') {
                 this.scheduleRestart(session, `ICE ${state}`);
             }
         };
@@ -563,6 +579,8 @@ class WebRtcClient {
 
         if (session.frameWatchdogTimer)
             this.clearTimeout(session.frameWatchdogTimer);
+        if (session.iceDisconnectTimer)
+            this.clearTimeout(session.iceDisconnectTimer);
         if (session.fallbackTimer)
             this.clearTimeout(session.fallbackTimer);
         if (session.loadedDataHandler)

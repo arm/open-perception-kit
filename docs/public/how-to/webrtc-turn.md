@@ -77,5 +77,7 @@ check the source video and pipeline output.
 | `Signaling unavailable. Check server.` | Check that OPK is running and the signaling server is reachable. |
 | `Playback failed. Check browser.` | Check browser playback permissions and the browser console. |
 
-The browser retries dropped connections automatically. Missing video alone does
-not mean TURN is required.
+The browser allows an ICE disconnect ten seconds to recover before restarting
+the connection. An ICE failure still triggers an immediate restart. The separate
+video-frame watchdog remains active during this grace period. Missing video alone
+does not mean TURN is required.

@@ -19,6 +19,7 @@
 var MAX_RTP_TIMESTAMP = 4294967295;
 var MAX_FRAME_METADATA_ENTRIES = 64;
 var FRAME_METADATA_MAX_AGE_MS = 2e3;
+var ICE_DISCONNECT_GRACE_MS = 1e4;
 function createWebRtcClient(config) {
   return new WebRtcClient(config);
 }
@@ -156,6 +157,7 @@ var WebRtcClient = class {
       frameCallbackHandle: null,
       fallbackTimer: null,
       frameWatchdogTimer: null,
+      iceDisconnectTimer: null,
       loadedDataHandler: null,
       frameMetadata: /* @__PURE__ */ new Map(),
       videoTimestamp: null
@@ -223,10 +225,24 @@ var WebRtcClient = class {
       const state = pc.iceConnectionState;
       this.log(`ICE connection state: ${state}`);
       if (state === "connected" || state === "completed") {
+        if (session.iceDisconnectTimer) {
+          this.clearTimeout(session.iceDisconnectTimer);
+          session.iceDisconnectTimer = null;
+          this.log("ICE recovered during disconnect grace period.");
+        }
         if (!session.hasVideoFrame && !this.statusError) {
           this.onStatus("connecting", "Connecting", "Waiting for video\u2026");
         }
-      } else if (state === "failed" || state === "disconnected") {
+      } else if (state === "disconnected") {
+        if (!session.iceDisconnectTimer) {
+          this.log(`ICE disconnected; waiting ${ICE_DISCONNECT_GRACE_MS}ms for recovery.`);
+          session.iceDisconnectTimer = this.setTimeout(() => {
+            session.iceDisconnectTimer = null;
+            if (this.isCurrent(session) && pc.iceConnectionState === "disconnected")
+              this.scheduleRestart(session, "ICE disconnected");
+          }, ICE_DISCONNECT_GRACE_MS);
+        }
+      } else if (state === "failed") {
         this.scheduleRestart(session, `ICE ${state}`);
       }
     };
@@ -472,6 +488,8 @@ var WebRtcClient = class {
     this.onVideoFrame(null);
     if (session.frameWatchdogTimer)
       this.clearTimeout(session.frameWatchdogTimer);
+    if (session.iceDisconnectTimer)
+      this.clearTimeout(session.iceDisconnectTimer);
     if (session.fallbackTimer)
       this.clearTimeout(session.fallbackTimer);
     if (session.loadedDataHandler)

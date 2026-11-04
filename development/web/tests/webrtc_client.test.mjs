@@ -128,6 +128,7 @@ test('disconnection and missing video report their own short errors', async () =
     env.openLatestSocket();
     await env.flush();
     env.latestPeerConnection().setIceState('disconnected');
+    env.clock.tick(10000);
     assert.equal(env.statuses.at(-1).subtext, 'Connection lost. Retrying…');
 
     env.clock.tick(5);
@@ -234,7 +235,52 @@ test('late metadata updates only the displayed video frame', async () => {
     assert.equal(frames.at(-1), null);
 });
 
-test('ICE failed schedules exactly one restart', async () => {
+test('ICE recovery preserves the video session and cancels the grace timer', () => {
+    const env = createEnv();
+    const client = env.createClient({frameTimeoutMs: 0});
+    client.start();
+    env.attachVideoTrack();
+    const pc = env.latestPeerConnection();
+    const stream = env.video.srcObject;
+
+    for (const state of ['connected', 'completed']) {
+        pc.setIceState('disconnected');
+        env.clock.tick(9000);
+        assert.equal(env.video.srcObject, stream);
+        pc.setIceState(state);
+        env.clock.tick(3000);
+        assert.equal(pc.closeCount, 0);
+        assert.equal(env.clock.timers.size, 0);
+    }
+});
+
+test('repeated ICE disconnects do not extend the ten-second deadline', () => {
+    const env = createEnv();
+    env.createClient().start();
+    const pc = env.latestPeerConnection();
+
+    pc.setIceState('disconnected');
+    env.clock.tick(9999);
+    pc.setIceState('disconnected');
+    assert.equal(pc.closeCount, 0);
+    env.clock.tick(1);
+    assert.equal(pc.closeCount, 1);
+    assert.equal(env.peerConnections.length, 2);
+});
+
+test('session cleanup cancels a pending ICE disconnect timer', () => {
+    for (const action of ['stop', 'reconnectNow']) {
+        const env = createEnv();
+        const client = env.createClient();
+        client.start();
+        env.latestPeerConnection().setIceState('disconnected');
+        env.clock.tick(3000);
+        client[action]();
+        assert.equal(env.clock.timers.size, 0);
+    }
+});
+
+test('ICE failed during the grace period schedules exactly one immediate restart', async () => {
     const env = createEnv();
     const client = env.createClient({reconnectDelayMs: 25});
 
@@ -243,6 +289,7 @@ test('ICE failed schedules exactly one restart', async () => {
     await env.flush();
 
     const firstPc = env.latestPeerConnection();
+    firstPc.setIceState('disconnected');
     firstPc.setIceState('failed');
     firstPc.setIceState('disconnected');
 
