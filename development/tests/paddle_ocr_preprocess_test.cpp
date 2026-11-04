@@ -75,7 +75,7 @@ class FakeInference : public opk::op::Op, public opk::op::OpInterfaceInference {
 class TestFrame : public opk::mediaio::VideoFrame {
   public:
     TestFrame(uint32_t width, uint32_t height) : w(width), h(height), stride(width * 4 + 7) {
-        pixels.assign(stride * height, 0xcd);
+        pixels.assign(static_cast<size_t>(stride) * height, 0xcd);
         for (size_t y = 0; y < height; ++y) {
             for (size_t x = 0; x < width; ++x) {
                 setPixel(x, y, {10, 100, 240, static_cast<uint8_t>(x + y)});

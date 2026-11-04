@@ -187,8 +187,10 @@ std::vector<Contour> findContours(const std::vector<float> &probabilities,
                     else if (labels[current] == 1)
                         labels[current] = borderId;
 
-                    contour.push_back({static_cast<double>(current % stride - 1),
-                                       static_cast<double>(current / stride - 1)});
+                    const size_t contourX = current % stride - 1;
+                    const size_t contourY = current / stride - 1;
+                    contour.push_back(
+                        {static_cast<double>(contourX), static_cast<double>(contourY)});
                     // A diagonal contact can revisit start before the border closes.
                     if (next == start && current == first)
                         break;
@@ -311,14 +313,14 @@ double boxScore(const Rectangle &rectangle,
                 size_t width,
                 size_t height) {
     const auto bounds = envelope(rectangle.corners());
-    const auto xmin =
-        static_cast<size_t>(std::clamp(std::floor(bounds.left), 0.0, double(width - 1)));
-    const auto xmax =
-        static_cast<size_t>(std::clamp(std::ceil(bounds.right), 0.0, double(width - 1)));
-    const auto ymin =
-        static_cast<size_t>(std::clamp(std::floor(bounds.top), 0.0, double(height - 1)));
-    const auto ymax =
-        static_cast<size_t>(std::clamp(std::ceil(bounds.bottom), 0.0, double(height - 1)));
+    const auto xmin = static_cast<size_t>(
+        std::clamp(std::floor(bounds.left), 0.0, static_cast<double>(width - 1)));
+    const auto xmax = static_cast<size_t>(
+        std::clamp(std::ceil(bounds.right), 0.0, static_cast<double>(width - 1)));
+    const auto ymin = static_cast<size_t>(
+        std::clamp(std::floor(bounds.top), 0.0, static_cast<double>(height - 1)));
+    const auto ymax = static_cast<size_t>(
+        std::clamp(std::ceil(bounds.bottom), 0.0, static_cast<double>(height - 1)));
     double sum = 0.0;
     size_t count = 0;
     // Include boundary pixel centers and every original probability inside the
@@ -387,10 +389,10 @@ std::optional<Bounds> sourceBounds(const Rectangle &rectangle,
         point.y = (point.y * mapScaleY - image.letterboxTop) * scaleY;
     }
     auto bounds = envelope(corners);
-    bounds.left = std::floor(std::clamp(bounds.left, 0.0, double(image.width)));
-    bounds.top = std::floor(std::clamp(bounds.top, 0.0, double(image.height)));
-    bounds.right = std::ceil(std::clamp(bounds.right, 0.0, double(image.width)));
-    bounds.bottom = std::ceil(std::clamp(bounds.bottom, 0.0, double(image.height)));
+    bounds.left = std::floor(std::clamp(bounds.left, 0.0, static_cast<double>(image.width)));
+    bounds.top = std::floor(std::clamp(bounds.top, 0.0, static_cast<double>(image.height)));
+    bounds.right = std::ceil(std::clamp(bounds.right, 0.0, static_cast<double>(image.width)));
+    bounds.bottom = std::ceil(std::clamp(bounds.bottom, 0.0, static_cast<double>(image.height)));
     if (bounds.right <= bounds.left || bounds.bottom <= bounds.top)
         return std::nullopt;
     return bounds;
