@@ -51,6 +51,14 @@ def check_silence(gst, rate):
         output = pipeline.get_by_name("output")
         for _ in range(2):
             assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+            assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
+            for name, candidate in (("rate", rate + 1), ("ws-port", 1)):
+                original = source.get_property(name)
+                source.set_property(name, candidate)
+                assert source.get_property(name) == original, name
+                warning = pipeline.get_bus().timed_pop_filtered(gst.SECOND, gst.MessageType.WARNING)
+                assert warning is not None, name
+                assert name in warning.parse_warning()[0].message
             previous_pts = None
             for _ in range(3):
                 sample = output.emit("try-pull-sample", 5 * gst.SECOND)

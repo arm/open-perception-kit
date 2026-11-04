@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "gst/PropertyGuard.h"
+
 #include "opksrc.h"
 #include "signaling.h"
 
@@ -296,19 +298,21 @@ static void gst_opk_src_set_property(GObject *object,
                                      GParamSpec *pspec) {
     auto *self = reinterpret_cast<GstOpkSrc *>(object);
 
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), pspec);
+    if (!propertyGuard.isChangeAllowed())
+        return;
+
     switch (property_id) {
     case PROP_WS_PORT:
+        GST_OBJECT_LOCK(self);
         self->ws_port = g_value_get_int(value);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_RATE:
-        GST_STATE_LOCK(self);
-        if (GST_STATE(self) == GST_STATE_NULL) {
-            self->rate = g_value_get_int(value);
-            update_output_caps(self);
-        } else {
-            GST_WARNING_OBJECT(self, "Set rate while opksrc is in NULL state");
-        }
-        GST_STATE_UNLOCK(self);
+        GST_OBJECT_LOCK(self);
+        self->rate = g_value_get_int(value);
+        GST_OBJECT_UNLOCK(self);
+        update_output_caps(self);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -320,6 +324,7 @@ static void
 gst_opk_src_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
     auto *self = reinterpret_cast<GstOpkSrc *>(object);
 
+    g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     switch (property_id) {
     case PROP_WS_PORT:
         g_value_set_int(value, self->ws_port);
@@ -361,7 +366,9 @@ static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
                                     PROP_WS_PORT,
                                     g_param_spec_int("ws-port",
                                                      "WebSocket Port",
-                                                     "WebSocket port for WebRTC signaling",
+                                                     "WebSocket port for WebRTC signaling"
+                                                     "; Set in NULL; restart via NULL required to "
+                                                     "recreate signaling or renegotiate PCM output",
                                                      1,
                                                      65535,
                                                      8003,
@@ -371,7 +378,9 @@ static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
                                     PROP_RATE,
                                     g_param_spec_int("rate",
                                                      "Sample rate",
-                                                     "Output PCM sample rate in Hz (set in NULL)",
+                                                     "Output PCM sample rate in Hz (set in NULL)"
+                                                     "; Set in NULL; restart via NULL required to "
+                                                     "recreate signaling or renegotiate PCM output",
                                                      1,
                                                      G_MAXINT,
                                                      16000,

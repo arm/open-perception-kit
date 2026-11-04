@@ -105,6 +105,22 @@ def main() -> None:
         for pipeline in pipelines:
             start_pipeline(gst, pipeline)
 
+        # Listening endpoints cannot change until the element returns to NULL.
+        for pipeline, ports in zip(pipelines, port_sets):
+            sink = pipeline.get_by_name("sink")
+            for name, candidate in (("host", "invalid-host"), ("http-port", 1),
+                                    ("ws-port", 1), ("ctrl-port", 1),
+                                    ("metadata-port", 1), ("static-files", "/missing"),
+                                    ("webrtc-stun-server", "stun://invalid-host:1"),
+                                    ("webrtc-turn-server", "turn://invalid-host:1")):
+                original = sink.get_property(name)
+                sink.set_property(name, candidate)
+                assert sink.get_property(name) == original, name
+                warning = pipeline.get_bus().timed_pop_filtered(gst.SECOND, gst.MessageType.WARNING)
+                assert warning is not None, name
+                assert name in warning.parse_warning()[0].message
+            check_endpoints(ports)
+
         # Keep the other pipeline running while this instance changes ports.
         for index, pipeline in enumerate(pipelines):
             assert pipelines[1 - index].get_state(0)[1] == gst.State.PLAYING
