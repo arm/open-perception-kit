@@ -24,5 +24,5 @@ MobileGaze and NITEC provide ONNX and ExecuTorch/XNNPACK variants. Both
 variants use UltraFace ONNX for face detection before running the selected
 face-level backend.
 
-[PP-OCRv6 tiny](pp-ocrv6-tiny/index.md) combines the local text detector and
+[PP-OCRv6 tiny](pp-ocrv6-tiny/opchain.json) combines the local text detector and
 recognizer artifacts, with one recognition pass per detected text region.

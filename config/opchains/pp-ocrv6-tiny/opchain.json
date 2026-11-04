@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.1.0",
   "name": "PpOcrV6Tiny",
   "displayName": "PP-OCRv6 tiny text detection and recognition",
   "task": "Text recognition",

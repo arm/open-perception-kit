@@ -213,6 +213,22 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+Model reader schema `1.2.0` adds Float32 `ImageBgrChw` inputs with
+`[1,3,H,W]` shapes. Declare normalization `mean` and `std` in B, G, R
+tensor-channel order. OpChain reader schema `1.7.0` adds
+`opk-std-ops/PaddleOcrPreprocess`, `PaddleOcrDbDetectionParser`, and
+`PaddleOcrRecognitionParser`. Preprocessing requires explicit `mode`
+(`detection` or `recognition`) and normalized `paddingValue`; DB detection
+requires explicit thresholds and box limits, and recognition requires a local
+`dictionaryFile` matching the model's CTC vocabulary.
+
+Rebuild or upgrade native readers and the runtime before adopting these OCR
+contracts. Older readers can warn about a minor mismatch and then reject the
+new data kind, Op, or parser attributes. Advance each adopting descriptor from
+its own minor version and reset its patch; the checked-in OCR models and chain
+advance from `1.0.1` to `1.1.0`. File versions follow each file's evolution and
+need not equal the reader schema version. Existing configurations need no edits.
+
 OpChain `1.4.0` adds YoloParser `outputFormat: "cornerClassScores"` and
 `maxDetections` for `[1,N,4+C]` outputs. Set the OpChain version to `"1.4.0"`
 when adopting this format and rebuild or upgrade the runtime. Existing formats

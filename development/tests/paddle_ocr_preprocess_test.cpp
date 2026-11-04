@@ -17,6 +17,7 @@
 
 #include "PaddleOcrPreprocessOp.h"
 #include "mediaio/PixelBufferVideoFrame.h"
+#include "op/ExecutionSelection.h"
 
 #include <gtest/gtest.h>
 
@@ -283,10 +284,34 @@ TEST_F(PaddleOcrPreprocess, SupportsNamedSourceSelectedInputAndReadableMapping) 
     context.videoFrames["ocr-input"] = frame;
     frame->views.clear();
     frame->mappable = true;
+    frame->setPixel(2, 1, {255, 0, 128, 0});
+    context.inferenceImageCrops.push_back({2, 1, 1, 1});
+    context.inferenceImageCropIds.push_back(456);
     run();
     EXPECT_EQ(frame->mapCount, 1U);
     EXPECT_EQ(inference->lastInputIndex, 1U);
+    EXPECT_FLOAT_EQ(inference->at(0, 0, 0), 1);
+    EXPECT_FLOAT_EQ(inference->at(1, 47, 47), -1);
+    EXPECT_EQ(context.inferenceInfo.parentId, 456U);
+    run();
+    EXPECT_EQ(frame->mapCount, 1U); // Every crop reuses the context's readable mapping.
+    EXPECT_EQ(context.inferenceInfo.parentId, 123U);
     EXPECT_FLOAT_EQ(inference->at(0, 0, 0), 10 / 127.5f - 1);
+}
+
+TEST_F(PaddleOcrPreprocess, RejectsGpuPreprocessingSelection) {
+    for (const bool detection : {false, true}) {
+        prepare(detection);
+        op.instanceId = "ocr-preprocess";
+        opk::op::ExecutionSelection cpuSelection(opk::op::ExecutionMode::Cpu);
+        ASSERT_TRUE(cpuSelection.prepareDevices({&op, inference.get()}));
+        opk::op::ExecutionSelection gpuSelection(opk::op::ExecutionMode::Gpu);
+        const auto result = gpuSelection.prepareDevices({&op, inference.get()});
+        ASSERT_FALSE(result);
+        EXPECT_EQ(result.error().flag, opk::ErrorFlag::InvalidOpChain);
+        EXPECT_NE(result.error().toString().find("ocr-preprocess"), std::string::npos);
+        EXPECT_NE(result.error().toString().find("execution.preprocessing=cpu"), std::string::npos);
+    }
 }
 
 TEST_F(PaddleOcrPreprocess, RejectsMissingOrMalformedInputsWithoutConsumingCrops) {

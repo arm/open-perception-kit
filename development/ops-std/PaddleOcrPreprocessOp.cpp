@@ -26,7 +26,6 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include <memory>
 #include <vector>
 
 namespace opk::stdop {
@@ -216,20 +215,11 @@ opk::Result<opk::op::OpSignal> PaddleOcrPreprocessOp::process(opk::op::OpChainCo
         return opk::op::OpSignal::BreakLoop;
 
     const auto crop = context.inferenceImageCrops.back();
-    const auto *frame = context.getVideoFrame(inputImageSourceName);
+    const auto *const frame = context.getReadableVideoFrame(inputImageSourceName);
     if (frame == nullptr)
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidData,
-                      "PaddleOcrPreprocess missing VideoFrame: " + inputImageSourceName));
-    std::unique_ptr<opk::mediaio::VideoFrame> mappedFrame;
-    if (!hasReadableBgraPlane(*frame)) {
-        mappedFrame = frame->map(opk::AccessMode::Read);
-        if (!mappedFrame)
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InvalidData,
-                          "PaddleOcrPreprocess could not map the image for reading"));
-        frame = mappedFrame.get();
-    }
+                      "PaddleOcrPreprocess missing readable VideoFrame: " + inputImageSourceName));
     if (const auto valid = validateFrame(*frame, crop); !valid)
         return tl::unexpected(valid.error());
     auto *buffer = inferenceOp->getTensorDataAddress(inputImageTensorIndex);

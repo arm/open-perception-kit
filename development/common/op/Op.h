@@ -69,6 +69,11 @@ struct OpInterfaceAudioPreprocessor {
     virtual size_t getRequiredAudioSamples() const = 0;
 };
 
+/** @brief Identifies a preprocessing Op that has only a CPU implementation. */
+struct OpInterfaceCpuPreprocessor {
+    virtual ~OpInterfaceCpuPreprocessor() = default;
+};
+
 /** @brief Optional backend contract for consuming caller-owned, CPU-accessible input tensors. */
 struct OpInterfaceSharedInput {
     virtual ~OpInterfaceSharedInput() = default;
