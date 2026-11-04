@@ -748,7 +748,7 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
   export CCACHE_MAXSIZE=2G; \
   export CCACHE_UMASK=000; \
   ccache --zero-stats; \
-  /opt/opk-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
+  /opt/opk-venvs/python-ops-runtime/bin/python -m pip install --no-cache-dir --no-deps \
     /work/generated/open_perception_kit/python; \
   /opt/opk-venvs/python-ops-runtime/bin/python -c \
     'import flatbuffers, numpy, open_perception_kit'; \
