@@ -19,34 +19,17 @@ limitations under the License.
 
 Wednesday, 4 November 2026. About 90 seconds of explanation and 30 seconds for results.
 
-**Overview — approximately 90 seconds**
+**Overview**
 
-ONNX Runtime has two ways to divide CPU work. IntraOp splits one operator, such as a convolution, across threads. InterOp runs independent operators in the same model graph concurrently. Operators still wait for their inputs, and neither setting runs separate video frames in parallel.
+ONNX Runtime has two ways to divide CPU work.
+ - IntraOp splits one operator, such as a convolution, or a dotproduct etc. across threads.
+ - InterOp runs independent operators in the same model graph concurrently.
+Operators still wait for their inputs, and neither setting runs separate video frames in parallel.
 
-Originally, OPK chose the inference thread count from the hardware. On a four-core Raspberry Pi, that meant three IntraOp threads and sequential graph execution. The IntraOp change made the count configurable per inference Op. The later InterOp change exposed parallel graph execution and retuned the model presets.
+Originally, OPK chose the inference IntraOp thread count from the hardware and fixed the InterOp thread count as 1.
+This two PR has made the thread counts configurable per inference Op.
 
-More threads are not always faster. They add synchronization and compete with decoding, preprocessing and result handling. Some models benefit from two threads within each operator and two threads between independent operators. Others work better with three IntraOp threads and a sequential graph.
-
-We measured the changes in their actual order: baseline, IntraOp, then InterOp. All six YOLO nano and small configurations ran on lecso, entirely on the CPU, using the same ONNX Runtime version and real video. Each stage was repeated three times, and every frame's detections were checked.
-
-**Results — final 30 seconds**
-
-The InterOp stage improves nano-model pipeline throughput by 8.3 to 10.6 percent over the IntraOp stage. The small-320 control gains 6.5 percent by changing IntraOp from two threads to three. Small-480 stays essentially unchanged. These are step-by-step gains: compared with the original baseline, nano gains 5.0 to 7.3 percent, while small-320 returns to roughly its original speed.
-
-**Slide table — medians of three real-video runs**
-
-| Model | Baseline FPS | + IntraOp FPS | + InterOp FPS | IntraOp step | InterOp step | Total vs baseline |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| yolo26n-320 | 18.05 | 17.80 | 19.28 | -1.4% | +8.3% | +6.8% |
-| yolo26n-480 | 9.58 | 9.10 | 10.06 | -5.0% | +10.6% | +5.0% |
-| yolo26n-640 | 5.53 | 5.38 | 5.93 | -2.6% | +10.2% | +7.3% |
-| yolo26s-320 | 10.04 | 9.41 | 10.04 | -6.3% | +6.7% | 0.0% |
-| yolo26s-480 | 4.92 | 4.91 | 4.90 | -0.2% | -0.1% | -0.3% |
-| yolo26s-640 | 2.70 | 2.69 | 2.80 | -0.1% | +4.0% | +3.9% |
-
-Every run processes all 417 frames, with 30 warm-up frames. All six files are optimized INT8 YOLO26 models, using ONNX Runtime 1.31.1 throughout. The source stages are actual cherry-picked merges. CPU preprocessing, inference, tracking, serialization and output scaling are included; encoding and browser/network delivery are excluded.
-
-The small-320 change is an IntraOp preset adjustment included in the later InterOp merge; its graph execution remains sequential. The detailed report includes a same-source two-versus-three-thread control and explains differences from ticket EXPKITS-1360's 8% result.
+More threads are not always faster. They add synchronization and compete with decoding, preprocessing and result handling. Some models benefit from two threads within each operator and two threads between independent operators. Others work better with three IntraOp threads. The performance is also depending on the capabilities of the hardware the software is executed on. The optimal thread counts were different on my laptop than on the RaspberryPi
 
 Configuration fragment for `opk-onnx-ops/Inference` attributes:
 
@@ -57,4 +40,23 @@ Configuration fragment for `opk-onnx-ops/Inference` attributes:
 }
 ```
 
-[Full chronological benchmark, settings and validation](experiments/onnx-threads-stages-20261103/README.md) · [ONNX Runtime threading reference](https://onnxruntime.ai/docs/performance/tune-performance/threading.html)
+**Results**
+
+Together, the IntraOp and InterOp changes improve nano-model pipeline throughput by 5.0 to 7.3 percent over the original baseline. Small-640 gains 3.9 percent. Small-320 is unchanged, while small-480 is 0.3 percent lower. A further IntraOp sweep with InterOp held fixed found no repeatable improvement over the current settings.
+
+**Slide table — combined IntraOp + InterOp change vs baseline**
+
+Percentages compare the medians of three real-video runs from the chronological benchmark.
+
+| Model | IntraOp threads | InterOp threads | Before FPS | After FPS | Combined change vs baseline |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| yolo26n-320 | 2 | 2 | 18.05 | 19.28 | +6.8% |
+| yolo26n-480 | 2 | 2 | 9.58 | 10.06 | +5.0% |
+| yolo26n-640 | 2 | 2 | 5.53 | 5.93 | +7.3% |
+| yolo26s-320 | 3 | 1 | 10.04 | 10.04 | 0.0% |
+| yolo26s-480 | 3 | 1 | 4.90 | 4.90 | 0.0% |
+| yolo26s-640 | 3 | 2 | 2.70 | 2.80 | +3.9% |
+
+Before FPS is the original baseline; after FPS includes both the IntraOp and InterOp changes. Both are medians of three complete-video runs. Thread counts are for the combined stage; the baseline used IntraOp 3 and InterOp 1.
+
+The benchmark was created with the GettyImages-1140581459.mov video. Every run processed all of the frames, and the first 30 of these were not counted in the metrics (they tend to have highly different numbers, so this period was considered as a warmup). 
