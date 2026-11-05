@@ -1,7 +1,13 @@
 {
-  "version": "1.1.0",
+  "version": "1.1.1",
   "name": "PP-OCRv6-tiny-rec",
   "modelFile": "PP-OCRv6_tiny_rec.onnx",
+  "hfDownload": {
+    "repo_id": "PaddlePaddle/PP-OCRv6_tiny_rec_onnx",
+    "revision": "2612ab37152ae0a677521bae4e1e3d4fb4cf7c30",
+    "filename": "inference.onnx",
+    "sha256": "9ef676d6ed3c88256a2d92c640c44f25b0c40947e111b14b8be8f594091563e6"
+  },
   "dynamicOutput": true,
   "inputTensors": [
     {

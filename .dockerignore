@@ -123,3 +123,4 @@ __pycache__/
 **/*.vgf
 **/*.vgf.part
 config/models/licenses/
+config/models/pp-ocrv6-tiny-rec/characters.txt*

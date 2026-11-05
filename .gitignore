@@ -129,6 +129,7 @@ config/models/**/*.pte
 config/models/**/*.vgf
 config/models/**/*.vgf.part
 config/models/licenses/
+config/models/pp-ocrv6-tiny-rec/characters.txt*
 
 docs/html
 todo.md

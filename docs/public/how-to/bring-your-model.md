@@ -111,6 +111,10 @@ These files are checksum-verified and included in the demo Debian package.
 A failed notice download stops the build. When updating a bundled model, update
 its pinned notices too.
 
+Companion files such as OCR dictionaries are listed in `config/model-assets.json`,
+with model-tree-relative destinations, pinned URLs, and SHA-256 digests. The same
+downloader verifies and installs them into `config/models/` before packaging.
+
 Public models, including all standard OPK models, download without a Hugging
 Face account or token. For your own private or gated model, export a read-only
 `HF_TOKEN` with access to that model in the host shell before building:

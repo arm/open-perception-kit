@@ -27,7 +27,8 @@ Full-frame text-region detector for horizontal OCR.
 - Postprocessor: `PaddleOcrDbDetectionParser`
 - FrameResults payload: `BoxDetectionsT` with `contentType` set to `textRegion`
 
-Place the local `PP-OCRv6_tiny_det.onnx` artifact beside `model.json`.
+Run `python3 scripts/download-models.py --models-dir config/models` from the
+repository root to download the pinned PaddlePaddle ONNX artifact beside `model.json`.
 Resize, padding, and detector filtering settings live in the
 [combined OpChain](../../opchains/pp-ocrv6-tiny/opchain.json).
 The integration uses axis-aligned crops without perspective correction.
