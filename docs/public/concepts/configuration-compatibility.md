@@ -334,3 +334,12 @@ OpChain reader schema `1.8.0` adds `RetinaFaceParser` with confidence and IoU
 thresholds. It emits face boxes in frame pixels. Rebuild native readers before
 using the new parser; older readers can warn about a minor mismatch and then
 reject it. Existing configurations need no edits.
+
+## OpChain 1.9: UltraFace raw logits
+
+`UltrafaceParser` accepts optional `scoresAreLogits` (default `false`). Set it
+to `true` when the model emits raw logits; the parser applies stable two-class
+softmax before SSD decoding and confidence filtering. Existing probability
+outputs retain their behavior. Chains adopting this option use version `1.9.0`.
+Rebuild the runtime and its embedded configuration schemas before using it;
+older readers reject the new attribute.

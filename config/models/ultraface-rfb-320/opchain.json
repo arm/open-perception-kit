@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.9.0",
   "name": "UltraFaceRfb320Int8",
   "displayName": "UltraFace RFB-320 INT8",
   "task": "Face detection",
@@ -9,7 +9,7 @@
     {"id": "opk-std-ops/InferenceController", "attributes": {}},
     {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
     {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "model.json", "intraOpNumThreads": 2, "interOpNumThreads": 1}},
-    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.1, "iouThreshold": 0.3}}
+    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.5, "iouThreshold": 0.3, "scoresAreLogits": true}}
   ]
 }
 

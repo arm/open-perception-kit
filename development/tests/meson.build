@@ -835,3 +835,14 @@ audio_frame_tests = executable(
   link_with : [common],
 )
 test('audio_frame_tests', audio_frame_tests)
+
+# Raw UltraFace logits must be decoded explicitly; probability outputs stay unchanged.
+ultraface_parser_tests = executable(
+  'ultraface_parser_tests',
+  ['ultraface_parser_test.cpp', '../ops-std/postproc/UltrafaceParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('ultraface_parser_tests', ultraface_parser_tests, workdir : opk_repository_root)
