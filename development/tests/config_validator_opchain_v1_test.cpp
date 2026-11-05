@@ -43,7 +43,7 @@ opk::op::OpChainDescriptor builtInStage() {
 TEST(ConfigValidator, SileroAudioUsesOpChain12Contract) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "1.4.0");
+    EXPECT_EQ(*supported, "1.5.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
@@ -255,7 +255,7 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     const auto supportedVersion = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
-    EXPECT_EQ(*supportedVersion, "1.4.0");
+    EXPECT_EQ(*supportedVersion, "1.5.0");
 
     nlohmann::json document{
         {"version", "1.4.0"},
@@ -466,3 +466,15 @@ TEST(ConfigValidator, OpChainV1ValidatesEffectiveThresholdOrder) {
 }
 
 } // namespace
+
+TEST(ConfigValidator, UltraFaceLogitsUseOpChain15Contract) {
+    const auto path = std::filesystem::path{OPK_REPOSITORY_ROOT} /
+                      "development/examples/loom-ultraface/opchain.json";
+    std::ifstream input(path);
+    ASSERT_TRUE(input);
+    auto document = nlohmann::json::parse(input);
+    EXPECT_EQ(document.at("version"), "1.5.0");
+    ASSERT_TRUE(opk::config::validateOpChainJson(document.dump(), path.string()));
+    document["ops"][3]["attributes"]["scoresAreLogits"] = "true";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump(), path.string()));
+}

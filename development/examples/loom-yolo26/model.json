@@ -1,8 +1,8 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "name": "YOLO26n LOOM 320",
-  "modelFile": "model.bin",
-  "runtimeLibrary": "libloom-yolo26.so",
+  "modelFile": "../../../../0/yolo26-raspberry-pi-5/dist/models/yolo26n-320/model.bin",
+  "runtimeLibrary": "../../../../0/yolo26-raspberry-pi-5/dist/runtime/lib/libarm-yolo26n.so.0",
   "dynamicOutput": false,
   "contentType": "ObjectDetection",
   "inputTensors": [

@@ -1,10 +1,10 @@
 {
-  "version": "1.1.0",
+  "version": "1.1.1",
   "name": "Yolo26nLoom320",
   "displayName": "YOLO26n LOOM (320x320)",
   "task": "Object detection",
   "runtime": "LOOM",
-  "description": "Runs native YOLO26n through the LOOM ABI prototype.",
+  "description": "Runs the optimized YOLO26n runtime through LOOM ABI v10.",
   "ops": [
     {
       "id": "opk-std-ops/InferenceController",

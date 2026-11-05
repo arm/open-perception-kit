@@ -283,3 +283,12 @@ It is a trusted native shared library path resolved beside the descriptor, like
 `modelFile`. Existing descriptors may omit it. LOOM descriptors should use
 `"version": "1.2.0"`; earlier readers reject this unknown field. See the
 [LOOM example](../../../development/examples/loom-yolo26/README.md) for prototype limits.
+
+## OpChain 1.5: UltraFace raw logits
+
+`UltrafaceParser` accepts optional `scoresAreLogits` (default `false`). Set it
+to `true` for native UltraFace raw logits; the parser applies stable two-class
+softmax before SSD decoding and confidence filtering. Existing probability
+outputs retain their behavior. Chains adopting this option use version `1.5.0`.
+Rebuild the runtime and its embedded configuration schemas before using it;
+older readers reject the new attribute.

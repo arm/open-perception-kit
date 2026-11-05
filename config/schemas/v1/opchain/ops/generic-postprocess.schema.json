@@ -262,6 +262,11 @@
         "normalizeOutputCoordinates": {
           "type": "boolean",
           "default": true
+        },
+        "scoresAreLogits": {
+          "type": "boolean",
+          "default": false,
+          "description": "Apply stable two-class softmax to raw UltraFace scores before filtering."
         }
       }
     },

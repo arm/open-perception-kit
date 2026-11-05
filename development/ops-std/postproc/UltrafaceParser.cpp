@@ -295,6 +295,8 @@ opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
     const bool normalizeOutputCoordinates =
         (float)input.attributes.getBoolOrDefault("normalizeOutputCoordinates", true);
 
+    const bool scoresAreLogits = input.attributes.getBoolOrDefault("scoresAreLogits", false);
+
     const size_t frameWidth = input.inferenceInfo.image.width;
     const size_t frameHeight = input.inferenceInfo.image.height;
     auto validated = validateParseInput(input);
@@ -310,8 +312,13 @@ opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
     detections.reserve(detectionCount);
 
     for (size_t i = 0; i < detectionCount; i++) {
-        float notFace = scores->get(2 * i + 0);
+        const float notFace = scores->get(2 * i + 0);
         float face = scores->get(2 * i + 1);
+        if (scoresAreLogits) {
+            const float maximum = std::max(notFace, face);
+            const float faceExp = std::exp(face - maximum);
+            face = faceExp / (std::exp(notFace - maximum) + faceExp);
+        }
         float v0 = boxes->get(4 * i + 0);
         float v1 = boxes->get(4 * i + 1);
         float v2 = boxes->get(4 * i + 2);

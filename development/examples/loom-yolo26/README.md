@@ -23,11 +23,16 @@ Both paths resolve relative to the descriptor; absolute paths are preserved.
 Model descriptor version 1.2 adds this optional field. Existing ONNX, ExecuTorch
 and MLWL providers keep their own model loading behavior.
 
-Put these files beside this example's `model.json`:
+The checked-in descriptor uses this workspace's sibling `0/` checkout:
 
-- `model.bin`: native YOLO26n 320 model, 80 classes, from Optimized-Runtimes' converter.
-- `libloom-yolo26.so`: arm64 ABI v10 adapter.
-- `libarm-yolo26n.so.0`: matching upstream arm64 runtime, located beside the adapter.
+- `0/yolo26-raspberry-pi-5/dist/models/yolo26n-320/model.bin`
+- `0/yolo26-raspberry-pi-5/dist/runtime/lib/libarm-yolo26n.so.0`
+
+Build these using that runtime's `make model RESOLUTION=320` and `make runtime`
+targets. The current library exports LOOM directly; no separate adapter library
+is needed. Paths are relative to `model.json`. For a standalone OPK checkout,
+set both paths to your trusted local artifacts. See the workspace
+[`TUTORIAL.md`](../../../../TUTORIAL.md) for setup and verification status.
 
 Use this directory's `opchain.json` from a normal OPK video pipeline. Its existing
 preprocessor creates RGB FP32 NCHW data with centered 114/255 padding; the existing
@@ -53,4 +58,6 @@ The runtime library is executable code and must be trusted, just like an OPK plu
 
 Build with OPK's existing arm64 Meson cross file / deployment Docker workflow;
 `development/ops-loom/opk-loom-ops.so` is built with the other inference providers.
-Hardware execution is deferred until access to the Raspberry Pi 5 is available.
+The current runtime was exercised through OPK in the workspace's ARM64 QEMU
+VM at every supported resolution. For that VM's 9p share, use the tutorial's generated configurations, which resolve the installed library symlink on
+the host. Physical Pi hardware and performance were not tested in this run.
