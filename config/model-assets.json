@@ -1,0 +1,6 @@
+{
+  "pp-ocrv6-tiny-rec/characters.txt": {
+    "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/dab3fe35379033fdcb2d0e9572fac0b36c9a9ebf/ppocr/utils/dict/ppocrv6_tiny_dict.txt",
+    "sha256": "c5cbe34ef40c29c4df07ed012bf96569cb69a2d2a01a07027e9f13cb832bd9cd"
+  }
+}
