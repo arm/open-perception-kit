@@ -114,9 +114,10 @@ checkouts. These presets and their model directories are excluded from the
 `opk-demo` Debian package.
 
 For `mlwl-vgf-demo`, enable the [MLWL backend](../../development/ops-mlwl/README.md)
-and supply the [UltraFace](../models/ultraface-rfb-320-mlwl/index.md) and
-[YOLO26n](../models/yolo26n-320-mlwl/index.md) VGF files. Select a compatible
-Vulkan runtime, then run `./scripts/run.sh mlwl-vgf-demo`. The models run
+and select a compatible Vulkan runtime. The quickstart downloads the
+[UltraFace](../models/ultraface-rfb-320-mlwl/index.md) and
+[YOLO26n](../models/yolo26n-320-mlwl/index.md) VGF files automatically.
+Run `./scripts/run.sh mlwl-vgf-demo`. The models run
 sequentially, so enabling both increases per-frame latency.
 
 Use `full-onnx-raspicam` or `full-onnx-usb-cam` for live camera input with the

@@ -59,9 +59,17 @@
     "url": "https://huggingface.co/Arm/ultraface-rfb-320-onnx-raspberry/raw/7c29c6f148314122d98643251a6d0f991d9021e5/README.md",
     "sha256": "65f8a06f03ec60e9aaee1b8d586f25e9e1539f4b1a7978b7328740faf1d4b86c"
   },
+  "ultraface-rfb-320-mlwl-README.md": {
+    "url": "https://huggingface.co/Arm/ultraface-rfb-320-fp32-vgf/raw/4c252989d7dcbbd744e66531316a12a5643dc161/README.md",
+    "sha256": "a4bb2ba0df7558dc6f02079d911f22a660fb46fd6585b52668144bb35ff8d6c5"
+  },
   "yolo26n-320-README.md": {
     "url": "https://huggingface.co/Arm/yolo26n-320-int8-onnx-raspberrypi5/raw/0a78551c6225bb4947a6397a3d46cfaf91c00812/README.md",
     "sha256": "ba097092b2709603f71a7776b5de0ab8e0462774a6fddc95430116264883a3fb"
+  },
+  "yolo26n-320-mlwl-README.md": {
+    "url": "https://huggingface.co/Arm/yolo26n-320-fp32-vgf/raw/40efcba32c713a3d5fe41cc057074a80e977ebf6/README.md",
+    "sha256": "45d554dbe174c03642adb420ed88c817c637e4a1731677d9b7a6f8b8ffdb18ad"
   },
   "yolo26n-480-README.md": {
     "url": "https://huggingface.co/Arm/yolo26n-480-int8-onnx-raspberrypi5/raw/bbe0e8adbbf3fbd64be5a586ed337525e0a1d7d4/README.md",
