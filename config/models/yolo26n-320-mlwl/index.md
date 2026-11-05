@@ -17,9 +17,10 @@ limitations under the License.
 
 # YOLO26n-320 FP32 / MLWL
 
-Enable the [MLWL backend](../../../development/ops-mlwl/README.md) and place
-`yolo26n-320.vgf` beside `model.json`. Supply the VGF separately, then run this
-folder's `opchain.json` in an OPK pipeline.
+Enable the [MLWL backend](../../../development/ops-mlwl/README.md). The quickstart
+downloads `yolo26n-320.vgf` beside `model.json` from
+[Arm's public VGF repository](https://huggingface.co/Arm/yolo26n-320-fp32-vgf/tree/40efcba32c713a3d5fe41cc057074a80e977ebf6).
+Run this folder's `opchain.json` in an OPK pipeline.
 
 - Input: FP32 RGB/NCHW `[1,3,320,320]`, scaled by `1/255`, with
   aspect-preserving letterboxing and RGB padding `114`.
@@ -28,8 +29,9 @@ folder's `opchain.json` in an OPK pipeline.
   no NMS. TopK ranks anchors by best class, then class/anchor pairs. Ties keep
   input order; multiple classes from one anchor can survive.
 
-Prepare the **original FP32 ONNX** with `/model.23/Transpose_output_0` as its
-sole output. Preserve learned layers, box decoding and nearest-floor upsampling.
+The export uses the **original FP32 ONNX** with `/model.23/Transpose_output_0`
+as its sole output, preserving learned layers, box decoding and nearest-floor
+upsampling.
 
 Expected VGF SHA-256:
 `c0c23b17e78ba2698c80c7558e470cc57376519b2e5a8ef0d50e5f881d0955b1`.

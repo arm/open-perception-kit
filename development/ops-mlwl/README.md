@@ -45,11 +45,15 @@ After entering the container, build OPK and run the existing two-model demo:
 ./scripts/run.sh mlwl-vgf-demo
 ```
 
-Supply the [UltraFace](../../config/models/ultraface-rfb-320-mlwl/index.md) and
-[YOLO](../../config/models/yolo26n-320-mlwl/index.md) VGF files first; they are not
-downloaded yet. Open `http://localhost:9999/` for the WebUI, or use the host's
-address when browsing from another machine. Emulation runs on the CPU and is
-intended for functional testing, not GPU performance measurements.
+The quickstart downloads the [UltraFace](../../config/models/ultraface-rfb-320-mlwl/index.md)
+and [YOLO](../../config/models/yolo26n-320-mlwl/index.md) VGF files from pinned
+public Hugging Face revisions and verifies their SHA-256 checksums. No token is
+required. To refresh models in an existing container, run
+`python3 scripts/download-models.py --models-dir config/models`.
+
+Open `http://localhost:9999/` for the WebUI, or use the host's address when
+browsing from another machine. Emulation runs on the CPU and is intended for
+functional testing, not GPU performance measurements.
 
 ## Build
 
