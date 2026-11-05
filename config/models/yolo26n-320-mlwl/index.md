@@ -19,7 +19,7 @@ limitations under the License.
 
 Enable the [MLWL backend](../../../development/ops-mlwl/README.md). The quickstart
 downloads `yolo26n-320.vgf` beside `model.json` from
-[Arm's public VGF repository](https://huggingface.co/Arm/yolo26n-320-fp32-vgf/tree/40efcba32c713a3d5fe41cc057074a80e977ebf6).
+[Arm's public VGF repository](https://huggingface.co/Arm/yolo26n-320-fp32-vgf).
 Run this folder's `opchain.json` in an OPK pipeline.
 
 - Input: FP32 RGB/NCHW `[1,3,320,320]`, scaled by `1/255`, with

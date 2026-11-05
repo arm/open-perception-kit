@@ -19,7 +19,7 @@ limitations under the License.
 
 Enable the [MLWL backend](../../../development/ops-mlwl/README.md). The quickstart
 downloads `ultraface-rfb-320.vgf` beside `model.json` from
-[Arm's public VGF repository](https://huggingface.co/Arm/ultraface-rfb-320-fp32-vgf/tree/4c252989d7dcbbd744e66531316a12a5643dc161).
+[Arm's public VGF repository](https://huggingface.co/Arm/ultraface-rfb-320-fp32-vgf).
 
 - Input: FP32 RGB/NCHW `[1,3,240,320]`, stretched without letterboxing,
   normalized as `(RGB8 - 127) / 128`.
