@@ -106,17 +106,6 @@ class PackageOpkDemoDebTests(unittest.TestCase):
             (images / "example.jpg").write_bytes(b"image")
             (videos / "example.mov").write_bytes(b"video")
 
-            local_models = ("ultraface-rfb-320-mlwl", "yolo26n-320-mlwl")
-            local_presets = ("mlwl-vgf-demo.json", "yolo26n-320-mlwl.json")
-            for name in local_models:
-                directory = repository / "config/models" / name
-                directory.mkdir()
-                (directory / "model.json").write_text(
-                    json.dumps({"modelFile": "model.vgf"}) + "\n", encoding="utf-8"
-                )
-            for name in local_presets:
-                (pipelines / name).write_text("{}\n", encoding="utf-8")
-
             fake_meson = root / "meson"
             fake_meson.write_text(
                 "#!/usr/bin/env bash\n"
@@ -174,11 +163,6 @@ class PackageOpkDemoDebTests(unittest.TestCase):
                 ).exists()
             )
             config = extracted / "usr/share/opk/config"
-            for name in local_models:
-                self.assertFalse((config / "models" / name).exists())
-                self.assertTrue((repository / "config/models" / name).is_dir())
-            for name in local_presets:
-                self.assertFalse((config / "pipelines" / name).exists())
             self.assertTrue((config / "pipelines/example.json").is_file())
 
             (model / "model.onnx").unlink()

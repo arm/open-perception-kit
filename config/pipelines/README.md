@@ -109,10 +109,6 @@ Focused detector and cascade presets:
 - `yolo26s-320`, `yolo26s-480`, and `yolo26s-640` — YOLO26s at the selected
   input resolution on bundled video.
 
-The MLWL presets (`mlwl-vgf-demo` and `yolo26n-320-mlwl`) are for source
-checkouts. These presets and their model directories are excluded from the
-`opk-demo` Debian package.
-
 For `mlwl-vgf-demo`, enable the [MLWL backend](../../development/ops-mlwl/README.md)
 and select a compatible Vulkan runtime. The quickstart downloads the
 [UltraFace](../models/ultraface-rfb-320-mlwl/index.md) and

@@ -37,5 +37,7 @@ Expected VGF SHA-256:
 `665e3f0ef67ea93a0b21c8acf3d33604ef4c3f82bd61860887beb35f5adba471`.
 
 Source: [Arm/ultraface-rfb-320-onnx-raspberry](https://huggingface.co/Arm/ultraface-rfb-320-onnx-raspberry/tree/dd894b3db6ac5ac2bcff20e5cab96b40a4402855).
-Model licence: MIT. Validated with MLWL 0.11.0 and software Vulkan emulation;
+Conversion source and instructions: [shared Docker recipes](https://huggingface.co/Arm/ultraface-rfb-320-fp32-vgf/blob/936900d28f624448a43f1a6eca1c768b67bb5385/conversion/README.md).
+Model licence: [MIT](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB/blob/bd849f022cafa6c9af2dd0f33efbbb96df57512e/LICENSE).
+Validated with MLWL 0.11.0 and software Vulkan emulation;
 check compatibility when using another driver.

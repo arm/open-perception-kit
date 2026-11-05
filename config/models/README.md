@@ -21,7 +21,7 @@ This directory contains the supported ONNX, ExecuTorch and VGF model configurati
 The quick-start development container downloads model artifacts from pinned
 Hugging Face revisions. Binaries are neither committed
 nor included in release archives or deployment/Cairn images. The `opk-demo` Debian
-package includes downloaded model binaries except the MLWL models. See
+package includes downloaded model binaries. See
 [Download models](../../docs/public/getting-started/binary-release.md#download-models)
 for using the existing downloader with a binary release.
 

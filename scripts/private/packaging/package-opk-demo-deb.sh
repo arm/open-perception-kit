@@ -98,12 +98,7 @@ for directory in models opchains schemas; do
 done
 mkdir -p "${content_root}/config/pipelines"
 cp -a "${REPO_ROOT}/config/pipelines/." "${content_root}/config/pipelines/"
-rm -f -- "${content_root}/config/pipelines/.last_selected_pipeline_id" \
-    "${content_root}/config/pipelines/mlwl-vgf-demo.json" \
-    "${content_root}/config/pipelines/yolo26n-320-mlwl.json"
-# These examples require manually supplied VGF artifacts.
-rm -rf -- "${content_root}/config/models/ultraface-rfb-320-mlwl" \
-    "${content_root}/config/models/yolo26n-320-mlwl"
+rm -f -- "${content_root}/config/pipelines/.last_selected_pipeline_id"
 cp -a "${REPO_ROOT}/data/images" "${content_root}/data/images"
 cp -a "${REPO_ROOT}/data/videos" "${content_root}/data/videos"
 
