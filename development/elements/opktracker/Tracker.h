@@ -174,6 +174,7 @@ class Tracker {
      * @brief Processes one FrameResults frame through the tracking pipeline.
      * @param frameResults Generated metadata for the current frame.
      * @param config Tracker runtime configuration.
+     * @param runningTimeMs Frame running time in milliseconds, or nullopt when unavailable.
      */
     void process(open_perception_kit::FrameResults &frameResults,
                  const Config &config,
