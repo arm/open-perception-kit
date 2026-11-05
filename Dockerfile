@@ -656,6 +656,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
 ARG OPK_RELEASE_BUILD=false
+ARG NINJAFLAGS=-j2
 ARG OPK_MLWL=disabled
 
 COPY --from=opk-release-sources /work/tools/perception/sdk.json /work/tools/perception/sdk.json
@@ -772,7 +773,7 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
   OPK_PYTHON_OPS="${python_ops}" \
   OPK_PYTHON_RUNTIME_VENV=/opt/opk-venvs/python-ops-runtime \
   OPK_ONNXRUNTIME_ROOT=/opt/opk-deps/onnxruntime \
-  NINJAFLAGS=-j2 \
+  NINJAFLAGS="${NINJAFLAGS}" \
   ./scripts/build.sh release false "${extra_setup_args[@]}"; \
   ccache --show-stats; \
   mkdir -p /opt/opk-app/development/build/meson-out /opt/opk-app/tools /opt/opk-app/scripts/private; \
@@ -1005,7 +1006,7 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
   OPK_PYTHON_OPS=enabled \
   OPK_PYTHON_RUNTIME_VENV=/opt/opk-venvs/python-ops-runtime \
   OPK_ONNXRUNTIME_ROOT=/opt/opk-deps/onnxruntime \
-  NINJAFLAGS=-j2 \
+  NINJAFLAGS="${NINJAFLAGS}" \
   ./scripts/build.sh release false \
     "--extra-setup-args=-Drelease_package=true,-Ddeb_package=true,-Ddemo_deb_package=true,-Dprefix=/usr,-Dlibdir=lib/${multiarch}"; \
   meson compile -C /work/development/build -j 2 opk-runtime-deb opk-demo-deb; \

@@ -40,6 +40,9 @@ Optional backend feature environment variables:
   OPK_PYTHON_OPS=enabled|disabled|auto  or  python_ops=enabled|disabled|auto
   OPK_MLWL=enabled|disabled|auto        or  mlwl=enabled|disabled|auto
 
+Ninja build options:
+  NINJAFLAGS='-j8'  Extra arguments passed to Ninja through Meson.
+
 Project location:
   OPK_PROJECT_ROOT=/absolute/path/to/open-perception-kit
       Selects a native build from that checkout. Container builds continue to
@@ -105,7 +108,7 @@ run_on_host() {
         docker_exec_args+=(--env-file "$REPO_ROOT/devices.env")
     fi
     for env_name in \
-        OPK_EXECUTORCH OPK_PYTHON_OPS OPK_MLWL \
+        NINJAFLAGS OPK_EXECUTORCH OPK_PYTHON_OPS OPK_MLWL \
         executorch python_ops mlwl; do
         if [[ "${!env_name+x}" == x ]]; then
             docker_exec_args+=(--env "$env_name=${!env_name}")
@@ -357,10 +360,15 @@ collect_meson_args() {
 build() {
     need meson
     need ninja
+    need python3
 
     local enable_tests="${1:-false}"
     local arg
+    local ninja_args
     local -a reuse_args=()
+
+    # Meson expects a list, while NINJAFLAGS is a shell argument string.
+    ninja_args="$(python3 -c 'import os, shlex; print(shlex.split(os.environ.get("NINJAFLAGS", "")))')"
 
     if meson_build_is_configured "$BUILD_DIR"; then
         reuse_args=(--reconfigure)
@@ -383,7 +391,7 @@ build() {
         "${MESON_SETUP_ARGS[@]}"
 
     msg "Compiling…"
-    meson compile -C "$BUILD_DIR"
+    meson compile -C "$BUILD_DIR" --ninja-args="$ninja_args"
 
     stage_runtime_artifacts
     select_active_build_directory
