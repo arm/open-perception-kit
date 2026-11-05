@@ -606,6 +606,7 @@ for arg in sys.argv:
             "config/models/**/*.vgf",
             "config/models/**/*.vgf.part",
             "config/models/licenses/",
+            "config/models/pp-ocrv6-tiny-rec/characters.txt*",
         ]
         rules = [
             line

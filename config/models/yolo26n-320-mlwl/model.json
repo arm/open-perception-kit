@@ -1,7 +1,13 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "yolo26n-320-fp32-mlwl",
   "modelFile": "yolo26n-320.vgf",
+  "hfDownload": {
+    "repo_id": "Arm/yolo26n-320-fp32-vgf",
+    "revision": "40efcba32c713a3d5fe41cc057074a80e977ebf6",
+    "filename": "yolo26n-320.vgf",
+    "sha256": "c0c23b17e78ba2698c80c7558e470cc57376519b2e5a8ef0d50e5f881d0955b1"
+  },
   "dynamicOutput": false,
   "contentType": "genericObject",
   "inputTensors": [{

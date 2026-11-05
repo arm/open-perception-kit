@@ -214,7 +214,7 @@ class Colors {
     static constexpr const Color black = colorFromRgbBytes(0, 0, 0);
 
     /**
-     * @brief Parses a named color or #RRGGBB/#RRGGBBAA value.
+     * @brief Parses a named color or `#RRGGBB`/`#RRGGBBAA` value.
      * @param name Color name or hex string.
      * @param result Parsed color output.
      * @return true on success, false otherwise.

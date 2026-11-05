@@ -17,16 +17,18 @@ limitations under the License.
 
 # Model catalog
 
-This directory contains the supported ONNX and ExecuTorch model configurations.
+This directory contains the supported ONNX, ExecuTorch and VGF model configurations.
 The quick-start development container downloads model artifacts from pinned
-Hugging Face revisions using the user's access. Binaries are neither committed
+Hugging Face revisions. Binaries are neither committed
 nor included in release archives or deployment/Cairn images. The `opk-demo` Debian
-package includes downloaded model binaries. See
+package includes downloaded model binaries except the MLWL models. See
 [Download models](../../docs/public/getting-started/binary-release.md#download-models)
 for using the existing downloader with a binary release.
 
 - [UltraFace RFB-320 INT8](https://huggingface.co/Arm/ultraface-rfb-320-onnx-raspberry)
+- [UltraFace RFB-320 FP32 / MLWL](ultraface-rfb-320-mlwl/index.md)
 - [YOLO26n INT8, 320 pixels](https://huggingface.co/Arm/yolo26n-320-int8-onnx-raspberrypi5)
+- [YOLO26n FP32 / MLWL, 320 pixels](yolo26n-320-mlwl/index.md)
 - [YOLO26n INT8, 480 pixels](https://huggingface.co/Arm/yolo26n-480-int8-onnx-raspberrypi5)
 - [YOLO26n INT8, 640 pixels](https://huggingface.co/Arm/yolo26n-640-int8-onnx-raspberrypi5)
 - [YOLO26s INT8, 320 pixels](https://huggingface.co/Arm/yolo26s-320-int8-onnx-raspberrypi5)

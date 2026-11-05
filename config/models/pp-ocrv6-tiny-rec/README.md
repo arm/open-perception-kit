@@ -28,11 +28,9 @@ Text recognizer for horizontal, axis-aligned detector crops.
 - FrameResults payload: `ClassificationsT` with `contentType` set to `textRecognition`
 - Dependency: `textRegion` detections from the PP-OCRv6 tiny detector
 
-The ONNX artifact and matching `characters.txt` dictionary are distributed
-separately from this repository on Hugging Face. Place both files beside
-`model.json` before running the chain. Keep the dictionary in the
-`PostProcess.character_dict` order from the supplied
-`PP-OCRv6_tiny_rec_inference_opt.yml`; do not add blank or space entries.
+Run `python3 scripts/download-models.py --models-dir config/models` from the
+repository root to download the ONNX model and matching `characters.txt`.
+
 The parser adds CTC blank at index zero and appends space. The
 [combined chain](../../opchains/pp-ocrv6-tiny/opchain.json) configures resizing,
 padding, and `dictionaryFile`, and links recognized text to each detected region.

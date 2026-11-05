@@ -31,6 +31,18 @@
     "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
     "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
   },
+  "paddleocr-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/dab3fe35379033fdcb2d0e9572fac0b36c9a9ebf/LICENSE",
+    "sha256": "3840c5c0c61c294264d2dd77b8777be6ddd90121ef4e0e64abcd22edea581d6e"
+  },
+  "pp-ocrv6-tiny-det-README.md": {
+    "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_det_onnx/raw/2ba1506c0380b8f0b03dd142459aac66d4421f6c/README.md",
+    "sha256": "f48628931a5dc994ce5c67e32c94d71b4a7e96b8c5c1b00663284999c3c566bc"
+  },
+  "pp-ocrv6-tiny-rec-README.md": {
+    "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/raw/2612ab37152ae0a677521bae4e1e3d4fb4cf7c30/README.md",
+    "sha256": "e83dd03e515a2d064eaba8ec82248f21dbf6a0813550bafe4c70ee2f6e8fdf2a"
+  },
   "mobilegaze-mobilenet-v2-README.md": {
     "url": "https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-onnx/raw/7e48ffa8eaa1e970f98d11204adea4f72b0954a3/README.md",
     "sha256": "965579c6eb92c172331f81784969acacee6313b006af1da9d82a0bfa4be36dba"
@@ -59,9 +71,17 @@
     "url": "https://huggingface.co/Arm/ultraface-rfb-320-onnx-raspberry/raw/7c29c6f148314122d98643251a6d0f991d9021e5/README.md",
     "sha256": "65f8a06f03ec60e9aaee1b8d586f25e9e1539f4b1a7978b7328740faf1d4b86c"
   },
+  "ultraface-rfb-320-mlwl-README.md": {
+    "url": "https://huggingface.co/Arm/ultraface-rfb-320-fp32-vgf/raw/4c252989d7dcbbd744e66531316a12a5643dc161/README.md",
+    "sha256": "a4bb2ba0df7558dc6f02079d911f22a660fb46fd6585b52668144bb35ff8d6c5"
+  },
   "yolo26n-320-README.md": {
     "url": "https://huggingface.co/Arm/yolo26n-320-int8-onnx-raspberrypi5/raw/0a78551c6225bb4947a6397a3d46cfaf91c00812/README.md",
     "sha256": "ba097092b2709603f71a7776b5de0ab8e0462774a6fddc95430116264883a3fb"
+  },
+  "yolo26n-320-mlwl-README.md": {
+    "url": "https://huggingface.co/Arm/yolo26n-320-fp32-vgf/raw/40efcba32c713a3d5fe41cc057074a80e977ebf6/README.md",
+    "sha256": "45d554dbe174c03642adb420ed88c817c637e4a1731677d9b7a6f8b8ffdb18ad"
   },
   "yolo26n-480-README.md": {
     "url": "https://huggingface.co/Arm/yolo26n-480-int8-onnx-raspberrypi5/raw/bbe0e8adbbf3fbd64be5a586ed337525e0a1d7d4/README.md",

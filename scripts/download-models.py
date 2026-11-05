@@ -153,15 +153,15 @@ def _download_model(model_file, destination, source, token, credential_cache) ->
         LOGGER.warning("Skipping %s: %s", model_file, error)
 
 
-def _download_notices(models_dir: Path) -> None:
-    manifest = models_dir.parent / "model-notices.json"
+def _download_files(manifest: Path, root: Path) -> None:
     if not manifest.is_file():
         return
 
+    root = root.resolve()
     for filename, source in json.loads(manifest.read_text()).items():
-        destination = (models_dir / "licenses" / filename).resolve()
-        if destination.parent != (models_dir.resolve() / "licenses"):
-            raise ValueError(f"Notice destination is outside licenses/: {filename}")
+        destination = (root / filename).resolve()
+        if not destination.is_relative_to(root):
+            raise ValueError(f"Artifact destination is outside {root.name}/: {filename}")
         expected_sha256 = source["sha256"]
         if _matches_sha256(destination, expected_sha256):
             continue
@@ -222,7 +222,8 @@ def main(models_dir: Path) -> None:
         if download := _prepare_download(descriptor, validator):
             downloads.append(download)
 
-    _download_notices(models_dir)
+    _download_files(models_dir.parent / "model-notices.json", models_dir / "licenses")
+    _download_files(models_dir.parent / "model-assets.json", models_dir)
     credential_cache = _cache_dir(token)
     for model_file, destination, source in downloads:
         _download_model(model_file, destination, source, token, credential_cache)
