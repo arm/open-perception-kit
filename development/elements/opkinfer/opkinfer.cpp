@@ -112,7 +112,6 @@ struct _GstOpkInfer {
     gchar *opChainPath;
     gboolean active;
     gboolean copyInput;
-    gchar *format;
     gchar *inferId;
 
     gboolean qosEnabled;
@@ -879,7 +878,6 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 constexpr guint PROP_OPCHAIN_PATH = 1;
 constexpr guint PROP_MODEL_ACTIVE = 2;
-constexpr guint PROP_FORMAT = 3;
 constexpr guint PROP_INFER_ID = 4;
 constexpr guint PROP_QOS_ENABLED = 5;
 constexpr guint PROP_QOS_ACCEPTED_EVENTS_DEBUG = 6;
@@ -914,10 +912,6 @@ static void gst_opkinfer_set_property(GObject *o, guint id, const GValue *v, GPa
             gst_opkinfer_emit_content_requirements(self);
         break;
     }
-    case PROP_FORMAT:
-        g_free(self->format);
-        self->format = g_value_dup_string(v);
-        break;
     case PROP_INFER_ID:
         g_free(self->inferId);
         self->inferId = g_value_dup_string(v);
@@ -954,9 +948,6 @@ static void gst_opkinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
     case PROP_MODEL_ACTIVE:
         g_value_set_boolean(v, gst_opkinfer_is_active(self));
         break;
-    case PROP_FORMAT:
-        g_value_set_string(v, self->format);
-        break;
     case PROP_INFER_ID:
         g_value_set_string(v, gst_opkinfer_get_effective_inferId(self));
         break;
@@ -986,7 +977,6 @@ static void gst_opkinfer_finalize(GObject *object) {
     delete self->m;
     self->m = nullptr;
     g_clear_pointer(&self->opChainPath, g_free);
-    g_clear_pointer(&self->format, g_free);
     g_clear_pointer(&self->inferId, g_free);
 
     G_OBJECT_CLASS(gst_opkinfer_parent_class)->finalize(object);
@@ -1018,15 +1008,6 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
                              "Do or not do",
                              true,
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobj,
-        PROP_FORMAT,
-        g_param_spec_string("format",
-                            "Video format",
-                            "Video format (BGRA, RGB, I420, NV12, or YUY2)",
-                            "BGRA",
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobj,
@@ -1137,7 +1118,6 @@ static void gst_opkinfer_init(GstOpkInfer *self) {
     self->isAudio = FALSE;
     self->audioHopSamples = 0;
 
-    self->format = g_strdup("BGRA");
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     gst_base_transform_set_passthrough(GST_BASE_TRANSFORM(self), FALSE);
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);
