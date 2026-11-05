@@ -140,20 +140,42 @@ threads can otherwise retain references longer than expected.
 
 ## Properties
 
-- `host`: HTTP server bind address
-- `http-port`: HTTP server port
-- `ws-port`: WebRTC signaling port
-- `ctrl-port`: control WebSocket port
-- `metadata-port`: browser metadata port override; defaults to `0` for
-  [automatic discovery](#browser-metadata-configuration)
-- `static-files`: static content directory
-- `qos-enabled`: enable experimental QoS feedback from the video drain; defaults to `false`
+In the table, **Live** permits
+writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
+writes to those states. Read-only entries cannot be set.
+
+| Property | Purpose | Default | Accepted values / Example | Changeable in |
+| --- | --- | --- | --- | --- |
+| `host` | HTTP server bind address. | `0.0.0.0` | Address; e.g. `127.0.0.1` for local HTTP access. | NULL |
+| `http-port` | HTTP server port. | `9999` | Integer, 1–65535; e.g. `9090`. | NULL |
+| `ws-port` | WebRTC signaling WebSocket port. | `8000` | Integer, 1–65535; e.g. `9000`. | NULL |
+| `ctrl-port` | Control WebSocket port. | `8001` | Integer, 1–65535; e.g. `9001`. | NULL |
+| `metadata-port` | Browser metadata WebSocket port override. | `0` (discover) | Unsigned integer, 0–65535; e.g. `9002`. `0` enables [automatic discovery](#browser-metadata-configuration). | NULL |
+| `static-files` | Static content directory served over HTTP. | Resolved path; see below | Directory path; e.g. `development/web/content`. | NULL |
+| `webrtc-stun-server` | STUN URI passed to new WebRTC sessions. | Resolved URI; see below | URI; e.g. `stun://stun.example.com:3478`. | NULL |
+| `webrtc-turn-server` | TURN URI advertised to browsers. | Resolved URI or empty; see below | URI; e.g. `turn://user:password@turn.example.com:3478`. | NULL |
+| `qos-enabled` | Enable experimental QoS feedback from the video drain. | `false` | `true`, `false` | Live |
 
 An unset `static-files` property resolves to
 `<plugin-directory>/../../web/content` for development and archive layouts, or
 `/usr/share/opk/web` for the Debian multiarch layout. An explicit property value
 overrides the default. Element setup reports an error when the selected web root
 cannot be served.
+
+STUN defaults to nonempty `OPK_WEBRTC_STUN_SERVER`, otherwise
+`stun://<WEBRTC_HOST_IP>:3478` when that host is set, otherwise
+`stun://stun.l.google.com:19302`. TURN defaults to nonempty
+`OPK_WEBRTC_TURN_SERVER`, otherwise a URI built from `WEBRTC_HOST_IP`,
+`OPK_WEBRTC_TURN_USERNAME` and `OPK_WEBRTC_TURN_CREDENTIAL` when all are nonempty,
+otherwise an empty string. Read back the instance to obtain its resolved defaults.
+
+Set network, port, static-file and WebRTC server properties in NULL. Servers
+and sessions capture those settings at initialization, so they require an
+explicit stop to NULL before replacement. This disconnects clients.
+`qos-enabled` remains a live control for the internal drain sink.
+
+See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
+for discovery, readback, validation and the explicit restart procedure.
 
 ## Architectural Caveat
 

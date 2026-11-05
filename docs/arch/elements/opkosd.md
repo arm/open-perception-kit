@@ -32,11 +32,6 @@ itself.
 - Processing mode: in-place `transform_ip`
 - Pad caps: `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Metadata dependency: `FrameResultsMeta`
-- Properties:
-  - `enabled`: enable or disable drawing
-  - `performance-overlay-enabled`: enable or disable `perfdata` drawing
-  - `bg-image`: optional replacement background image for segmentation masks
-  - `copy-input`: draw on a CPU copy; default `false` preserves the input DMA-BUF
 
 Explicit `video/x-raw(memory:DMABuf)` caps are also accepted for these formats.
 If disabled or no `FrameResultsMeta` is attached, drawing is skipped.
@@ -77,3 +72,26 @@ object, such as gaze vectors anchored to face rectangles.
 
 Treat `opkosd` as a debugging overlay rather than the long-term application UI
 contract.
+
+## Properties
+
+In the table, **Live** permits
+writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
+writes to those states. Read-only entries cannot be set.
+
+| Property | Purpose | Default | Accepted values / Example | Changeable in |
+| --- | --- | --- | --- | --- |
+| `enabled` | Enable drawing of result overlays. | `false` | `true`, `false` | Live |
+| `performance-overlay-enabled` | Allow performance metadata to be drawn when overlays are enabled. | `true` | `true`, `false` | Live |
+| `bg-image` | Replacement background for segmentation masks requesting background compositing. | `""` (none) | Image path; e.g. `/tmp/background.png`. Empty or `null` clears it. | Live |
+| `copy-input` | Draw on a CPU copy instead of the original DMA-BUF. | `false` | `true`, `false` | NULL/READY |
+
+`enabled`, `performance-overlay-enabled`, and `bg-image` can change while
+playing. Background loading is synchronous and commits only after decoding
+succeeds; failure posts a warning and preserves the current image/path. Empty
+or null clears the background. Startup reloads the configured path and fails if
+it is no longer readable. `copy-input` requires NULL or READY because it changes
+output memory/caps negotiation.
+
+See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
+for discovery, readback, validation and the explicit restart procedure.
