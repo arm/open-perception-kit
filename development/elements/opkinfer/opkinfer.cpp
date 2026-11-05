@@ -41,6 +41,7 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/PropertyGuard.h"
 #include "gst/Tools.h"
 #include "mediaio/GstAudioFrame.h"
 #include "mediaio/GstVideoFrame.h"
@@ -295,7 +296,8 @@ static gboolean gst_opkinfer_start(GstBaseTransform *selfInParentType) {
     auto members = std::make_unique<GstOpkInferMembers>();
 
     if (!self->opChainPath || !self->opChainPath[0]) {
-        GST_ERROR_OBJECT(self, "opchain property is mandatory but not set");
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, SETTINGS, ("opchain-path is mandatory but not set"), (nullptr));
         return FALSE;
     }
 
@@ -914,6 +916,9 @@ static void gst_opkinfer_set_property(GObject *selfInParentType,
                                       const GValue *value,
                                       GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
+    if (!propertyGuard.isChangeAllowed())
+        return;
     switch (propertyId) {
     case PROP_COPY_INPUT:
         g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
@@ -950,10 +955,7 @@ static void gst_opkinfer_set_property(GObject *selfInParentType,
         break;
     case PROP_AUDIO_HOP_SAMPLES:
         GST_OBJECT_LOCK(self);
-        if (GST_STATE(self) <= GST_STATE_READY && GST_STATE_PENDING(self) <= GST_STATE_READY)
-            self->audioHopSamples = g_value_get_uint(value);
-        else
-            GST_WARNING_OBJECT(self, "audio-hop-samples can only change in NULL or READY");
+        self->audioHopSamples = g_value_get_uint(value);
         GST_OBJECT_UNLOCK(self);
         break;
     case PROP_QOS_ENABLED:
@@ -1032,39 +1034,51 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
     g_object_class_install_property(
         objectClass,
         PROP_OPCHAIN_PATH,
-        g_param_spec_string("opchain-path",
-                            "OpChain path",
-                            "Path to OpChain setup JSON",
-                            nullptr,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_string(
+            "opchain-path",
+            "OpChain path",
+            "Path to OpChain setup JSON"
+            "; Set in NULL or READY; restart via READY required because the OpChain is loaded at "
+            "start",
+            nullptr,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
 
     g_object_class_install_property(
         objectClass,
         PROP_MODEL_ACTIVE,
         g_param_spec_boolean("active",
                              "Active",
-                             "Do or not do",
+                             "Do or not do"
+                             "; Changeable while playing; model loading still happens at startup",
                              true,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         objectClass,
         PROP_INFER_ID,
-        g_param_spec_string("infer-id",
-                            "ID of the inference element",
-                            "ID of the inference element (used in Plumber to identify the layers. "
-                            "Defaults to the name property of the element)",
-                            "",
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_string(
+            "infer-id",
+            "ID of the inference element",
+            "ID of the inference element (used in Plumber to identify the layers. "
+            "Defaults to the name property of the element)"
+            "; Set in NULL or READY; restart via READY required because result producer identity "
+            "must remain stable while processing",
+            "",
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
 
     g_object_class_install_property(
         objectClass,
         PROP_QOS_ENABLED,
         g_param_spec_boolean("qos-enabled",
                              "QoS enabled",
-                             "Enable experimental inference skipping from QoS feedback",
+                             "Enable experimental inference skipping from QoS feedback"
+                             "; Changeable while playing; disabling resets inference skipping",
                              false,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
     g_object_class_install_property(
         objectClass,
         PROP_QOS_ACCEPTED_EVENTS_DEBUG,
@@ -1091,7 +1105,9 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
         g_param_spec_uint(
             "audio-hop-samples",
             "Audio hop samples",
-            "New mono 16 kHz samples between audio windows; 0 uses the PCM input window size",
+            "New mono 16 kHz samples between audio windows; 0 uses the PCM input window size"
+            "; Set in NULL or READY; restart via READY required because audio window scheduling is "
+            "configured during negotiation",
             0,
             G_MAXUINT,
             0,
@@ -1103,7 +1119,9 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
         PROP_COPY_INPUT,
         g_param_spec_boolean("copy-input",
                              "Copy input",
-                             "Copy video into CPU memory instead of retaining the input DMA-BUF",
+                             "Copy video into CPU memory instead of retaining the input DMA-BUF"
+                             "; Set in NULL or READY; restart via READY required because video "
+                             "memory and caps are negotiated at startup",
                              FALSE,
                              static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                                       GST_PARAM_MUTABLE_READY)));

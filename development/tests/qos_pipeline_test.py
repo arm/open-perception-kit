@@ -538,6 +538,54 @@ class QosPipelineTest(unittest.TestCase):
         self.flow_monitor.push_buffer(proactive_start + self.frame_duration + 2)
         self.assert_no_qos_message("proactive QoS skipped one frame too many")
 
+    def test_restricted_write_does_not_wait_for_stopping_inference(self) -> None:
+        self.start_pipeline()
+        self.delay_op.block_next_process()
+        infer = self.elements["infer"]
+        original = infer.get_property("copy-input")
+        frame_width = frame_height = 16
+        bgra_bytes_per_pixel = 4
+        buffer = self.Gst.Buffer.new_allocate(
+            None, frame_width * frame_height * bgra_bytes_per_pixel, None
+        )
+        buffer.pts = self.Gst.SECOND
+        buffer.duration = self.frame_duration
+        self.elements["source"].emit("push-buffer", buffer)
+        stop_thread = threading.Thread(
+            target=self.pipeline.set_state, args=(self.Gst.State.READY,), daemon=True
+        )
+        setter_thread = threading.Thread(
+            target=infer.set_property, args=("copy-input", not original), daemon=True
+        )
+        transition_timeout_seconds = 5
+        poll_interval_seconds = 0.01
+        try:
+            self.assertTrue(self.delay_op.wait_until_blocked())
+            stop_thread.start()
+            deadline = time.monotonic() + transition_timeout_seconds
+            while (infer.get_state(0)[2] != self.Gst.State.READY
+                   and time.monotonic() < deadline):
+                time.sleep(poll_interval_seconds)
+            self.assertEqual(infer.get_state(0)[2], self.Gst.State.READY)
+            setter_thread.start()
+            setter_thread.join(transition_timeout_seconds)
+            self.assertFalse(setter_thread.is_alive(), "setter blocked behind streaming teardown")
+            self.assertEqual(infer.get_property("copy-input"), original)
+            warning = self.pipeline.get_bus().timed_pop_filtered(
+                self.Gst.SECOND, self.Gst.MessageType.WARNING
+            )
+            self.assertIsNotNone(warning)
+            self.assertIn("copy-input", warning.parse_warning()[0].message)
+        finally:
+            self.delay_op.release_process()
+            if stop_thread.ident is not None:
+                stop_thread.join(transition_timeout_seconds)
+            if setter_thread.ident is not None:
+                setter_thread.join(transition_timeout_seconds)
+        self.assertFalse(stop_thread.is_alive())
+        infer.set_property("copy-input", not original)
+        self.assertEqual(infer.get_property("copy-input"), not original)
+
     def test_lifecycle_reset_discards_in_flight_latency(self) -> None:
         self.enable_controlled_inference_qos()
         self.start_pipeline(delay_milliseconds=50)
