@@ -39,7 +39,7 @@ type NativePayload = {
 
 export const SDK_NAME = 'open_perception_kit';
 export const SDK_VERSION = '1.0.0';
-export const SCHEMA_SET_SHA256 = '80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3';
+export const SCHEMA_SET_SHA256 = '323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763';
 export const EXTERNAL_KEY_MIN = BigInt('9223372036854775808');
 const EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 const EXTERNAL_HASH_OFFSET = BigInt('14695981039346656037');

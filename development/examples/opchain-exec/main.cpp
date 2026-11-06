@@ -60,8 +60,8 @@ void printTypedPayloadText(const open_perception_kit::container::envelope &frame
     printPayloadBranch<open_perception_kit::metadata::ObjectEmbeddingsT>(frameResults,
                                                                          printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::TrackTracesT>(frameResults, printedPayloads);
-    printPayloadBranch<open_perception_kit::metadata::PerformanceOverlayT>(frameResults,
-                                                                           printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::PerformanceMeasurementsT>(frameResults,
+                                                                                printedPayloads);
 
     const auto totalPayloads = frameResults.size();
     if (printedPayloads == 0 && totalPayloads == 0) {

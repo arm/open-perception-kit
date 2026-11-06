@@ -41,7 +41,7 @@
 #include "fb/internal/wire_envelope_generated.h"
 #include "fb/object_embeddings_generated.h"
 #include "fb/object_tracks_generated.h"
-#include "fb/performance_overlay_generated.h"
+#include "fb/performance_measurements_generated.h"
 #include "fb/pose_estimations_generated.h"
 #include "fb/segmentation_masks_generated.h"
 #include "fb/semantic_segmentation_masks_generated.h"
@@ -55,7 +55,7 @@ namespace open_perception_kit {
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "1.0.0";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
+    "323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -166,20 +166,20 @@ template <> struct native_traits<open_perception_kit::metadata::ObjectTracksT> {
     }
 };
 
-template <> struct native_traits<open_perception_kit::metadata::PerformanceOverlayT> {
-    using table_type = open_perception_kit::metadata::PerformanceOverlay;
-    using native_type = open_perception_kit::metadata::PerformanceOverlayT;
+template <> struct native_traits<open_perception_kit::metadata::PerformanceMeasurementsT> {
+    using table_type = open_perception_kit::metadata::PerformanceMeasurements;
+    using native_type = open_perception_kit::metadata::PerformanceMeasurementsT;
 
-    static constexpr id_t id = 2126073810871404430ULL;
+    static constexpr id_t id = 2630163151625760217ULL;
     static constexpr std::string_view qualified_root_type =
-        "open_perception_kit.metadata.PerformanceOverlay";
+        "open_perception_kit.metadata.PerformanceMeasurements";
 
     static constexpr const char *file_identifier() {
-        return "PERF";
+        return "PMET";
     }
 
     static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
-        return open_perception_kit::metadata::CreatePerformanceOverlay(builder, obj);
+        return open_perception_kit::metadata::CreatePerformanceMeasurements(builder, obj);
     }
 };
 
@@ -296,7 +296,7 @@ using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::InstanceSegmentationMasksT,
                                   open_perception_kit::metadata::ObjectEmbeddingsT,
                                   open_perception_kit::metadata::ObjectTracksT,
-                                  open_perception_kit::metadata::PerformanceOverlayT,
+                                  open_perception_kit::metadata::PerformanceMeasurementsT,
                                   open_perception_kit::metadata::PoseEstimationsT,
                                   open_perception_kit::metadata::SegmentationMasksT,
                                   open_perception_kit::metadata::SemanticSegmentationMasksT,

@@ -17,19 +17,9 @@
 
 const DISPLAY_INTERVAL_MS = 1000;
 const SMOOTHING_WEIGHT = 0.5;
-const METRIC_VALUE = /^(\d+(?:\.\d+)?)(ms| FPS)$/;
-
-function smoothValue(value, previous) {
-    const currentMatch = METRIC_VALUE.exec(value);
-    const previousMatch = METRIC_VALUE.exec(previous || '');
-    if (!currentMatch || !previousMatch || currentMatch[2] !== previousMatch[2]) return value;
-
-    const current = Number(currentMatch[1]);
-    const old = Number(previousMatch[1]);
-    const decimals = currentMatch[1].split('.')[1]?.length || 0;
-    if (!Number.isFinite(current) || !Number.isFinite(old) || decimals > 10) return value;
-
-    return `${(old * (1 - SMOOTHING_WEIGHT) + current * SMOOTHING_WEIGHT).toFixed(decimals)}${currentMatch[2]}`;
+function smoothValue(value, previous, digits) {
+    if (value === null || previous === null || !Number.isFinite(value) || !Number.isFinite(previous)) return value;
+    return Number((previous * (1 - SMOOTHING_WEIGHT) + value * SMOOTHING_WEIGHT).toFixed(digits));
 }
 
 export function createPerformanceLowPass() {
@@ -44,15 +34,20 @@ export function createPerformanceLowPass() {
         }
         if (now - lastDisplayAt < DISPLAY_INTERVAL_MS) return null;
 
+        const counts = new Map();
+        for (const row of rows) if (row.key) counts.set(row.key, (counts.get(row.key) || 0) + 1);
+        const identified = row => row.key && counts.get(row.key) === 1;
         const filtered = rows.map((row) => {
-            const previous = previousRows.get(row.stage);
+            const previous = identified(row) ? previousRows.get(row.key) : null;
+            if (!previous || previous.unit !== row.unit) return {...row};
+            const digits = row.unit === 'fps' ? 1 : 2;
             return {
                 ...row,
-                current: smoothValue(row.current, previous?.current),
-                p95: smoothValue(row.p95, previous?.p95),
+                current: smoothValue(row.current, previous.current, digits),
+                p95: smoothValue(row.p95, previous.p95, digits),
             };
         });
-        previousRows = new Map(filtered.map((row) => [row.stage, row]));
+        previousRows = new Map(filtered.filter(identified).map((row) => [row.key, row]));
         lastDisplayAt = now;
         return filtered;
     };

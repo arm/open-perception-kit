@@ -75,7 +75,7 @@ A typical execution flow:
    process-wide `PerformanceMetrics`.
 3. Results are appended to `FrameResults` as typed schema payloads.
 4. `opktracker` can stabilize detections across frames and append tracking output.
-5. `opkperformance` reads interval aggregates and appends `PerformanceOverlayT`.
+5. `opkperformance` reads interval aggregates and appends numeric `PerformanceMeasurementsT`.
 6. `opkosd` can draw supported `FrameResults` payloads onto video frames.
 7. `opksink` can stream the output to a browser through WebRTC.
 
