@@ -13,4 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-GENERATOR_VERSION = "0.6.1"
+GENERATOR_VERSION = "0.7.1"

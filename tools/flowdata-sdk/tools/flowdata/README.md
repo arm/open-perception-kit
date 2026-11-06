@@ -21,13 +21,19 @@ limitations under the License.
 FlatBuffers schema set. The generator remains project agnostic: consuming
 projects own release decoration, archive layout, signing, and publication.
 
+For generator maintenance, see [ARCHITECTURE.md](ARCHITECTURE.md): source
+ownership, template conventions, compatibility boundaries and refactor checks.
+
 ## Commands
+
+Commands below are run from the repository root. `schemas` is an example
+consumer-owned schema directory; use `payloads` for the repository demo schemas.
 
 Show the generator identity:
 
 ```bash
 python3 tools/flowdata/gen.py --version
-# sdkgen 0.6.1
+# sdkgen 0.7.1
 ```
 
 Generate one language SDK:
@@ -59,14 +65,18 @@ python3 tools/flowdata/gen.py verify-manifest \
 
 ## Inputs
 
-- `--name` is the schema namespace and the default public SDK name. It
+- `--name` is the generated package, namespace, and build-variable prefix. It
   must match `[a-z][a-z0-9_]*` and cannot be a target-language keyword.
-- `--public-name` sets the package, namespace, and build-variable prefix for
-  every generated language. It defaults to `--name`.
+  Python standard-library names and runtime dependencies (`flatbuffers`, `numpy`)
+  are also rejected to prevent import collisions.
 - `--version` is the generated SDK release version and must be stable semantic
-  versioning in `MAJOR.MINOR.PATCH` form.
+  version syntax in `MAJOR.MINOR.PATCH` form. The publishing project assigns it;
+  the generator does not verify release-to-release compatibility or version bumps.
 - `--schema-dir` is the complete schema-set root. Every transportable payload
-  has one `root_type` and one four-character `file_identifier`.
+  has one `root_type` and one four-character `file_identifier`. Discovery is
+  recursive; `.fbs` basenames must be unique across the directory. Support
+  schemas have no `root_type`.
+- `--sdk` selects `cpp`, `python`, `rust`, or `ts` and defaults to `cpp`.
 - `--generated-root` defaults to `generated`.
 - `--flatc` defaults to `flatc` on `PATH`.
 
@@ -75,11 +85,49 @@ TypeScript package metadata require the same runtime range. Generated C++
 headers, build integrations, and Rust crates require the exact FlatBuffers
 version used by `flatc`.
 
+## Payload Identity And Compatibility
+
+The generator's own version supports `MAJOR.MINOR.PATCH` and
+`MAJOR.MINOR.PATCH-dev`. Development versions are recorded in generated manifests
+and untagged source packages; tagged releases require a stable version. This is
+separate from the generated SDK's stable-only `--version` argument. See the
+[release guide](../../docs/generator-release.md#development-and-release-versions).
+
+Known payload ids hash only the case-sensitive, canonical dotted FlatBuffers
+root name encoded as UTF-8. Calculate SHA-256, interpret its first eight bytes
+as an unsigned big-endian integer, then compute `value % (2**63 - 1) + 1`.
+There is no salt or SDK version input. File identifiers, paths, schema contents,
+and include contents do not affect ids. Duplicate generated ids are rejected.
+Schema hashes remain independent manifest/provenance data.
+Root names follow `flatc`'s root-specific lookup: try the exact name first, then
+prefix it with the active namespace. Parent namespaces are not searched. Lookup
+uses declarations available at the `root_type` statement, including transitive
+includes; later declarations cannot change that selection. Relative and fully
+qualified spellings that resolve to the same root produce the same id.
+
+The SDK's producer-identity check is advisory: same name and full version gives
+`exact_match`; different versions sharing a major give
+`compatible_match`. Other names give `name_mismatch`; invalid or incompatible
+versions give `version_mismatch`. The same-major rule includes major zero.
+The schema digest does not affect the result. Publishers must honor compatible
+wire evolution in both directions within a major; applications choose acceptance
+policy. Matching ids or successful decoding alone do not prove compatibility.
+
+Generator 0.7.0 intentionally replaces existing ids and the old
+six-state identity enum. Regenerate and coordinate deployment of producer/reader
+SDKs; there is no legacy-id aliasing. See the
+[integration guide](../../docs/integration-guide.md#compatibility-model).
+
 ## Output Layout
 
-Each invocation stages and verifies new output, then replaces the complete
-selected language root. This prevents files from a previous feature set or schema
-set surviving regeneration.
+Each invocation generates and verifies a staged SDK, then replaces the complete
+selected language root using renames with backup/rollback handling. Include all
+needed integration/bridge flags on each invocation; previous features, build
+products and local additions in that language root are not retained. Other
+language roots are unaffected.
+If installation and restoration both fail, generation reports a retained recovery
+directory containing the previous SDK under `previous/`; recover it before
+removing that directory.
 
 ```text
 generated/
@@ -130,16 +178,21 @@ The manifest records:
 - Python package or bridge descriptors when applicable
 - every generated file path, size, and SHA-256
 
-The manifest does not hash itself. Generated-file and package/bridge descriptor
-paths are normalized POSIX paths relative to the manifest's SDK root. Schema
-paths are relative to the input schema directory. Absolute paths and external
-logical roots are not supported.
+The manifest does not hash itself. Generated-file and package/bridge artifact
+paths are relative to the manifest's SDK root. Schema-file and payload `schema`
+paths are relative to the input schema directory. Paths use relative POSIX
+notation; absolute paths and extra logical output roots are not supported.
 
 `verify-manifest` rejects malformed metadata, duplicate JSON keys, missing or
-extra SDK files, unsafe paths, symlink escapes, size or hash mismatches, invalid
-payload identities, incompatible FlatBuffers requirements, and inconsistent
-feature descriptors. With `--schema-root`, it also verifies the complete schema
+extra SDK files, unsafe paths, directory/broken symlinks, escaping file symlinks,
+size or hash mismatches, invalid payload identities, incompatible FlatBuffers
+requirements, and inconsistent feature descriptors. With `--schema-root`, it also verifies the complete schema
 file set and aggregate digest.
+
+Verify pristine output before building, importing, installing or decorating it.
+For example, `dist/`, `node_modules/`, Python bytecode caches and wheel-build
+metadata are additional files that cause complete-root verification to fail.
+Keep a pristine copy for later verification, or regenerate before verifying.
 
 ## C++ Integration
 
@@ -157,7 +210,7 @@ requirement, and bridge availability using identifiers derived from `--name`.
 
 ## Reproducibility
 
-For reproducible releases, the project records local generator source hashes,
+For reproducible releases, the consuming project pins the flowdata-sdk commit,
 the SDK semantic version, the exact `flatc` executable, and the schema set. Rust
 generation also needs a pinned `rustfmt` version and configuration. The project
 generates once, verifies the manifests, then packages those verified files

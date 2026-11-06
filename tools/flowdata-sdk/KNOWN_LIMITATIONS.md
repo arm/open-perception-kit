@@ -31,15 +31,25 @@ limitations should remain explicit.
 
 ## Compatibility
 
-- Known payload ids are deterministic and content-derived, but they are still
+- Known payload ids are deterministic hashes of fully qualified root names, but are still
   truncated hash values. Collisions are checked inside one generated schema set;
   they are not mathematically impossible.
-- The producer schema-set SHA-256 is an exact provenance check, not a global
-  compatibility decision. Compatibility is decided per payload entry:
-  decodable known payloads are exposed through typed APIs, while unknown,
-  changed, or malformed same-id payloads are preserved for forwarding.
-- The payload-id algorithm includes a compatibility salt. Changing it is a
-  deliberate wire-compatibility break.
+- Producer identity compares SDK name/version only. `exact_match` does not mean
+  identical schemas; callers needing that distinction must compare the exposed
+  schema-set SHA-256 separately. Missing or malformed schema hashes do not affect
+  the name/version classification.
+- `compatible_match` means the same name and major version, including zero. It is
+  an advisory publisher-contract check, not a schema comparison. Publishers must
+  preserve forward and backward wire compatibility within a major for
+  mixed-version readers/writers.
+- Incompatible edits with unchanged qualified names retain their ids. Matching
+  ids and successful decoding cannot establish semantic compatibility. Consumers
+  must apply acceptance policy before typed interpretation. Unknown or
+  undecodable entries remain preserve-only data, with Rust diagnostic views.
+- Generator 0.7.0 replaces the content-derived id algorithm and
+  old identity enum.
+  Existing SDKs require coordinated regeneration/deployment. Future changes to
+  the fixed name-hashing algorithm likewise break type identity.
 
 ## Runtime Behavior
 
@@ -48,14 +58,19 @@ limitations should remain explicit.
   Rust uses the generated FlatBuffers verifier for both. Python and TypeScript
   check file identifiers and parse through generated accessors, but they do not
   provide verifier-equivalent structural validation.
+- Python and TypeScript clear partial entries when outer-envelope parsing fails.
+  Invalid envelopes expose no payloads through typed or external reads. Always
+  check `valid()` to distinguish an invalid packet from a valid empty envelope.
 - C++, Python, and TypeScript check individual payload blobs when a typed API
   asks for that payload type. Rust decodes known payloads while decoding the
   envelope and preserves failed payloads with diagnostic errors.
 - Typed `count`, `contains`, `get`, and `for_each` report only entries that
   successfully decode as the requested payload type.
-- Unknown or incompatible entries in the known generated-id domain are preserved
+- Unknown or undecodable entries in the known generated-id domain are preserved
   for forwarding. C++, Python, and TypeScript keep them private; Rust exposes
   read-only id/blob/error views.
+- Omitted wire blob vectors are treated as empty bytes. Their entries are retained,
+  including unknown ids, undecodable known payloads, and repeated external keys.
 - External payload APIs expose caller-owned opaque blobs by deterministic key
   handle. C++ envelope methods accept `external_key_t`; Python, Rust, and TypeScript
   external methods accept `ExternalKey`. External blob contents are
@@ -64,9 +79,17 @@ limitations should remain explicit.
   accepted by public APIs.
 - C++ stores newly added known payloads as native object API values and serializes
   them when the envelope is serialized. Payloads loaded from a packet are decoded
-  lazily and cached on first successful typed read.
+  lazily and cached on first successful typed read. That replaces their original
+  bytes, so an older C++ reader can lose newer fields when reserializing after
+  typed access (including `count`/`contains`). Stable ids do not fix this limitation.
+- Rust unpacks known payloads during envelope decoding and repacks them on
+  serialization. An older Rust reader therefore also loses fields it does not
+  know when forwarding recognized payloads; unknown/undecodable entries are
+  still preserved as original bytes.
 - C++ `get<T>()` returns a read-only `payload_ref<T>` handle instead of copying
-  the native object. `for_each<T>()` invokes callbacks with `const T&`.
+  the native object. `for_each<T>()` invokes callbacks with `const T&`. Constness
+  applies to the root object; generated nested owning pointers do not enforce
+  deep constness. Callers must treat all stored payload data as immutable.
 - C++ operations are protected by an internal mutex, but callers must still keep
   the envelope object alive while any thread or async task may use it. Copy and
   move operations require exclusive access to their source and destination
@@ -75,7 +98,8 @@ limitations should remain explicit.
   host-owned C++ envelope temporarily; the host must keep the envelope alive,
   scope the live wrapper, and ensure Python import paths include the generated
   SDK and FlatBuffers runtime. The generated `guest.pyi` supports editor analysis
-  only; importing `<sdk>.guest` still requires the host-registered bridge module.
+  only; importing `<sdk>.guest` requires the generated Python SDK, its
+  `flatbuffers` dependency and the host-registered bridge module, even for reads.
 - Importing `<sdk>.guest` requires the generated `<sdk>_bridge` module to have
   been registered by the embedding host. Endpoint-only Python environments use
   `<sdk>.packet` and do not require the bridge.
@@ -108,9 +132,9 @@ limitations should remain explicit.
 ## Operational Expectations
 
 - Generated SDK releases require an explicit stable `MAJOR.MINOR.PATCH` value.
-  This is artifact metadata, not an envelope or payload compatibility field.
-  The generator does not compare previous releases or enforce the correct
-  semantic-version bump.
+  It is recorded in the envelope and used for advisory name/version matching,
+  but never for payload-id generation. The generator does not compare previous
+  releases or enforce the correct semantic-version bump.
 - Each `flowdata-manifest.json` describes one language-generation invocation,
   not a combined multi-language release artifact. Project release tooling is
   responsible for combining manifests and packaging outputs.

@@ -66,7 +66,10 @@ class FaceResultDecoder:
             raise ExampleError(f"frame {frame}: invalid FrameResults packet: {envelope.error()}")
 
         producer_identity = envelope.producer_identity()
-        if producer_identity is not ProducerIdentityStatus.EXACT_MATCH:
+        if producer_identity not in (
+            ProducerIdentityStatus.EXACT_MATCH,
+            ProducerIdentityStatus.COMPATIBLE_MATCH,
+        ):
             identity_value = getattr(producer_identity, "value", str(producer_identity))
             raise ExampleError(
                 f"frame {frame}: incompatible FrameResults producer identity: "

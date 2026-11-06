@@ -36,10 +36,18 @@ All SDKs use the same envelope model:
 2. An envelope carries ordered payload entries.
 3. Each serialized entry has an internal payload id and an encoded payload blob.
 4. Duplicate known payload types are valid; use the occurrence index when reading.
-5. Known payload ids are generated from each root type and its schema dependency contents.
-6. Readers decode entries whose ids and blobs match the current SDK and preserve unknown or incompatible entries; Rust additionally exposes their ids, bytes, and typed errors.
+5. Known payload ids hash only the fully qualified root name and remain stable across schema edits and SDK releases.
+6. Readers decode entries whose ids and blobs match the current SDK and preserve unknown or undecodable entries; Rust additionally exposes their ids, bytes, and typed errors.
 7. External payloads are explicit opaque byte entries addressed by deterministic external key handles; bare numeric external ids are not public API.
 8. Invalid envelopes cannot be used for writing or serialization.
+
+Producer identity is an advisory name/version check: `name_mismatch`,
+`exact_match`, `compatible_match`, or `version_mismatch`. Matching names and full
+versions are exact; differing versions with the same major are compatible,
+including major zero. Schema hashes are diagnostic only. The schema-owning
+consuming project chooses SDK versions and release bumps; flowdata-sdk validates
+and propagates them, and applications enforce acceptance. See the
+[compatibility model](integration-guide.md#compatibility-model).
 
 The C++ envelope keeps known payloads added through `add()` as native objects
 until serialization, lazily caches native objects decoded from incoming packets,
@@ -51,23 +59,22 @@ clients import `<sdk>.packet.Envelope`; embedded callbacks import
 `<sdk>.guest.Envelope`. Both use the same generated payload classes and
 `ExternalKey` handles.
 
-The examples use illustrative demo payload root types:
+The examples use the repository demo payload root types:
 
 - C++: `demo::perception::PerceptionT`, `demo::telemetry::TelemetryT`
 - Python: `metapoc.fb.demo.perception.Perception.PerceptionT`, `metapoc.fb.demo.telemetry.Telemetry.TelemetryT`
 - Rust: `metapoc::fb::demo::perception::PerceptionT`, `metapoc::fb::demo::telemetry::TelemetryT`
 - TypeScript: `metapoc/fb/demo/perception/perception.js`, `metapoc/fb/demo/telemetry/telemetry.js`
 
-The illustrative `payloads/common.fbs` defines reusable nested types such as
-bounding boxes, positions, and vectors. It has no `root_type`, so it is generated
-as shared support code rather than as an envelope payload.
+The repository also includes `payloads/common.fbs` for reusable nested types
+such as bounding boxes, positions, and vectors. It has no `root_type`, so it is
+generated as shared support code rather than as an envelope payload.
 
-Demo schemas, applications, and their test harness are not included here.
-For the repository's supported Open Perception Kit workflow, use
-[Use the Open Perception Kit SDK](../../../docs/public/how-to/use-perception-sdk.md).
+Commands using `payloads/`, `demo/`, or `tests/` require the full repository
+checkout, not just the generator sources and documentation.
 
 In another project, the same API shape applies, but the generated namespaces,
 classes, and imports follow that project's FlatBuffers schemas.
 
-For agent handoff and repository operating rules, read [AGENTS.md](../../../AGENTS.md)
+For agent handoff and repository operating rules, read [AGENTS.md](../AGENTS.md)
 before making broad generator, API, or integration changes.
