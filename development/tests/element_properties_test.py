@@ -330,6 +330,54 @@ class ElementPropertiesTest(unittest.TestCase):
         self.assertTrue(stopped.wait(STATE_TIMEOUT_SECONDS))
         self.assertEqual(pipeline.get_state(0)[1], self.Gst.State.NULL)
 
+    def test_live_model_replacement_and_incompatible_content_deferral(self):
+        pipeline = self.Gst.parse_launch(
+            'videotestsrc is-live=true ! video/x-raw,format=BGRA,width=16,height=16 ! '
+            f'opkinfer name=infer opchain-path="{self.opchain}" ! fakesink sync=false')
+        self.addCleanup(release_pipeline, pipeline, self.Gst)
+        infer = pipeline.get_by_name("infer")
+        registrations = []
+
+        def observe_registration(_pad, probe):
+            structure = probe.get_event().get_structure()
+            if structure and structure.get_name() == "opk-model-register":
+                registrations.append(structure.copy())
+            return self.Gst.PadProbeReturn.OK
+
+        infer.get_static_pad("src").add_probe(self.Gst.PadProbeType.EVENT_DOWNSTREAM,
+                                              observe_registration)
+        pipeline.set_state(self.Gst.State.PLAYING)
+        self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
+                         self.Gst.State.PLAYING)
+        replacement = write_test_opchain(self.directory.name, "replacement", {})
+        values = self.Gst.Structure.new_empty("properties")
+        values.set_value("opchain-path", str(replacement))
+        values.set_value("infer-id", "new-producer")
+        infer.emit("configure-properties", values)
+        self.wait_for_property_status(infer, "opchain-path", "applied")
+        self.assertEqual(infer.get_property("opchain-path"), str(replacement))
+        self.assertEqual(infer.get_property("infer-id"), "new-producer")
+        self.assertEqual(pipeline.get_state(0)[1], self.Gst.State.PLAYING)
+        self.assertTrue(any(registration.get_value("model-name") == "pipeline-test-replacement"
+                            and registration.get_value("configuration-changed")
+                            for registration in registrations))
+        infer.set_property("opchain-path", str(replacement) + ".missing")
+        failure = self.wait_for_property_status(infer, "opchain-path", "failed")
+        self.assertEqual(failure.get_value("effective"), str(replacement))
+        incompatible = write_test_opchain(self.directory.name, "incompatible",
+                                          {"provided-content-type": "different-content"})
+        infer.set_property("opchain-path", str(incompatible))
+        pending = self.wait_for_property_status(infer, "opchain-path", "restart-required")
+        self.assertIn("Content dependencies", pending.get_value("reason"))
+        pipeline.set_state(self.Gst.State.PAUSED)
+        pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)
+        self.assertEqual(infer.get_property("opchain-path"), str(replacement))
+        pipeline.set_state(self.Gst.State.READY)
+        self.assertEqual(infer.get_property("opchain-path"), str(incompatible))
+        pipeline.set_state(self.Gst.State.PLAYING)
+        self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
+                         self.Gst.State.PLAYING)
+
     def test_missing_opchain_fails_even_when_inactive(self):
         pipeline = self.Gst.parse_launch('videotestsrc ! opkinfer active=false ! fakesink')
         self.addCleanup(release_pipeline, pipeline, self.Gst)

@@ -21,6 +21,7 @@ from __future__ import annotations
 import ctypes
 import gc
 from pathlib import Path
+import queue
 import sys
 import tempfile
 import threading
@@ -585,6 +586,9 @@ class QosPipelineTest(unittest.TestCase):
         self.assertEqual(infer.get_property("copy-input"), not original)
 
     def test_lifecycle_reset_discards_in_flight_latency(self) -> None:
+        toggle_count = 48
+        registration_timeout_seconds = 1
+        registration_quiet_seconds = 0.1
         self.enable_controlled_inference_qos()
         self.start_pipeline(delay_milliseconds=50)
         self.delay_op.block_next_process()
@@ -603,14 +607,30 @@ class QosPipelineTest(unittest.TestCase):
                 self.delay_op.wait_until_blocked(),
                 "Delay Op did not enter its deterministic test gate",
             )
-            self.elements["infer"].set_property("active", False)
-            self.elements["infer"].set_property("active", True)
+            registrations = queue.Queue()
+
+            def observe_registration(_pad, info):
+                structure = info.get_event().get_structure()
+                if structure and structure.get_name() == "opk-model-register":
+                    registrations.put(structure.get_value("active"))
+                return self.Gst.PadProbeReturn.OK
+
+            infer = self.elements["infer"]
+            source_pad = infer.get_static_pad("src")
+            probe = source_pad.add_probe(self.Gst.PadProbeType.EVENT_DOWNSTREAM,
+                                         observe_registration)
+            self.addCleanup(source_pad.remove_probe, probe)
+            for index in range(toggle_count):
+                infer.set_property("active", bool(index % 2))
         finally:
             self.delay_op.release_process()
         push_thread.join(1)
         self.assertFalse(push_thread.is_alive(), "blocked frame did not finish")
         if push_errors:
             raise push_errors[0]
+        self.assertTrue(registrations.get(timeout=registration_timeout_seconds))
+        with self.assertRaises(queue.Empty):
+            registrations.get(timeout=registration_quiet_seconds)
 
         self.delay_op.set_delay(0)
         self.flow_monitor.push_buffer(3 * self.Gst.SECOND + self.frame_duration)

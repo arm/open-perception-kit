@@ -22,12 +22,15 @@ from pathlib import Path
 import queue
 import sys
 import tempfile
+import time
 import unittest
 
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
 
 OP_PATH = Path(sys.argv[1]).resolve()
 PLUGIN_PATH = Path(sys.argv[2]).resolve()
+PROPERTY_TIMEOUT_SECONDS = 5
+PROPERTY_POLL_INTERVAL_SECONDS = 0.01
 
 
 class AudioWindowTest(unittest.TestCase):
@@ -140,6 +143,29 @@ class AudioWindowTest(unittest.TestCase):
         self.push(1)
         self.push(512)
         self.assertEqual(self.rows(), [[0, 512, 0, 511, 1], [256, 512, 256, 767, 0], [512, 512, 512, 1023, 0]])
+
+    def test_runtime_hop_discards_old_samples_and_invalid_hop_preserves_active_window(self):
+        self.create()
+        self.push(511)
+        infer = self.pipeline.get_by_name("infer")
+
+        def change_hop(value, outcome):
+            infer.set_property("audio-hop-samples", value)
+            deadline = time.monotonic() + PROPERTY_TIMEOUT_SECONDS
+            while time.monotonic() < deadline:
+                statuses = infer.get_property("property-status")
+                if statuses.get_value("audio-hop-samples").get_value("status") == outcome:
+                    return
+                time.sleep(PROPERTY_POLL_INTERVAL_SECONDS)
+            self.fail(f"audio-hop-samples did not reach {outcome}")
+
+        change_hop(256, "applied")
+        self.push(512)
+        self.assertEqual(self.rows(), [[0, 512, 511, 1022, 1]])
+        change_hop(513, "failed")
+        self.assertEqual(infer.get_property("audio-hop-samples"), 256)
+        self.push(256)
+        self.assertEqual(self.rows()[-1], [256, 512, 767, 1278, 0])
 
     def test_window_comes_from_model(self):
         self.create(window=320)

@@ -62,7 +62,7 @@ MLWL manages its own Vulkan device. Postprocessing runs on CPU.
 GPU image preprocessing supports fixed-shape, single-image RGB float32 tensors
 in CHW or HWC layout. It performs crop, resize, channel conversion, packing and
 normalization. Select `cpu` when the model, device or input buffer is unsupported.
-Execution settings remain fixed while the pipeline runs.
+Execution settings belong to the loaded OpChain; replacing it also replaces those settings.
 
 The Vulkan preprocessor uses push constants when the device can hold its 160-byte
 parameter block, otherwise it uses a uniform buffer. Push constants avoid a mapped
@@ -131,8 +131,8 @@ On `stop()`, it releases OpChain state and resources.
 ## PCM Audio Scheduling
 
 `audio-hop-samples` controls the distance between consecutive inference windows in
-converted mono 16 kHz samples. Its default, `0`, uses the window size. Set the
-property in NULL or READY; it cannot change while streaming.
+converted mono 16 kHz samples. Its default, `0`, uses the window size. A live
+change applies between input buffers and clears the accumulated audio window.
 
 The window is derived from the bound inference Ops' `AudioPcm` input shape,
 excluding any context supplied by the preceding audio preprocessor.
@@ -308,19 +308,29 @@ requests wait for the caller to reach the indicated state. Read-only entries can
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
-| `opchain-path` | OpChain JSON descriptor to load. | Unset (`null`) | Path; e.g. `config/models/yolo26n-320/opchain.json`. Required for startup. | NULL/READY |
+| `opchain-path` | OpChain JSON descriptor to load. | Unset (`null`) | Path; e.g. `config/models/yolo26n-320/opchain.json`. Required for startup. | Live; contract changes require READY |
 | `active` | Enable per-frame OpChain execution. | `true` | `true`, `false` | Live |
-| `infer-id` | Producer identifier attached to result layers. | `""` → element name | String; e.g. `detector`. Empty uses the element name. | NULL/READY |
+| `infer-id` | Producer identifier attached to result layers. | `""` → element name | String; e.g. `detector`. Empty uses the element name. | Live |
 | `qos-enabled` | Enable experimental inference skipping from QoS feedback. | `false` | `true`, `false` | Live |
 | `qos-accepted-events-debug` | Count of QoS events committed by the element. | `0` | Unsigned 64-bit counter, 0–18446744073709551615; e.g. observed `12`. | Read-only |
 | `copy-input` | Copy video into CPU memory instead of retaining the input DMA-BUF. | `false` | `true`, `false` | NULL/READY |
-| `audio-hop-samples` | New mono 16 kHz samples between audio windows. | `0` | Unsigned integer, 0–4294967295; `0` uses the model PCM window size. A nonzero value must not exceed that window; e.g. `160` for a window of at least 160 samples. | NULL/READY |
+| `audio-hop-samples` | New mono 16 kHz samples between audio windows. | `0` | Unsigned integer, 0–4294967295; `0` uses the model PCM window size. A nonzero value must not exceed that window; e.g. `160` for a window of at least 160 samples. | Live |
 | `property-status` | Latest requests, effective values and per-property outcomes. | None until requested | `GstStructure`; see [request API](../../public/how-to/configure-elements.md#requests-and-outcomes). | Read-only |
 
-`opchain-path`, `infer-id`, `audio-hop-samples`, and `copy-input` require NULL
-or READY. Stop to READY before changing them; the next start recreates the
-OpChain and renegotiates its inputs. A missing/invalid OpChain fails startup even
-with `active=false`. `active` and `qos-enabled` remain live controls.
+`opchain-path`, `infer-id`, and `audio-hop-samples` can change between frames or
+audio windows. A replacement OpChain is prepared asynchronously while the current
+one continues processing. Preparation failure retains the current model. A batch
+of these properties applies together. A successful change clears buffered audio
+and QoS state, then announces the new model before its first output frame.
+Downstream trackers using its content types clear their old history without
+reusing track IDs.
+
+A different provided/required content-type set or audio/video input kind requires
+an explicit READY restart so the caller can configure dependencies and renegotiate
+media. `property-status` identifies this case and retains the request. This check
+cannot prove arbitrary custom Op semantics; execution errors still stop processing.
+`copy-input` also requires READY because it changes memory negotiation. A pause
+alone does not rebuild that contract.
 
 See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
 for discovery, readback, validation and the explicit restart procedure.

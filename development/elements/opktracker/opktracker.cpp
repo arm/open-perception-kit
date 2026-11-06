@@ -271,6 +271,32 @@ static GstFlowReturn gst_opktracker_transform_ip(GstBaseTransform *selfInParentT
     return GST_FLOW_OK;
 }
 
+static gboolean gst_opktracker_sink_event(GstBaseTransform *const selfInParentType,
+                                          GstEvent *const event) {
+    auto *const self = GST_OPKTRACKER(selfInParentType);
+    const auto *const structure = gst_event_get_structure(event);
+    gboolean changed = FALSE;
+    if (structure && gst_structure_has_name(structure, "opk-model-register") &&
+        gst_structure_get_boolean(structure, "configuration-changed", &changed) && changed &&
+        self->runtimeMembers) {
+        const auto config = trackerConfigFromElement(self);
+        const auto *const contentTypes =
+            gst_structure_get_value(structure, "provided-content-types");
+        if (contentTypes && G_VALUE_HOLDS(contentTypes, G_TYPE_STRV)) {
+            const auto *const types =
+                static_cast<const gchar *const *>(g_value_get_boxed(contentTypes));
+            for (const auto *type = types; type && *type; ++type) {
+                if (config.contentType == *type || config.embeddingContentType == *type) {
+                    self->runtimeMembers->tracker.clearHistory();
+                    break;
+                }
+            }
+        }
+    }
+    return GST_BASE_TRANSFORM_CLASS(gst_opktracker_parent_class)
+        ->sink_event(selfInParentType, event);
+}
+
 static void gst_opktracker_set_property(GObject *selfInParentType,
                                         guint propertyId,
                                         const GValue *value,
@@ -826,6 +852,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
     baseTransformClass->start = gst_opktracker_start;
     baseTransformClass->stop = gst_opktracker_stop;
     baseTransformClass->set_caps = gst_opktracker_set_caps;
+    baseTransformClass->sink_event = gst_opktracker_sink_event;
     baseTransformClass->transform_ip = gst_opktracker_transform_ip;
     baseTransformClass->prepare_output_buffer =
         [](GstBaseTransform *selfInParentType, GstBuffer *inputBuffer, GstBuffer **outputBuffer) {
