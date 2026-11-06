@@ -27,9 +27,9 @@ requests wait for the caller to reach the indicated state. Read-only entries can
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
-| `content-type` | Result layer content type containing detections to track. | `genericObject` | String matching an input layer; e.g. `humanFace`. | NULL/READY |
+| `content-type` | Result layer content type containing detections to track. | `genericObject` | String matching an input layer; e.g. `humanFace`. | Live |
 | `use-embeddings` | Enable ReID embedding-based association. | `true` | `true`, `false` | Live |
-| `embedding-content-type` | Result layer content type containing object embeddings. | `objectEmbedding` | String matching an input layer; e.g. `objectEmbedding`. | NULL/READY |
+| `embedding-content-type` | Result layer content type containing object embeddings. | `objectEmbedding` | String matching an input layer; e.g. `objectEmbedding`. | Live |
 | `embedding-weight` | Embedding contribution to hybrid matching cost. | `0.5` | Float, 0–1; e.g. `0.7`. `0` uses IoU cost only; `1` uses embedding cost when available. | Live |
 | `min-cosine-similarity` | Minimum similarity for an embedding contribution. | `0.0` | Float, −1–1; e.g. `0.4`. | Live |
 | `reid-reassociate-threshold` | Minimum similarity for restoring a dormant track; values ≤ 0 disable dormant reassociation. | `0.65` | Float, −1–1; e.g. `0.75`. | Live |
@@ -50,20 +50,22 @@ requests wait for the caller to reach the indicated state. Read-only entries can
 | `emit-predicted-detections` | Append predicted-only tracks while detections are missing. | `true` | `true`, `false` | Live |
 | `emit-trace` | Append `trackTrace` output for active tracks. | `true` | `true`, `false` | Live |
 | `association-mode` | Select the matching strategy. | `hybrid` | `hybrid` (IoU and embeddings), `iou` (IoU only), `embedding` (embeddings only). | Live |
-| `infer-id` | Producer identifier attached to tracker result layers. | `""` → element name | String; e.g. `tracker`. Empty uses the element name. | NULL/READY |
+| `infer-id` | Producer identifier attached to tracker result layers. | `""` → element name | String; e.g. `tracker`. Empty uses the element name. | Live |
 | `property-status` | Latest requests, effective values and per-property outcomes. | None until requested | `GstStructure`; see [request API](../../public/how-to/configure-elements.md#requests-and-outcomes). | Read-only |
 
 `G_MAXFLOAT` is the largest finite 32-bit float (approximately 3.4028235 × 10³⁸).
 Float defaults above use their intended decimal values; introspection may display
 the nearest representable float.
 
-`content-type`, `embedding-content-type`, and `infer-id` require NULL or READY.
-Their identity/source meaning must stay stable for a tracking history. Returning
-to READY clears that history before the next start. Other writable properties
-can change while playing: association thresholds and weights, confirmation/miss
-limits, history durations, Kalman tuning and output flags. `association-mode`
-accepts `iou`, `embedding`, or `hybrid`; an invalid string reports a failed
-request and leaves the previous value unchanged.
+All writable properties can change while playing. Each frame uses one configuration
+snapshot, including values submitted together with `configure-properties`.
+Changing `content-type`, `embedding-content-type`, `infer-id`, `use-embeddings`, or
+`use-kalman` clears incompatible history before the next frame. Track IDs keep
+increasing within the stream. Thresholds, weights, history durations, noise
+settings and output flags preserve compatible history.
+
+`association-mode` accepts `iou`, `embedding`, or `hybrid`; an invalid string
+reports a failed request and leaves the previous value unchanged.
 
 Initial Kalman covariance affects new tracks only. Changing thresholds or noise
 settings does not retroactively recompute existing tracks. Optional features

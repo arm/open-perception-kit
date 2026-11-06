@@ -168,6 +168,9 @@ class Tracker {
      */
     void reset();
 
+    /// Discard incompatible history without reusing identities in the current stream.
+    void clearHistory();
+
     const KalmanDeltaTimeTracking &kalmanDeltaTimeTracking() const;
 
     /**
@@ -181,6 +184,18 @@ class Tracker {
                  std::optional<uint64_t> runningTimeMs);
 
   private:
+    struct TrackingContext {
+        std::string contentType;
+        std::string embeddingContentType;
+        std::string inferId;
+        std::string producerInstanceId;
+        bool useEmbeddings;
+        bool useKalman;
+
+        bool operator==(const TrackingContext &) const = default;
+    };
+
+    std::optional<TrackingContext> trackingContext;
     ActiveTrackMap activeTracks;
     DormantTrackMap inactiveTracks;
     TrackId nextTrackId = 1;

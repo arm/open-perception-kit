@@ -118,7 +118,7 @@ negotiation; `videoconvert` performs conversion when needed.
 | --- | --- | --- |
 | `opkinfer` | `opchain-path`, `infer-id`, `audio-hop-samples`, `copy-input` | NULL or READY. Returning to READY stops the OpChain and clears audio/QoS state. The next start loads the model and renegotiates media/memory. Identity must remain stable while processing. |
 | `opkinfer` | `active`, `qos-enabled` | Live. Changes affect subsequent inference decisions; an execution already in progress can finish. Activation can enable upstream content providers. Disabling QoS resets skipping. |
-| `opktracker` | `content-type`, `embedding-content-type`, `infer-id` | NULL or READY. Restart clears tracking history so identities from different sources cannot mix. |
+| `opktracker` | `content-type`, `embedding-content-type`, `infer-id`, `use-embeddings`, `use-kalman` | Live. Clears incompatible history at the next frame while preserving the track ID sequence. |
 | `opktracker` | All other writable properties | Live. Each frame takes a synchronized configuration snapshot. Initial Kalman covariance only affects newly created tracks; existing state is retained. See [tracker](https://github.com/arm/open-perception-kit/blob/main/docs/arch/elements/opktracker.md#properties). |
 | `opkosd` | `enabled`, `performance-overlay-enabled`, `bg-image` | Live. Drawing uses synchronized flags and background storage. Backgrounds load asynchronously and replace the current image only after validation. Failure retains the current image and reports a failed request. Empty/null clears it. The loaded image survives stop/start; external file edits do not alter that snapshot. |
 | `opkosd` | `copy-input` | NULL or READY. Video memory/caps must be renegotiated; a pause alone does not rebuild them. |
@@ -167,16 +167,16 @@ GLib main loop. The application can poll its bus or use its normal bus watch.
 NULL may flush the pipeline bus, so also query `property-status` after stopping.
 
 ```python
-# tracker belongs to an existing pipeline.
+# osd belongs to an existing pipeline.
 values = Gst.Structure.new_empty("properties")
-values.set_value("iou-threshold", 0.4)
-values.set_value("content-type", "replacement-content")
-request_id = tracker.emit("configure-properties", values)
-statuses = tracker.get_property("property-status")
-print(statuses.get_value("content-type").to_string())
+values.set_value("enabled", False)
+values.set_value("copy-input", True)
+request_id = osd.emit("configure-properties", values)
+statuses = osd.get_property("property-status")
+print(statuses.get_value("copy-input").to_string())
 
 # Cancel an unstarted request by setting the effective value again.
-tracker.set_property("content-type", tracker.get_property("content-type"))
+osd.set_property("copy-input", osd.get_property("copy-input"))
 
 # The caller explicitly requests any required restart.
 pipeline.set_state(Gst.State.READY)
@@ -207,14 +207,14 @@ bus.connect("message::element", on_element_message)
 
 ```cpp
 GstStructure *values = gst_structure_new("properties",
-    "iou-threshold", G_TYPE_DOUBLE, 0.4,
-    "content-type", G_TYPE_STRING, "replacement-content", nullptr);
+    "enabled", G_TYPE_BOOLEAN, FALSE,
+    "copy-input", G_TYPE_BOOLEAN, TRUE, nullptr);
 guint64 requestId = 0;
-g_signal_emit_by_name(tracker, "configure-properties", values, &requestId);
+g_signal_emit_by_name(osd, "configure-properties", values, &requestId);
 gst_structure_free(values);
 
 GstStructure *statuses = nullptr;
-g_object_get(tracker, "property-status", &statuses, nullptr);
+g_object_get(osd, "property-status", &statuses, nullptr);
 if (statuses)
     gst_structure_free(statuses);
 ```

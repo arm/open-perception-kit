@@ -22,14 +22,21 @@
 #include "TrackLifecycle.h"
 #include "TrackingOutput.h"
 
+#include <utility>
+
 namespace opk::tracker {
 
 void Tracker::reset() {
-    activeTracks.clear();
-    inactiveTracks.clear();
+    clearHistory();
     nextTrackId = 1;
     currentFrameIndex = 0;
+}
+
+void Tracker::clearHistory() {
+    activeTracks.clear();
+    inactiveTracks.clear();
     kalmanDeltaTime.reset();
+    trackingContext.reset();
 }
 
 const KalmanDeltaTimeTracking &Tracker::kalmanDeltaTimeTracking() const {
@@ -39,6 +46,16 @@ const KalmanDeltaTimeTracking &Tracker::kalmanDeltaTimeTracking() const {
 void Tracker::process(open_perception_kit::FrameResults &frameResults,
                       const Config &config,
                       std::optional<uint64_t> runningTimeMs) {
+    TrackingContext context{config.contentType,
+                            config.embeddingContentType,
+                            config.inferId,
+                            config.producerInstanceId,
+                            config.useEmbeddings,
+                            config.useKalman};
+    if (trackingContext != context) {
+        clearHistory();
+        trackingContext = std::move(context);
+    }
     // Advance the internal frame counter for the current processing step.
     currentFrameIndex++;
     kalmanDeltaTime.update(runningTimeMs, config);

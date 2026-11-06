@@ -323,6 +323,9 @@ performance_metrics_tests = executable(
 opktracker_matching_tests = executable(
   'opktracker_matching_tests',
   ['opktracker_matching_test.cpp',
+   '../elements/opktracker/Tracker.cpp',
+   '../elements/opktracker/FrameInputs.cpp',
+   '../elements/opktracker/TrackingOutput.cpp',
    '../elements/opktracker/Matching.cpp',
    '../elements/opktracker/TrackLifecycle.cpp',
    '../elements/opktracker/TrackState.cpp',

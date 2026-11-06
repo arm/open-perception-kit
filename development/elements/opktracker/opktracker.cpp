@@ -276,7 +276,6 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
                                         const GValue *value,
                                         GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
-    g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     switch (propertyId) {
     case PROP_CONTENT_TYPE: {
         const auto *const requestedContentType = g_value_get_string(value);
@@ -374,6 +373,7 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
 static gst::PropertyApplyResults gst_opktracker_apply_properties(GstElement *propertyOwner,
                                                                  const GstStructure *values) {
     gst::PropertyApplyResults failures;
+    g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(propertyOwner));
     for (int index = 0; index < gst_structure_n_fields(values); ++index) {
         const char *const name = gst_structure_nth_field_name(values, index);
         const auto *const value = gst_structure_get_value(values, name);
@@ -515,11 +515,10 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
             "content-type",
             "Content type",
             "FrameResults layer content type to track"
-            "; Set in NULL or READY; restart via READY resets tracking history for changed "
-            "identity/content",
+            "; Changeable while playing; clears incompatible tracking history at the next frame",
             opk::tracker::Defaults::contentType,
             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
-                                     GST_PARAM_MUTABLE_READY)));
+                                     GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         objectClass,
@@ -539,11 +538,10 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
             "embedding-content-type",
             "Embedding content type",
             "FrameResults layer content type containing object embeddings"
-            "; Set in NULL or READY; restart via READY resets tracking history for changed "
-            "identity/content",
+            "; Changeable while playing; clears incompatible tracking history at the next frame",
             opk::tracker::Defaults::embeddingContentType,
             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
-                                     GST_PARAM_MUTABLE_READY)));
+                                     GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         objectClass,
@@ -806,11 +804,10 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
             "ID of the inference element",
             "ID of the inference element (used in Plumber to identify the layers. "
             "Defaults to the name property of the element)"
-            "; Set in NULL or READY; restart via READY resets tracking history for changed "
-            "identity/content",
+            "; Changeable while playing; clears incompatible tracking history at the next frame",
             "",
             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
-                                     GST_PARAM_MUTABLE_READY)));
+                                     GST_PARAM_MUTABLE_PLAYING)));
 
     static GstStaticPadTemplate sinkPadTemplate = GST_STATIC_PAD_TEMPLATE(
         "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(gst::Tools::supportedVideoCaps));

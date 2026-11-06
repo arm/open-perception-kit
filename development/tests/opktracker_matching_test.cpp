@@ -215,3 +215,49 @@ TEST(OpkTrackerTiming, DormantTrackExpiresUsingTrackerTime) {
 
     EXPECT_TRUE(inactiveTracks.empty());
 }
+
+TEST(OpkTrackerRuntime, TuningPreservesIdentitiesAndContextChangesClearHistory) {
+    opk::tracker::Tracker tracker;
+    opk::tracker::Config config;
+    config.minHitsToConfirm = 1;
+    config.useKalman = false;
+    config.useEmbeddings = false;
+    const auto nextTrackId = [&] {
+        open_perception_kit::FrameResults frameResults;
+        open_perception_kit::metadata::BoxDetectionsT detections;
+        detections.layer = open_perception_kit::makeLayerInfo({.contentType = config.contentType});
+        detections.detections.push_back(
+            std::make_unique<open_perception_kit::metadata::BoxDetectionT>(
+                makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f)));
+        frameResults.add(std::move(detections));
+        tracker.process(frameResults, config, std::nullopt);
+        uint64_t trackId = 0;
+        frameResults.for_each<open_perception_kit::metadata::ObjectTracksT>(
+            [&](const auto &tracks) {
+                EXPECT_EQ(tracks.tracks.size(), 1U);
+                if (!tracks.tracks.empty()) {
+                    trackId = tracks.tracks.front()->track_id;
+                }
+            });
+        return trackId;
+    };
+    const auto firstId = nextTrackId();
+    ASSERT_NE(firstId, 0U);
+    config.iouThreshold = 0.7f;
+    config.associationMode = opk::tracker::AssociationMode::Iou;
+    EXPECT_EQ(nextTrackId(), firstId);
+    config.contentType = "humanFace";
+    const auto newSourceId = nextTrackId();
+    EXPECT_GT(newSourceId, firstId);
+    EXPECT_EQ(nextTrackId(), newSourceId);
+    config.useKalman = true;
+    const auto kalmanId = nextTrackId();
+    EXPECT_GT(kalmanId, newSourceId);
+    config.inferId = "new-producer";
+    const auto newProducerId = nextTrackId();
+    EXPECT_GT(newProducerId, kalmanId);
+    tracker.clearHistory();
+    EXPECT_GT(nextTrackId(), newProducerId);
+    tracker.reset();
+    EXPECT_EQ(nextTrackId(), firstId);
+}
