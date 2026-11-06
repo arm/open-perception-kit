@@ -41,4 +41,5 @@ revision `d85636720c31b6bc65d91b2c785d24fbdb283a61`, file
 `yolo26n_raspberry_onnx_original.onnx`, SHA-256
 `d38ee776e79832560a35875d8962e8ff737f9ea1274d54b785fda2861d7b8ef2`.
 Conversion used Torch-MLIR `20260401.769` and model-converter `0.11.0`.
-Model licence: **AGPL-3.0**.
+Conversion source and instructions: [shared Docker recipes](https://huggingface.co/Arm/ultraface-rfb-320-fp32-vgf/blob/936900d28f624448a43f1a6eca1c768b67bb5385/conversion/README.md).
+Model licence: **[AGPL-3.0](https://github.com/ultralytics/ultralytics/blob/2c6fc0a4443b9cf805ef17b1cfdd71a98693b4d4/LICENSE)**.

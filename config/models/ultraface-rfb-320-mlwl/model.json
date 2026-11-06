@@ -1,10 +1,10 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "name": "ultraface-rfb-320-fp32-mlwl",
   "modelFile": "ultraface-rfb-320.vgf",
   "hfDownload": {
     "repo_id": "Arm/ultraface-rfb-320-fp32-vgf",
-    "revision": "4c252989d7dcbbd744e66531316a12a5643dc161",
+    "revision": "936900d28f624448a43f1a6eca1c768b67bb5385",
     "filename": "ultraface-rfb-320.vgf",
     "sha256": "665e3f0ef67ea93a0b21c8acf3d33604ef4c3f82bd61860887beb35f5adba471"
   },

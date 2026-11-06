@@ -66,7 +66,10 @@ licence identifier; the vendor notice records its source and the font-face
 compatibility adjustment without assigning it a different licence.
 FlatBuffers' Apache-2.0 text is under `development/web/content/vendor/flatbuffers/`.
 
-Model binaries are downloaded separately using the user's Hugging Face access;
-they are not included in releases.
+Standard models download from pinned public Hugging Face revisions without a
+token. The `opk-demo` Debian package includes the downloaded model binaries and
+the [upstream licences and model cards](https://github.com/arm/open-perception-kit/blob/main/config/model-notices.json)
+under `/usr/share/opk/config/models/licenses/`. Release archives and
+deployment/Cairn images do not include model binaries.
 
 For OPK questions, contact [perception-fdbck@arm.com](mailto:perception-fdbck@arm.com).
