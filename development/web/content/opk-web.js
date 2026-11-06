@@ -7234,18 +7234,18 @@ function layer(payload, payloadType, detections) {
 function boxData(item) {
   return {
     ...objectData(item.object),
-    x: Number(item.box?.x || 0),
-    y: Number(item.box?.y || 0),
-    width: Number(item.box?.width || 0),
-    height: Number(item.box?.height || 0),
-    confidence: Number(item.confidence || 0),
+    x: Number(item.box?.x ?? 0),
+    y: Number(item.box?.y ?? 0),
+    width: Number(item.box?.width ?? 0),
+    height: Number(item.box?.height ?? 0),
+    confidence: Number(item.confidence ?? 0),
     classId: Number(item.classId ?? -1),
     text: text(item.text)
   };
 }
 function candidateData(candidate) {
   return {
-    confidence: Number(candidate.confidence || 0),
+    confidence: Number(candidate.confidence ?? 0),
     classId: Number(candidate.classId ?? -1),
     text: text(candidate.text),
     x: Number(candidate.x || 0),
@@ -7951,7 +7951,7 @@ var CONTENT_COLORS = {
   personClassification: "#66ff00",
   trackTrace: "#ffff00"
 };
-function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: resolve4 = (result) => result, reason, ...definition }) {
+function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: resolve5 = (result) => result, reason, ...definition }) {
   return {
     ...definition,
     controls,
@@ -7984,7 +7984,7 @@ function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: reso
       if (reason) return { state: "unsupported", message: reason };
       const output = index.outputs.get(sourceKey(selection.primary));
       if (!output) return { state: "waiting", message: "Waiting for source" };
-      return resolve4({ state: "ready", message: "", output, items: output.items }, index, settings);
+      return resolve5({ state: "ready", message: "", output, items: output.items }, index, settings);
     }
   };
 }
@@ -8247,9 +8247,9 @@ function classLegend(present, settings, message = "") {
 function classRenderSignature(settings) {
   return JSON.stringify(Object.entries(settings.classes).map(([id, style]) => [id, style.enabled, style.color, style.opacity]));
 }
-function withClassSettings(feature, minId = 0, maxId = 255) {
-  return { ...feature, validateSettings(settings) {
-    const result = feature.validateSettings(settings);
+function withClassSettings(feature2, minId = 0, maxId = 255) {
+  return { ...feature2, validateSettings(settings) {
+    const result = feature2.validateSettings(settings);
     if (!result) return null;
     const classes = settings.classes === void 0 ? {} : settings.classes;
     if (!classes || typeof classes !== "object" || Array.isArray(classes)) return null;
@@ -8455,6 +8455,186 @@ var instance_segmentation_default = withClassSettings(defineFeature({
   }
 }), -1, 2147483647);
 
+// development/web/src/features/ocr.js
+var resolvedFrames2 = /* @__PURE__ */ new WeakMap();
+var validScore = (value) => Number.isFinite(value) && value >= 0 && value <= 1;
+function displayText(text2) {
+  let result = "";
+  let count = 0;
+  for (const character of text2.trim()) {
+    if (count++ === 512) {
+      result += "\u2026";
+      break;
+    }
+    result += character;
+  }
+  return result.replace(/\s+/gu, " ").trim();
+}
+function resolve4(result, index) {
+  if (resolvedFrames2.has(result.output)) return resolvedFrames2.get(result.output);
+  const regions = [];
+  let missing = false;
+  let ambiguous = false;
+  let invalid = false;
+  const videos = index.frame.layers.filter((layer2) => layer2.payloadType === "FrameContext").flatMap((layer2) => layer2.detections || []).filter((item) => item.type === "VideoFrame");
+  const geometry = (data) => {
+    const parentId = objectId(data.parentUuid);
+    const parents = parentId ? videos.filter((item) => objectId(item.data?.uuid) === parentId) : [];
+    if (parents.length !== 1) {
+      if (parents.length > 1) ambiguous = true;
+      else missing = true;
+      return null;
+    }
+    const frame = parents[0].data;
+    const { x, y, width, height, confidence } = data;
+    if (!Number.isSafeInteger(frame.originalWidth) || !Number.isSafeInteger(frame.originalHeight) || frame.originalWidth <= 0 || frame.originalHeight <= 0 || ["sourceCropLeft", "sourceCropRight", "sourceCropTop", "sourceCropBottom"].some((key) => frame[key]) || ![x, y, width, height].every(Number.isFinite) || x < 0 || y < 0 || width <= 0 || height <= 0 || x >= frame.originalWidth || y >= frame.originalHeight || x + width > frame.originalWidth + 1e-3 || y + height > frame.originalHeight + 1e-3 || confidence !== void 0 && !validScore(confidence)) {
+      invalid = true;
+      return null;
+    }
+    return {
+      box: { x, y, width: Math.min(width, frame.originalWidth - x), height: Math.min(height, frame.originalHeight - y) },
+      frame,
+      text: "",
+      detectionScore: confidence,
+      recognitionScore: void 0
+    };
+  };
+  const isRecognition = result.output.source.payloadType === "Classifications";
+  const items = result.items.filter((item) => item.type === (isRecognition ? "Classification" : "Rect"));
+  if (items.length > 4096) {
+    const failed = { ...result, items: [], regions: [], state: "unsupported", message: "Too many OCR results (maximum 4096)." };
+    resolvedFrames2.set(result.output, failed);
+    return failed;
+  }
+  if (isRecognition) {
+    const groups = /* @__PURE__ */ new Map();
+    for (const item of items) {
+      const id = objectId(item.data.parentUuid);
+      if (!id) {
+        missing = true;
+        continue;
+      }
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(item);
+    }
+    for (const [id, records] of groups) {
+      const parents = (index.objects.get(id) || []).filter((item) => item.source.payloadType === "BoxDetections" && item.type === "Rect");
+      if (parents.length !== 1) {
+        if (parents.length > 1) ambiguous = true;
+        else missing = true;
+        continue;
+      }
+      const region = geometry(parents[0].data);
+      if (!region) continue;
+      const candidates = records[0].data.candidates;
+      if (records.length > 1 || Array.isArray(candidates) && candidates.length > 1) ambiguous = true;
+      else if (!Array.isArray(candidates)) invalid = true;
+      else if (candidates.length) {
+        const candidate = candidates[0];
+        if (!candidate || typeof candidate.text !== "string" || candidate.confidence !== void 0 && !validScore(candidate.confidence)) invalid = true;
+        else {
+          region.text = displayText(candidate.text);
+          region.recognitionScore = candidate.confidence;
+        }
+      }
+      regions.push(region);
+    }
+  } else {
+    for (const { data } of items) {
+      const region = geometry(data);
+      if (!region) continue;
+      if (data.text !== void 0 && typeof data.text !== "string") invalid = true;
+      else region.text = displayText(data.text || "");
+      regions.push(region);
+    }
+  }
+  const resolved = { ...result, items: regions, regions };
+  if (ambiguous) Object.assign(resolved, { state: "ambiguous", message: "Ambiguous OCR relationships or candidates; unambiguous regions only, conflicting text omitted." });
+  else if (invalid) Object.assign(resolved, { state: regions.length ? "partial" : "unsupported", message: "Invalid OCR geometry, text, or confidence; affected content omitted." });
+  else if (missing) Object.assign(resolved, { state: "partial", message: "Waiting for parent boxes or uncropped VideoFrame geometry." });
+  resolvedFrames2.set(result.output, resolved);
+  return resolved;
+}
+function fitLabel(ctx, text2, width) {
+  if (ctx.measureText(text2).width <= width) return text2;
+  if (ctx.measureText("\u2026").width > width) return "";
+  const characters = Array.from(text2);
+  let low = 0;
+  let high = characters.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (ctx.measureText(characters.slice(0, middle).join("") + "\u2026").width <= width) low = middle;
+    else high = middle - 1;
+  }
+  return characters.slice(0, low).join("") + "\u2026";
+}
+function render4({ ctx, mapper }, resolved, settings) {
+  const display = mapper.display;
+  const fontSize = Number(settings.textSize);
+  const labelHeight = fontSize + 4;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(display.x, display.y, display.width, display.height);
+  ctx.clip();
+  ctx.strokeStyle = settings.color;
+  ctx.lineWidth = 2;
+  ctx.font = `${fontSize}px monospace`;
+  for (const region of resolved.regions || []) {
+    const { box, frame, text: text2, recognitionScore, detectionScore } = region;
+    const x = display.x + box.x * display.width / frame.originalWidth;
+    const y = display.y + box.y * display.height / frame.originalHeight;
+    const width = box.width * display.width / frame.originalWidth;
+    const height = box.height * display.height / frame.originalHeight;
+    if (settings.regions) {
+      ctx.setLineDash(text2 ? [] : [4, 3]);
+      ctx.strokeRect(x, y, width, height);
+    }
+    const scores = [];
+    if (settings.regionConfidence && validScore(detectionScore)) scores.push(`Region: ${(detectionScore * 100).toFixed(1)}%`);
+    if (settings.textConfidence && validScore(recognitionScore)) scores.push(`Text: ${(recognitionScore * 100).toFixed(1)}%`);
+    let label = settings.text ? text2 : "";
+    const scoreLabel = scores.join(" \xB7 ");
+    if (scoreLabel) {
+      if (label) label = fitLabel(ctx, label, display.width - 8 - ctx.measureText(` \xB7 ${scoreLabel}`).width);
+      label = [label, scoreLabel].filter(Boolean).join(" \xB7 ");
+    }
+    if (!label || display.height < labelHeight) continue;
+    label = fitLabel(ctx, label, display.width - 8);
+    if (!label) continue;
+    const labelWidth = ctx.measureText(label).width + 8;
+    const labelX = Math.max(display.x, Math.min(x, display.x + display.width - labelWidth));
+    const preferredY = y - labelHeight - 3 >= display.y ? y - labelHeight - 3 : y + height + 3;
+    const labelY = Math.max(display.y, Math.min(preferredY, display.y + display.height - labelHeight));
+    drawTextChip(ctx, label, labelX, labelY, fontSize);
+  }
+  ctx.restore();
+}
+var feature = defineFeature({
+  id: "ocr",
+  label: "OCR",
+  requiresExplicitSource: true,
+  accepts: (source) => ["BoxDetections", "Classifications"].includes(source.payloadType),
+  defaults: { color: "#00ffff" },
+  controls: [
+    { key: "regions", label: "Regions", type: "checkbox", value: true },
+    { key: "text", label: "Recognized text", type: "checkbox", value: true },
+    { key: "regionConfidence", label: "Region confidence", type: "checkbox", value: false },
+    { key: "textConfidence", label: "Text confidence", type: "checkbox", value: false },
+    ...STYLE_CONTROLS,
+    { key: "textSize", label: "Text size", type: "select", value: "16", options: [12, 16, 20, 24].map((size) => ({ value: String(size), label: `${size} px` })) }
+  ],
+  resolve: resolve4,
+  render: render4
+});
+var ocr_default = {
+  ...feature,
+  validateSettings(settings) {
+    if (settings?.confidence === void 0) return feature.validateSettings(settings);
+    if (typeof settings.confidence !== "boolean") return null;
+    return feature.validateSettings({ regionConfidence: settings.confidence, textConfidence: settings.confidence, ...settings });
+  }
+};
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
   bounding_boxes_default,
@@ -8467,24 +8647,26 @@ var OVERLAY_FEATURES = [
   performance_default,
   background_replacement_default,
   semantic_segmentation_default,
-  instance_segmentation_default
+  instance_segmentation_default,
+  ocr_default
 ];
 function featureFor(id) {
-  return OVERLAY_FEATURES.find((feature) => feature.id === id);
+  return OVERLAY_FEATURES.find((feature2) => feature2.id === id);
 }
 function defaultSettings(id, source) {
   const defaults = featureFor(id)?.defaults || { color: "#ffffff", opacity: 1 };
   return typeof defaults === "function" ? defaults(source || {}) : { ...defaults };
 }
 function resolveOverlay(index, overlay2) {
-  const feature = featureFor(overlay2.featureId);
-  if (!feature) return { state: "unsupported", message: "Unknown rendering feature." };
-  if (overlay2.selection.primary === null && feature.render) return { state: "waiting", message: "Waiting for source" };
-  const settings = { ...defaultSettings(feature.id, overlay2.selection.primary), ...overlay2.settings };
-  return { ...feature.resolve(index, overlay2.selection, settings), feature, settings };
+  const feature2 = featureFor(overlay2.featureId);
+  if (!feature2) return { state: "unsupported", message: "Unknown rendering feature." };
+  if (overlay2.selection.primary === null && feature2.render) return { state: "waiting", message: "Waiting for source" };
+  const settings = { ...defaultSettings(feature2.id, overlay2.selection.primary), ...overlay2.settings };
+  return { ...feature2.resolve(index, overlay2.selection, settings), feature: feature2, settings };
 }
 function overlayStatus(index, overlay2, catalog, resolved = resolveOverlay(index, overlay2)) {
-  if (overlay2.selection.primary === null && catalog && featureFor(overlay2.featureId)?.discover(catalog).length > 1) {
+  const feature2 = featureFor(overlay2.featureId);
+  if (overlay2.selection.primary === null && catalog && feature2?.discover(catalog).length > (feature2?.requiresExplicitSource ? 0 : 1)) {
     return "Choose a source";
   }
   if (resolved.state === "unsupported") return `Unsupported \xB7 ${resolved.message}`;
@@ -8564,9 +8746,9 @@ function migrateLegacy(overlay2, saved) {
 function normalizeOverlay(overlay2) {
   const primary = overlay2?.selection?.primary;
   if (!overlay2 || typeof overlay2.featureId !== "string" || !overlay2.featureId || typeof overlay2.enabled !== "boolean" || primary !== null && !validSource(primary)) return null;
-  const feature = featureFor(overlay2.featureId);
+  const feature2 = featureFor(overlay2.featureId);
   if (!overlay2.settings || typeof overlay2.settings !== "object" || Array.isArray(overlay2.settings)) return null;
-  const settings = feature ? feature.validateSettings(overlay2.settings) : overlay2.settings;
+  const settings = feature2 ? feature2.validateSettings(overlay2.settings) : overlay2.settings;
   if (!settings) return null;
   return { featureId: overlay2.featureId, selection: { primary: primary === null ? null : { ...primary } }, enabled: overlay2.enabled, settings };
 }
@@ -8577,9 +8759,9 @@ function bindPendingOverlays(overlays2, catalog) {
   let changed = false;
   for (const overlay2 of overlays2) {
     if (overlay2.selection.primary !== null) continue;
-    const feature = featureFor(overlay2.featureId);
-    if (!feature?.render) continue;
-    const sources = feature.discover(catalog);
+    const feature2 = featureFor(overlay2.featureId);
+    if (!feature2?.render || feature2.requiresExplicitSource) continue;
+    const sources = feature2.discover(catalog);
     if (sources.length !== 1) continue;
     overlay2.selection.primary = sources[0];
     changed = true;
@@ -8922,16 +9104,16 @@ function renderList() {
 function updateLegends() {
   for (const [overlay2, row] of cardNodes) {
     if (!row.legend) continue;
-    const feature = featureFor(overlay2.featureId);
+    const feature2 = featureFor(overlay2.featureId);
     const resolved = !displayedFrameIndex.frame ? { message: "Waiting for matching video metadata." } : resolveOverlay(displayedFrameIndex, overlay2);
-    const legend = feature.legend(resolved, overlay2.settings);
+    const legend = feature2.legend(resolved, overlay2.settings);
     if (!row.legendNodes) {
       row.legendNodes = /* @__PURE__ */ new Map();
       row.legendMessage = node("p", "overlay-hint wfr-txt-caption");
       row.legendList = node("ul", "overlay-legend-list");
       const header = node("div", "overlay-legend-header");
       header.append(node("p", "wfr-txt-label", "Class legend"));
-      if (feature.classControls) {
+      if (feature2.classControls) {
         const reset = node("button", "wfr-txt-caption", "Reset labels");
         reset.type = "button";
         reset.addEventListener("click", () => {
@@ -8943,7 +9125,7 @@ function updateLegends() {
         header.append(reset);
       }
       row.legend.replaceChildren(header, row.legendMessage, row.legendList);
-      if (feature.classControls) row.legend.append(node(
+      if (feature2.classControls) row.legend.append(node(
         "p",
         "overlay-hint wfr-txt-caption",
         "Class opacity is multiplied by the overlay opacity. Hidden classes reveal the video."
@@ -8960,11 +9142,11 @@ function updateLegends() {
         const element = node("li", "wfr-txt-caption");
         const heading = node("div", "overlay-class-heading");
         const presence = node("span", "overlay-class-presence");
-        const name = node(feature.classControls ? "input" : "span", "overlay-class-name");
+        const name = node(feature2.classControls ? "input" : "span", "overlay-class-name");
         heading.append(swatch, name, presence);
         element.append(heading);
         let resetLabel;
-        if (feature.classControls) {
+        if (feature2.classControls) {
           element.className += " overlay-class-row";
           const settings = { enabled: entry.enabled, color: entry.color, opacity: entry.opacity };
           if (overlay2.settings.classes?.[entry.id]?.label) settings.label = overlay2.settings.classes[entry.id].label;
@@ -8999,7 +9181,7 @@ function updateLegends() {
               name.blur();
             }
           });
-          const controls = feature.classControls.map((control) => ({
+          const controls = feature2.classControls.map((control) => ({
             ...control,
             ariaLabel: `Class ${entry.id} (${entry.id}) ${control.label.toLowerCase()}`
           }));
@@ -9058,7 +9240,7 @@ function availableDescriptors() {
 function refreshFeatures() {
   const previous = featureSelect.value;
   const catalog = availableDescriptors();
-  const features = new Map(OVERLAY_FEATURES.filter((feature) => feature.render || feature.discover(catalog).length).map((feature) => [feature.id, feature.label]));
+  const features = new Map(OVERLAY_FEATURES.filter((feature2) => feature2.render || feature2.discover(catalog).length).map((feature2) => [feature2.id, feature2.label]));
   for (const overlay2 of [editing, draft]) {
     if (overlay2 && !features.has(overlay2.featureId)) features.set(overlay2.featureId, featureFor(overlay2.featureId)?.label || overlay2.featureId);
   }
@@ -9070,7 +9252,9 @@ function refreshFeatures() {
 }
 function refreshOutputs(previous = outputSelect.value) {
   const catalog = availableDescriptors();
-  const sources = featureFor(featureSelect.value)?.discover(catalog) || [];
+  const feature2 = featureFor(featureSelect.value);
+  if (feature2?.requiresExplicitSource && draft && draft.featureId !== featureSelect.value) previous = "";
+  const sources = feature2?.discover(catalog) || [];
   const choices = new Map(sources.map((source) => [sourceKey(source), source]));
   for (const overlay2 of [editing, draft]) {
     if (overlay2?.featureId === featureSelect.value && overlay2.selection.primary) choices.set(selectionKey(overlay2), overlay2.selection.primary);
@@ -9078,7 +9262,7 @@ function refreshOutputs(previous = outputSelect.value) {
   const descriptors = [...choices.values()];
   const labels = sourceLabels(descriptors, false);
   outputSelect.replaceChildren();
-  const hasChoice = descriptors.length > 1;
+  const hasChoice = descriptors.length > (feature2?.requiresExplicitSource ? 0 : 1);
   const waiting = draft?.featureId === featureSelect.value && !draft.selection.primary || !draft && editing?.featureId === featureSelect.value && !editing.selection.primary;
   if (hasChoice && (waiting || !choices.has(previous))) outputSelect.add(new Option("Choose a source", ""));
   for (const source of descriptors) {
@@ -9090,7 +9274,7 @@ function refreshOutputs(previous = outputSelect.value) {
   outputSelect.disabled = !hasChoice;
   outputSelect.required = hasChoice;
   sourceSummary.hidden = hasChoice;
-  sourceSummary.textContent = descriptors.length === 1 ? `From ${labels.get(sourceKey(descriptors[0]))}` : "Source will be selected when available.";
+  sourceSummary.textContent = descriptors.length === 1 ? `From ${labels.get(sourceKey(descriptors[0]))}` : feature2?.requiresExplicitSource ? "Choose a source when available." : "Source will be selected when available.";
   updateDraft();
 }
 function updateDraft() {
