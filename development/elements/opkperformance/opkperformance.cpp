@@ -47,11 +47,11 @@ G_BEGIN_DECLS
 #define GST_TYPE_OPK_PERFORMANCE (gst_opk_performance_get_type())
 #define GST_OPK_PERFORMANCE(obj)                                                                   \
     (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_OPK_PERFORMANCE, GstOpkPerformance))
-#define GST_OPK_PERFORMANCE_CLASS(klass)                                                           \
-    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_OPK_PERFORMANCE, GstOpkPerformanceClass))
+#define GST_OPK_PERFORMANCE_CLASS(performanceClass)                                                \
+    (G_TYPE_CHECK_CLASS_CAST((performanceClass), GST_TYPE_OPK_PERFORMANCE, GstOpkPerformanceClass))
 #define GST_IS_OPK_PERFORMANCE(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_OPK_PERFORMANCE))
-#define GST_IS_OPK_PERFORMANCE_CLASS(klass)                                                        \
-    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_OPK_PERFORMANCE))
+#define GST_IS_OPK_PERFORMANCE_CLASS(performanceClass)                                             \
+    (G_TYPE_CHECK_CLASS_TYPE((performanceClass), GST_TYPE_OPK_PERFORMANCE))
 
 typedef struct _GstOpkPerformance GstOpkPerformance;
 typedef struct _GstOpkPerformanceClass GstOpkPerformanceClass;
@@ -106,17 +106,20 @@ enum class PropertyId : guint {
 
 // Function prototypes
 static void gst_opk_performance_set_property(GObject *object,
-                                             guint prop_id,
+                                             guint propertyId,
                                              const GValue *value,
-                                             GParamSpec *pspec);
-static void
-gst_opk_performance_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+                                             GParamSpec *propertySpec);
+static void gst_opk_performance_get_property(GObject *object,
+                                             guint propertyId,
+                                             GValue *value,
+                                             GParamSpec *propertySpec);
 static void gst_opk_performance_finalize(GObject *object);
-static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, GstBuffer *buffer);
-static gboolean gst_opk_performance_start(GstBaseTransform *trans);
-static gboolean gst_opk_performance_stop(GstBaseTransform *trans);
-static gboolean gst_opk_performance_sink_event(GstBaseTransform *trans, GstEvent *event);
-static gboolean gst_opk_performance_src_event(GstBaseTransform *trans, GstEvent *event);
+static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *selfInParentType,
+                                                      GstBuffer *buffer);
+static gboolean gst_opk_performance_start(GstBaseTransform *selfInParentType);
+static gboolean gst_opk_performance_stop(GstBaseTransform *selfInParentType);
+static gboolean gst_opk_performance_sink_event(GstBaseTransform *selfInParentType, GstEvent *event);
+static gboolean gst_opk_performance_src_event(GstBaseTransform *selfInParentType, GstEvent *event);
 
 static void update_measurement_state(GstOpkPerformance *self) {
     const gboolean measurement_is_enabled = self->started && self->enabled;
@@ -136,30 +139,31 @@ static void update_measurement_state(GstOpkPerformance *self) {
 #define gst_opk_performance_parent_class parent_class
 G_DEFINE_TYPE(GstOpkPerformance, gst_opk_performance, GST_TYPE_BASE_TRANSFORM);
 
-static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
-    GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
-    GstBaseTransformClass *trans_class = GST_BASE_TRANSFORM_CLASS(klass);
+static void gst_opk_performance_class_init(GstOpkPerformanceClass *performanceClass) {
+    GObjectClass *objectClass = G_OBJECT_CLASS(performanceClass);
+    GstElementClass *elementClass = GST_ELEMENT_CLASS(performanceClass);
+    GstBaseTransformClass *baseTransformClass = GST_BASE_TRANSFORM_CLASS(performanceClass);
 
-    gobject_class->set_property = gst_opk_performance_set_property;
-    gobject_class->get_property = gst_opk_performance_get_property;
-    gobject_class->finalize = gst_opk_performance_finalize;
+    objectClass->set_property = gst_opk_performance_set_property;
+    objectClass->get_property = gst_opk_performance_get_property;
+    objectClass->finalize = gst_opk_performance_finalize;
 
-    trans_class->transform_ip = gst_opk_performance_transform_ip;
-    trans_class->prepare_output_buffer =
-        [](GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
-            return gst::Tools::prepareVideoBuffer(base, input, output);
+    baseTransformClass->transform_ip = gst_opk_performance_transform_ip;
+    baseTransformClass->prepare_output_buffer =
+        [](GstBaseTransform *selfInParentType, GstBuffer *input, GstBuffer **output) {
+            return gst::Tools::prepareVideoBuffer(selfInParentType, input, output);
         };
-    trans_class->set_caps = [](GstBaseTransform *base, GstCaps *caps, GstCaps *) {
-        return gst_video_info_from_caps(&GST_OPK_PERFORMANCE(base)->vinfo, caps);
-    };
-    trans_class->start = gst_opk_performance_start;
-    trans_class->stop = gst_opk_performance_stop;
-    trans_class->sink_event = gst_opk_performance_sink_event;
-    trans_class->src_event = gst_opk_performance_src_event;
+    baseTransformClass->set_caps =
+        [](GstBaseTransform *selfInParentType, GstCaps *caps, GstCaps *) {
+            return gst_video_info_from_caps(&GST_OPK_PERFORMANCE(selfInParentType)->vinfo, caps);
+        };
+    baseTransformClass->start = gst_opk_performance_start;
+    baseTransformClass->stop = gst_opk_performance_stop;
+    baseTransformClass->sink_event = gst_opk_performance_sink_event;
+    baseTransformClass->src_event = gst_opk_performance_src_event;
 
     g_object_class_install_property(
-        gobject_class,
+        objectClass,
         static_cast<guint>(PropertyId::UpdateInterval),
         g_param_spec_uint("update-interval",
                           "Update Interval",
@@ -172,7 +176,7 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobject_class,
+        objectClass,
         static_cast<guint>(PropertyId::ShowAllMetrics),
         g_param_spec_boolean("show-all-metrics",
                              "Show All Metrics",
@@ -183,7 +187,7 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
                                                       GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobject_class,
+        objectClass,
         static_cast<guint>(PropertyId::Enabled),
         g_param_spec_boolean("enabled",
                              "Enabled",
@@ -195,7 +199,7 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
 
     // Set metadata
     gst_element_class_set_static_metadata(
-        element_class,
+        elementClass,
         "OPK Performance Overlay",
         "Filter/Effect/Video",
         "Overlays real-time performance metrics from Performance Metrics",
@@ -206,8 +210,8 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
     GstPadTemplate *sink_template =
         gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
-    gst_element_class_add_pad_template(element_class, src_template);
-    gst_element_class_add_pad_template(element_class, sink_template);
+    gst_element_class_add_pad_template(elementClass, src_template);
+    gst_element_class_add_pad_template(elementClass, sink_template);
     gst_caps_unref(caps);
 }
 
@@ -243,12 +247,12 @@ static void gst_opk_performance_finalize(GObject *object) {
 }
 
 static void gst_opk_performance_set_property(GObject *object,
-                                             guint prop_id,
+                                             guint propertyId,
                                              const GValue *value,
-                                             GParamSpec *pspec) {
+                                             GParamSpec *propertySpec) {
     GstOpkPerformance *self = GST_OPK_PERFORMANCE(object);
 
-    switch (static_cast<PropertyId>(prop_id)) {
+    switch (static_cast<PropertyId>(propertyId)) {
     case PropertyId::UpdateInterval:
         GST_OBJECT_LOCK(self);
         self->update_interval = g_value_get_uint(value);
@@ -267,16 +271,18 @@ static void gst_opk_performance_set_property(GObject *object,
         GST_OBJECT_UNLOCK(self);
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         break;
     }
 }
 
-static void
-gst_opk_performance_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
+static void gst_opk_performance_get_property(GObject *object,
+                                             guint propertyId,
+                                             GValue *value,
+                                             GParamSpec *propertySpec) {
     GstOpkPerformance *self = GST_OPK_PERFORMANCE(object);
 
-    switch (static_cast<PropertyId>(prop_id)) { // NOSONAR: keep property IDs explicit.
+    switch (static_cast<PropertyId>(propertyId)) { // NOSONAR: keep property IDs explicit.
     case PropertyId::UpdateInterval:
         GST_OBJECT_LOCK(self);
         g_value_set_uint(value, self->update_interval);
@@ -293,13 +299,13 @@ gst_opk_performance_get_property(GObject *object, guint prop_id, GValue *value, 
         GST_OBJECT_UNLOCK(self);
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         break;
     }
 }
 
-static gboolean gst_opk_performance_start(GstBaseTransform *trans) {
-    GstOpkPerformance *self = GST_OPK_PERFORMANCE(trans);
+static gboolean gst_opk_performance_start(GstBaseTransform *selfInParentType) {
+    GstOpkPerformance *self = GST_OPK_PERFORMANCE(selfInParentType);
     GST_OBJECT_LOCK(self);
     self->started = true;
     update_measurement_state(self);
@@ -307,8 +313,8 @@ static gboolean gst_opk_performance_start(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static gboolean gst_opk_performance_stop(GstBaseTransform *trans) {
-    GstOpkPerformance *self = GST_OPK_PERFORMANCE(trans);
+static gboolean gst_opk_performance_stop(GstBaseTransform *selfInParentType) {
+    GstOpkPerformance *self = GST_OPK_PERFORMANCE(selfInParentType);
     GST_OBJECT_LOCK(self);
     self->started = false;
     update_measurement_state(self);
@@ -389,8 +395,9 @@ static std::vector<std::string> get_performance_data(GstOpkPerformance *self,
     return lines;
 }
 
-static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, GstBuffer *buffer) {
-    GstOpkPerformance *self = GST_OPK_PERFORMANCE(filter);
+static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *selfInParentType,
+                                                      GstBuffer *buffer) {
+    GstOpkPerformance *self = GST_OPK_PERFORMANCE(selfInParentType);
 
     GST_OBJECT_LOCK(self);
     if (const gboolean enabled = self->enabled; !enabled) {
@@ -432,36 +439,36 @@ static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, 
         opk::FrameResultsMeta::add(buffer, frameResults);
     }
 
-    auto ret = opk::FrameResultsMeta::mutate<GstFlowReturn>(buffer, [self](auto &frameResults) {
+    auto result = opk::FrameResultsMeta::mutate<GstFlowReturn>(buffer, [self](auto &frameResults) {
         open_perception_kit::appendPerformanceOverlay(frameResults, self->cached_lines);
         return GST_FLOW_OK;
     });
 
-    using ME = opk::MetaError;
-    if (std::holds_alternative<ME>(ret)) {
-        switch (std::get<ME>(ret)) {
-        case ME::OK:
-        case ME::NO_METADATA:
+    if (std::holds_alternative<opk::MetaError>(result)) {
+        switch (std::get<opk::MetaError>(result)) {
+        case opk::MetaError::OK:
+        case opk::MetaError::NO_METADATA:
             // NO_METADATA means no AI model has attached FrameResults yet, which is normal.
             return GST_FLOW_OK;
         }
     } else {
-        if (std::get<GstFlowReturn>(ret) != GST_FLOW_OK) {
-            return std::get<GstFlowReturn>(ret);
+        if (std::get<GstFlowReturn>(result) != GST_FLOW_OK) {
+            return std::get<GstFlowReturn>(result);
         }
     }
 
     return GST_FLOW_OK;
 }
 
-static gboolean gst_opk_performance_sink_event(GstBaseTransform *trans, GstEvent *event) {
+static gboolean gst_opk_performance_sink_event(GstBaseTransform *selfInParentType,
+                                               GstEvent *event) {
     // Handle downstream events (from upstream elements)
     // Custom control events come via src_event instead
-    return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(trans, event);
+    return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(selfInParentType, event);
 }
 
-static gboolean gst_opk_performance_src_event(GstBaseTransform *trans, GstEvent *event) {
-    GstOpkPerformance *self = GST_OPK_PERFORMANCE(trans);
+static gboolean gst_opk_performance_src_event(GstBaseTransform *selfInParentType, GstEvent *event) {
+    GstOpkPerformance *self = GST_OPK_PERFORMANCE(selfInParentType);
 
     if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_UPSTREAM) {
         const GstStructure *structure = gst_event_get_structure(event);
@@ -483,7 +490,7 @@ static gboolean gst_opk_performance_src_event(GstBaseTransform *trans, GstEvent 
     }
 
     // Chain up to parent class for other events
-    return GST_BASE_TRANSFORM_CLASS(parent_class)->src_event(trans, event);
+    return GST_BASE_TRANSFORM_CLASS(parent_class)->src_event(selfInParentType, event);
 }
 
 // Plugin initialization

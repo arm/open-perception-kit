@@ -28,22 +28,22 @@
 
 class FileError : public std::runtime_error {
   public:
-    explicit FileError(const std::string &err) : std::runtime_error(err) {}
+    explicit FileError(const std::string &message) : std::runtime_error(message) {}
 };
 
-static bool write_all(int fd, const std::span<const char> data) {
-    size_t off = 0;
+static bool write_all(int fileDescriptor, const std::span<const char> buffer) {
+    size_t offset = 0;
 
-    const auto d = data.data();
-    const auto len = data.size();
+    const auto data = buffer.data();
+    const auto length = buffer.size();
 
-    while (off < len) {
-        ssize_t n = ::write(fd, d + off, len - off);
-        if (n > 0) {
-            off += size_t(n);
+    while (offset < length) {
+        ssize_t bytesWritten = ::write(fileDescriptor, data + offset, length - offset);
+        if (bytesWritten > 0) {
+            offset += static_cast<size_t>(bytesWritten);
             continue;
         }
-        if (n < 0 && errno == EINTR)
+        if (bytesWritten < 0 && errno == EINTR)
             continue;
 
         // EAGAIN = would block (nonblocking FIFO).
@@ -52,8 +52,8 @@ static bool write_all(int fd, const std::span<const char> data) {
     return true;
 }
 
-bool FileWriter::io_open_existing(const struct stat &st) {
-    if (S_ISFIFO(st.st_mode)) {
+bool FileWriter::io_open_existing(const struct stat &fileStatus) {
+    if (S_ISFIFO(fileStatus.st_mode)) {
         m_fd = open(m_file_name.c_str(), O_WRONLY | O_NONBLOCK);
         if (m_fd < 0) {
             /* ENXIO is normal when no reader is connected yet */
@@ -68,7 +68,7 @@ bool FileWriter::io_open_existing(const struct stat &st) {
         }
         return true;
 
-    } else if (S_ISREG(st.st_mode)) {
+    } else if (S_ISREG(fileStatus.st_mode)) {
         m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0640);
         if (m_fd < 0) {
             GST_INFO_OBJECT(
@@ -107,10 +107,10 @@ bool FileWriter::io_create() {
 }
 
 bool FileWriter::io_open() {
-    std::lock_guard g(m_io_lock);
+    std::scoped_lock lock(m_io_lock);
 
     try {
-        auto ret = false;
+        auto success = false;
         if (m_file_name.empty()) {
             GST_WARNING_OBJECT(self(), "file-name is not set");
 
@@ -120,23 +120,23 @@ bool FileWriter::io_open() {
         /* "-" means stdout */
         if ("-" == m_file_name) {
             m_fd = STDOUT_FILENO;
-            ret = true;
+            success = true;
         } else {
 
             // it is not stdout
 
-            struct stat st;
-            if (stat(m_file_name.c_str(), &st) == 0) {
+            struct stat fileStatus;
+            if (stat(m_file_name.c_str(), &fileStatus) == 0) {
                 /* Path exists: decide by type */
-                ret = io_open_existing(st);
+                success = io_open_existing(fileStatus);
 
             } else {
                 /* Path doesn't exist or stat failed */
-                ret = io_create();
+                success = io_create();
             }
         }
 
-        return ret;
+        return success;
 
     } catch (FileError &) {
         return false;
@@ -144,7 +144,7 @@ bool FileWriter::io_open() {
 }
 
 void FileWriter::io_close() {
-    std::lock_guard g(m_io_lock);
+    std::scoped_lock lock(m_io_lock);
 
     if (m_fd == STDOUT_FILENO) {
         m_fd = -1;
@@ -157,26 +157,27 @@ void FileWriter::io_close() {
 }
 
 int FileWriter::check_open() {
-    int fd = -1;
+    int fileDescriptor = -1;
 
-    std::lock_guard g(m_io_lock);
+    std::scoped_lock lock(m_io_lock);
 
     if (m_fd < 0)
         io_open();
     if (m_fd >= 0)
-        fd = dup(m_fd);
+        fileDescriptor = dup(m_fd);
 
-    return fd;
+    return fileDescriptor;
 }
 
 bool FileWriter::publish(const std::string &json_str) {
-    bool ret = false;
+    bool success = false;
 
-    if (auto fd = check_open(); fd >= 0) {
-        bool ok = write_all(fd, std::span<const char>(json_str.c_str(), json_str.size()));
-        close(fd);
+    if (auto fileDescriptor = check_open(); fileDescriptor >= 0) {
+        bool written =
+            write_all(fileDescriptor, std::span<const char>(json_str.c_str(), json_str.size()));
+        close(fileDescriptor);
 
-        if (!ok) {
+        if (!written) {
             if (errno == EPIPE || errno == ENXIO) {
                 GST_INFO_OBJECT(self(), "FIFO reader disappeared for '%s'", m_file_name.c_str());
                 io_close();
@@ -186,9 +187,9 @@ bool FileWriter::publish(const std::string &json_str) {
                 GST_DEBUG_OBJECT(self(), "FIFO write error: %s", g_strerror(errno));
             }
         } else {
-            ret = true;
+            success = true;
         }
     }
 
-    return ret;
+    return success;
 }
