@@ -251,7 +251,7 @@ test('cancelled source choices do not bind a waiting overlay', async ({ page }) 
   await page.locator('#saveOverlayBtn').click();
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('metadata-message', {
     detail: { frame_results: { layers: ['gaze A', 'gaze B'].map(model => ({
-      payloadType: 'PoseEstimations', contentType: 'eyeYawPitch', model, detections: [],
+      payloadType: 'GazeMeasurements', contentType: 'eyeYawPitch', model, detections: [],
     })) } },
   })));
   await page.locator('#addOverlayBtn').click();

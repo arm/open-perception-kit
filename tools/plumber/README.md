@@ -157,7 +157,7 @@ BoxDetectionsT
 ClassificationsT
 CameraContactsT
 PersonPresencesT
-PoseEstimationsT
+GazeMeasurementsT
 SegmentationMasksT
 ObjectEmbeddingsT
 ObjectTracksT
@@ -181,6 +181,15 @@ Whole-frame results require one addressable video frame per source group;
 ambiguous multi-frame groups fail rather than guessing correspondence from local
 IDs, ordering, or dimensions.
 Unavailable results and invalid supplied confidence do not count as matches.
+
+Gaze comparisons use optional finite degree-angle pairs and explicit `subjectId`
+references to unique box/track observations with valid image space. They compare
+the associated subject geometry and the shortest per-axis angular differences
+modulo 360. The angular distance is `max(yaw_difference, pitch_difference) / 180`
+with the existing `0.01` tolerance. Thus -180 and 179 degrees are one degree apart;
+swapping angle results between subjects is not a match. Missing, ambiguous or
+invalid subjects and unavailable angles fail comparison rather than being
+replaced with derivation parents or zero measurements.
 
 Box and trace comparisons use their explicit image space, independently of
 `ObjectMeta.parent_id`. Normalized and pixel crop coordinates are projected into
@@ -337,7 +346,7 @@ The internal comparison vocabulary follows FrameResults terms:
 - object index
 
 Schema-specific names are kept when they are real generated concepts, such as
-`BoxDetectionT`, `ClassificationT`, `PoseEstimationT`, `ObjectTrackT`, and
+`BoxDetectionT`, `ClassificationT`, `GazeMeasurementT`, `ObjectTrackT`, and
 `TrackTraceT`.
 
 ## Notes

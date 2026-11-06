@@ -331,18 +331,20 @@ open_perception_kit::FrameResults makeHumanFaceAndGazeFrameResults(float yaw = 2
     face->confidence = 0.9f;
     facePayload.detections.push_back(std::move(face));
 
-    open_perception_kit::metadata::PoseEstimationsT gazePayload;
+    open_perception_kit::metadata::GazeMeasurementsT gazePayload;
 
     open_perception_kit::LayerInfoDescriptor gazeLayerDescriptor;
     gazeLayerDescriptor.contentType = "eyeYawPitch";
     gazePayload.layer = open_perception_kit::makeLayerInfo(gazeLayerDescriptor);
 
-    auto gaze = std::make_unique<open_perception_kit::metadata::PoseEstimationT>();
-    gaze->object = open_perception_kit::makeObjectMeta(8U, 7U);
+    auto gaze = std::make_unique<open_perception_kit::metadata::GazeMeasurementT>();
+    gaze->object = open_perception_kit::makeObjectMeta(8U, 999U);
+    gaze->subject_id = 7U;
     gaze->confidence = 0.95f;
-    gaze->yaw = yaw;
-    gaze->pitch = -10.0f;
-    gazePayload.poses.push_back(std::move(gaze));
+    gaze->angles = std::make_unique<open_perception_kit::metadata::GazeAnglesT>();
+    gaze->angles->yaw_degrees = yaw;
+    gaze->angles->pitch_degrees = -10.0f;
+    gazePayload.measurements.push_back(std::move(gaze));
 
     open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(facePayload));
@@ -879,6 +881,73 @@ TEST(DebugOverlayRendererTest, DrawsCameraContactMarkersInAllSupportedFormats) {
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(DebugOverlayRendererTest, GazeUsesUniqueBoxOrTrackSubjectsAndRejectsUnavailableMeasurements) {
+    const auto base = makeHumanFaceAndGazeFrameResults();
+    for (int variant = 0; variant < 15; ++variant) {
+        open_perception_kit::metadata::BoxDetectionsT boxes;
+        open_perception_kit::metadata::GazeMeasurementsT gazes;
+        base.for_each<open_perception_kit::metadata::BoxDetectionsT>(
+            [&](const auto &p) { boxes = p; });
+        base.for_each<open_perception_kit::metadata::GazeMeasurementsT>(
+            [&](const auto &p) { gazes = p; });
+        boxes.layer->content_type = "unlabelled-subject";
+        gazes.layer->content_type = "custom-gaze";
+        auto &gaze = *gazes.measurements[0];
+        gaze.object->parent_id = 7; // A derivation parent must not rescue a missing subject.
+        if (variant == 2 || variant == 3) {
+            boxes.detections.push_back(
+                std::make_unique<open_perception_kit::metadata::BoxDetectionT>(
+                    *boxes.detections[0]));
+            if (variant == 3)
+                boxes.detections.back()->box.reset();
+        }
+        if (variant == 4)
+            gaze.subject_id = 999U;
+        if (variant == 5)
+            gaze.subject_id = flatbuffers::nullopt;
+        if (variant == 6)
+            gaze.angles.reset();
+        if (variant == 7)
+            gaze.angles->yaw_degrees = std::numeric_limits<float>::quiet_NaN();
+        if (variant == 8)
+            boxes.detections[0]->box->space.reset();
+        if (variant == 9)
+            gaze.subject_id = 0U;
+        if (variant == 10)
+            gaze.confidence = flatbuffers::nullopt;
+        if (variant == 11)
+            gaze.confidence = std::numeric_limits<float>::quiet_NaN();
+        if (variant == 12)
+            gaze.confidence = 0.0f;
+        if (variant >= 13)
+            gaze.angles->yaw_degrees = gaze.angles->pitch_degrees = variant == 13 ? 0.0f : 360.0f;
+        open_perception_kit::FrameResults results;
+        if (variant == 1) {
+            open_perception_kit::metadata::ObjectTracksT tracks;
+            auto track = std::make_unique<open_perception_kit::metadata::ObjectTrackT>();
+            track->object = std::move(boxes.detections[0]->object);
+            track->box = std::move(boxes.detections[0]->box);
+            track->track_id = 999U;
+            tracks.tracks.push_back(std::move(track));
+            results.add(std::move(tracks));
+        } else {
+            results.add(std::move(boxes));
+        }
+        results.add(std::move(gazes));
+        auto surface = makeSurface(RawImagePixelFormat::Bgra, 96, 72);
+        opk::osd::DebugOverlayRequest request;
+        request.surface.format = surface.format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &results;
+        ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
+        EXPECT_EQ(activeAreaChanged(surface),
+                  variant == 0 || variant == 1 || variant == 10 || variant == 12)
+            << variant;
     }
 }
 

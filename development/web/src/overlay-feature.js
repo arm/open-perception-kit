@@ -23,7 +23,7 @@ export const STYLE_CONTROLS = [
     {key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01, value: 1},
 ];
 const CONTENT_COLORS = {
-    humanFace: '#2600ff', genericObject: '#ff3030', eyeYawPitch: '#fafad2',
+    humanFace: '#2600ff', genericObject: '#ff3030',
     cameraContact: '#66ff00', personClassification: '#66ff00', trackTrace: '#ffff00',
 };
 
@@ -65,25 +65,6 @@ export function defineFeature({controls = STYLE_CONTROLS, defaults = {}, resolve
             return resolve({state: 'ready', message: '', output, items: output.items}, index, settings);
         },
     };
-}
-
-export function resolveFaceParents(result, index, type) {
-    const items = result.items.filter((item) => item.type === type);
-    const resolved = {...result, items, attached: []};
-    let missing = false;
-    let ambiguous = false;
-    for (const item of items) {
-        const candidates = (index.objects.get(objectId(item.data.parentUuid)) || []).filter((candidate) =>
-            ['BoxDetections', 'ObjectTracks'].includes(candidate.source.payloadType)
-            && candidate.source.contentType === 'humanFace' && candidate.type === 'Rect'
-            && candidate.data.spatialValid !== false);
-        if (candidates.length > 1) ambiguous = true;
-        else if (candidates.length === 1) resolved.attached.push({data: item.data, parent: candidates[0].data});
-        else missing = true;
-    }
-    if (ambiguous) return {...resolved, state: 'ambiguous', message: 'Multiple parent faces match; ambiguous markers are omitted.'};
-    if (missing) return {...resolved, state: 'partial', message: 'Waiting for parent face geometry.'};
-    return resolved;
 }
 
 export function resolveBoxSubjects(result, index, type, available) {

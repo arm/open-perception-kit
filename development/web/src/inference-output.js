@@ -18,6 +18,7 @@
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
 import {collectOutputs} from './overlay-sources.js';
 import {contactOutcome, validCandidate, presenceOutcome} from './classification-results.js';
+import {validGaze} from './gaze-results.js';
 
 const body = document.getElementById('inferenceOutputBody');
 const copyButton = document.getElementById('copyInferenceOutputBtn');
@@ -60,11 +61,11 @@ function detectionSummary(detection) {
         };
     }
 
-    if (type === 'YawPitch') {
+    if (type === 'GazeMeasurement') {
         return {
             title: 'Yaw / pitch',
-            detail: `yaw ${number(data.yaw)} pitch ${number(data.pitch)}`,
-            meta: number(data.confidence),
+            detail: validGaze(data) ? `yaw ${number(data.angles.yawDegrees)}° pitch ${number(data.angles.pitchDegrees)}°` : 'Gaze unavailable',
+            meta: validGaze(data) ? number(data.confidence) : '',
         };
     }
 

@@ -16,6 +16,7 @@
  */
 
 import {contactOutcome, validCandidate, presenceOutcome} from './classification-results.js';
+import {validGaze, wrapDegrees} from './gaze-results.js';
 
 export function createCoordinateMapper({canvasWidth, canvasHeight, videoWidth, videoHeight, perception}) {
   const frame = findVideoFrame(perception);
@@ -216,12 +217,15 @@ export function drawTrackTrace(ctx, trace, mapper, color) {
   }
 }
 
-export function drawGazeVector(ctx, yp, parent, mapper, color) {
-  if (nearZero(yp.yaw) && nearZero(yp.pitch)) return;
+export function drawGazeVector(ctx, gaze, parent, mapper, color) {
+  if (!validGaze(gaze)) return;
+  const yawDegrees = wrapDegrees(gaze.angles.yawDegrees);
+  const pitchDegrees = wrapDegrees(gaze.angles.pitchDegrees);
+  if (nearZero(yawDegrees) && nearZero(pitchDegrees)) return;
   const parentBox = mapper.rect(parent);
   if (!parentBox) return;
   const start = {x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2};
-  drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
+  drawArrow(ctx, start, gazeEndpoint(start, yawDegrees, pitchDegrees, 120), color, 3, 10);
 }
 
 export function drawCameraContactMarker(ctx, classification, face, mapper, color) {
@@ -300,8 +304,8 @@ function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {
 }
 
 export function gazeEndpoint(start, yawDeg, pitchDeg, lengthPx) {
-  const yaw = deg2rad(yawDeg);
-  const pitch = deg2rad(pitchDeg);
+  const yaw = wrapDegrees(yawDeg) * Math.PI / 180;
+  const pitch = wrapDegrees(pitchDeg) * Math.PI / 180;
   return {
     x: start.x - Math.sin(yaw) * Math.cos(pitch) * lengthPx,
     y: start.y - Math.sin(pitch) * lengthPx,
@@ -318,10 +322,6 @@ function positiveNumber(value) {
 
 function nearZero(value) {
   return Number(value) < 0.1 && Number(value) > -0.1;
-}
-
-function deg2rad(value) {
-  return Number(value || 0) * Math.PI / 180;
 }
 
 function clamp(value, min, max) {

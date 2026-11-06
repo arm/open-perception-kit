@@ -156,7 +156,7 @@ In other words, preprocessing prepares pixels, but postprocessing explains meani
 
 In this codebase, “custom code” usually means a small and specific set of files, not a broad runtime rewrite.
 
-If you can reuse an existing FrameResults schema payload such as `BoxDetectionsT`, `ClassificationsT`, `PoseEstimationsT`, `SegmentationMasksT`, or `ObjectEmbeddingsT`, the usual files to touch are:
+If you can reuse an existing FrameResults schema payload such as `BoxDetectionsT`, `ClassificationsT`, `GazeMeasurementsT`, `SegmentationMasksT`, or `ObjectEmbeddingsT`, the usual files to touch are:
 
 1. create a new parser header under `development/ops-std/postproc/<YourParser>.h`
 2. create a new parser implementation under `development/ops-std/postproc/<YourParser>.cpp`

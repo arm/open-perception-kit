@@ -276,7 +276,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         get('overlayForm').fire('submit');
         assert.equal(saved()[3].selection.primary, null);
         assert.equal(saved()[3].settings.opacity, 0.13);
-        const gazeA = {payloadType: 'PoseEstimations', contentType: 'eyeYawPitch', model: 'gaze A', detections: []};
+        const gazeA = {payloadType: 'GazeMeasurements', contentType: 'eyeYawPitch', model: 'gaze A', detections: []};
         const gazeB = {...gazeA, model: 'gaze B'};
         emit([gazeA, gazeB]);
         assert.equal(saved()[3].selection.primary, null);
