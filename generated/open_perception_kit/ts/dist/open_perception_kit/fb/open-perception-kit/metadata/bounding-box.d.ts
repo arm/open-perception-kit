@@ -17,6 +17,8 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
+import { CoordinateUnits } from '../../open-perception-kit/metadata/coordinate-units.js';
+import { ImageSpace, ImageSpaceT } from '../../open-perception-kit/metadata/image-space.js';
 export declare class BoundingBox implements flatbuffers.IUnpackableObject<BoundingBoxT> {
     bb: flatbuffers.ByteBuffer | null;
     bb_pos: number;
@@ -27,13 +29,16 @@ export declare class BoundingBox implements flatbuffers.IUnpackableObject<Boundi
     y(): number;
     width(): number;
     height(): number;
+    space(obj?: ImageSpace): ImageSpace | null;
+    units(): CoordinateUnits;
     static startBoundingBox(builder: flatbuffers.Builder): void;
     static addX(builder: flatbuffers.Builder, x: number): void;
     static addY(builder: flatbuffers.Builder, y: number): void;
     static addWidth(builder: flatbuffers.Builder, width: number): void;
     static addHeight(builder: flatbuffers.Builder, height: number): void;
+    static addSpace(builder: flatbuffers.Builder, spaceOffset: flatbuffers.Offset): void;
+    static addUnits(builder: flatbuffers.Builder, units: CoordinateUnits): void;
     static endBoundingBox(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createBoundingBox(builder: flatbuffers.Builder, x: number, y: number, width: number, height: number): flatbuffers.Offset;
     unpack(): BoundingBoxT;
     unpackTo(_o: BoundingBoxT): void;
 }
@@ -42,6 +47,8 @@ export declare class BoundingBoxT implements flatbuffers.IGeneratedObject {
     y: number;
     width: number;
     height: number;
-    constructor(x?: number, y?: number, width?: number, height?: number);
+    space: ImageSpaceT | null;
+    units: CoordinateUnits;
+    constructor(x?: number, y?: number, width?: number, height?: number, space?: ImageSpaceT | null, units?: CoordinateUnits);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

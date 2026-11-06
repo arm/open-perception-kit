@@ -27,6 +27,7 @@ namespace opk::tracker {
 void Tracker::reset() {
     activeTracks.clear();
     inactiveTracks.clear();
+    imageSpace.reset();
     nextTrackId = 1;
     currentFrameIndex = 0;
     kalmanDeltaTime.reset();
@@ -48,7 +49,11 @@ void Tracker::process(open_perception_kit::FrameResults &frameResults,
     // Gather embedding vectors for this frame.
     const auto embeddings = frameinputs::collectEmbeddings(frameResults, config);
     // Gather trackable detections for this frame in stable processing order.
-    auto detections = frameinputs::collectDetections(frameResults, config);
+    const auto ownedDetections = frameinputs::collectDetections(frameResults, config, imageSpace);
+    DetectionBatch detections;
+    detections.reserve(ownedDetections.size());
+    for (const auto &detection : ownedDetections)
+        detections.push_back(&detection);
 
     // Reset per-frame prediction flags before running association.
     matching::clearTrackPredictionFlags(activeTracks);

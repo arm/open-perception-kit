@@ -20,6 +20,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -61,7 +62,10 @@ TEST(PaddleOcrDbDetectionParser, RestoresSourcePixelBoxAndParentFromPaddedProbab
                                  .letterboxLeft = 8,
                                  .letterboxRight = 8,
                                  .letterboxTop = 16,
-                                 .letterboxBottom = 16};
+                                 .letterboxBottom = 16,
+                                 .frameId = 77,
+                                 .frameWidth = 192,
+                                 .frameHeight = 128};
     input.inferenceInfo.parentId = 42;
 
     open_perception_kit::FrameResults results;
@@ -87,6 +91,26 @@ TEST(PaddleOcrDbDetectionParser, RestoresSourcePixelBoxAndParentFromPaddedProbab
     EXPECT_FLOAT_EQ(detection.box->width, 96.0f);
     EXPECT_FLOAT_EQ(detection.box->height, 64.0f);
     EXPECT_FLOAT_EQ(detection.confidence, 0.9f);
+    ASSERT_NE(detection.box->space, nullptr);
+    EXPECT_EQ(detection.box->space->frame_id, 77U);
+    EXPECT_EQ(detection.box->units, open_perception_kit::metadata::CoordinateUnits::Pixels);
+    EXPECT_FALSE(detection.class_id.has_value());
+
+    // Blank input is a successful empty detection result, not an unavailable parser.
+    std::fill(probabilities.begin(), probabilities.end(), 0.0f);
+    open_perception_kit::FrameResults empty;
+    ASSERT_TRUE(parser.parse(input, empty));
+    const open_perception_kit::FrameResults decodedEmpty(open_perception_kit::serialize(empty));
+    ASSERT_EQ(decodedEmpty.count<open_perception_kit::metadata::BoxDetectionsT>(), 1U);
+    decodedEmpty.for_each<open_perception_kit::metadata::BoxDetectionsT>([](const auto &value) {
+        EXPECT_TRUE(value.detections.empty());
+        ASSERT_TRUE(value.layer);
+        EXPECT_EQ(value.layer->content_type, "textRegion");
+    });
+    probabilities[0] = -1;
+    open_perception_kit::FrameResults invalid;
+    EXPECT_FALSE(parser.parse(input, invalid));
+    EXPECT_TRUE(invalid.empty());
 }
 
 class PaddleOcrRecognitionParserTest : public ::testing::Test {

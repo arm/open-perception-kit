@@ -394,6 +394,7 @@ void finalizeDetections(std::vector<Det> &dets, const ParserSettings &settings) 
 void appendDetections(const std::vector<Det> &dets,
                       const ParserSettings &settings,
                       const ImageGeometry &geometry,
+                      const opk::ImageInferenceMetadata &image,
                       uint64_t parentId,
                       open_perception_kit::metadata::BoxDetectionsT &payload) {
     for (const auto &det : dets) {
@@ -411,9 +412,10 @@ void appendDetections(const std::vector<Det> &dets,
 
         auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
         detection->object = open_perception_kit::makeObjectMeta(0U, parentId);
-        detection->box = open_perception_kit::makeBoundingBox(x, y, width, height);
+        detection->box = open_perception_kit::makeImageBoundingBox(
+            image, x, y, width, height, settings.normalizeOutputCoordinates);
         detection->confidence = det.conf;
-        detection->class_id = det.cls;
+        detection->class_id = static_cast<std::uint32_t>(det.cls);
         detection->text =
             opk::resources::Labels::getLabel(opk::resources::LabelType::Coco, det.cls);
         payload.detections.push_back(std::move(detection));
@@ -483,7 +485,8 @@ Result<void> YoloXParser::parse(const opk::TensorParser::Input &input,
                                             .contentType = k_content_type,
                                             .labelFamily = "coco",
                                             .producer = &input.producerInfo});
-    appendDetections(dets, settings, geometry, input.inferenceInfo.parentId, payload);
+    appendDetections(
+        dets, settings, geometry, input.inferenceInfo.image, input.inferenceInfo.parentId, payload);
     if (!payload.detections.empty()) {
         results.add(std::move(payload));
     }

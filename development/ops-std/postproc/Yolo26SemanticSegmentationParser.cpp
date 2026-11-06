@@ -67,8 +67,7 @@ opk::Result<void> validateGeometry(const opk::TensorParser::Input &input,
         }
         const auto &video = *context.video;
         fullFrame = video.original_width == image.width && video.original_height == image.height &&
-                    video.source_crop_left == 0U && video.source_crop_right == 0U &&
-                    video.source_crop_top == 0U && video.source_crop_bottom == 0U;
+                    image.cropX == 0U && image.cropY == 0U;
     });
     if (!fullFrame || input.inferenceInfo.parentId == 0U) {
         return tl::unexpected(OPK_ERROR(

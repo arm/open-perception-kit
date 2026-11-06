@@ -80,8 +80,8 @@ class BoxDetection(object):
     def ClassId(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return -1
+            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+        return None
 
     # BoxDetection
     def Text(self):
@@ -124,7 +124,7 @@ def AddConfidence(builder, confidence):
 
 
 def BoxDetectionAddClassId(builder, classId):
-    builder.PrependInt32Slot(3, classId, -1)
+    builder.PrependUint32Slot(3, classId, None)
 
 
 def AddClassId(builder, classId):
@@ -161,14 +161,14 @@ class BoxDetectionT(object):
         object=None,
         box=None,
         confidence=0.0,
-        classId=-1,
+        classId=None,
         text=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
         self.box = box  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.BoundingBox.BoundingBoxT]
         self.confidence = confidence  # type: float
-        self.classId = classId  # type: int
+        self.classId = classId  # type: Optional[int]
         self.text = text  # type: Optional[str]
 
     @classmethod

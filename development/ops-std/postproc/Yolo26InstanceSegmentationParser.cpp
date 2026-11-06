@@ -95,8 +95,7 @@ opk::Result<void> validateGeometry(const opk::TensorParser::Input &input,
         }
         const auto &video = *context.video;
         fullFrame = video.original_width == image.width && video.original_height == image.height &&
-                    video.source_crop_left == 0U && video.source_crop_right == 0U &&
-                    video.source_crop_top == 0U && video.source_crop_bottom == 0U;
+                    image.cropX == 0U && image.cropY == 0U;
     });
     if (!fullFrame || input.inferenceInfo.parentId == 0U) {
         return tl::unexpected(OPK_ERROR(
@@ -315,8 +314,11 @@ Yolo26InstanceSegmentationParser::parse(const Input &input,
             mask->bitmap = open_perception_kit::makeBitmapData(bitmap);
             mask->class_id = candidate.classId;
             mask->confidence = candidate.confidence;
-            mask->box = open_perception_kit::makeBoundingBox(
-                box.left, box.top, box.right - box.left, box.bottom - box.top);
+            mask->box = open_perception_kit::makeImageBoundingBox(input.inferenceInfo.image,
+                                                                  box.left,
+                                                                  box.top,
+                                                                  box.right - box.left,
+                                                                  box.bottom - box.top);
             payload.masks.push_back(std::move(mask));
         }
     }

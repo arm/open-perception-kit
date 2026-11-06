@@ -45,6 +45,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import Pro
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:
@@ -125,6 +126,13 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         self.assertEqual(distance_voice_activity(items[0], items[0], {}, {}), 0)
         self.assertEqual(distance_voice_activity(items[0], items[1], {}, {}), 1)
 
+    def test_box_category_zero_and_absence_round_trip(self) -> None:
+        frame = FrameResults()
+        frame.add(BoxDetectionsT(detections=[BoxDetectionT(classId=None), BoxDetectionT(classId=0)]))
+        snapshot = normalize_frame_results(FrameResults(frame.serialize()))
+        items = next(iter(snapshot.payloads.values())).items
+        self.assertEqual([item["data"]["classId"] for item in items], [None, 0])
+
     def test_normalizes_frame_and_box_detection_payloads(self) -> None:
         frame_results = FrameResults()
         frame_results.add(
@@ -143,7 +151,8 @@ class FrameResultsNormalizeTests(unittest.TestCase):
                 detections=[
                     BoxDetectionT(
                         object=ObjectMetaT(id=2, parentId=1),
-                        box=BoundingBoxT(x=10.0, y=20.0, width=30.0, height=40.0),
+                        box=BoundingBoxT(x=10.0, y=20.0, width=30.0, height=40.0,
+                                         space=ImageSpaceT(frameId=1, width=640, height=480, extentWidth=640, extentHeight=480)),
                         confidence=0.9,
                         classId=3,
                         text="face",
@@ -240,6 +249,7 @@ class FrameResultsNormalizeTests(unittest.TestCase):
                         object=ObjectMetaT(id=6),
                         trackId=77,
                         points=[Point2fT(x=1.0, y=2.0), Point2fT(x=3.0, y=4.0)],
+                        space=ImageSpaceT(frameId=1, width=640, height=480, extentWidth=640, extentHeight=480),
                     )
                 ],
             )

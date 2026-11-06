@@ -255,6 +255,7 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext,
     }
 
     size_t currentIndex = 0;
+    opChainContext.resetVideoFrameIds();
 
     auto firstWorkerIndexForLoop = [this](size_t index, size_t loopId) {
         size_t firstGroupIndex = index;

@@ -68,6 +68,8 @@ def _item_parent(
     item: dict,
     object_index: dict[int, tuple[PayloadKey, dict]],
 ) -> dict | None:
+    if item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
+        return item if item.get("data", {}).get("spatialValid") else None
     parent_id = item.get("data", {}).get("parentId", 0)
     if parent_id == 0:
         return item
@@ -89,12 +91,16 @@ def _process_remaining_items(
 
     gt_parent_item = _item_parent(gt_item, gt_object_index)
     if gt_parent_item is None:
+        if gt_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
+            return False, "item has no valid spatial reference"
         parent_id = gt_item.get("data", {}).get("parentId", 0)
         return False, f"item has no parent object (parent id: {parent_id})"
 
     for j, out_item in enumerate(remaining):
         out_parent_item = _item_parent(out_item, out_object_index)
         if out_parent_item is None:
+            if out_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
+                return False, "item has no valid spatial reference"
             parent_id = out_item.get("data", {}).get("parentId", 0)
             return False, f"item has no parent object (parent id: {parent_id})"
 

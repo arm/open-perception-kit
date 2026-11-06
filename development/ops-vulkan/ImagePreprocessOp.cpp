@@ -112,6 +112,14 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         context.inferenceImageCrops.pop_back();
         context.inferenceImageCropIds.pop_back();
         context.inferenceInfo.image = imageMetadata(crop, destination, inner);
+        auto &image = context.inferenceInfo.image;
+        const auto producer = producerInfo(
+            context.inferenceInfo.inferElementId, opName, "opk-vulkan-ops/ImagePreprocess");
+        image.frameId = context.videoFrameId(sourceName, producer);
+        image.frameWidth = frame->width();
+        image.frameHeight = frame->height();
+        image.cropX = crop.x;
+        image.cropY = crop.y;
         context.inferenceInfo.modelName = model.name;
         context.inferenceInfo.contentType = model.contentType;
         context.inferenceInfo.parentId = sourceId;

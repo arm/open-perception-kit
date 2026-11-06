@@ -46,14 +46,7 @@ impl<'a> VideoFrameContext<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
     pub const VT_ORIGINAL_WIDTH: flatbuffers::VOffsetT = 6;
     pub const VT_ORIGINAL_HEIGHT: flatbuffers::VOffsetT = 8;
-    pub const VT_SOURCE_CROP_LEFT: flatbuffers::VOffsetT = 10;
-    pub const VT_SOURCE_CROP_RIGHT: flatbuffers::VOffsetT = 12;
-    pub const VT_SOURCE_CROP_TOP: flatbuffers::VOffsetT = 14;
-    pub const VT_SOURCE_CROP_BOTTOM: flatbuffers::VOffsetT = 16;
-    pub const VT_LETTERBOX_LEFT: flatbuffers::VOffsetT = 18;
-    pub const VT_LETTERBOX_RIGHT: flatbuffers::VOffsetT = 20;
-    pub const VT_LETTERBOX_TOP: flatbuffers::VOffsetT = 22;
-    pub const VT_LETTERBOX_BOTTOM: flatbuffers::VOffsetT = 24;
+    pub const VT_PRESENTATION_TS_NS: flatbuffers::VOffsetT = 10;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -65,14 +58,9 @@ impl<'a> VideoFrameContext<'a> {
         args: &'args VideoFrameContextArgs<'args>,
     ) -> flatbuffers::WIPOffset<VideoFrameContext<'bldr>> {
         let mut builder = VideoFrameContextBuilder::new(_fbb);
-        builder.add_letterbox_bottom(args.letterbox_bottom);
-        builder.add_letterbox_top(args.letterbox_top);
-        builder.add_letterbox_right(args.letterbox_right);
-        builder.add_letterbox_left(args.letterbox_left);
-        builder.add_source_crop_bottom(args.source_crop_bottom);
-        builder.add_source_crop_top(args.source_crop_top);
-        builder.add_source_crop_right(args.source_crop_right);
-        builder.add_source_crop_left(args.source_crop_left);
+        if let Some(x) = args.presentation_ts_ns {
+            builder.add_presentation_ts_ns(x);
+        }
         builder.add_original_height(args.original_height);
         builder.add_original_width(args.original_width);
         if let Some(x) = args.object {
@@ -85,26 +73,12 @@ impl<'a> VideoFrameContext<'a> {
         let object = self.object().map(|x| Box::new(x.unpack()));
         let original_width = self.original_width();
         let original_height = self.original_height();
-        let source_crop_left = self.source_crop_left();
-        let source_crop_right = self.source_crop_right();
-        let source_crop_top = self.source_crop_top();
-        let source_crop_bottom = self.source_crop_bottom();
-        let letterbox_left = self.letterbox_left();
-        let letterbox_right = self.letterbox_right();
-        let letterbox_top = self.letterbox_top();
-        let letterbox_bottom = self.letterbox_bottom();
+        let presentation_ts_ns = self.presentation_ts_ns();
         VideoFrameContextT {
             object,
             original_width,
             original_height,
-            source_crop_left,
-            source_crop_right,
-            source_crop_top,
-            source_crop_bottom,
-            letterbox_left,
-            letterbox_right,
-            letterbox_top,
-            letterbox_bottom,
+            presentation_ts_ns,
         }
     }
 
@@ -141,91 +115,13 @@ impl<'a> VideoFrameContext<'a> {
         }
     }
     #[inline]
-    pub fn source_crop_left(&self) -> u64 {
+    pub fn presentation_ts_ns(&self) -> Option<u64> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<u64>(VideoFrameContext::VT_SOURCE_CROP_LEFT, Some(0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn source_crop_right(&self) -> u64 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<u64>(VideoFrameContext::VT_SOURCE_CROP_RIGHT, Some(0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn source_crop_top(&self) -> u64 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<u64>(VideoFrameContext::VT_SOURCE_CROP_TOP, Some(0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn source_crop_bottom(&self) -> u64 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<u64>(VideoFrameContext::VT_SOURCE_CROP_BOTTOM, Some(0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn letterbox_left(&self) -> u64 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<u64>(VideoFrameContext::VT_LETTERBOX_LEFT, Some(0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn letterbox_right(&self) -> u64 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<u64>(VideoFrameContext::VT_LETTERBOX_RIGHT, Some(0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn letterbox_top(&self) -> u64 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<u64>(VideoFrameContext::VT_LETTERBOX_TOP, Some(0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn letterbox_bottom(&self) -> u64 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<u64>(VideoFrameContext::VT_LETTERBOX_BOTTOM, Some(0))
-                .unwrap()
+                .get::<u64>(VideoFrameContext::VT_PRESENTATION_TS_NS, None)
         }
     }
 }
@@ -245,14 +141,7 @@ impl flatbuffers::Verifiable for VideoFrameContext<'_> {
             )?
             .visit_field::<u64>("original_width", Self::VT_ORIGINAL_WIDTH, false)?
             .visit_field::<u64>("original_height", Self::VT_ORIGINAL_HEIGHT, false)?
-            .visit_field::<u64>("source_crop_left", Self::VT_SOURCE_CROP_LEFT, false)?
-            .visit_field::<u64>("source_crop_right", Self::VT_SOURCE_CROP_RIGHT, false)?
-            .visit_field::<u64>("source_crop_top", Self::VT_SOURCE_CROP_TOP, false)?
-            .visit_field::<u64>("source_crop_bottom", Self::VT_SOURCE_CROP_BOTTOM, false)?
-            .visit_field::<u64>("letterbox_left", Self::VT_LETTERBOX_LEFT, false)?
-            .visit_field::<u64>("letterbox_right", Self::VT_LETTERBOX_RIGHT, false)?
-            .visit_field::<u64>("letterbox_top", Self::VT_LETTERBOX_TOP, false)?
-            .visit_field::<u64>("letterbox_bottom", Self::VT_LETTERBOX_BOTTOM, false)?
+            .visit_field::<u64>("presentation_ts_ns", Self::VT_PRESENTATION_TS_NS, false)?
             .finish();
         Ok(())
     }
@@ -261,14 +150,7 @@ pub struct VideoFrameContextArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
     pub original_width: u64,
     pub original_height: u64,
-    pub source_crop_left: u64,
-    pub source_crop_right: u64,
-    pub source_crop_top: u64,
-    pub source_crop_bottom: u64,
-    pub letterbox_left: u64,
-    pub letterbox_right: u64,
-    pub letterbox_top: u64,
-    pub letterbox_bottom: u64,
+    pub presentation_ts_ns: Option<u64>,
 }
 impl<'a> Default for VideoFrameContextArgs<'a> {
     #[inline]
@@ -277,14 +159,7 @@ impl<'a> Default for VideoFrameContextArgs<'a> {
             object: None,
             original_width: 0,
             original_height: 0,
-            source_crop_left: 0,
-            source_crop_right: 0,
-            source_crop_top: 0,
-            source_crop_bottom: 0,
-            letterbox_left: 0,
-            letterbox_right: 0,
-            letterbox_top: 0,
-            letterbox_bottom: 0,
+            presentation_ts_ns: None,
         }
     }
 }
@@ -313,50 +188,9 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> VideoFrameContextBuilder<'a, 'b
             .push_slot::<u64>(VideoFrameContext::VT_ORIGINAL_HEIGHT, original_height, 0);
     }
     #[inline]
-    pub fn add_source_crop_left(&mut self, source_crop_left: u64) {
+    pub fn add_presentation_ts_ns(&mut self, presentation_ts_ns: u64) {
         self.fbb_
-            .push_slot::<u64>(VideoFrameContext::VT_SOURCE_CROP_LEFT, source_crop_left, 0);
-    }
-    #[inline]
-    pub fn add_source_crop_right(&mut self, source_crop_right: u64) {
-        self.fbb_.push_slot::<u64>(
-            VideoFrameContext::VT_SOURCE_CROP_RIGHT,
-            source_crop_right,
-            0,
-        );
-    }
-    #[inline]
-    pub fn add_source_crop_top(&mut self, source_crop_top: u64) {
-        self.fbb_
-            .push_slot::<u64>(VideoFrameContext::VT_SOURCE_CROP_TOP, source_crop_top, 0);
-    }
-    #[inline]
-    pub fn add_source_crop_bottom(&mut self, source_crop_bottom: u64) {
-        self.fbb_.push_slot::<u64>(
-            VideoFrameContext::VT_SOURCE_CROP_BOTTOM,
-            source_crop_bottom,
-            0,
-        );
-    }
-    #[inline]
-    pub fn add_letterbox_left(&mut self, letterbox_left: u64) {
-        self.fbb_
-            .push_slot::<u64>(VideoFrameContext::VT_LETTERBOX_LEFT, letterbox_left, 0);
-    }
-    #[inline]
-    pub fn add_letterbox_right(&mut self, letterbox_right: u64) {
-        self.fbb_
-            .push_slot::<u64>(VideoFrameContext::VT_LETTERBOX_RIGHT, letterbox_right, 0);
-    }
-    #[inline]
-    pub fn add_letterbox_top(&mut self, letterbox_top: u64) {
-        self.fbb_
-            .push_slot::<u64>(VideoFrameContext::VT_LETTERBOX_TOP, letterbox_top, 0);
-    }
-    #[inline]
-    pub fn add_letterbox_bottom(&mut self, letterbox_bottom: u64) {
-        self.fbb_
-            .push_slot::<u64>(VideoFrameContext::VT_LETTERBOX_BOTTOM, letterbox_bottom, 0);
+            .push_slot_always::<u64>(VideoFrameContext::VT_PRESENTATION_TS_NS, presentation_ts_ns);
     }
     #[inline]
     pub fn new(
@@ -381,14 +215,7 @@ impl core::fmt::Debug for VideoFrameContext<'_> {
         ds.field("object", &self.object());
         ds.field("original_width", &self.original_width());
         ds.field("original_height", &self.original_height());
-        ds.field("source_crop_left", &self.source_crop_left());
-        ds.field("source_crop_right", &self.source_crop_right());
-        ds.field("source_crop_top", &self.source_crop_top());
-        ds.field("source_crop_bottom", &self.source_crop_bottom());
-        ds.field("letterbox_left", &self.letterbox_left());
-        ds.field("letterbox_right", &self.letterbox_right());
-        ds.field("letterbox_top", &self.letterbox_top());
-        ds.field("letterbox_bottom", &self.letterbox_bottom());
+        ds.field("presentation_ts_ns", &self.presentation_ts_ns());
         ds.finish()
     }
 }
@@ -398,14 +225,7 @@ pub struct VideoFrameContextT {
     pub object: Option<Box<ObjectMetaT>>,
     pub original_width: u64,
     pub original_height: u64,
-    pub source_crop_left: u64,
-    pub source_crop_right: u64,
-    pub source_crop_top: u64,
-    pub source_crop_bottom: u64,
-    pub letterbox_left: u64,
-    pub letterbox_right: u64,
-    pub letterbox_top: u64,
-    pub letterbox_bottom: u64,
+    pub presentation_ts_ns: Option<u64>,
 }
 impl Default for VideoFrameContextT {
     fn default() -> Self {
@@ -413,14 +233,7 @@ impl Default for VideoFrameContextT {
             object: None,
             original_width: 0,
             original_height: 0,
-            source_crop_left: 0,
-            source_crop_right: 0,
-            source_crop_top: 0,
-            source_crop_bottom: 0,
-            letterbox_left: 0,
-            letterbox_right: 0,
-            letterbox_top: 0,
-            letterbox_bottom: 0,
+            presentation_ts_ns: None,
         }
     }
 }
@@ -432,28 +245,14 @@ impl VideoFrameContextT {
         let object = self.object.as_ref().map(|x| x.pack(_fbb));
         let original_width = self.original_width;
         let original_height = self.original_height;
-        let source_crop_left = self.source_crop_left;
-        let source_crop_right = self.source_crop_right;
-        let source_crop_top = self.source_crop_top;
-        let source_crop_bottom = self.source_crop_bottom;
-        let letterbox_left = self.letterbox_left;
-        let letterbox_right = self.letterbox_right;
-        let letterbox_top = self.letterbox_top;
-        let letterbox_bottom = self.letterbox_bottom;
+        let presentation_ts_ns = self.presentation_ts_ns;
         VideoFrameContext::create(
             _fbb,
             &VideoFrameContextArgs {
                 object,
                 original_width,
                 original_height,
-                source_crop_left,
-                source_crop_right,
-                source_crop_top,
-                source_crop_bottom,
-                letterbox_left,
-                letterbox_right,
-                letterbox_top,
-                letterbox_bottom,
+                presentation_ts_ns,
             },
         )
     }
