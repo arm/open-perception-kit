@@ -28,8 +28,8 @@ namespace opk::tracker::trackstate {
 
 namespace {
 
-Point2f makePoint(float x, float y) {
-    return Point2f{x, y};
+Point2f makePoint(const float xCoordinate, const float yCoordinate) {
+    return Point2f{xCoordinate, yCoordinate};
 }
 
 } // namespace
@@ -134,13 +134,13 @@ void appendTracePoint(TrackState &track,
     tracePoint.x = point.x;
     tracePoint.y = point.y;
 
-    int historyPoints = 1;
+    double historyPointLimit = 1.0;
     if (config.traceHistorySeconds > 0.0f && kalmanDt > 0.0f) {
-        historyPoints = static_cast<int>(std::ceil(config.traceHistorySeconds / kalmanDt));
+        historyPointLimit =
+            std::max(1.0, std::ceil(static_cast<double>(config.traceHistorySeconds) / kalmanDt));
     }
 
-    const auto maxHistorySize = static_cast<size_t>(std::max(1, historyPoints));
-    while (track.traceHistoryPoints.size() > maxHistorySize) {
+    while (static_cast<double>(track.traceHistoryPoints.size()) > historyPointLimit) {
         track.traceHistoryPoints.pop_front();
     }
 }
