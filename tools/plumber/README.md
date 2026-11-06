@@ -155,6 +155,8 @@ different SDK revision are rejected before payload comparison.
 FrameContextT
 BoxDetectionsT
 ClassificationsT
+CameraContactsT
+PersonPresencesT
 PoseEstimationsT
 SegmentationMasksT
 ObjectEmbeddingsT
@@ -164,6 +166,21 @@ TrackTracesT
 
 `PerformanceMeasurementsT` is ignored by comparison because it is diagnostic runtime
 measurements rather than stable model output.
+
+Categorical classifications compare top-1 `(labelSet, classId)` identity, not
+display wording. A class ID without a label set cannot establish a match.
+Class IDs are optional; zero is valid and absence is preserved as `None`.
+The declared classification kind selects category identity or literal recognized
+text; missing fields never select a different kind. Contact and presence compare
+their explicit semantic decisions, not raw model indices or uncalibrated scores.
+All three families resolve `subjectId` independently of derivation parents and
+compare the corresponding subject source and geometry. Missing, duplicate or
+invalid references fail comparison; swapping outcomes between subjects fails.
+Payload and subject grouping includes producer component and instance identity.
+Whole-frame results require one addressable video frame per source group;
+ambiguous multi-frame groups fail rather than guessing correspondence from local
+IDs, ordering, or dimensions.
+Unavailable results and invalid supplied confidence do not count as matches.
 
 Box and trace comparisons use their explicit image space, independently of
 `ObjectMeta.parent_id`. Normalized and pixel crop coordinates are projected into

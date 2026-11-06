@@ -41,23 +41,43 @@ struct Classification;
 struct ClassificationBuilder;
 struct ClassificationT;
 
-struct PersonPresence;
-struct PersonPresenceBuilder;
-struct PersonPresenceT;
-
 struct Classifications;
 struct ClassificationsBuilder;
 struct ClassificationsT;
 
+enum class ClassificationKind : uint8_t {
+    Unspecified = 0,
+    Categorical = 1,
+    RecognizedText = 2,
+    MIN = Unspecified,
+    MAX = RecognizedText
+};
+
+inline const ClassificationKind (&EnumValuesClassificationKind())[3] {
+    static const ClassificationKind values[] = {ClassificationKind::Unspecified,
+                                                ClassificationKind::Categorical,
+                                                ClassificationKind::RecognizedText};
+    return values;
+}
+
+inline const char *const *EnumNamesClassificationKind() {
+    static const char *const names[4] = {"Unspecified", "Categorical", "RecognizedText", nullptr};
+    return names;
+}
+
+inline const char *EnumNameClassificationKind(ClassificationKind e) {
+    if (::flatbuffers::IsOutRange(
+            e, ClassificationKind::Unspecified, ClassificationKind::RecognizedText))
+        return "";
+    const size_t index = static_cast<size_t>(e);
+    return EnumNamesClassificationKind()[index];
+}
+
 struct ClassificationCandidateT : public ::flatbuffers::NativeTable {
     typedef ClassificationCandidate TableType;
-    float confidence = 0.0f;
-    int32_t class_id = -1;
+    ::flatbuffers::Optional<float> confidence = ::flatbuffers::nullopt;
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt;
     std::string text{};
-    float x = 0.0f;
-    float y = 0.0f;
-    float w = 0.0f;
-    float h = 0.0f;
 };
 
 struct ClassificationCandidate FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -66,39 +86,21 @@ struct ClassificationCandidate FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::
     enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
         VT_CONFIDENCE = 4,
         VT_CLASS_ID = 6,
-        VT_TEXT = 8,
-        VT_X = 10,
-        VT_Y = 12,
-        VT_W = 14,
-        VT_H = 16
+        VT_TEXT = 8
     };
-    float confidence() const {
-        return GetField<float>(VT_CONFIDENCE, 0.0f);
+    ::flatbuffers::Optional<float> confidence() const {
+        return GetOptional<float, float>(VT_CONFIDENCE);
     }
-    int32_t class_id() const {
-        return GetField<int32_t>(VT_CLASS_ID, -1);
+    ::flatbuffers::Optional<uint32_t> class_id() const {
+        return GetOptional<uint32_t, uint32_t>(VT_CLASS_ID);
     }
     const ::flatbuffers::String *text() const {
         return GetPointer<const ::flatbuffers::String *>(VT_TEXT);
     }
-    float x() const {
-        return GetField<float>(VT_X, 0.0f);
-    }
-    float y() const {
-        return GetField<float>(VT_Y, 0.0f);
-    }
-    float w() const {
-        return GetField<float>(VT_W, 0.0f);
-    }
-    float h() const {
-        return GetField<float>(VT_H, 0.0f);
-    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyField<float>(verifier, VT_CONFIDENCE, 4) &&
-               VerifyField<int32_t>(verifier, VT_CLASS_ID, 4) && VerifyOffset(verifier, VT_TEXT) &&
-               verifier.VerifyString(text()) && VerifyField<float>(verifier, VT_X, 4) &&
-               VerifyField<float>(verifier, VT_Y, 4) && VerifyField<float>(verifier, VT_W, 4) &&
-               VerifyField<float>(verifier, VT_H, 4) && verifier.EndTable();
+               VerifyField<uint32_t>(verifier, VT_CLASS_ID, 4) && VerifyOffset(verifier, VT_TEXT) &&
+               verifier.VerifyString(text()) && verifier.EndTable();
     }
     ClassificationCandidateT *
     UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -115,25 +117,13 @@ struct ClassificationCandidateBuilder {
     ::flatbuffers::FlatBufferBuilder &fbb_;
     ::flatbuffers::uoffset_t start_;
     void add_confidence(float confidence) {
-        fbb_.AddElement<float>(ClassificationCandidate::VT_CONFIDENCE, confidence, 0.0f);
+        fbb_.AddElement<float>(ClassificationCandidate::VT_CONFIDENCE, confidence);
     }
-    void add_class_id(int32_t class_id) {
-        fbb_.AddElement<int32_t>(ClassificationCandidate::VT_CLASS_ID, class_id, -1);
+    void add_class_id(uint32_t class_id) {
+        fbb_.AddElement<uint32_t>(ClassificationCandidate::VT_CLASS_ID, class_id);
     }
     void add_text(::flatbuffers::Offset<::flatbuffers::String> text) {
         fbb_.AddOffset(ClassificationCandidate::VT_TEXT, text);
-    }
-    void add_x(float x) {
-        fbb_.AddElement<float>(ClassificationCandidate::VT_X, x, 0.0f);
-    }
-    void add_y(float y) {
-        fbb_.AddElement<float>(ClassificationCandidate::VT_Y, y, 0.0f);
-    }
-    void add_w(float w) {
-        fbb_.AddElement<float>(ClassificationCandidate::VT_W, w, 0.0f);
-    }
-    void add_h(float h) {
-        fbb_.AddElement<float>(ClassificationCandidate::VT_H, h, 0.0f);
     }
     explicit ClassificationCandidateBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
@@ -147,36 +137,28 @@ struct ClassificationCandidateBuilder {
 
 inline ::flatbuffers::Offset<ClassificationCandidate>
 CreateClassificationCandidate(::flatbuffers::FlatBufferBuilder &_fbb,
-                              float confidence = 0.0f,
-                              int32_t class_id = -1,
-                              ::flatbuffers::Offset<::flatbuffers::String> text = 0,
-                              float x = 0.0f,
-                              float y = 0.0f,
-                              float w = 0.0f,
-                              float h = 0.0f) {
+                              ::flatbuffers::Optional<float> confidence = ::flatbuffers::nullopt,
+                              ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
+                              ::flatbuffers::Offset<::flatbuffers::String> text = 0) {
     ClassificationCandidateBuilder builder_(_fbb);
-    builder_.add_h(h);
-    builder_.add_w(w);
-    builder_.add_y(y);
-    builder_.add_x(x);
     builder_.add_text(text);
-    builder_.add_class_id(class_id);
-    builder_.add_confidence(confidence);
+    if (class_id) {
+        builder_.add_class_id(*class_id);
+    }
+    if (confidence) {
+        builder_.add_confidence(*confidence);
+    }
     return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<ClassificationCandidate>
-CreateClassificationCandidateDirect(::flatbuffers::FlatBufferBuilder &_fbb,
-                                    float confidence = 0.0f,
-                                    int32_t class_id = -1,
-                                    const char *text = nullptr,
-                                    float x = 0.0f,
-                                    float y = 0.0f,
-                                    float w = 0.0f,
-                                    float h = 0.0f) {
+inline ::flatbuffers::Offset<ClassificationCandidate> CreateClassificationCandidateDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Optional<float> confidence = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
+    const char *text = nullptr) {
     auto text__ = text ? _fbb.CreateString(text) : 0;
     return open_perception_kit::metadata::CreateClassificationCandidate(
-        _fbb, confidence, class_id, text__, x, y, w, h);
+        _fbb, confidence, class_id, text__);
 }
 
 ::flatbuffers::Offset<ClassificationCandidate>
@@ -189,6 +171,10 @@ struct ClassificationT : public ::flatbuffers::NativeTable {
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
     std::vector<std::unique_ptr<open_perception_kit::metadata::ClassificationCandidateT>>
         candidates{};
+    std::string label_set{};
+    open_perception_kit::metadata::ClassificationKind kind =
+        open_perception_kit::metadata::ClassificationKind::Unspecified;
+    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt;
     ClassificationT() = default;
     ClassificationT(const ClassificationT &o);
     ClassificationT(ClassificationT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -200,7 +186,10 @@ struct Classification FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     typedef ClassificationBuilder Builder;
     enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
         VT_OBJECT = 4,
-        VT_CANDIDATES = 6
+        VT_CANDIDATES = 6,
+        VT_LABEL_SET = 8,
+        VT_KIND = 10,
+        VT_SUBJECT_ID = 12
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -212,11 +201,23 @@ struct Classification FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
             ::flatbuffers::Offset<open_perception_kit::metadata::ClassificationCandidate>> *>(
             VT_CANDIDATES);
     }
+    const ::flatbuffers::String *label_set() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_LABEL_SET);
+    }
+    open_perception_kit::metadata::ClassificationKind kind() const {
+        return static_cast<open_perception_kit::metadata::ClassificationKind>(
+            GetField<uint8_t>(VT_KIND, 0));
+    }
+    ::flatbuffers::Optional<uint64_t> subject_id() const {
+        return GetOptional<uint64_t, uint64_t>(VT_SUBJECT_ID);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) && VerifyOffset(verifier, VT_CANDIDATES) &&
                verifier.VerifyVector(candidates()) && verifier.VerifyVectorOfTables(candidates()) &&
-               verifier.EndTable();
+               VerifyOffset(verifier, VT_LABEL_SET) && verifier.VerifyString(label_set()) &&
+               VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+               VerifyField<uint64_t>(verifier, VT_SUBJECT_ID, 8) && verifier.EndTable();
     }
     ClassificationT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(ClassificationT *_o,
@@ -238,6 +239,15 @@ struct ClassificationBuilder {
                             open_perception_kit::metadata::ClassificationCandidate>>> candidates) {
         fbb_.AddOffset(Classification::VT_CANDIDATES, candidates);
     }
+    void add_label_set(::flatbuffers::Offset<::flatbuffers::String> label_set) {
+        fbb_.AddOffset(Classification::VT_LABEL_SET, label_set);
+    }
+    void add_kind(open_perception_kit::metadata::ClassificationKind kind) {
+        fbb_.AddElement<uint8_t>(Classification::VT_KIND, static_cast<uint8_t>(kind), 0);
+    }
+    void add_subject_id(uint64_t subject_id) {
+        fbb_.AddElement<uint64_t>(Classification::VT_SUBJECT_ID, subject_id);
+    }
     explicit ClassificationBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -253,10 +263,19 @@ inline ::flatbuffers::Offset<Classification> CreateClassification(
     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<
         ::flatbuffers::Offset<open_perception_kit::metadata::ClassificationCandidate>>> candidates =
-        0) {
+        0,
+    ::flatbuffers::Offset<::flatbuffers::String> label_set = 0,
+    open_perception_kit::metadata::ClassificationKind kind =
+        open_perception_kit::metadata::ClassificationKind::Unspecified,
+    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt) {
     ClassificationBuilder builder_(_fbb);
+    if (subject_id) {
+        builder_.add_subject_id(*subject_id);
+    }
+    builder_.add_label_set(label_set);
     builder_.add_candidates(candidates);
     builder_.add_object(object);
+    builder_.add_kind(kind);
     return builder_.Finish();
 }
 
@@ -264,102 +283,25 @@ inline ::flatbuffers::Offset<Classification> CreateClassificationDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
     const std::vector<::flatbuffers::Offset<open_perception_kit::metadata::ClassificationCandidate>>
-        *candidates = nullptr) {
+        *candidates = nullptr,
+    const char *label_set = nullptr,
+    open_perception_kit::metadata::ClassificationKind kind =
+        open_perception_kit::metadata::ClassificationKind::Unspecified,
+    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt) {
     auto candidates__ =
         candidates
             ? _fbb.CreateVector<
                   ::flatbuffers::Offset<open_perception_kit::metadata::ClassificationCandidate>>(
                   *candidates)
             : 0;
-    return open_perception_kit::metadata::CreateClassification(_fbb, object, candidates__);
+    auto label_set__ = label_set ? _fbb.CreateString(label_set) : 0;
+    return open_perception_kit::metadata::CreateClassification(
+        _fbb, object, candidates__, label_set__, kind, subject_id);
 }
 
 ::flatbuffers::Offset<Classification>
 CreateClassification(::flatbuffers::FlatBufferBuilder &_fbb,
                      const ClassificationT *_o,
-                     const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct PersonPresenceT : public ::flatbuffers::NativeTable {
-    typedef PersonPresence TableType;
-    std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
-    float yes_confidence = 0.0f;
-    float no_confidence = 0.0f;
-    PersonPresenceT() = default;
-    PersonPresenceT(const PersonPresenceT &o);
-    PersonPresenceT(PersonPresenceT &&) FLATBUFFERS_NOEXCEPT = default;
-    PersonPresenceT &operator=(PersonPresenceT o) FLATBUFFERS_NOEXCEPT;
-};
-
-struct PersonPresence FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-    typedef PersonPresenceT NativeTableType;
-    typedef PersonPresenceBuilder Builder;
-    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-        VT_OBJECT = 4,
-        VT_YES_CONFIDENCE = 6,
-        VT_NO_CONFIDENCE = 8
-    };
-    const open_perception_kit::metadata::ObjectMeta *object() const {
-        return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
-    }
-    float yes_confidence() const {
-        return GetField<float>(VT_YES_CONFIDENCE, 0.0f);
-    }
-    float no_confidence() const {
-        return GetField<float>(VT_NO_CONFIDENCE, 0.0f);
-    }
-    bool Verify(::flatbuffers::Verifier &verifier) const {
-        return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
-               verifier.VerifyTable(object()) &&
-               VerifyField<float>(verifier, VT_YES_CONFIDENCE, 4) &&
-               VerifyField<float>(verifier, VT_NO_CONFIDENCE, 4) && verifier.EndTable();
-    }
-    PersonPresenceT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
-    void UnPackTo(PersonPresenceT *_o,
-                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
-    static ::flatbuffers::Offset<PersonPresence>
-    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
-         const PersonPresenceT *_o,
-         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
-};
-
-struct PersonPresenceBuilder {
-    typedef PersonPresence Table;
-    ::flatbuffers::FlatBufferBuilder &fbb_;
-    ::flatbuffers::uoffset_t start_;
-    void add_object(::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object) {
-        fbb_.AddOffset(PersonPresence::VT_OBJECT, object);
-    }
-    void add_yes_confidence(float yes_confidence) {
-        fbb_.AddElement<float>(PersonPresence::VT_YES_CONFIDENCE, yes_confidence, 0.0f);
-    }
-    void add_no_confidence(float no_confidence) {
-        fbb_.AddElement<float>(PersonPresence::VT_NO_CONFIDENCE, no_confidence, 0.0f);
-    }
-    explicit PersonPresenceBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
-        start_ = fbb_.StartTable();
-    }
-    ::flatbuffers::Offset<PersonPresence> Finish() {
-        const auto end = fbb_.EndTable(start_);
-        auto o = ::flatbuffers::Offset<PersonPresence>(end);
-        return o;
-    }
-};
-
-inline ::flatbuffers::Offset<PersonPresence>
-CreatePersonPresence(::flatbuffers::FlatBufferBuilder &_fbb,
-                     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                     float yes_confidence = 0.0f,
-                     float no_confidence = 0.0f) {
-    PersonPresenceBuilder builder_(_fbb);
-    builder_.add_no_confidence(no_confidence);
-    builder_.add_yes_confidence(yes_confidence);
-    builder_.add_object(object);
-    return builder_.Finish();
-}
-
-::flatbuffers::Offset<PersonPresence>
-CreatePersonPresence(::flatbuffers::FlatBufferBuilder &_fbb,
-                     const PersonPresenceT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct ClassificationsT : public ::flatbuffers::NativeTable {
@@ -368,7 +310,6 @@ struct ClassificationsT : public ::flatbuffers::NativeTable {
     uint16_t schema_minor = 0;
     std::unique_ptr<open_perception_kit::metadata::LayerInfoT> layer{};
     std::vector<std::unique_ptr<open_perception_kit::metadata::ClassificationT>> classifications{};
-    std::vector<std::unique_ptr<open_perception_kit::metadata::PersonPresenceT>> person_presence{};
     ClassificationsT() = default;
     ClassificationsT(const ClassificationsT &o);
     ClassificationsT(ClassificationsT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -382,8 +323,7 @@ struct Classifications FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         VT_SCHEMA_MAJOR = 4,
         VT_SCHEMA_MINOR = 6,
         VT_LAYER = 8,
-        VT_CLASSIFICATIONS = 10,
-        VT_PERSON_PRESENCE = 12
+        VT_CLASSIFICATIONS = 10
     };
     uint16_t schema_major() const {
         return GetField<uint16_t>(VT_SCHEMA_MAJOR, 1);
@@ -401,23 +341,13 @@ struct Classifications FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
             ::flatbuffers::Offset<open_perception_kit::metadata::Classification>> *>(
             VT_CLASSIFICATIONS);
     }
-    const ::flatbuffers::Vector<
-        ::flatbuffers::Offset<open_perception_kit::metadata::PersonPresence>> *
-    person_presence() const {
-        return GetPointer<const ::flatbuffers::Vector<
-            ::flatbuffers::Offset<open_perception_kit::metadata::PersonPresence>> *>(
-            VT_PERSON_PRESENCE);
-    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyField<uint16_t>(verifier, VT_SCHEMA_MAJOR, 2) &&
                VerifyField<uint16_t>(verifier, VT_SCHEMA_MINOR, 2) &&
                VerifyOffset(verifier, VT_LAYER) && verifier.VerifyTable(layer()) &&
                VerifyOffset(verifier, VT_CLASSIFICATIONS) &&
                verifier.VerifyVector(classifications()) &&
-               verifier.VerifyVectorOfTables(classifications()) &&
-               VerifyOffset(verifier, VT_PERSON_PRESENCE) &&
-               verifier.VerifyVector(person_presence()) &&
-               verifier.VerifyVectorOfTables(person_presence()) && verifier.EndTable();
+               verifier.VerifyVectorOfTables(classifications()) && verifier.EndTable();
     }
     ClassificationsT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(ClassificationsT *_o,
@@ -445,10 +375,6 @@ struct ClassificationsBuilder {
                                  open_perception_kit::metadata::Classification>>> classifications) {
         fbb_.AddOffset(Classifications::VT_CLASSIFICATIONS, classifications);
     }
-    void add_person_presence(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<
-                                 open_perception_kit::metadata::PersonPresence>>> person_presence) {
-        fbb_.AddOffset(Classifications::VT_PERSON_PRESENCE, person_presence);
-    }
     explicit ClassificationsBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -464,13 +390,10 @@ inline ::flatbuffers::Offset<Classifications> CreateClassifications(
     uint16_t schema_major = 1,
     uint16_t schema_minor = 0,
     ::flatbuffers::Offset<open_perception_kit::metadata::LayerInfo> layer = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<
-        ::flatbuffers::Offset<open_perception_kit::metadata::Classification>>> classifications = 0,
     ::flatbuffers::Offset<
-        ::flatbuffers::Vector<::flatbuffers::Offset<open_perception_kit::metadata::PersonPresence>>>
-        person_presence = 0) {
+        ::flatbuffers::Vector<::flatbuffers::Offset<open_perception_kit::metadata::Classification>>>
+        classifications = 0) {
     ClassificationsBuilder builder_(_fbb);
-    builder_.add_person_presence(person_presence);
     builder_.add_classifications(classifications);
     builder_.add_layer(layer);
     builder_.add_schema_minor(schema_minor);
@@ -484,21 +407,14 @@ inline ::flatbuffers::Offset<Classifications> CreateClassificationsDirect(
     uint16_t schema_minor = 0,
     ::flatbuffers::Offset<open_perception_kit::metadata::LayerInfo> layer = 0,
     const std::vector<::flatbuffers::Offset<open_perception_kit::metadata::Classification>>
-        *classifications = nullptr,
-    const std::vector<::flatbuffers::Offset<open_perception_kit::metadata::PersonPresence>>
-        *person_presence = nullptr) {
+        *classifications = nullptr) {
     auto classifications__ =
         classifications ? _fbb.CreateVector<
                               ::flatbuffers::Offset<open_perception_kit::metadata::Classification>>(
                               *classifications)
                         : 0;
-    auto person_presence__ =
-        person_presence ? _fbb.CreateVector<
-                              ::flatbuffers::Offset<open_perception_kit::metadata::PersonPresence>>(
-                              *person_presence)
-                        : 0;
     return open_perception_kit::metadata::CreateClassifications(
-        _fbb, schema_major, schema_minor, layer, classifications__, person_presence__);
+        _fbb, schema_major, schema_minor, layer, classifications__);
 }
 
 ::flatbuffers::Offset<Classifications>
@@ -531,22 +447,6 @@ ClassificationCandidate::UnPackTo(ClassificationCandidateT *_o,
         if (_e)
             _o->text = _e->str();
     }
-    {
-        auto _e = x();
-        _o->x = _e;
-    }
-    {
-        auto _e = y();
-        _o->y = _e;
-    }
-    {
-        auto _e = w();
-        _o->w = _e;
-    }
-    {
-        auto _e = h();
-        _o->h = _e;
-    }
 }
 
 inline ::flatbuffers::Offset<ClassificationCandidate>
@@ -571,16 +471,13 @@ CreateClassificationCandidate(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _confidence = _o->confidence;
     auto _class_id = _o->class_id;
     auto _text = _o->text.empty() ? 0 : _fbb.CreateString(_o->text);
-    auto _x = _o->x;
-    auto _y = _o->y;
-    auto _w = _o->w;
-    auto _h = _o->h;
     return open_perception_kit::metadata::CreateClassificationCandidate(
-        _fbb, _confidence, _class_id, _text, _x, _y, _w, _h);
+        _fbb, _confidence, _class_id, _text);
 }
 
 inline ClassificationT::ClassificationT(const ClassificationT &o)
-    : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr) {
+    : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
+      label_set(o.label_set), kind(o.kind), subject_id(o.subject_id) {
     candidates.reserve(o.candidates.size());
     for (const auto &candidates_ : o.candidates) {
         candidates.emplace_back(
@@ -593,6 +490,9 @@ inline ClassificationT::ClassificationT(const ClassificationT &o)
 inline ClassificationT &ClassificationT::operator=(ClassificationT o) FLATBUFFERS_NOEXCEPT {
     std::swap(object, o.object);
     std::swap(candidates, o.candidates);
+    std::swap(label_set, o.label_set);
+    std::swap(kind, o.kind);
+    std::swap(subject_id, o.subject_id);
     return *this;
 }
 
@@ -637,6 +537,19 @@ inline void Classification::UnPackTo(ClassificationT *_o,
             _o->candidates.resize(0);
         }
     }
+    {
+        auto _e = label_set();
+        if (_e)
+            _o->label_set = _e->str();
+    }
+    {
+        auto _e = kind();
+        _o->kind = _e;
+    }
+    {
+        auto _e = subject_id();
+        _o->subject_id = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<Classification>
@@ -670,78 +583,11 @@ CreateClassification(::flatbuffers::FlatBufferBuilder &_fbb,
                   },
                   &_va)
             : 0;
-    return open_perception_kit::metadata::CreateClassification(_fbb, _object, _candidates);
-}
-
-inline PersonPresenceT::PersonPresenceT(const PersonPresenceT &o)
-    : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
-      yes_confidence(o.yes_confidence), no_confidence(o.no_confidence) {}
-
-inline PersonPresenceT &PersonPresenceT::operator=(PersonPresenceT o) FLATBUFFERS_NOEXCEPT {
-    std::swap(object, o.object);
-    std::swap(yes_confidence, o.yes_confidence);
-    std::swap(no_confidence, o.no_confidence);
-    return *this;
-}
-
-inline PersonPresenceT *
-PersonPresence::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
-    auto _o = std::unique_ptr<PersonPresenceT>(new PersonPresenceT());
-    UnPackTo(_o.get(), _resolver);
-    return _o.release();
-}
-
-inline void PersonPresence::UnPackTo(PersonPresenceT *_o,
-                                     const ::flatbuffers::resolver_function_t *_resolver) const {
-    (void)_o;
-    (void)_resolver;
-    {
-        auto _e = object();
-        if (_e) {
-            if (_o->object) {
-                _e->UnPackTo(_o->object.get(), _resolver);
-            } else {
-                _o->object = std::unique_ptr<open_perception_kit::metadata::ObjectMetaT>(
-                    _e->UnPack(_resolver));
-            }
-        } else if (_o->object) {
-            _o->object.reset();
-        }
-    }
-    {
-        auto _e = yes_confidence();
-        _o->yes_confidence = _e;
-    }
-    {
-        auto _e = no_confidence();
-        _o->no_confidence = _e;
-    }
-}
-
-inline ::flatbuffers::Offset<PersonPresence>
-PersonPresence::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
-                     const PersonPresenceT *_o,
-                     const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreatePersonPresence(_fbb, _o, _rehasher);
-}
-
-inline ::flatbuffers::Offset<PersonPresence>
-CreatePersonPresence(::flatbuffers::FlatBufferBuilder &_fbb,
-                     const PersonPresenceT *_o,
-                     const ::flatbuffers::rehasher_function_t *_rehasher) {
-    (void)_rehasher;
-    (void)_o;
-    struct _VectorArgs {
-        ::flatbuffers::FlatBufferBuilder *__fbb;
-        const PersonPresenceT *__o;
-        const ::flatbuffers::rehasher_function_t *__rehasher;
-    } _va = {&_fbb, _o, _rehasher};
-    (void)_va;
-    auto _object = _o->object ? CreateObjectMeta(_fbb, _o->object.get(), _rehasher) : 0;
-    auto _yes_confidence = _o->yes_confidence;
-    auto _no_confidence = _o->no_confidence;
-    return open_perception_kit::metadata::CreatePersonPresence(
-        _fbb, _object, _yes_confidence, _no_confidence);
+    auto _label_set = _o->label_set.empty() ? 0 : _fbb.CreateString(_o->label_set);
+    auto _kind = _o->kind;
+    auto _subject_id = _o->subject_id;
+    return open_perception_kit::metadata::CreateClassification(
+        _fbb, _object, _candidates, _label_set, _kind, _subject_id);
 }
 
 inline ClassificationsT::ClassificationsT(const ClassificationsT &o)
@@ -754,13 +600,6 @@ inline ClassificationsT::ClassificationsT(const ClassificationsT &o)
                 ? new open_perception_kit::metadata::ClassificationT(*classifications_)
                 : nullptr);
     }
-    person_presence.reserve(o.person_presence.size());
-    for (const auto &person_presence_ : o.person_presence) {
-        person_presence.emplace_back(
-            (person_presence_)
-                ? new open_perception_kit::metadata::PersonPresenceT(*person_presence_)
-                : nullptr);
-    }
 }
 
 inline ClassificationsT &ClassificationsT::operator=(ClassificationsT o) FLATBUFFERS_NOEXCEPT {
@@ -768,7 +607,6 @@ inline ClassificationsT &ClassificationsT::operator=(ClassificationsT o) FLATBUF
     std::swap(schema_minor, o.schema_minor);
     std::swap(layer, o.layer);
     std::swap(classifications, o.classifications);
-    std::swap(person_presence, o.person_presence);
     return *this;
 }
 
@@ -821,23 +659,6 @@ inline void Classifications::UnPackTo(ClassificationsT *_o,
             _o->classifications.resize(0);
         }
     }
-    {
-        auto _e = person_presence();
-        if (_e) {
-            _o->person_presence.resize(_e->size());
-            for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) {
-                if (_o->person_presence[_i]) {
-                    _e->Get(_i)->UnPackTo(_o->person_presence[_i].get(), _resolver);
-                } else {
-                    _o->person_presence[_i] =
-                        std::unique_ptr<open_perception_kit::metadata::PersonPresenceT>(
-                            _e->Get(_i)->UnPack(_resolver));
-                }
-            }
-        } else {
-            _o->person_presence.resize(0);
-        }
-    }
 }
 
 inline ::flatbuffers::Offset<Classifications>
@@ -873,19 +694,8 @@ CreateClassifications(::flatbuffers::FlatBufferBuilder &_fbb,
                   },
                   &_va)
             : 0;
-    auto _person_presence =
-        _o->person_presence.size()
-            ? _fbb.CreateVector<
-                  ::flatbuffers::Offset<open_perception_kit::metadata::PersonPresence>>(
-                  _o->person_presence.size(),
-                  [](size_t i, _VectorArgs *__va) {
-                      return CreatePersonPresence(
-                          *__va->__fbb, __va->__o->person_presence[i].get(), __va->__rehasher);
-                  },
-                  &_va)
-            : 0;
     return open_perception_kit::metadata::CreateClassifications(
-        _fbb, _schema_major, _schema_minor, _layer, _classifications, _person_presence);
+        _fbb, _schema_major, _schema_minor, _layer, _classifications);
 }
 
 inline const open_perception_kit::metadata::Classifications *GetClassifications(const void *buf) {

@@ -113,6 +113,26 @@ bool validImageSpace(const metadata::ImageSpaceT *const space) noexcept {
            space->origin_y + space->extent_height <= space->height;
 }
 
+const metadata::BoundingBoxT *findSubjectBox(const FrameResults &frameResults, const uint64_t id) {
+    if (id == 0U)
+        return nullptr;
+    const metadata::BoundingBoxT *box = nullptr;
+    std::size_t count = 0U;
+    const auto collect = [&box, &count, id](const auto &items) {
+        for (const auto &item : items) {
+            if (item && item->object && item->object->id == id) {
+                ++count;
+                box = item->box.get();
+            }
+        }
+    };
+    frameResults.for_each<metadata::BoxDetectionsT>(
+        [&collect](const auto &p) { collect(p.detections); });
+    frameResults.for_each<metadata::ObjectTracksT>(
+        [&collect](const auto &p) { collect(p.tracks); });
+    return count == 1U ? box : nullptr;
+}
+
 std::optional<std::array<double, 4>> projectBoundingBox(const metadata::BoundingBoxT &box,
                                                         const uint32_t targetWidth,
                                                         const uint32_t targetHeight) noexcept {

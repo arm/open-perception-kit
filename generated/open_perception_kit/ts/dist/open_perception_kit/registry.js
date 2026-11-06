@@ -18,12 +18,14 @@
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import { ByteBuffer } from 'flatbuffers';
 import { BoxDetections as BoxDetections_3248104387212218840, BoxDetectionsT as BoxDetectionsT_3248104387212218840 } from './fb/open-perception-kit/metadata/box-detections.js';
+import { CameraContacts as CameraContacts_7630654510173219138, CameraContactsT as CameraContactsT_7630654510173219138 } from './fb/open-perception-kit/metadata/camera-contacts.js';
 import { Classifications as Classifications_3375056508603945320, ClassificationsT as ClassificationsT_3375056508603945320 } from './fb/open-perception-kit/metadata/classifications.js';
 import { FrameContext as FrameContext_5246681475592864076, FrameContextT as FrameContextT_5246681475592864076 } from './fb/open-perception-kit/metadata/frame-context.js';
 import { InstanceSegmentationMasks as InstanceSegmentationMasks_7634499802271603959, InstanceSegmentationMasksT as InstanceSegmentationMasksT_7634499802271603959 } from './fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import { ObjectEmbeddings as ObjectEmbeddings_6121378805478677067, ObjectEmbeddingsT as ObjectEmbeddingsT_6121378805478677067 } from './fb/open-perception-kit/metadata/object-embeddings.js';
 import { ObjectTracks as ObjectTracks_5316059591418463553, ObjectTracksT as ObjectTracksT_5316059591418463553 } from './fb/open-perception-kit/metadata/object-tracks.js';
 import { PerformanceMeasurements as PerformanceMeasurements_2630163151625760217, PerformanceMeasurementsT as PerformanceMeasurementsT_2630163151625760217 } from './fb/open-perception-kit/metadata/performance-measurements.js';
+import { PersonPresences as PersonPresences_7550522492754457054, PersonPresencesT as PersonPresencesT_7550522492754457054 } from './fb/open-perception-kit/metadata/person-presences.js';
 import { PoseEstimations as PoseEstimations_5268014742632501193, PoseEstimationsT as PoseEstimationsT_5268014742632501193 } from './fb/open-perception-kit/metadata/pose-estimations.js';
 import { SegmentationMasks as SegmentationMasks_3128408959875976772, SegmentationMasksT as SegmentationMasksT_3128408959875976772 } from './fb/open-perception-kit/metadata/segmentation-masks.js';
 import { SemanticSegmentationMasks as SemanticSegmentationMasks_133049182594848948, SemanticSegmentationMasksT as SemanticSegmentationMasksT_133049182594848948 } from './fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
@@ -32,6 +34,8 @@ import { TurnDetections as TurnDetections_7194963704333257544, TurnDetectionsT a
 import { VoiceActivityDetections as VoiceActivityDetections_4750671262425495264, VoiceActivityDetectionsT as VoiceActivityDetectionsT_4750671262425495264 } from './fb/open-perception-kit/metadata/voice-activity-detections.js';
 const decode_3248104387212218840 = (blob) => BoxDetections_3248104387212218840.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
 const verify_3248104387212218840 = (blob) => BoxDetections_3248104387212218840.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_7630654510173219138 = (blob) => CameraContacts_7630654510173219138.getRootAsCameraContacts(new ByteBuffer(blob)).unpack();
+const verify_7630654510173219138 = (blob) => CameraContacts_7630654510173219138.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_3375056508603945320 = (blob) => Classifications_3375056508603945320.getRootAsClassifications(new ByteBuffer(blob)).unpack();
 const verify_3375056508603945320 = (blob) => Classifications_3375056508603945320.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_5246681475592864076 = (blob) => FrameContext_5246681475592864076.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
@@ -44,6 +48,8 @@ const decode_5316059591418463553 = (blob) => ObjectTracks_5316059591418463553.ge
 const verify_5316059591418463553 = (blob) => ObjectTracks_5316059591418463553.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_2630163151625760217 = (blob) => PerformanceMeasurements_2630163151625760217.getRootAsPerformanceMeasurements(new ByteBuffer(blob)).unpack();
 const verify_2630163151625760217 = (blob) => PerformanceMeasurements_2630163151625760217.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_7550522492754457054 = (blob) => PersonPresences_7550522492754457054.getRootAsPersonPresences(new ByteBuffer(blob)).unpack();
+const verify_7550522492754457054 = (blob) => PersonPresences_7550522492754457054.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_5268014742632501193 = (blob) => PoseEstimations_5268014742632501193.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
 const verify_5268014742632501193 = (blob) => PoseEstimations_5268014742632501193.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_3128408959875976772 = (blob) => SegmentationMasks_3128408959875976772.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
@@ -64,6 +70,14 @@ export const _TYPE_REGISTRY = new Map([
             file_identifier: 'BDET',
             decode: decode_3248104387212218840,
             verify: verify_3248104387212218840,
+        }],
+    [7630654510173219138n, {
+            name: 'open_perception_kit::metadata::CameraContacts',
+            root_type: 'CameraContacts',
+            qualified_root_type: 'open_perception_kit.metadata.CameraContacts',
+            file_identifier: 'CCON',
+            decode: decode_7630654510173219138,
+            verify: verify_7630654510173219138,
         }],
     [3375056508603945320n, {
             name: 'open_perception_kit::metadata::Classifications',
@@ -112,6 +126,14 @@ export const _TYPE_REGISTRY = new Map([
             file_identifier: 'PMET',
             decode: decode_2630163151625760217,
             verify: verify_2630163151625760217,
+        }],
+    [7550522492754457054n, {
+            name: 'open_perception_kit::metadata::PersonPresences',
+            root_type: 'PersonPresences',
+            qualified_root_type: 'open_perception_kit.metadata.PersonPresences',
+            file_identifier: 'PPRS',
+            decode: decode_7550522492754457054,
+            verify: verify_7550522492754457054,
         }],
     [5268014742632501193n, {
             name: 'open_perception_kit::metadata::PoseEstimations',
@@ -164,12 +186,14 @@ export const _TYPE_REGISTRY = new Map([
 ]);
 export const _CLASS_TO_ID = new Map([
     [BoxDetectionsT_3248104387212218840, 3248104387212218840n],
+    [CameraContactsT_7630654510173219138, 7630654510173219138n],
     [ClassificationsT_3375056508603945320, 3375056508603945320n],
     [FrameContextT_5246681475592864076, 5246681475592864076n],
     [InstanceSegmentationMasksT_7634499802271603959, 7634499802271603959n],
     [ObjectEmbeddingsT_6121378805478677067, 6121378805478677067n],
     [ObjectTracksT_5316059591418463553, 5316059591418463553n],
     [PerformanceMeasurementsT_2630163151625760217, 2630163151625760217n],
+    [PersonPresencesT_7550522492754457054, 7550522492754457054n],
     [PoseEstimationsT_5268014742632501193, 5268014742632501193n],
     [SegmentationMasksT_3128408959875976772, 3128408959875976772n],
     [SemanticSegmentationMasksT_133049182594848948, 133049182594848948n],

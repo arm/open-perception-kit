@@ -361,6 +361,7 @@ struct KeywordFixture {
         attributes.set("activation", "softmax");
         attributes.set("confidenceThreshold", 0.6);
         attributes.setArray("labels", {"open", nullptr, "close", "hold"});
+        attributes.set("labelSet", "test:commands-v1");
         input.tensors[1] = &tensor;
         input.inferenceInfo.modelName = "synthetic-command-scores";
         input.inferenceInfo.inferElementId = "commands";
@@ -387,11 +388,16 @@ TEST(KeywordClassificationParser, UsesArbitraryLabelsAndTheSelectedOutput) {
             EXPECT_EQ(payload.layer->producer->instance_id, "commands/post");
             EXPECT_EQ(payload.layer->producer->implementation, "KeywordClassificationParser");
             ASSERT_EQ(payload.classifications.size(), 1u);
+            EXPECT_EQ(payload.classifications[0]->kind,
+                      open_perception_kit::metadata::ClassificationKind::Categorical);
+            EXPECT_EQ(payload.classifications[0]->label_set, "test:commands-v1");
+            EXPECT_EQ(payload.classifications[0]->subject_id, 29u);
             ASSERT_EQ(payload.classifications[0]->candidates.size(), 1u);
             const auto &candidate = *payload.classifications[0]->candidates[0];
             EXPECT_EQ(candidate.class_id, winner);
             EXPECT_EQ(candidate.text, labels[winner]);
-            EXPECT_NEAR(candidate.confidence, 1.0 / (1.0 + 3.0 * std::exp(-10.0)), 1e-6);
+            EXPECT_NEAR(
+                candidate.confidence.value_or(-1), 1.0 / (1.0 + 3.0 * std::exp(-10.0)), 1e-6);
         });
     }
 }
@@ -408,7 +414,7 @@ TEST(KeywordClassificationParser, KeepsIgnoredClassesInTheCompetitionAndNormaliz
     ASSERT_EQ(tied.size(), 1u);
     tied.for_each<KeywordPayload>([](const auto &payload) {
         EXPECT_EQ(payload.classifications[0]->candidates[0]->class_id, 0);
-        EXPECT_FLOAT_EQ(payload.classifications[0]->candidates[0]->confidence, 0.25f);
+        EXPECT_FLOAT_EQ(payload.classifications[0]->candidates[0]->confidence.value_or(-1), 0.25f);
     });
     fixture.attributes.set("confidenceThreshold", 0.0);
     fixture.scores = {0, 5, 4, 0};
@@ -435,7 +441,7 @@ TEST(KeywordClassificationParser, ReadsConfiguredProbabilitiesWithoutRenormalizi
         const auto &candidate = *payload.classifications[0]->candidates[0];
         EXPECT_EQ(candidate.class_id, 1);
         EXPECT_EQ(candidate.text, "standby");
-        EXPECT_FLOAT_EQ(candidate.confidence, 0.7f);
+        EXPECT_FLOAT_EQ(candidate.confidence.value_or(-1), 0.7f);
     });
     fixture.attributes.setArray("labels", {"single-command"});
     fixture.attributes.set("confidenceThreshold", 0.1);
@@ -450,7 +456,7 @@ TEST(KeywordClassificationParser, RejectsMissingOrInvalidConfiguration) {
     KeywordFixture fixture;
     const auto complete = fixture.attributes.cloneDeep();
     for (const auto *const name :
-         {"outputTensorIndex", "activation", "confidenceThreshold", "labels"}) {
+         {"outputTensorIndex", "activation", "confidenceThreshold", "labels", "labelSet"}) {
         SCOPED_TRACE(name);
         fixture.attributes = complete.cloneDeep();
         fixture.attributes.raw().erase(name);
@@ -468,7 +474,9 @@ TEST(KeywordClassificationParser, RejectsMissingOrInvalidConfiguration) {
          {"confidenceThreshold", 1.1},
          {"confidenceThreshold", "0.6"},
          {"confidenceThreshold", std::numeric_limits<double>::quiet_NaN()},
-         {"labels", "open"}});
+         {"labels", "open"},
+         {"labelSet", ""},
+         {"labelSet", 1}});
     for (const auto &[name, value] : invalidAttributes) {
         SCOPED_TRACE(name);
         fixture.attributes = complete.cloneDeep();

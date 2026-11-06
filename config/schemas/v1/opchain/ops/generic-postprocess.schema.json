@@ -612,11 +612,16 @@
         "outputTensorIndex",
         "activation",
         "confidenceThreshold",
-        "labels"
+        "labels",
+        "labelSet"
       ],
       "properties": {
         "parser": {
           "const": "KeywordClassificationParser"
+        },
+        "labelSet": {
+          "type": "string",
+          "minLength": 1
         },
         "outputTensorIndex": {
           "type": "integer",

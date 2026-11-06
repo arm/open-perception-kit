@@ -17,6 +17,9 @@ from typing import Tuple, Optional
 
 from . import auxiliary as aux
 
+# Maximum accepted IoU distance for a corresponding spatial observation.
+GEOMETRY_THRESHOLD = 0.01
+
 
 # normalize rectangle fields to [x0,y0,x1,y1] in relative coordinates (0..1)
 

@@ -53,6 +53,10 @@ void printTypedPayloadText(const open_perception_kit::container::envelope &frame
     printPayloadBranch<open_perception_kit::metadata::ObjectTracksT>(frameResults, printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::ClassificationsT>(frameResults,
                                                                         printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::CameraContactsT>(frameResults,
+                                                                       printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::PersonPresencesT>(frameResults,
+                                                                        printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::PoseEstimationsT>(frameResults,
                                                                         printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::SegmentationMasksT>(frameResults,

@@ -19,7 +19,6 @@
 import * as flatbuffers from 'flatbuffers';
 import { Classification } from '../../open-perception-kit/metadata/classification.js';
 import { LayerInfo } from '../../open-perception-kit/metadata/layer-info.js';
-import { PersonPresence } from '../../open-perception-kit/metadata/person-presence.js';
 export class Classifications {
     constructor() {
         this.bb = null;
@@ -60,16 +59,8 @@ export class Classifications {
         const offset = this.bb.__offset(this.bb_pos, 10);
         return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
     }
-    personPresence(index, obj) {
-        const offset = this.bb.__offset(this.bb_pos, 12);
-        return offset ? (obj || new PersonPresence()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
-    }
-    personPresenceLength() {
-        const offset = this.bb.__offset(this.bb_pos, 12);
-        return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
-    }
     static startClassifications(builder) {
-        builder.startObject(5);
+        builder.startObject(4);
     }
     static addSchemaMajor(builder, schemaMajor) {
         builder.addFieldInt16(0, schemaMajor, 1);
@@ -93,19 +84,6 @@ export class Classifications {
     static startClassificationsVector(builder, numElems) {
         builder.startVector(4, numElems, 4);
     }
-    static addPersonPresence(builder, personPresenceOffset) {
-        builder.addFieldOffset(4, personPresenceOffset, 0);
-    }
-    static createPersonPresenceVector(builder, data) {
-        builder.startVector(4, data.length, 4);
-        for (let i = data.length - 1; i >= 0; i--) {
-            builder.addOffset(data[i]);
-        }
-        return builder.endVector();
-    }
-    static startPersonPresenceVector(builder, numElems) {
-        builder.startVector(4, numElems, 4);
-    }
     static endClassifications(builder) {
         const offset = builder.endObject();
         return offset;
@@ -117,34 +95,30 @@ export class Classifications {
         builder.finish(offset, 'CLSF', true);
     }
     unpack() {
-        return new ClassificationsT(this.schemaMajor(), this.schemaMinor(), (this.layer() !== null ? this.layer().unpack() : null), this.bb.createObjList(this.classifications.bind(this), this.classificationsLength()), this.bb.createObjList(this.personPresence.bind(this), this.personPresenceLength()));
+        return new ClassificationsT(this.schemaMajor(), this.schemaMinor(), (this.layer() !== null ? this.layer().unpack() : null), this.bb.createObjList(this.classifications.bind(this), this.classificationsLength()));
     }
     unpackTo(_o) {
         _o.schemaMajor = this.schemaMajor();
         _o.schemaMinor = this.schemaMinor();
         _o.layer = (this.layer() !== null ? this.layer().unpack() : null);
         _o.classifications = this.bb.createObjList(this.classifications.bind(this), this.classificationsLength());
-        _o.personPresence = this.bb.createObjList(this.personPresence.bind(this), this.personPresenceLength());
     }
 }
 export class ClassificationsT {
-    constructor(schemaMajor = 1, schemaMinor = 0, layer = null, classifications = [], personPresence = []) {
+    constructor(schemaMajor = 1, schemaMinor = 0, layer = null, classifications = []) {
         this.schemaMajor = schemaMajor;
         this.schemaMinor = schemaMinor;
         this.layer = layer;
         this.classifications = classifications;
-        this.personPresence = personPresence;
     }
     pack(builder) {
         const layer = (this.layer !== null ? this.layer.pack(builder) : 0);
         const classifications = Classifications.createClassificationsVector(builder, builder.createObjectOffsetList(this.classifications));
-        const personPresence = Classifications.createPersonPresenceVector(builder, builder.createObjectOffsetList(this.personPresence));
         Classifications.startClassifications(builder);
         Classifications.addSchemaMajor(builder, this.schemaMajor);
         Classifications.addSchemaMinor(builder, this.schemaMinor);
         Classifications.addLayer(builder, layer);
         Classifications.addClassifications(builder, classifications);
-        Classifications.addPersonPresence(builder, personPresence);
         return Classifications.endClassifications(builder);
     }
 }

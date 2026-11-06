@@ -95,7 +95,9 @@ The currently generated payload roots are:
 
 - `FrameContext` for source-frame dimensions and timing
 - `BoxDetections` for localized detections
-- `Classifications` for classification candidates and person-presence output
+- `Classifications` for ordered classification candidates with optional label-set identity
+- `CameraContacts` for explicit contact decisions and optional diagnostic model indices
+- `PersonPresences` for person/no-person scores
 - `PoseEstimations` for yaw and pitch estimates
 - `SegmentationMasks` for compositing masks and alpha mattes
 - `SemanticSegmentationMasks` for per-pixel class maps
@@ -183,6 +185,52 @@ basis rather than the derivation parent's dimensions.
 SDK 1.0 intentionally changes the interpretation of previously misrendered
 normalized/crop-local boxes and comparisons. Correct full-frame pixel pipelines
 retain their placement; the same generated snapshot is required throughout.
+
+## Classification representation
+
+`Classification.label_set` names the vocabulary in which candidate `class_id`
+values have meaning. The built-in ImageNet parser uses `opk:imagenet-1001`, the
+checked-in index order including background. Categorical comparison requires a
+non-empty label set and a present class ID; display text is not identity.
+Class IDs are optional unsigned values: zero is valid, absence means no identity.
+`Classification.kind` explicitly selects `Categorical` or `RecognizedText`;
+`Unspecified` establishes neither. Recognized text requires an empty label set
+and absent class IDs, and is compared literally. Missing identity fields never
+change a categorical result into recognized text. Candidate order is the existing
+producer ranking. The former `x/y/w/h` fields used for display rank are removed.
+Candidate `text` remains unchanged, including recognized text and Unicode; text
+without a declared vocabulary is not silently turned into a category identity.
+
+Candidate confidence is optional; a supplied value must be finite and in `[0,1]`.
+Consumers preserve invalid values for validation rather than converting them to
+zero. The ImageNet parser reports an error for non-finite logits or invalid softmax
+normalization, independently of valid predictions filtered by its threshold.
+
+Contact and presence observations have their own payload roots. A present
+`CameraContactResult.in_contact` directly states the outcome. Its optional unsigned
+model index is diagnostic only: consumers never reinterpret it using model-specific
+indices. The parser retains its existing configured contact/no-contact mapping.
+An absent result means unavailable; a present false outcome means no contact.
+
+`PersonPresenceResult.person_present` states the decision. Optional `yes_score`
+and `no_score` are raw model outputs, both finite or both absent, not probabilities.
+The existing binary parser preserves score ordering: larger yes-score means person;
+ties mean no person. It does not infer logits versus probabilities or normalize
+unknown values. Non-finite model scores produce an absent result. This changes the
+metadata contract without changing the OpChain input configuration contract.
+
+All three result families carry optional `subject_id` independently of derivation
+`parent_id`. Contact requires a unique box or track; classification and presence
+also accept a video-frame observation. Duplicates are ambiguous before geometry
+validation. Native/browser contact consumers share these rules without content-type
+filters or parent fallback. Plumber compares the corresponding subject source and
+geometry before matching categorical identities, literal text or semantic decisions.
+Reordering observations can match; swapping outcomes between subjects cannot.
+Plumber retains producer component and instance identity in payload groups and
+subject sources. Whole-frame subjects require exactly one addressable video
+frame in each source group; ambiguous multi-frame groups fail comparison rather
+than guessing correspondence from packet-local IDs, order, or image dimensions.
+Empty collections report no observations; unavailable results do not establish matches.
 
 ## Runtime Transport
 

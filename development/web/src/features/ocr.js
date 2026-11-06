@@ -18,6 +18,8 @@
 import {defineFeature, STYLE_CONTROLS} from '../overlay-feature.js';
 import {drawTextChip} from '../overlay-drawing.js';
 import {objectId} from '../overlay-sources.js';
+import {validCandidate} from '../classification-results.js';
+import {ClassificationKind} from '../../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-kind.js';
 
 const resolvedFrames = new WeakMap();
 const labelLayouts = new WeakMap();
@@ -66,7 +68,8 @@ function resolve(result, index) {
     if (isRecognition) {
         const groups = new Map();
         for (const item of items) {
-            const id = objectId(item.data.parentUuid);
+            if (item.data.kind !== ClassificationKind.RecognizedText || item.data.labelSet) { invalid = true; continue; }
+            const id = objectId(item.data.subjectUuid);
             if (!id) { missing = true; continue; }
             if (!groups.has(id)) groups.set(id, []);
             groups.get(id).push(item);
@@ -85,8 +88,7 @@ function resolve(result, index) {
             else if (!Array.isArray(candidates)) invalid = true;
             else if (candidates.length) {
                 const candidate = candidates[0];
-                if (!candidate || typeof candidate.text !== 'string'
-                    || (candidate.confidence !== undefined && !validScore(candidate.confidence))) invalid = true;
+                if (!validCandidate(records[0].data, candidate) || typeof candidate.text !== 'string') invalid = true;
                 else {
                     region.text = displayText(candidate.text);
                     region.recognitionScore = candidate.confidence;

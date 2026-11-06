@@ -326,7 +326,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         const contactCard = get('overlayList').children.at(-1);
         find(contactCard, (element) => element.tag === 'button' && element.textContent === 'Change source…').fire('click');
         setStyle('range', '0.27');
-        const contact = {payloadType: 'Classifications', contentType: 'cameraContact', model: 'contact', detections: []};
+        const contact = {payloadType: 'CameraContacts', contentType: 'cameraContact', model: 'contact', detections: []};
         emit([contact]);
         assert.equal(get('overlayList').children.at(-1), contactCard);
         assert.equal(styleInput('range').value, '0.27');

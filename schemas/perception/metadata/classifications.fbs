@@ -2,25 +2,28 @@ include "common.fbs";
 
 namespace open_perception_kit.metadata;
 
+enum ClassificationKind:ubyte { Unspecified, Categorical, RecognizedText }
+
 table ClassificationCandidate {
-  confidence:float;
-  class_id:int = -1;
+  // Optional finite score in [0,1]. Zero is valid; absence means no score supplied.
+  confidence:float = null;
+  // Optional non-negative identity within Classification.label_set. Zero is valid.
+  class_id:uint = null;
+  // Display label for Categorical, literal content for RecognizedText.
   text:string;
-  x:float;
-  y:float;
-  w:float;
-  h:float;
 }
 
 table Classification {
   object:open_perception_kit.metadata.ObjectMeta;
+  // Producer-defined order, highest-ranked candidate first. Empty means no candidates.
   candidates:[open_perception_kit.metadata.ClassificationCandidate];
-}
-
-table PersonPresence {
-  object:open_perception_kit.metadata.ObjectMeta;
-  yes_confidence:float;
-  no_confidence:float;
+  // Required for Categorical identity; empty for RecognizedText.
+  label_set:string;
+  // Kind is declared, never inferred from absent identity fields or display text.
+  kind:ClassificationKind = Unspecified;
+  // Input observation, independent of derivation. Image consumers resolve a
+  // unique VideoFrameContext, BoxDetection or ObjectTrack in this packet.
+  subject_id:ulong = null;
 }
 
 table Classifications {
@@ -28,7 +31,6 @@ table Classifications {
   schema_minor:ushort = 0;
   layer:open_perception_kit.metadata.LayerInfo;
   classifications:[open_perception_kit.metadata.Classification];
-  person_presence:[open_perception_kit.metadata.PersonPresence];
 }
 
 root_type Classifications;

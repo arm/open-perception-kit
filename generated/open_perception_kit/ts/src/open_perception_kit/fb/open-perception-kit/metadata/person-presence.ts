@@ -21,6 +21,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
+import { PersonPresenceResult, PersonPresenceResultT } from '../../open-perception-kit/metadata/person-presence-result.js';
 
 
 export class PersonPresence implements flatbuffers.IUnpackableObject<PersonPresenceT> {
@@ -46,14 +47,14 @@ object(obj?:ObjectMeta):ObjectMeta|null {
   return offset ? (obj || new ObjectMeta()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-yesConfidence():number {
+result(obj?:PersonPresenceResult):PersonPresenceResult|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+  return offset ? (obj || new PersonPresenceResult()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-noConfidence():number {
+subjectId():bigint|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : null;
 }
 
 static startPersonPresence(builder:flatbuffers.Builder) {
@@ -64,12 +65,12 @@ static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
   builder.addFieldOffset(0, objectOffset, 0);
 }
 
-static addYesConfidence(builder:flatbuffers.Builder, yesConfidence:number) {
-  builder.addFieldFloat32(1, yesConfidence, 0.0);
+static addResult(builder:flatbuffers.Builder, resultOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, resultOffset, 0);
 }
 
-static addNoConfidence(builder:flatbuffers.Builder, noConfidence:number) {
-  builder.addFieldFloat32(2, noConfidence, 0.0);
+static addSubjectId(builder:flatbuffers.Builder, subjectId:bigint) {
+  builder.addFieldInt64(2, subjectId, null);
 }
 
 static endPersonPresence(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -77,45 +78,41 @@ static endPersonPresence(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createPersonPresence(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, yesConfidence:number, noConfidence:number):flatbuffers.Offset {
-  PersonPresence.startPersonPresence(builder);
-  PersonPresence.addObject(builder, objectOffset);
-  PersonPresence.addYesConfidence(builder, yesConfidence);
-  PersonPresence.addNoConfidence(builder, noConfidence);
-  return PersonPresence.endPersonPresence(builder);
-}
 
 unpack(): PersonPresenceT {
   return new PersonPresenceT(
     (this.object() !== null ? this.object()!.unpack() : null),
-    this.yesConfidence(),
-    this.noConfidence()
+    (this.result() !== null ? this.result()!.unpack() : null),
+    this.subjectId()
   );
 }
 
 
 unpackTo(_o: PersonPresenceT): void {
   _o.object = (this.object() !== null ? this.object()!.unpack() : null);
-  _o.yesConfidence = this.yesConfidence();
-  _o.noConfidence = this.noConfidence();
+  _o.result = (this.result() !== null ? this.result()!.unpack() : null);
+  _o.subjectId = this.subjectId();
 }
 }
 
 export class PersonPresenceT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public yesConfidence: number = 0.0,
-  public noConfidence: number = 0.0
+  public result: PersonPresenceResultT|null = null,
+  public subjectId: bigint|null = null
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
+  const result = (this.result !== null ? this.result!.pack(builder) : 0);
 
-  return PersonPresence.createPersonPresence(builder,
-    object,
-    this.yesConfidence,
-    this.noConfidence
-  );
+  PersonPresence.startPersonPresence(builder);
+  PersonPresence.addObject(builder, object);
+  PersonPresence.addResult(builder, result);
+  if (this.subjectId !== null)
+    PersonPresence.addSubjectId(builder, this.subjectId);
+
+  return PersonPresence.endPersonPresence(builder);
 }
 }
