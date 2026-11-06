@@ -144,6 +144,9 @@ test('quick-start plays video and displays an object detection', async ({ page }
     element.readyState >= 2 && element.videoWidth > 0 && element.currentTime > 0
   )).toBe(true);
   await expect(objects.locator('.inference-detection').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Show performance metrics', exact: true }).click();
+  const fpsRow = page.locator('#performanceMetricsBody tr').filter({ hasText: /^Pipeline/ });
+  await expect(fpsRow.locator('td').nth(1)).toHaveText(/^\d+\.\d FPS$/);
   // Overlays are opt-in in the feature manager; exercise the real source picker.
   await page.getByRole('button', { name: 'Overlays', exact: true }).click();
   await page.locator('#addOverlayBtn').click();

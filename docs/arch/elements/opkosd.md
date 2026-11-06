@@ -59,7 +59,7 @@ Supported paths include:
 - `segmentation`: alpha-blended segmentation maps, or background replacement
   when `LayerInfoT::compositingMode` requests it and `bg-image` is configured
 - `trackTrace`: tracker history lines
-- `perfdata`: performance text written by `opkperformance`
+- `PerformanceMeasurements`: numeric measurements from `opkperformance`, formatted for display
 
 UUID parent relationships are used when a rendered result depends on another
 object, such as gaze vectors anchored to face rectangles.

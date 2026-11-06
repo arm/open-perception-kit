@@ -101,12 +101,6 @@ struct PixelBox {
     int height = 0;
 };
 
-struct PerformanceLineParts {
-    std::string_view label;
-    std::string_view value;
-    bool hasSeparator = false;
-};
-
 bool hasContentType(const open_perception_kit::metadata::LayerInfoT *layer,
                     const char *contentType) noexcept {
     return layer != nullptr && layer->content_type == contentType;
@@ -212,48 +206,23 @@ std::string_view trimTrailingSpaces(std::string_view text) noexcept {
     return text;
 }
 
-PerformanceLineParts parsePerformanceLine(std::string_view line) noexcept {
-    const auto separator = line.find(':');
-    if (separator == std::string_view::npos) {
-        return {
-            .label = trimTrailingSpaces(line),
-            .value = {},
-            .hasSeparator = false,
-        };
-    }
-
-    return {
-        .label = trimTrailingSpaces(line.substr(0, separator)),
-        .value = line.substr(separator + 1),
-        .hasSeparator = true,
-    };
-}
-
-std::vector<std::string> alignPerformanceLines(const std::vector<std::string> &lines) {
-    std::vector<PerformanceLineParts> parts;
-    parts.reserve(lines.size());
-
+std::vector<std::string>
+alignPerformanceRows(const std::vector<std::pair<std::string, std::string>> &rows) {
     std::size_t maxLabelGlyphs = 0;
-    for (const auto &line : lines) {
-        auto parsed = parsePerformanceLine(line);
-        if (parsed.hasSeparator) {
-            maxLabelGlyphs = std::max(maxLabelGlyphs, textGlyphCount(parsed.label));
-        }
-        parts.push_back(parsed);
-    }
+    for (const auto &[label, value] : rows)
+        maxLabelGlyphs = std::max(maxLabelGlyphs, textGlyphCount(trimTrailingSpaces(label)));
 
     std::vector<std::string> aligned;
-    aligned.reserve(parts.size());
+    aligned.reserve(rows.size());
 
     std::size_t maxLineGlyphs = 0;
-    for (const auto &part : parts) {
-        std::string line(part.label);
-        if (part.hasSeparator) {
-            const auto labelGlyphs = textGlyphCount(part.label);
-            line.append(maxLabelGlyphs - std::min(maxLabelGlyphs, labelGlyphs), ' ');
-            line.push_back(':');
-            line.append(part.value);
-        }
+    for (const auto &[label, value] : rows) {
+        const auto trimmedLabel = trimTrailingSpaces(label);
+        std::string line(trimmedLabel);
+        const auto labelGlyphs = textGlyphCount(trimmedLabel);
+        line.append(maxLabelGlyphs - std::min(maxLabelGlyphs, labelGlyphs), ' ');
+        line.append(": ");
+        line.append(value);
 
         maxLineGlyphs = std::max(maxLineGlyphs, textGlyphCount(line));
         aligned.push_back(std::move(line));
@@ -915,9 +884,10 @@ void drawPerformanceOverlay(opk::raster::SurfacePainter &painter,
     const int lineHeight = textLineHeight(textScale);
     const auto height =
         static_cast<int>(std::min<std::uint32_t>(surface.height, std::numeric_limits<int>::max()));
-    frameResults.for_each<open_perception_kit::metadata::PerformanceOverlayT>(
+    frameResults.for_each<open_perception_kit::metadata::PerformanceMeasurementsT>(
         [&painter, height, textScale, lineHeight, &lineY](const auto &payload) {
-            const auto lines = alignPerformanceLines(payload.lines);
+            const auto lines =
+                alignPerformanceRows(open_perception_kit::formatPerformanceRows(payload));
             for (const auto &line : lines) {
                 if (lineY >= height) {
                     return;

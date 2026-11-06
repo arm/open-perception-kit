@@ -134,7 +134,7 @@ multiple related payloads, and one payload can support multiple features.
 | Classifications | `Classifications`: candidate text or PERSON/NON-PERSON status. |
 | Gaze | `PoseEstimations` with `eyeYawPitch` semantics plus parent face geometry. |
 | Camera contact | `Classifications` with `cameraContact` semantics plus parent face geometry. A dashed ring denotes no contact; a solid ring denotes contact. |
-| Performance text | `PerformanceOverlay`: combined pipeline text, since the schema has no source provenance to separate producers. |
+| Performance text | `PerformanceMeasurements`: numeric timings and FPS formatted as combined pipeline text; producer and scope IDs keep metric histories independent of labels and order. |
 | Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
 | Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with current-frame presence indicators. |
 | Instance segmentation | `InstanceSegmentationMasks` with `instanceSegmentation` semantics: separate binary object masks, contrasting outlines, and optional numbered boxes/class/confidence labels. |

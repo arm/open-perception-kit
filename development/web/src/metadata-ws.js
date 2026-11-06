@@ -50,7 +50,7 @@ function normaliseInferenceOutput(frameResults) {
 
 function normalisePerformance(frameResults) {
     return {
-        lines: Array.isArray(frameResults?.perfdata) ? frameResults.perfdata : [],
+        measurements: Array.isArray(frameResults?.performance) ? frameResults.performance : [],
     };
 }
 

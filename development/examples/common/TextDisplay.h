@@ -41,7 +41,7 @@ class TextDisplay {
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::TrackTracesT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const open_perception_kit::metadata::PerformanceOverlayT &payload);
+                            const open_perception_kit::metadata::PerformanceMeasurementsT &payload);
 
     template <typename Payload>
     static std::vector<std::string> formatLines(const Payload &payload) {

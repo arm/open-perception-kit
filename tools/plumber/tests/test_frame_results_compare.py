@@ -34,6 +34,8 @@ from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import Fra
 from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements import PerformanceMeasurementsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.FrameRate import FrameRateT  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str) -> LayerInfoT:
@@ -108,6 +110,16 @@ class FrameResultsCompareTests(unittest.TestCase):
 
         self.assertFalse(ok)
         self.assertIn("payload mismatch", msg)
+
+    def test_performance_measurements_remain_outside_comparison(self) -> None:
+        expected = frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0))
+        actual = frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0))
+        measurements = PerformanceMeasurementsT()
+        measurements.frameRate = FrameRateT()
+        measurements.frameRate.fps = 23.5
+        actual.add(measurements)
+        ok, message = compare_frame_results_frame(self.args, frame_results_frame(expected), frame_results_frame(actual))
+        self.assertTrue(ok, message)
 
     def test_reports_item_count_mismatch(self) -> None:
         gt_frame = frame_results_frame(frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0)))

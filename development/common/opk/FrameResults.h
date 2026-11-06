@@ -56,7 +56,9 @@ makeBoundingBox(float x, float y, float width, float height);
 
 std::unique_ptr<metadata::BitmapDataT> makeBitmapData(const opk::Bitmap &bitmap);
 
-void appendPerformanceOverlay(FrameResults &frameResults, const std::vector<std::string> &lines);
+// Display-only rows; numeric consumers read PerformanceMeasurements directly.
+std::vector<std::pair<std::string, std::string>>
+formatPerformanceRows(const metadata::PerformanceMeasurementsT &measurements);
 
 template <typename Fn>
 void forEachBoxDetectionWithContentType(const FrameResults &frameResults,

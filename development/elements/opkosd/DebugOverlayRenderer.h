@@ -58,7 +58,7 @@ struct DebugOverlaySurface {
  * @brief Runtime options that affect which debug decorations are drawn.
  */
 struct DebugOverlayOptions {
-    /** @brief Draw PerformanceOverlayT payloads when present. */
+    /** @brief Draw PerformanceMeasurementsT payloads when present. */
     bool performanceOverlayEnabled = true;
 
     /** @brief Optional BGRA replacement image used by segmentation background replacement. */
