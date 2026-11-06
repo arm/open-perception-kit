@@ -72,64 +72,15 @@ class VideoFrameContext(object):
         return 0
 
     # VideoFrameContext
-    def SourceCropLeft(self):
+    def PresentationTsNs(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
-
-    # VideoFrameContext
-    def SourceCropRight(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
-
-    # VideoFrameContext
-    def SourceCropTop(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
-
-    # VideoFrameContext
-    def SourceCropBottom(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
-
-    # VideoFrameContext
-    def LetterboxLeft(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
-
-    # VideoFrameContext
-    def LetterboxRight(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
-
-    # VideoFrameContext
-    def LetterboxTop(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
-
-    # VideoFrameContext
-    def LetterboxBottom(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
+        return None
 
 
 def VideoFrameContextStart(builder):
-    builder.StartObject(11)
+    builder.StartObject(4)
 
 
 def Start(builder):
@@ -160,68 +111,12 @@ def AddOriginalHeight(builder, originalHeight):
     VideoFrameContextAddOriginalHeight(builder, originalHeight)
 
 
-def VideoFrameContextAddSourceCropLeft(builder, sourceCropLeft):
-    builder.PrependUint64Slot(3, sourceCropLeft, 0)
+def VideoFrameContextAddPresentationTsNs(builder, presentationTsNs):
+    builder.PrependUint64Slot(3, presentationTsNs, None)
 
 
-def AddSourceCropLeft(builder, sourceCropLeft):
-    VideoFrameContextAddSourceCropLeft(builder, sourceCropLeft)
-
-
-def VideoFrameContextAddSourceCropRight(builder, sourceCropRight):
-    builder.PrependUint64Slot(4, sourceCropRight, 0)
-
-
-def AddSourceCropRight(builder, sourceCropRight):
-    VideoFrameContextAddSourceCropRight(builder, sourceCropRight)
-
-
-def VideoFrameContextAddSourceCropTop(builder, sourceCropTop):
-    builder.PrependUint64Slot(5, sourceCropTop, 0)
-
-
-def AddSourceCropTop(builder, sourceCropTop):
-    VideoFrameContextAddSourceCropTop(builder, sourceCropTop)
-
-
-def VideoFrameContextAddSourceCropBottom(builder, sourceCropBottom):
-    builder.PrependUint64Slot(6, sourceCropBottom, 0)
-
-
-def AddSourceCropBottom(builder, sourceCropBottom):
-    VideoFrameContextAddSourceCropBottom(builder, sourceCropBottom)
-
-
-def VideoFrameContextAddLetterboxLeft(builder, letterboxLeft):
-    builder.PrependUint64Slot(7, letterboxLeft, 0)
-
-
-def AddLetterboxLeft(builder, letterboxLeft):
-    VideoFrameContextAddLetterboxLeft(builder, letterboxLeft)
-
-
-def VideoFrameContextAddLetterboxRight(builder, letterboxRight):
-    builder.PrependUint64Slot(8, letterboxRight, 0)
-
-
-def AddLetterboxRight(builder, letterboxRight):
-    VideoFrameContextAddLetterboxRight(builder, letterboxRight)
-
-
-def VideoFrameContextAddLetterboxTop(builder, letterboxTop):
-    builder.PrependUint64Slot(9, letterboxTop, 0)
-
-
-def AddLetterboxTop(builder, letterboxTop):
-    VideoFrameContextAddLetterboxTop(builder, letterboxTop)
-
-
-def VideoFrameContextAddLetterboxBottom(builder, letterboxBottom):
-    builder.PrependUint64Slot(10, letterboxBottom, 0)
-
-
-def AddLetterboxBottom(builder, letterboxBottom):
-    VideoFrameContextAddLetterboxBottom(builder, letterboxBottom)
+def AddPresentationTsNs(builder, presentationTsNs):
+    VideoFrameContextAddPresentationTsNs(builder, presentationTsNs)
 
 
 def VideoFrameContextEnd(builder):
@@ -246,27 +141,13 @@ class VideoFrameContextT(object):
         object=None,
         originalWidth=0,
         originalHeight=0,
-        sourceCropLeft=0,
-        sourceCropRight=0,
-        sourceCropTop=0,
-        sourceCropBottom=0,
-        letterboxLeft=0,
-        letterboxRight=0,
-        letterboxTop=0,
-        letterboxBottom=0,
+        presentationTsNs=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
         self.originalWidth = originalWidth  # type: int
         self.originalHeight = originalHeight  # type: int
-        self.sourceCropLeft = sourceCropLeft  # type: int
-        self.sourceCropRight = sourceCropRight  # type: int
-        self.sourceCropTop = sourceCropTop  # type: int
-        self.sourceCropBottom = sourceCropBottom  # type: int
-        self.letterboxLeft = letterboxLeft  # type: int
-        self.letterboxRight = letterboxRight  # type: int
-        self.letterboxTop = letterboxTop  # type: int
-        self.letterboxBottom = letterboxBottom  # type: int
+        self.presentationTsNs = presentationTsNs  # type: Optional[int]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -294,14 +175,7 @@ class VideoFrameContextT(object):
                 videoFrameContext.Object())
         self.originalWidth = videoFrameContext.OriginalWidth()
         self.originalHeight = videoFrameContext.OriginalHeight()
-        self.sourceCropLeft = videoFrameContext.SourceCropLeft()
-        self.sourceCropRight = videoFrameContext.SourceCropRight()
-        self.sourceCropTop = videoFrameContext.SourceCropTop()
-        self.sourceCropBottom = videoFrameContext.SourceCropBottom()
-        self.letterboxLeft = videoFrameContext.LetterboxLeft()
-        self.letterboxRight = videoFrameContext.LetterboxRight()
-        self.letterboxTop = videoFrameContext.LetterboxTop()
-        self.letterboxBottom = videoFrameContext.LetterboxBottom()
+        self.presentationTsNs = videoFrameContext.PresentationTsNs()
 
     # VideoFrameContextT
     def Pack(self, builder):
@@ -312,13 +186,6 @@ class VideoFrameContextT(object):
             VideoFrameContextAddObject(builder, object)
         VideoFrameContextAddOriginalWidth(builder, self.originalWidth)
         VideoFrameContextAddOriginalHeight(builder, self.originalHeight)
-        VideoFrameContextAddSourceCropLeft(builder, self.sourceCropLeft)
-        VideoFrameContextAddSourceCropRight(builder, self.sourceCropRight)
-        VideoFrameContextAddSourceCropTop(builder, self.sourceCropTop)
-        VideoFrameContextAddSourceCropBottom(builder, self.sourceCropBottom)
-        VideoFrameContextAddLetterboxLeft(builder, self.letterboxLeft)
-        VideoFrameContextAddLetterboxRight(builder, self.letterboxRight)
-        VideoFrameContextAddLetterboxTop(builder, self.letterboxTop)
-        VideoFrameContextAddLetterboxBottom(builder, self.letterboxBottom)
+        VideoFrameContextAddPresentationTsNs(builder, self.presentationTsNs)
         videoFrameContext = VideoFrameContextEnd(builder)
         return videoFrameContext

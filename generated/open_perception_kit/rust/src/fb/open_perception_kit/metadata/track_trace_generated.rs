@@ -46,6 +46,7 @@ impl<'a> TrackTrace<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
     pub const VT_TRACK_ID: flatbuffers::VOffsetT = 6;
     pub const VT_POINTS: flatbuffers::VOffsetT = 8;
+    pub const VT_SPACE: flatbuffers::VOffsetT = 10;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -58,6 +59,9 @@ impl<'a> TrackTrace<'a> {
     ) -> flatbuffers::WIPOffset<TrackTrace<'bldr>> {
         let mut builder = TrackTraceBuilder::new(_fbb);
         builder.add_track_id(args.track_id);
+        if let Some(x) = args.space {
+            builder.add_space(x);
+        }
         if let Some(x) = args.points {
             builder.add_points(x);
         }
@@ -73,10 +77,12 @@ impl<'a> TrackTrace<'a> {
         let points = self
             .points()
             .map(|x| x.iter().map(|t| t.unpack()).collect());
+        let space = self.space().map(|x| Box::new(x.unpack()));
         TrackTraceT {
             object,
             track_id,
             points,
+            space,
         }
     }
 
@@ -114,6 +120,16 @@ impl<'a> TrackTrace<'a> {
             >>(TrackTrace::VT_POINTS, None)
         }
     }
+    #[inline]
+    pub fn space(&self) -> Option<ImageSpace<'a>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<flatbuffers::ForwardsUOffset<ImageSpace>>(TrackTrace::VT_SPACE, None)
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for TrackTrace<'_> {
@@ -133,6 +149,11 @@ impl flatbuffers::Verifiable for TrackTrace<'_> {
             .visit_field::<flatbuffers::ForwardsUOffset<
                 flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Point2f>>,
             >>("points", Self::VT_POINTS, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<ImageSpace>>(
+                "space",
+                Self::VT_SPACE,
+                false,
+            )?
             .finish();
         Ok(())
     }
@@ -143,6 +164,7 @@ pub struct TrackTraceArgs<'a> {
     pub points: Option<
         flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Point2f<'a>>>>,
     >,
+    pub space: Option<flatbuffers::WIPOffset<ImageSpace<'a>>>,
 }
 impl<'a> Default for TrackTraceArgs<'a> {
     #[inline]
@@ -151,6 +173,7 @@ impl<'a> Default for TrackTraceArgs<'a> {
             object: None,
             track_id: 0,
             points: None,
+            space: None,
         }
     }
 }
@@ -181,6 +204,11 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TrackTraceBuilder<'a, 'b, A> {
             .push_slot_always::<flatbuffers::WIPOffset<_>>(TrackTrace::VT_POINTS, points);
     }
     #[inline]
+    pub fn add_space(&mut self, space: flatbuffers::WIPOffset<ImageSpace<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<ImageSpace>>(TrackTrace::VT_SPACE, space);
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> TrackTraceBuilder<'a, 'b, A> {
@@ -203,6 +231,7 @@ impl core::fmt::Debug for TrackTrace<'_> {
         ds.field("object", &self.object());
         ds.field("track_id", &self.track_id());
         ds.field("points", &self.points());
+        ds.field("space", &self.space());
         ds.finish()
     }
 }
@@ -212,6 +241,7 @@ pub struct TrackTraceT {
     pub object: Option<Box<ObjectMetaT>>,
     pub track_id: u64,
     pub points: Option<Vec<Point2fT>>,
+    pub space: Option<Box<ImageSpaceT>>,
 }
 impl Default for TrackTraceT {
     fn default() -> Self {
@@ -219,6 +249,7 @@ impl Default for TrackTraceT {
             object: None,
             track_id: 0,
             points: None,
+            space: None,
         }
     }
 }
@@ -233,12 +264,14 @@ impl TrackTraceT {
             let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
             _fbb.create_vector(&w)
         });
+        let space = self.space.as_ref().map(|x| x.pack(_fbb));
         TrackTrace::create(
             _fbb,
             &TrackTraceArgs {
                 object,
                 track_id,
                 points,
+                space,
             },
         )
     }

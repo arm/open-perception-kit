@@ -43,6 +43,10 @@ struct LayerInfo;
 struct LayerInfoBuilder;
 struct LayerInfoT;
 
+struct ImageSpace;
+struct ImageSpaceBuilder;
+struct ImageSpaceT;
+
 struct BoundingBox;
 struct BoundingBoxBuilder;
 struct BoundingBoxT;
@@ -54,6 +58,25 @@ struct Point2fT;
 struct BitmapData;
 struct BitmapDataBuilder;
 struct BitmapDataT;
+
+enum class CoordinateUnits : uint8_t { Pixels = 0, Normalized = 1, MIN = Pixels, MAX = Normalized };
+
+inline const CoordinateUnits (&EnumValuesCoordinateUnits())[2] {
+    static const CoordinateUnits values[] = {CoordinateUnits::Pixels, CoordinateUnits::Normalized};
+    return values;
+}
+
+inline const char *const *EnumNamesCoordinateUnits() {
+    static const char *const names[3] = {"Pixels", "Normalized", nullptr};
+    return names;
+}
+
+inline const char *EnumNameCoordinateUnits(CoordinateUnits e) {
+    if (::flatbuffers::IsOutRange(e, CoordinateUnits::Pixels, CoordinateUnits::Normalized))
+        return "";
+    const size_t index = static_cast<size_t>(e);
+    return EnumNamesCoordinateUnits()[index];
+}
 
 struct ObjectMetaT : public ::flatbuffers::NativeTable {
     typedef ObjectMeta TableType;
@@ -390,12 +413,140 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                 const LayerInfoT *_o,
                 const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct ImageSpaceT : public ::flatbuffers::NativeTable {
+    typedef ImageSpace TableType;
+    uint64_t frame_id = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    double origin_x = 0.0;
+    double origin_y = 0.0;
+    double extent_width = 0.0;
+    double extent_height = 0.0;
+};
+
+struct ImageSpace FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+    typedef ImageSpaceT NativeTableType;
+    typedef ImageSpaceBuilder Builder;
+    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+        VT_FRAME_ID = 4,
+        VT_WIDTH = 6,
+        VT_HEIGHT = 8,
+        VT_ORIGIN_X = 10,
+        VT_ORIGIN_Y = 12,
+        VT_EXTENT_WIDTH = 14,
+        VT_EXTENT_HEIGHT = 16
+    };
+    uint64_t frame_id() const {
+        return GetField<uint64_t>(VT_FRAME_ID, 0);
+    }
+    uint32_t width() const {
+        return GetField<uint32_t>(VT_WIDTH, 0);
+    }
+    uint32_t height() const {
+        return GetField<uint32_t>(VT_HEIGHT, 0);
+    }
+    double origin_x() const {
+        return GetField<double>(VT_ORIGIN_X, 0.0);
+    }
+    double origin_y() const {
+        return GetField<double>(VT_ORIGIN_Y, 0.0);
+    }
+    double extent_width() const {
+        return GetField<double>(VT_EXTENT_WIDTH, 0.0);
+    }
+    double extent_height() const {
+        return GetField<double>(VT_EXTENT_HEIGHT, 0.0);
+    }
+    bool Verify(::flatbuffers::Verifier &verifier) const {
+        return VerifyTableStart(verifier) && VerifyField<uint64_t>(verifier, VT_FRAME_ID, 8) &&
+               VerifyField<uint32_t>(verifier, VT_WIDTH, 4) &&
+               VerifyField<uint32_t>(verifier, VT_HEIGHT, 4) &&
+               VerifyField<double>(verifier, VT_ORIGIN_X, 8) &&
+               VerifyField<double>(verifier, VT_ORIGIN_Y, 8) &&
+               VerifyField<double>(verifier, VT_EXTENT_WIDTH, 8) &&
+               VerifyField<double>(verifier, VT_EXTENT_HEIGHT, 8) && verifier.EndTable();
+    }
+    ImageSpaceT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    void UnPackTo(ImageSpaceT *_o,
+                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    static ::flatbuffers::Offset<ImageSpace>
+    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+         const ImageSpaceT *_o,
+         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct ImageSpaceBuilder {
+    typedef ImageSpace Table;
+    ::flatbuffers::FlatBufferBuilder &fbb_;
+    ::flatbuffers::uoffset_t start_;
+    void add_frame_id(uint64_t frame_id) {
+        fbb_.AddElement<uint64_t>(ImageSpace::VT_FRAME_ID, frame_id, 0);
+    }
+    void add_width(uint32_t width) {
+        fbb_.AddElement<uint32_t>(ImageSpace::VT_WIDTH, width, 0);
+    }
+    void add_height(uint32_t height) {
+        fbb_.AddElement<uint32_t>(ImageSpace::VT_HEIGHT, height, 0);
+    }
+    void add_origin_x(double origin_x) {
+        fbb_.AddElement<double>(ImageSpace::VT_ORIGIN_X, origin_x, 0.0);
+    }
+    void add_origin_y(double origin_y) {
+        fbb_.AddElement<double>(ImageSpace::VT_ORIGIN_Y, origin_y, 0.0);
+    }
+    void add_extent_width(double extent_width) {
+        fbb_.AddElement<double>(ImageSpace::VT_EXTENT_WIDTH, extent_width, 0.0);
+    }
+    void add_extent_height(double extent_height) {
+        fbb_.AddElement<double>(ImageSpace::VT_EXTENT_HEIGHT, extent_height, 0.0);
+    }
+    explicit ImageSpaceBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+        start_ = fbb_.StartTable();
+    }
+    ::flatbuffers::Offset<ImageSpace> Finish() {
+        const auto end = fbb_.EndTable(start_);
+        auto o = ::flatbuffers::Offset<ImageSpace>(end);
+        return o;
+    }
+};
+
+inline ::flatbuffers::Offset<ImageSpace> CreateImageSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                                                          uint64_t frame_id = 0,
+                                                          uint32_t width = 0,
+                                                          uint32_t height = 0,
+                                                          double origin_x = 0.0,
+                                                          double origin_y = 0.0,
+                                                          double extent_width = 0.0,
+                                                          double extent_height = 0.0) {
+    ImageSpaceBuilder builder_(_fbb);
+    builder_.add_extent_height(extent_height);
+    builder_.add_extent_width(extent_width);
+    builder_.add_origin_y(origin_y);
+    builder_.add_origin_x(origin_x);
+    builder_.add_frame_id(frame_id);
+    builder_.add_height(height);
+    builder_.add_width(width);
+    return builder_.Finish();
+}
+
+::flatbuffers::Offset<ImageSpace>
+CreateImageSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                 const ImageSpaceT *_o,
+                 const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct BoundingBoxT : public ::flatbuffers::NativeTable {
     typedef BoundingBox TableType;
     float x = 0.0f;
     float y = 0.0f;
     float width = 0.0f;
     float height = 0.0f;
+    std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> space{};
+    open_perception_kit::metadata::CoordinateUnits units =
+        open_perception_kit::metadata::CoordinateUnits::Pixels;
+    BoundingBoxT() = default;
+    BoundingBoxT(const BoundingBoxT &o);
+    BoundingBoxT(BoundingBoxT &&) FLATBUFFERS_NOEXCEPT = default;
+    BoundingBoxT &operator=(BoundingBoxT o) FLATBUFFERS_NOEXCEPT;
 };
 
 struct BoundingBox FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -405,7 +556,9 @@ struct BoundingBox FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         VT_X = 4,
         VT_Y = 6,
         VT_WIDTH = 8,
-        VT_HEIGHT = 10
+        VT_HEIGHT = 10,
+        VT_SPACE = 12,
+        VT_UNITS = 14
     };
     float x() const {
         return GetField<float>(VT_X, 0.0f);
@@ -419,10 +572,19 @@ struct BoundingBox FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     float height() const {
         return GetField<float>(VT_HEIGHT, 0.0f);
     }
+    const open_perception_kit::metadata::ImageSpace *space() const {
+        return GetPointer<const open_perception_kit::metadata::ImageSpace *>(VT_SPACE);
+    }
+    open_perception_kit::metadata::CoordinateUnits units() const {
+        return static_cast<open_perception_kit::metadata::CoordinateUnits>(
+            GetField<uint8_t>(VT_UNITS, 0));
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyField<float>(verifier, VT_X, 4) &&
                VerifyField<float>(verifier, VT_Y, 4) && VerifyField<float>(verifier, VT_WIDTH, 4) &&
-               VerifyField<float>(verifier, VT_HEIGHT, 4) && verifier.EndTable();
+               VerifyField<float>(verifier, VT_HEIGHT, 4) && VerifyOffset(verifier, VT_SPACE) &&
+               verifier.VerifyTable(space()) && VerifyField<uint8_t>(verifier, VT_UNITS, 1) &&
+               verifier.EndTable();
     }
     BoundingBoxT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(BoundingBoxT *_o,
@@ -449,6 +611,12 @@ struct BoundingBoxBuilder {
     void add_height(float height) {
         fbb_.AddElement<float>(BoundingBox::VT_HEIGHT, height, 0.0f);
     }
+    void add_space(::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space) {
+        fbb_.AddOffset(BoundingBox::VT_SPACE, space);
+    }
+    void add_units(open_perception_kit::metadata::CoordinateUnits units) {
+        fbb_.AddElement<uint8_t>(BoundingBox::VT_UNITS, static_cast<uint8_t>(units), 0);
+    }
     explicit BoundingBoxBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -459,16 +627,22 @@ struct BoundingBoxBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<BoundingBox> CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
-                                                            float x = 0.0f,
-                                                            float y = 0.0f,
-                                                            float width = 0.0f,
-                                                            float height = 0.0f) {
+inline ::flatbuffers::Offset<BoundingBox>
+CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
+                  float x = 0.0f,
+                  float y = 0.0f,
+                  float width = 0.0f,
+                  float height = 0.0f,
+                  ::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space = 0,
+                  open_perception_kit::metadata::CoordinateUnits units =
+                      open_perception_kit::metadata::CoordinateUnits::Pixels) {
     BoundingBoxBuilder builder_(_fbb);
+    builder_.add_space(space);
     builder_.add_height(height);
     builder_.add_width(width);
     builder_.add_y(y);
     builder_.add_x(x);
+    builder_.add_units(units);
     return builder_.Finish();
 }
 
@@ -863,6 +1037,91 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                                                           _producer);
 }
 
+inline ImageSpaceT *ImageSpace::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+    auto _o = std::unique_ptr<ImageSpaceT>(new ImageSpaceT());
+    UnPackTo(_o.get(), _resolver);
+    return _o.release();
+}
+
+inline void ImageSpace::UnPackTo(ImageSpaceT *_o,
+                                 const ::flatbuffers::resolver_function_t *_resolver) const {
+    (void)_o;
+    (void)_resolver;
+    {
+        auto _e = frame_id();
+        _o->frame_id = _e;
+    }
+    {
+        auto _e = width();
+        _o->width = _e;
+    }
+    {
+        auto _e = height();
+        _o->height = _e;
+    }
+    {
+        auto _e = origin_x();
+        _o->origin_x = _e;
+    }
+    {
+        auto _e = origin_y();
+        _o->origin_y = _e;
+    }
+    {
+        auto _e = extent_width();
+        _o->extent_width = _e;
+    }
+    {
+        auto _e = extent_height();
+        _o->extent_height = _e;
+    }
+}
+
+inline ::flatbuffers::Offset<ImageSpace>
+ImageSpace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+                 const ImageSpaceT *_o,
+                 const ::flatbuffers::rehasher_function_t *_rehasher) {
+    return CreateImageSpace(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<ImageSpace>
+CreateImageSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                 const ImageSpaceT *_o,
+                 const ::flatbuffers::rehasher_function_t *_rehasher) {
+    (void)_rehasher;
+    (void)_o;
+    struct _VectorArgs {
+        ::flatbuffers::FlatBufferBuilder *__fbb;
+        const ImageSpaceT *__o;
+        const ::flatbuffers::rehasher_function_t *__rehasher;
+    } _va = {&_fbb, _o, _rehasher};
+    (void)_va;
+    auto _frame_id = _o->frame_id;
+    auto _width = _o->width;
+    auto _height = _o->height;
+    auto _origin_x = _o->origin_x;
+    auto _origin_y = _o->origin_y;
+    auto _extent_width = _o->extent_width;
+    auto _extent_height = _o->extent_height;
+    return open_perception_kit::metadata::CreateImageSpace(
+        _fbb, _frame_id, _width, _height, _origin_x, _origin_y, _extent_width, _extent_height);
+}
+
+inline BoundingBoxT::BoundingBoxT(const BoundingBoxT &o)
+    : x(o.x), y(o.y), width(o.width), height(o.height),
+      space((o.space) ? new open_perception_kit::metadata::ImageSpaceT(*o.space) : nullptr),
+      units(o.units) {}
+
+inline BoundingBoxT &BoundingBoxT::operator=(BoundingBoxT o) FLATBUFFERS_NOEXCEPT {
+    std::swap(x, o.x);
+    std::swap(y, o.y);
+    std::swap(width, o.width);
+    std::swap(height, o.height);
+    std::swap(space, o.space);
+    std::swap(units, o.units);
+    return *this;
+}
+
 inline BoundingBoxT *
 BoundingBox::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
     auto _o = std::unique_ptr<BoundingBoxT>(new BoundingBoxT());
@@ -890,6 +1149,23 @@ inline void BoundingBox::UnPackTo(BoundingBoxT *_o,
         auto _e = height();
         _o->height = _e;
     }
+    {
+        auto _e = space();
+        if (_e) {
+            if (_o->space) {
+                _e->UnPackTo(_o->space.get(), _resolver);
+            } else {
+                _o->space = std::unique_ptr<open_perception_kit::metadata::ImageSpaceT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->space) {
+            _o->space.reset();
+        }
+    }
+    {
+        auto _e = units();
+        _o->units = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<BoundingBox>
@@ -915,7 +1191,10 @@ CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _y = _o->y;
     auto _width = _o->width;
     auto _height = _o->height;
-    return open_perception_kit::metadata::CreateBoundingBox(_fbb, _x, _y, _width, _height);
+    auto _space = _o->space ? CreateImageSpace(_fbb, _o->space.get(), _rehasher) : 0;
+    auto _units = _o->units;
+    return open_perception_kit::metadata::CreateBoundingBox(
+        _fbb, _x, _y, _width, _height, _space, _units);
 }
 
 inline Point2fT *Point2f::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {

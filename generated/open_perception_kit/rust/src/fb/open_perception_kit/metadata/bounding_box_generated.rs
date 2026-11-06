@@ -47,6 +47,8 @@ impl<'a> BoundingBox<'a> {
     pub const VT_Y: flatbuffers::VOffsetT = 6;
     pub const VT_WIDTH: flatbuffers::VOffsetT = 8;
     pub const VT_HEIGHT: flatbuffers::VOffsetT = 10;
+    pub const VT_SPACE: flatbuffers::VOffsetT = 12;
+    pub const VT_UNITS: flatbuffers::VOffsetT = 14;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -55,13 +57,17 @@ impl<'a> BoundingBox<'a> {
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
-        args: &'args BoundingBoxArgs,
+        args: &'args BoundingBoxArgs<'args>,
     ) -> flatbuffers::WIPOffset<BoundingBox<'bldr>> {
         let mut builder = BoundingBoxBuilder::new(_fbb);
+        if let Some(x) = args.space {
+            builder.add_space(x);
+        }
         builder.add_height(args.height);
         builder.add_width(args.width);
         builder.add_y(args.y);
         builder.add_x(args.x);
+        builder.add_units(args.units);
         builder.finish()
     }
 
@@ -70,11 +76,15 @@ impl<'a> BoundingBox<'a> {
         let y = self.y();
         let width = self.width();
         let height = self.height();
+        let space = self.space().map(|x| Box::new(x.unpack()));
+        let units = self.units();
         BoundingBoxT {
             x,
             y,
             width,
             height,
+            space,
+            units,
         }
     }
 
@@ -114,6 +124,27 @@ impl<'a> BoundingBox<'a> {
                 .unwrap()
         }
     }
+    #[inline]
+    pub fn space(&self) -> Option<ImageSpace<'a>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<flatbuffers::ForwardsUOffset<ImageSpace>>(BoundingBox::VT_SPACE, None)
+        }
+    }
+    #[inline]
+    pub fn units(&self) -> CoordinateUnits {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<CoordinateUnits>(BoundingBox::VT_UNITS, Some(CoordinateUnits::Pixels))
+                .unwrap()
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for BoundingBox<'_> {
@@ -128,17 +159,25 @@ impl flatbuffers::Verifiable for BoundingBox<'_> {
             .visit_field::<f32>("y", Self::VT_Y, false)?
             .visit_field::<f32>("width", Self::VT_WIDTH, false)?
             .visit_field::<f32>("height", Self::VT_HEIGHT, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<ImageSpace>>(
+                "space",
+                Self::VT_SPACE,
+                false,
+            )?
+            .visit_field::<CoordinateUnits>("units", Self::VT_UNITS, false)?
             .finish();
         Ok(())
     }
 }
-pub struct BoundingBoxArgs {
+pub struct BoundingBoxArgs<'a> {
     pub x: f32,
     pub y: f32,
     pub width: f32,
     pub height: f32,
+    pub space: Option<flatbuffers::WIPOffset<ImageSpace<'a>>>,
+    pub units: CoordinateUnits,
 }
-impl<'a> Default for BoundingBoxArgs {
+impl<'a> Default for BoundingBoxArgs<'a> {
     #[inline]
     fn default() -> Self {
         BoundingBoxArgs {
@@ -146,6 +185,8 @@ impl<'a> Default for BoundingBoxArgs {
             y: 0.0,
             width: 0.0,
             height: 0.0,
+            space: None,
+            units: CoordinateUnits::Pixels,
         }
     }
 }
@@ -174,6 +215,19 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> BoundingBoxBuilder<'a, 'b, A> {
             .push_slot::<f32>(BoundingBox::VT_HEIGHT, height, 0.0);
     }
     #[inline]
+    pub fn add_space(&mut self, space: flatbuffers::WIPOffset<ImageSpace<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<ImageSpace>>(BoundingBox::VT_SPACE, space);
+    }
+    #[inline]
+    pub fn add_units(&mut self, units: CoordinateUnits) {
+        self.fbb_.push_slot::<CoordinateUnits>(
+            BoundingBox::VT_UNITS,
+            units,
+            CoordinateUnits::Pixels,
+        );
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> BoundingBoxBuilder<'a, 'b, A> {
@@ -197,6 +251,8 @@ impl core::fmt::Debug for BoundingBox<'_> {
         ds.field("y", &self.y());
         ds.field("width", &self.width());
         ds.field("height", &self.height());
+        ds.field("space", &self.space());
+        ds.field("units", &self.units());
         ds.finish()
     }
 }
@@ -207,6 +263,8 @@ pub struct BoundingBoxT {
     pub y: f32,
     pub width: f32,
     pub height: f32,
+    pub space: Option<Box<ImageSpaceT>>,
+    pub units: CoordinateUnits,
 }
 impl Default for BoundingBoxT {
     fn default() -> Self {
@@ -215,6 +273,8 @@ impl Default for BoundingBoxT {
             y: 0.0,
             width: 0.0,
             height: 0.0,
+            space: None,
+            units: CoordinateUnits::Pixels,
         }
     }
 }
@@ -227,6 +287,8 @@ impl BoundingBoxT {
         let y = self.y;
         let width = self.width;
         let height = self.height;
+        let space = self.space.as_ref().map(|x| x.pack(_fbb));
+        let units = self.units;
         BoundingBox::create(
             _fbb,
             &BoundingBoxArgs {
@@ -234,6 +296,8 @@ impl BoundingBoxT {
                 y,
                 width,
                 height,
+                space,
+                units,
             },
         )
     }

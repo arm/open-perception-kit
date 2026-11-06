@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -60,7 +61,10 @@ struct RetinaFaceFixture {
         input.inferenceInfo.image = {.width = 64,
                                      .height = 96,
                                      .modelWidth = static_cast<size_t>(width),
-                                     .modelHeight = static_cast<size_t>(height)};
+                                     .modelHeight = static_cast<size_t>(height),
+                                     .frameId = 7,
+                                     .frameWidth = 64,
+                                     .frameHeight = 96};
         input.inferenceInfo.parentId = 42;
     }
 };
@@ -83,6 +87,32 @@ TEST(RetinaFaceParser, DecodesBoxesSuppressesDuplicatesAndScalesToFrame) {
     EXPECT_FLOAT_EQ(detections[0]->box->y, 12);
     EXPECT_FLOAT_EQ(detections[0]->box->width, 32);
     EXPECT_FLOAT_EQ(detections[0]->box->height, 48);
+    EXPECT_EQ(detections[0]->class_id, 0U);
+    EXPECT_EQ(detections[0]->box->space->frame_id, 7U);
+    EXPECT_EQ(detections[0]->box->units, open_perception_kit::metadata::CoordinateUnits::Pixels);
+}
+
+TEST(RetinaFaceParser, CroppedBoxesProjectThroughTheirDeclaredSourceImage) {
+    RetinaFaceFixture fixture;
+    auto &image = fixture.input.inferenceInfo.image;
+    image.frameWidth = image.frameHeight = 256;
+    image.cropX = 10;
+    image.cropY = 20;
+    fixture.scores[21] = 0.9f;
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, fixture.output));
+    const auto result = fixture.output.get<open_perception_kit::metadata::BoxDetectionsT>();
+    if (!result) {
+        ADD_FAILURE() << "Expected RetinaFace output";
+        return;
+    }
+    ASSERT_EQ(result.value().value().detections.size(), 1U);
+    const auto &box = *result.value().value().detections[0]->box;
+    const auto projected = open_perception_kit::projectBoundingBox(box, 256, 256);
+    if (!projected) {
+        ADD_FAILURE() << "Expected projectable RetinaFace geometry";
+        return;
+    }
+    EXPECT_EQ(*projected, (std::array<double, 4>{18, 32, 32, 48}));
 }
 
 TEST(RetinaFaceParser, AppliesOffsetVarianceAndClipsToFrame) {
@@ -117,6 +147,8 @@ TEST(RetinaFaceParser, PreservesScoreAndAnchorOrderAtCandidateLimit) {
             RetinaFaceFixture fixture(1080, 1080, 48010);
             fixture.input.inferenceInfo.image.width = 1080;
             fixture.input.inferenceInfo.image.height = 1080;
+            fixture.input.inferenceInfo.image.frameWidth = 1080;
+            fixture.input.inferenceInfo.image.frameHeight = 1080;
             // Overlapping boxes leave one distinct final anchor to expose the cutoff and ties.
             for (size_t index = 0; index < count; ++index) {
                 const float size = index % 2 == 0 ? 16.0f : 32.0f;
@@ -192,6 +224,8 @@ TEST(RetinaFaceParser, CapsKeptBoxesAndPreservesAnchorOrder) {
         RetinaFaceFixture fixture(320, 320, 4200);
         fixture.input.inferenceInfo.image.width = 320;
         fixture.input.inferenceInfo.image.height = 320;
+        fixture.input.inferenceInfo.image.frameWidth = 320;
+        fixture.input.inferenceInfo.image.frameHeight = 320;
         for (size_t index = 0; index < count; ++index) {
             const size_t anchor = 2 * index;
             fixture.scores[2 * anchor + 1] = 0.9f;
@@ -236,7 +270,12 @@ TEST(RetinaFaceParser, IgnoresNonFiniteAndLowConfidenceCandidates) {
     fixture.boxes[6] = std::numeric_limits<float>::infinity();
     fixture.scores[5] = 0.5f;
     EXPECT_TRUE(fixture.parser.parse(fixture.input, fixture.output));
-    EXPECT_FALSE(fixture.output.get<open_perception_kit::metadata::BoxDetectionsT>());
+    const auto result = fixture.output.get<open_perception_kit::metadata::BoxDetectionsT>();
+    if (!result) {
+        ADD_FAILURE() << "Expected explicit empty RetinaFace output";
+        return;
+    }
+    EXPECT_TRUE(result.value().value().detections.empty());
 }
 
 } // namespace

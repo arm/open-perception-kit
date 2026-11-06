@@ -263,6 +263,8 @@ open_perception_kit::FrameResults makeTrackTraceFrameResults() {
 
     auto trace = std::make_unique<open_perception_kit::metadata::TrackTraceT>();
     trace->track_id = 3U;
+    trace->space = open_perception_kit::makeImageSpace(
+        {.width = 80, .height = 48, .frameId = 1, .frameWidth = 80, .frameHeight = 48});
 
     auto first = std::make_unique<open_perception_kit::metadata::Point2fT>();
     first->x = 4.0f;
@@ -295,7 +297,12 @@ open_perception_kit::FrameResults makeGenericObjectFrameResults() {
 
     auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     detection->object = open_perception_kit::makeObjectMeta(42U);
-    detection->box = open_perception_kit::makeBoundingBox(-3.4f, 1.2f, 10.8f, 4.6f);
+    detection->box = open_perception_kit::makeImageBoundingBox(
+        {.width = 13, .height = 9, .frameId = 1, .frameWidth = 13, .frameHeight = 9},
+        -3.4f,
+        1.2f,
+        10.8f,
+        4.6f);
     detection->confidence = 0.8f;
     detection->class_id = 1;
     detection->text = "car";
@@ -315,7 +322,12 @@ open_perception_kit::FrameResults makeHumanFaceAndGazeFrameResults(float yaw = 2
 
     auto face = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     face->object = open_perception_kit::makeObjectMeta(7U);
-    face->box = open_perception_kit::makeBoundingBox(28.0f, 18.0f, 24.0f, 24.0f);
+    face->box = open_perception_kit::makeImageBoundingBox(
+        {.width = 96, .height = 72, .frameId = 1, .frameWidth = 96, .frameHeight = 72},
+        28.0f,
+        18.0f,
+        24.0f,
+        24.0f);
     face->confidence = 0.9f;
     facePayload.detections.push_back(std::move(face));
 
@@ -347,7 +359,12 @@ open_perception_kit::FrameResults makeCameraContactFrameResults() {
 
     auto face = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     face->object = open_perception_kit::makeObjectMeta(11U);
-    face->box = open_perception_kit::makeBoundingBox(34.0f, 16.0f, 60.0f, 60.0f);
+    face->box = open_perception_kit::makeImageBoundingBox(
+        {.width = 128, .height = 96, .frameId = 1, .frameWidth = 128, .frameHeight = 96},
+        34.0f,
+        16.0f,
+        60.0f,
+        60.0f);
     face->confidence = 0.9f;
     facePayload.detections.push_back(std::move(face));
 

@@ -209,6 +209,9 @@ void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,
         auto trace = std::make_unique<open_perception_kit::metadata::TrackTraceT>();
         trace->object = open_perception_kit::makeObjectMeta(0U, parentIdOf(track.lastDetection));
         trace->track_id = trackId;
+        if (track.lastDetection.box && track.lastDetection.box->space)
+            trace->space = std::make_unique<open_perception_kit::metadata::ImageSpaceT>(
+                *track.lastDetection.box->space);
         for (const auto &point : track.traceHistoryPoints) {
             trace->points.push_back(
                 std::make_unique<open_perception_kit::metadata::Point2fT>(point));

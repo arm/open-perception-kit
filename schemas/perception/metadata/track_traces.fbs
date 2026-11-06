@@ -6,6 +6,8 @@ table TrackTrace {
   object:open_perception_kit.metadata.ObjectMeta;
   track_id:ulong;
   points:[open_perception_kit.metadata.Point2f];
+  // Trace points are pixels in this image basis, independent of object.parent_id.
+  space:open_perception_kit.metadata.ImageSpace;
 }
 
 table TrackTraces {

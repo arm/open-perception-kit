@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -128,9 +129,10 @@ void appendDetections(const std::vector<Detection> &detections,
 
         auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
         detection->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-        detection->box = open_perception_kit::makeBoundingBox(x, y, width, height);
+        detection->box = open_perception_kit::makeImageBoundingBox(
+            input.inferenceInfo.image, x, y, width, height, normalizeOutputCoordinates);
         detection->confidence = candidate.confidence;
-        detection->class_id = candidate.classId;
+        detection->class_id = static_cast<std::uint32_t>(candidate.classId);
         detection->text =
             opk::resources::Labels::getLabel(opk::resources::LabelType::Coco, candidate.classId);
         detectionResult.detections.push_back(std::move(detection));
@@ -165,9 +167,9 @@ void restoreFrameCoordinates(std::vector<Detection> &detections,
     }
 }
 
-std::vector<Detection> parseCenterClassScores(const opk::TensorParser::Input &input,
-                                              const TensorView &tensor,
-                                              const opk::Shape &shape) {
+opk::Result<std::vector<Detection>> parseCenterClassScores(const opk::TensorParser::Input &input,
+                                                           const TensorView &tensor,
+                                                           const opk::Shape &shape) {
     const auto confidenceThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
     const bool channelsFirst = shape.dims[1] <= shape.dims[2];
@@ -181,10 +183,15 @@ std::vector<Detection> parseCenterClassScores(const opk::TensorParser::Input &in
         const size_t stride = channelsFirst ? candidates : 1;
         const auto value = [&](size_t channel) { return tensor.get(base + channel * stride); };
 
-        int bestClass = -1;
-        float bestScore = 0.0f;
+        int bestClass = 0;
+        float bestScore = value(4);
         for (size_t channel = 4; channel < channels; ++channel) {
-            if (const float score = value(channel); score > bestScore) {
+            const float score = value(channel);
+            if (!std::isfinite(score)) {
+                return tl::unexpected(
+                    OPK_ERROR(ErrorFlag::InvalidData, "YoloParser: non-finite class score"));
+            }
+            if (score > bestScore) {
                 bestScore = score;
                 bestClass = static_cast<int>(channel - 4);
             }
@@ -310,7 +317,9 @@ std::vector<Detection> parseCornerScoreClass(const opk::TensorParser::Input &inp
         const float confidence = tensor.get(base + 4U);
         const float classId = tensor.get(base + 5U);
 
-        if (confidence < confidenceThreshold) {
+        if (!std::isfinite(confidence) || confidence < confidenceThreshold ||
+            !std::isfinite(classId) || classId < 0 || std::trunc(classId) != classId ||
+            static_cast<double>(classId) > std::numeric_limits<int>::max()) {
             continue;
         }
 

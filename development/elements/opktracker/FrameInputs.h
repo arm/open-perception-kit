@@ -38,13 +38,16 @@ EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameR
  * @brief Collects and filters detections targeted for tracking.
  *
  * Extracts detection candidates from FrameResults, applies tracker-specific filtering,
- * and returns selected detection views in processing order.
+ * and returns owned copies projected into a stable full-frame pixel basis.
  *
  * @param frameResults Input frame results for the current frame.
  * @param config Tracker configuration controlling detection selection.
- * @return DetectionBatch Ordered detection view batch.
+ * @param imageSpace Established tracking basis, initialized by the first valid detection.
+ * @return Owned detections in processing order; invalid spatial references are omitted.
  */
-DetectionBatch collectDetections(const open_perception_kit::FrameResults &frameResults,
-                                 const Config &config);
+std::vector<open_perception_kit::metadata::BoxDetectionT>
+collectDetections(const open_perception_kit::FrameResults &frameResults,
+                  const Config &config,
+                  std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> &imageSpace);
 
 } // namespace opk::tracker::frameinputs

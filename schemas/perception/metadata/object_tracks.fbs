@@ -8,7 +8,8 @@ table ObjectTrack {
   track_id:ulong;
   box:open_perception_kit.metadata.BoundingBox;
   confidence:float;
-  class_id:int = -1;
+  // Preserve the detection's optional category identity, including valid zero.
+  class_id:uint = null;
   text:string;
   diagnostic:string;
   predicted_only:bool;

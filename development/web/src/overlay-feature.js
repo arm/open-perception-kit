@@ -75,7 +75,8 @@ export function resolveFaceParents(result, index, type) {
     for (const item of items) {
         const candidates = (index.objects.get(objectId(item.data.parentUuid)) || []).filter((candidate) =>
             ['BoxDetections', 'ObjectTracks'].includes(candidate.source.payloadType)
-            && candidate.source.contentType === 'humanFace' && candidate.type === 'Rect');
+            && candidate.source.contentType === 'humanFace' && candidate.type === 'Rect'
+            && candidate.data.spatialValid !== false);
         if (candidates.length > 1) ambiguous = true;
         else if (candidates.length === 1) resolved.attached.push({data: item.data, parent: candidates[0].data});
         else missing = true;

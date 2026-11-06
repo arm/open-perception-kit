@@ -53,7 +53,8 @@ function detectionSummary(detection) {
         const confidence = number(data.confidence);
         return {
             title: label,
-            detail: `box x ${number(data.x)} y ${number(data.y)} w ${number(data.width)} h ${number(data.height)}`,
+            detail: data.spatialValid === false ? 'Spatial reference unavailable'
+                : `box x ${number(data.x)} y ${number(data.y)} w ${number(data.width)} h ${number(data.height)}`,
             meta: confidence ? `${confidence}` : '',
         };
     }
@@ -96,7 +97,7 @@ function detectionSummary(detection) {
     if (type === 'TrackTrace') {
         return {
             title: `Track ${data.trackId ?? '-'}`,
-            detail: 'trace',
+            detail: data.spatialValid === false ? 'Spatial reference unavailable' : 'trace',
             meta: '',
         };
     }
