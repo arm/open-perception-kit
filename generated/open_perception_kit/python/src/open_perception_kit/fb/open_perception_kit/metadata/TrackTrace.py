@@ -17,8 +17,9 @@
 
 # namespace: metadata
 
-import open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta
+import open_perception_kit.fb.open_perception_kit.metadata.ImageSpace
 import open_perception_kit.fb.open_perception_kit.metadata.Point2f
+import open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta
 import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
@@ -90,9 +91,20 @@ class TrackTrace(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         return o == 0
 
+    # TrackTrace
+    def Space(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpace
+            obj = ImageSpace()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
 
 def TrackTraceStart(builder):
-    builder.StartObject(3)
+    builder.StartObject(4)
 
 
 def Start(builder):
@@ -131,6 +143,14 @@ def StartPointsVector(builder, numElems):
     return TrackTraceStartPointsVector(builder, numElems)
 
 
+def TrackTraceAddSpace(builder, space):
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(space), 0)
+
+
+def AddSpace(builder, space):
+    TrackTraceAddSpace(builder, space)
+
+
 def TrackTraceEnd(builder):
     return builder.EndObject()
 
@@ -153,12 +173,14 @@ class TrackTraceT(object):
         object=None,
         trackId=0,
         points=None,
+        space=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
         self.trackId = trackId  # type: int
         # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.Point2f.Point2fT]]
         self.points = points
+        self.space = space  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ImageSpace.ImageSpaceT]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -194,6 +216,9 @@ class TrackTraceT(object):
                     point2f_ = open_perception_kit.fb.open_perception_kit.metadata.Point2f.Point2fT.InitFromObj(
                         trackTrace.Points(i))
                     self.points.append(point2f_)
+        if trackTrace.Space() is not None:
+            self.space = open_perception_kit.fb.open_perception_kit.metadata.ImageSpace.ImageSpaceT.InitFromObj(
+                trackTrace.Space())
 
     # TrackTraceT
     def Pack(self, builder):
@@ -207,11 +232,15 @@ class TrackTraceT(object):
             for i in reversed(range(len(self.points))):
                 builder.PrependUOffsetTRelative(pointslist[i])
             points = builder.EndVector()
+        if self.space is not None:
+            space = self.space.Pack(builder)
         TrackTraceStart(builder)
         if self.object is not None:
             TrackTraceAddObject(builder, object)
         TrackTraceAddTrackId(builder, self.trackId)
         if self.points is not None:
             TrackTraceAddPoints(builder, points)
+        if self.space is not None:
+            TrackTraceAddSpace(builder, space)
         trackTrace = TrackTraceEnd(builder)
         return trackTrace

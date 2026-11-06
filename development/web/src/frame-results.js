@@ -30,6 +30,8 @@ export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
 
 export class FrameResultsDecodeError extends Error {}
 
+import {imageBox, imagePoint, validImageSpace} from './image-geometry.js';
+
 function text(value) {
     if (value === null || value === undefined) return '';
     if (value instanceof Uint8Array) return new TextDecoder().decode(value);
@@ -77,14 +79,17 @@ function layer(payload, payloadType, detections) {
 }
 
 function boxData(item) {
+    const geometry = imageBox(item.box);
     return {
         ...objectData(item.object),
         x: Number(item.box?.x || 0),
         y: Number(item.box?.y || 0),
         width: Number(item.box?.width || 0),
         height: Number(item.box?.height || 0),
-        confidence: Number(item.confidence || 0),
-        classId: Number(item.classId ?? -1),
+        ...geometry,
+        spatialValid: geometry !== null,
+        confidence: item.confidence,
+        classId: item.classId,
         text: text(item.text),
     };
 }
@@ -155,14 +160,7 @@ export function decodeFrameResultsMessage(message) {
                     ...objectData(payload.video.object),
                     originalWidth: Number(payload.video.originalWidth),
                     originalHeight: Number(payload.video.originalHeight),
-                    sourceCropLeft: Number(payload.video.sourceCropLeft),
-                    sourceCropRight: Number(payload.video.sourceCropRight),
-                    sourceCropTop: Number(payload.video.sourceCropTop),
-                    sourceCropBottom: Number(payload.video.sourceCropBottom),
-                    letterboxLeft: Number(payload.video.letterboxLeft),
-                    letterboxRight: Number(payload.video.letterboxRight),
-                    letterboxTop: Number(payload.video.letterboxTop),
-                    letterboxBottom: Number(payload.video.letterboxBottom),
+                    presentationTsNs: payload.video.presentationTsNs === null ? null : identifier(payload.video.presentationTsNs),
                 },
             });
         }
@@ -219,7 +217,12 @@ export function decodeFrameResultsMessage(message) {
             data: {
                 ...objectData(item.object),
                 trackId: identifier(item.trackId),
-                points: item.points.map((point) => ({x: Number(point.x), y: Number(point.y)})),
+                spatialValid: validImageSpace(item.space),
+                frameWidth: item.space?.width,
+                frameHeight: item.space?.height,
+                points: validImageSpace(item.space) ? item.points.map(point =>
+                    point && Number.isFinite(point.x) && Number.isFinite(point.y)
+                        ? imagePoint(point.x, point.y, item.space) : null) : [],
             },
         })), layers);
 

@@ -155,6 +155,12 @@ making an explicit copy:
 saved_output = tensors[0].array.copy()
 ```
 
+When constructing a new Python-owned box result, preserve its `space` and
+`units`. Copy nested bridge-backed values into generated object-API types such
+as `ImageSpaceT` before passing the result to `env.add`: scoped proxies do not
+implement the Python serializer's `Pack` method. The checked-in
+`development/tests/python_guest/scale_boxes.py` demonstrates this copy.
+
 Python cannot invalidate a retained NumPy view after the call. Such a view may
 observe memory reused by the next inference and eventually become unsafe.
 

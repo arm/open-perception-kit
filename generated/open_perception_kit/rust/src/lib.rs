@@ -51,7 +51,7 @@ pub const OPEN_PERCEPTION_KIT_NAME: &str = "open_perception_kit";
 pub const OPEN_PERCEPTION_KIT_VERSION: &str = "1.0.0";
 /// SHA-256 identity of the complete schema set used for generation.
 pub const SCHEMA_SET_SHA256: &str =
-    "323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763"; // pragma: allowlist secret
+    "b8ee79b72a37c0d19b24f49615d294ce0361b981d7de71be1703ad8c7e167a7d"; // pragma: allowlist secret
 /// Exact FlatBuffers runtime version required by this crate.
 pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.9.23";
 /// Lowest numeric key reserved for application-defined external payloads.

@@ -33,6 +33,8 @@ import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open
 import {PerformanceMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js';
 import {FrameRateT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.js';
 import {ScopeTimingT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.js';
+import {ImageSpaceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/image-space.js';
+import {CoordinateUnits} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/coordinate-units.js';
 import {PoseEstimationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {SegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js';
@@ -42,6 +44,7 @@ import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
 import {decodeFrameResultsMessage, FRAME_RESULTS_ENCODING, FrameResultsDecodeError} from '../src/frame-results.js';
 import {findVideoFrame} from '../src/overlay-drawing.js';
+import {createCoordinateMapper} from '../src/overlay-drawing.js';
 import {indexFrame, outputSource} from '../src/overlay-sources.js';
 import {createOverlay} from '../src/overlays.js';
 import {resolveOverlay} from '../src/overlay-features.js';
@@ -73,7 +76,7 @@ function encodedFixture() {
         layer('humanFace'),
         [new BoxDetectionT(
             new ObjectMetaT(20n, 0n),
-            new BoundingBoxT(10, 20, 30, 40),
+            new BoundingBoxT(10, 20, 30, 40, new ImageSpaceT(10n, 640, 480, 0, 0, 640, 480)),
             0.9,
             1,
             'face',
@@ -98,7 +101,8 @@ function encodedFixture() {
         1,
         0,
         layer('trackTrace'),
-        [new TrackTraceT(new ObjectMetaT(50n), 7n, [new Point2fT(1, 2), new Point2fT(3, 4)])],
+        [new TrackTraceT(new ObjectMetaT(50n), 7n, [new Point2fT(1, 2), new Point2fT(3, 4)],
+            new ImageSpaceT(10n, 640, 480, 0, 0, 640, 480))],
     ));
     envelope.add(new PerformanceMeasurementsT(1, 0, null, [], new FrameRateT(30)));
     return Buffer.from(envelope.serialize()).toString('base64');
@@ -113,14 +117,14 @@ function trackedFixture() {
         [
             new BoxDetectionT(
                 new ObjectMetaT(20n),
-                new BoundingBoxT(10, 20, 30, 40),
+                new BoundingBoxT(10, 20, 30, 40, new ImageSpaceT(10n, 640, 480, 0, 0, 640, 480)),
                 0.9,
                 1,
                 'tracked source',
             ),
             new BoxDetectionT(
                 new ObjectMetaT(21n),
-                new BoundingBoxT(50, 60, 20, 20),
+                new BoundingBoxT(50, 60, 20, 20, new ImageSpaceT(10n, 640, 480, 0, 0, 640, 480)),
                 0.8,
                 1,
                 'untracked',
@@ -135,7 +139,7 @@ function trackedFixture() {
             new ObjectMetaT(30n),
             20n,
             7n,
-            new BoundingBoxT(12, 22, 30, 40),
+            new BoundingBoxT(12, 22, 30, 40, new ImageSpaceT(10n, 640, 480, 0, 0, 640, 480)),
             0.95,
             1,
             'tracked',
@@ -171,6 +175,9 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
         y: 20,
         width: 30,
         height: 40,
+        spatialValid: true,
+        frameWidth: 640,
+        frameHeight: 480,
         confidence: 0.8999999761581421,
         classId: 1,
         text: 'face',
@@ -200,6 +207,26 @@ test('retains detector and tracker outputs for independent overlay selection', (
     assert.deepEqual(decoded.frame_results.layers.map((item) => item.payloadType), ['BoxDetections', 'ObjectTracks']);
 });
 
+test('projects cropped normalized geometry independently of parents and first frame metadata', () => {
+    const envelope = new Envelope();
+    // An unrelated first frame must not determine the box's coordinate basis.
+    envelope.add(new FrameContextT(1, 0, layer('frameContext'),
+        new VideoFrameContextT(new ObjectMetaT(99n), 10n, 10n)));
+    const space = new ImageSpaceT(42n, 640, 480, 100, 50, 200, 100);
+    envelope.add(new BoxDetectionsT(1, 0, layer('genericObject'), [
+        new BoxDetectionT(new ObjectMetaT(7n, 999n), new BoundingBoxT(.25, .5, .5, .25, space, CoordinateUnits.Normalized)),
+        new BoxDetectionT(new ObjectMetaT(8n, 99n), new BoundingBoxT(50, 50, 100, 25)),
+    ]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    const [good, missing] = frame.layers.find(item => item.payloadType === 'BoxDetections').detections.map(item => item.data);
+    assert.equal(good.parentUuid, '999');
+    const mapper = createCoordinateMapper({canvasWidth: 1280, canvasHeight: 960,
+        videoWidth: 1280, videoHeight: 960, perception: frame});
+    assert.deepEqual(mapper.rect(good), {x: 300, y: 200, width: 200, height: 50});
+    assert.equal(mapper.rect(missing), null);
+});
+
 test('retains empty outputs, mask bytes and performance payloads', () => {
     const envelope = new Envelope();
     envelope.add(new BoxDetectionsT(1, 0, layer('genericObject'), []));
@@ -227,6 +254,27 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
         timings: [{scopeId: 'infer', name: 'Inference', meanMs: 0, p95Ms: 2.5}], frameRate: {fps: null},
     });
     assert.deepEqual(frame.performance[0], performance.detections[0].data);
+});
+
+test('box and track category IDs preserve absence and zero, and confidence is not coerced', () => {
+    const envelope = new Envelope();
+    envelope.add(new BoxDetectionsT(1, 0, layer('genericObject'), [
+        new BoxDetectionT(new ObjectMetaT(1n), null, NaN, null, 'unclassified'),
+        new BoxDetectionT(new ObjectMetaT(2n), null, 0, 0, 'zero'),
+    ]));
+    const track = new ObjectTrackT();
+    track.confidence = NaN;
+    envelope.add(new ObjectTracksT(1, 0, layer('genericObject'), [track]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    const boxes = frame.layers.find(item => item.payloadType === 'BoxDetections').detections;
+    assert.equal(boxes[0].data.classId, null);
+    assert.ok(Number.isNaN(boxes[0].data.confidence));
+    assert.equal(boxes[1].data.classId, 0);
+    assert.equal(boxes[1].data.confidence, 0);
+    const tracked = frame.layers.find(item => item.payloadType === 'ObjectTracks').detections[0].data;
+    assert.equal(tracked.classId, null);
+    assert.ok(Number.isNaN(tracked.confidence));
 });
 
 test('rejects a packet from an incompatible producer identity', () => {

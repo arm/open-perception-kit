@@ -137,6 +137,11 @@ multiple related payloads, and one payload can support multiple features.
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
+Box and trace geometry carries its own source-image basis. The decoder resolves
+crop-local/normalized coordinates before rendering; neither derivation parents
+nor the first frame record select a box's coordinate space. Unplaceable geometry
+is omitted from overlays and reported as unavailable in the output panel.
+
 Decoding requires the existing `perception-frame-results+base64` encoding and
 exact SDK producer identity. Invalid/incompatible matched packets clear current
 drawing; live-channel decode failures also show a metadata error. Unknown payload families are not decoded by the current

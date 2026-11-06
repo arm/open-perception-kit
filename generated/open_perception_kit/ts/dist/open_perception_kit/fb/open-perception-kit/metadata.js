@@ -18,6 +18,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 export { BitmapData, BitmapDataT } from './metadata/bitmap-data.js';
 export { BoundingBox, BoundingBoxT } from './metadata/bounding-box.js';
+export { CoordinateUnits } from './metadata/coordinate-units.js';
+export { ImageSpace, ImageSpaceT } from './metadata/image-space.js';
 export { LayerInfo, LayerInfoT } from './metadata/layer-info.js';
 export { ObjectMeta, ObjectMetaT } from './metadata/object-meta.js';
 export { Point2f, Point2fT } from './metadata/point2f.js';

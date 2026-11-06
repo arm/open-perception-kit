@@ -181,6 +181,8 @@ class Tracker {
                  std::optional<uint64_t> runningTimeMs);
 
   private:
+    // Keep Kalman state and trace history in one pixel basis until reset.
+    std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> imageSpace;
     ActiveTrackMap activeTracks;
     DormantTrackMap inactiveTracks;
     TrackId nextTrackId = 1;

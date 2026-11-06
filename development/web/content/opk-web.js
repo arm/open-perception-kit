@@ -2190,7 +2190,7 @@ function detectionSummary(detection) {
     const confidence = number(data.confidence);
     return {
       title: label,
-      detail: `box x ${number(data.x)} y ${number(data.y)} w ${number(data.width)} h ${number(data.height)}`,
+      detail: data.spatialValid === false ? "Spatial reference unavailable" : `box x ${number(data.x)} y ${number(data.y)} w ${number(data.width)} h ${number(data.height)}`,
       meta: confidence ? `${confidence}` : ""
     };
   }
@@ -2219,7 +2219,7 @@ function detectionSummary(detection) {
   if (type === "TrackTrace") {
     return {
       title: `Track ${data.trackId ?? "-"}`,
-      detail: "trace",
+      detail: data.spatialValid === false ? "Spatial reference unavailable" : "trace",
       meta: ""
     };
   }
@@ -3318,6 +3318,126 @@ var WireEnvelopeT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/coordinate-units.js
+var CoordinateUnits;
+(function(CoordinateUnits2) {
+  CoordinateUnits2[CoordinateUnits2["Pixels"] = 0] = "Pixels";
+  CoordinateUnits2[CoordinateUnits2["Normalized"] = 1] = "Normalized";
+})(CoordinateUnits || (CoordinateUnits = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/image-space.js
+var ImageSpace = class _ImageSpace {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsImageSpace(bb, obj) {
+    return (obj || new _ImageSpace()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsImageSpace(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _ImageSpace()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  frameId() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  width() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  height() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  originX() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  originY() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  extentWidth() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  extentHeight() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  static startImageSpace(builder) {
+    builder.startObject(7);
+  }
+  static addFrameId(builder, frameId) {
+    builder.addFieldInt64(0, frameId, BigInt("0"));
+  }
+  static addWidth(builder, width) {
+    builder.addFieldInt32(1, width, 0);
+  }
+  static addHeight(builder, height) {
+    builder.addFieldInt32(2, height, 0);
+  }
+  static addOriginX(builder, originX) {
+    builder.addFieldFloat64(3, originX, 0);
+  }
+  static addOriginY(builder, originY) {
+    builder.addFieldFloat64(4, originY, 0);
+  }
+  static addExtentWidth(builder, extentWidth) {
+    builder.addFieldFloat64(5, extentWidth, 0);
+  }
+  static addExtentHeight(builder, extentHeight) {
+    builder.addFieldFloat64(6, extentHeight, 0);
+  }
+  static endImageSpace(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createImageSpace(builder, frameId, width, height, originX, originY, extentWidth, extentHeight) {
+    _ImageSpace.startImageSpace(builder);
+    _ImageSpace.addFrameId(builder, frameId);
+    _ImageSpace.addWidth(builder, width);
+    _ImageSpace.addHeight(builder, height);
+    _ImageSpace.addOriginX(builder, originX);
+    _ImageSpace.addOriginY(builder, originY);
+    _ImageSpace.addExtentWidth(builder, extentWidth);
+    _ImageSpace.addExtentHeight(builder, extentHeight);
+    return _ImageSpace.endImageSpace(builder);
+  }
+  unpack() {
+    return new ImageSpaceT(this.frameId(), this.width(), this.height(), this.originX(), this.originY(), this.extentWidth(), this.extentHeight());
+  }
+  unpackTo(_o) {
+    _o.frameId = this.frameId();
+    _o.width = this.width();
+    _o.height = this.height();
+    _o.originX = this.originX();
+    _o.originY = this.originY();
+    _o.extentWidth = this.extentWidth();
+    _o.extentHeight = this.extentHeight();
+  }
+};
+var ImageSpaceT = class {
+  constructor(frameId = BigInt("0"), width = 0, height = 0, originX = 0, originY = 0, extentWidth = 0, extentHeight = 0) {
+    this.frameId = frameId;
+    this.width = width;
+    this.height = height;
+    this.originX = originX;
+    this.originY = originY;
+    this.extentWidth = extentWidth;
+    this.extentHeight = extentHeight;
+  }
+  pack(builder) {
+    return ImageSpace.createImageSpace(builder, this.frameId, this.width, this.height, this.originX, this.originY, this.extentWidth, this.extentHeight);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bounding-box.js
 var BoundingBox = class _BoundingBox {
   constructor() {
@@ -3352,8 +3472,16 @@ var BoundingBox = class _BoundingBox {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
   }
+  space(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? (obj || new ImageSpace()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  units() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : CoordinateUnits.Pixels;
+  }
   static startBoundingBox(builder) {
-    builder.startObject(4);
+    builder.startObject(6);
   }
   static addX(builder, x) {
     builder.addFieldFloat32(0, x, 0);
@@ -3367,37 +3495,47 @@ var BoundingBox = class _BoundingBox {
   static addHeight(builder, height) {
     builder.addFieldFloat32(3, height, 0);
   }
+  static addSpace(builder, spaceOffset) {
+    builder.addFieldOffset(4, spaceOffset, 0);
+  }
+  static addUnits(builder, units) {
+    builder.addFieldInt8(5, units, CoordinateUnits.Pixels);
+  }
   static endBoundingBox(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createBoundingBox(builder, x, y, width, height) {
-    _BoundingBox.startBoundingBox(builder);
-    _BoundingBox.addX(builder, x);
-    _BoundingBox.addY(builder, y);
-    _BoundingBox.addWidth(builder, width);
-    _BoundingBox.addHeight(builder, height);
-    return _BoundingBox.endBoundingBox(builder);
-  }
   unpack() {
-    return new BoundingBoxT(this.x(), this.y(), this.width(), this.height());
+    return new BoundingBoxT(this.x(), this.y(), this.width(), this.height(), this.space() !== null ? this.space().unpack() : null, this.units());
   }
   unpackTo(_o) {
     _o.x = this.x();
     _o.y = this.y();
     _o.width = this.width();
     _o.height = this.height();
+    _o.space = this.space() !== null ? this.space().unpack() : null;
+    _o.units = this.units();
   }
 };
 var BoundingBoxT = class {
-  constructor(x = 0, y = 0, width = 0, height = 0) {
+  constructor(x = 0, y = 0, width = 0, height = 0, space = null, units = CoordinateUnits.Pixels) {
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
+    this.space = space;
+    this.units = units;
   }
   pack(builder) {
-    return BoundingBox.createBoundingBox(builder, this.x, this.y, this.width, this.height);
+    const space = this.space !== null ? this.space.pack(builder) : 0;
+    BoundingBox.startBoundingBox(builder);
+    BoundingBox.addX(builder, this.x);
+    BoundingBox.addY(builder, this.y);
+    BoundingBox.addWidth(builder, this.width);
+    BoundingBox.addHeight(builder, this.height);
+    BoundingBox.addSpace(builder, space);
+    BoundingBox.addUnits(builder, this.units);
+    return BoundingBox.endBoundingBox(builder);
   }
 };
 
@@ -3506,7 +3644,7 @@ var BoxDetection = class _BoxDetection {
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
   }
   text(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 12);
@@ -3525,7 +3663,7 @@ var BoxDetection = class _BoxDetection {
     builder.addFieldFloat32(2, confidence, 0);
   }
   static addClassId(builder, classId) {
-    builder.addFieldInt32(3, classId, -1);
+    builder.addFieldInt32(3, classId, null);
   }
   static addText(builder, textOffset) {
     builder.addFieldOffset(4, textOffset, 0);
@@ -3546,7 +3684,7 @@ var BoxDetection = class _BoxDetection {
   }
 };
 var BoxDetectionT = class {
-  constructor(object = null, box = null, confidence = 0, classId = -1, text2 = null) {
+  constructor(object = null, box = null, confidence = 0, classId = null, text2 = null) {
     this.object = object;
     this.box = box;
     this.confidence = confidence;
@@ -3561,7 +3699,8 @@ var BoxDetectionT = class {
     BoxDetection.addObject(builder, object);
     BoxDetection.addBox(builder, box);
     BoxDetection.addConfidence(builder, this.confidence);
-    BoxDetection.addClassId(builder, this.classId);
+    if (this.classId !== null)
+      BoxDetection.addClassId(builder, this.classId);
     BoxDetection.addText(builder, text2);
     return BoxDetection.endBoxDetection(builder);
   }
@@ -4407,40 +4546,12 @@ var VideoFrameContext = class _VideoFrameContext {
     const offset = this.bb.__offset(this.bb_pos, 8);
     return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
   }
-  sourceCropLeft() {
+  presentationTsNs() {
     const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  sourceCropRight() {
-    const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  sourceCropTop() {
-    const offset = this.bb.__offset(this.bb_pos, 14);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  sourceCropBottom() {
-    const offset = this.bb.__offset(this.bb_pos, 16);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  letterboxLeft() {
-    const offset = this.bb.__offset(this.bb_pos, 18);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  letterboxRight() {
-    const offset = this.bb.__offset(this.bb_pos, 20);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  letterboxTop() {
-    const offset = this.bb.__offset(this.bb_pos, 22);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  letterboxBottom() {
-    const offset = this.bb.__offset(this.bb_pos, 24);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
   }
   static startVideoFrameContext(builder) {
-    builder.startObject(11);
+    builder.startObject(4);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -4451,83 +4562,42 @@ var VideoFrameContext = class _VideoFrameContext {
   static addOriginalHeight(builder, originalHeight) {
     builder.addFieldInt64(2, originalHeight, BigInt("0"));
   }
-  static addSourceCropLeft(builder, sourceCropLeft) {
-    builder.addFieldInt64(3, sourceCropLeft, BigInt("0"));
-  }
-  static addSourceCropRight(builder, sourceCropRight) {
-    builder.addFieldInt64(4, sourceCropRight, BigInt("0"));
-  }
-  static addSourceCropTop(builder, sourceCropTop) {
-    builder.addFieldInt64(5, sourceCropTop, BigInt("0"));
-  }
-  static addSourceCropBottom(builder, sourceCropBottom) {
-    builder.addFieldInt64(6, sourceCropBottom, BigInt("0"));
-  }
-  static addLetterboxLeft(builder, letterboxLeft) {
-    builder.addFieldInt64(7, letterboxLeft, BigInt("0"));
-  }
-  static addLetterboxRight(builder, letterboxRight) {
-    builder.addFieldInt64(8, letterboxRight, BigInt("0"));
-  }
-  static addLetterboxTop(builder, letterboxTop) {
-    builder.addFieldInt64(9, letterboxTop, BigInt("0"));
-  }
-  static addLetterboxBottom(builder, letterboxBottom) {
-    builder.addFieldInt64(10, letterboxBottom, BigInt("0"));
+  static addPresentationTsNs(builder, presentationTsNs) {
+    builder.addFieldInt64(3, presentationTsNs, null);
   }
   static endVideoFrameContext(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createVideoFrameContext(builder, objectOffset, originalWidth, originalHeight, sourceCropLeft, sourceCropRight, sourceCropTop, sourceCropBottom, letterboxLeft, letterboxRight, letterboxTop, letterboxBottom) {
+  static createVideoFrameContext(builder, objectOffset, originalWidth, originalHeight, presentationTsNs) {
     _VideoFrameContext.startVideoFrameContext(builder);
     _VideoFrameContext.addObject(builder, objectOffset);
     _VideoFrameContext.addOriginalWidth(builder, originalWidth);
     _VideoFrameContext.addOriginalHeight(builder, originalHeight);
-    _VideoFrameContext.addSourceCropLeft(builder, sourceCropLeft);
-    _VideoFrameContext.addSourceCropRight(builder, sourceCropRight);
-    _VideoFrameContext.addSourceCropTop(builder, sourceCropTop);
-    _VideoFrameContext.addSourceCropBottom(builder, sourceCropBottom);
-    _VideoFrameContext.addLetterboxLeft(builder, letterboxLeft);
-    _VideoFrameContext.addLetterboxRight(builder, letterboxRight);
-    _VideoFrameContext.addLetterboxTop(builder, letterboxTop);
-    _VideoFrameContext.addLetterboxBottom(builder, letterboxBottom);
+    if (presentationTsNs !== null)
+      _VideoFrameContext.addPresentationTsNs(builder, presentationTsNs);
     return _VideoFrameContext.endVideoFrameContext(builder);
   }
   unpack() {
-    return new VideoFrameContextT(this.object() !== null ? this.object().unpack() : null, this.originalWidth(), this.originalHeight(), this.sourceCropLeft(), this.sourceCropRight(), this.sourceCropTop(), this.sourceCropBottom(), this.letterboxLeft(), this.letterboxRight(), this.letterboxTop(), this.letterboxBottom());
+    return new VideoFrameContextT(this.object() !== null ? this.object().unpack() : null, this.originalWidth(), this.originalHeight(), this.presentationTsNs());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.originalWidth = this.originalWidth();
     _o.originalHeight = this.originalHeight();
-    _o.sourceCropLeft = this.sourceCropLeft();
-    _o.sourceCropRight = this.sourceCropRight();
-    _o.sourceCropTop = this.sourceCropTop();
-    _o.sourceCropBottom = this.sourceCropBottom();
-    _o.letterboxLeft = this.letterboxLeft();
-    _o.letterboxRight = this.letterboxRight();
-    _o.letterboxTop = this.letterboxTop();
-    _o.letterboxBottom = this.letterboxBottom();
+    _o.presentationTsNs = this.presentationTsNs();
   }
 };
 var VideoFrameContextT = class {
-  constructor(object = null, originalWidth = BigInt("0"), originalHeight = BigInt("0"), sourceCropLeft = BigInt("0"), sourceCropRight = BigInt("0"), sourceCropTop = BigInt("0"), sourceCropBottom = BigInt("0"), letterboxLeft = BigInt("0"), letterboxRight = BigInt("0"), letterboxTop = BigInt("0"), letterboxBottom = BigInt("0")) {
+  constructor(object = null, originalWidth = BigInt("0"), originalHeight = BigInt("0"), presentationTsNs = null) {
     this.object = object;
     this.originalWidth = originalWidth;
     this.originalHeight = originalHeight;
-    this.sourceCropLeft = sourceCropLeft;
-    this.sourceCropRight = sourceCropRight;
-    this.sourceCropTop = sourceCropTop;
-    this.sourceCropBottom = sourceCropBottom;
-    this.letterboxLeft = letterboxLeft;
-    this.letterboxRight = letterboxRight;
-    this.letterboxTop = letterboxTop;
-    this.letterboxBottom = letterboxBottom;
+    this.presentationTsNs = presentationTsNs;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
-    return VideoFrameContext.createVideoFrameContext(builder, object, this.originalWidth, this.originalHeight, this.sourceCropLeft, this.sourceCropRight, this.sourceCropTop, this.sourceCropBottom, this.letterboxLeft, this.letterboxRight, this.letterboxTop, this.letterboxBottom);
+    return VideoFrameContext.createVideoFrameContext(builder, object, this.originalWidth, this.originalHeight, this.presentationTsNs);
   }
 };
 
@@ -5162,7 +5232,7 @@ var ObjectTrack = class _ObjectTrack {
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 14);
-    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
   }
   text(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 16);
@@ -5195,7 +5265,7 @@ var ObjectTrack = class _ObjectTrack {
     builder.addFieldFloat32(4, confidence, 0);
   }
   static addClassId(builder, classId) {
-    builder.addFieldInt32(5, classId, -1);
+    builder.addFieldInt32(5, classId, null);
   }
   static addText(builder, textOffset) {
     builder.addFieldOffset(6, textOffset, 0);
@@ -5226,7 +5296,7 @@ var ObjectTrack = class _ObjectTrack {
   }
 };
 var ObjectTrackT = class {
-  constructor(object = null, sourceId = BigInt("0"), trackId = BigInt("0"), box = null, confidence = 0, classId = -1, text2 = null, diagnostic = null, predictedOnly = false) {
+  constructor(object = null, sourceId = BigInt("0"), trackId = BigInt("0"), box = null, confidence = 0, classId = null, text2 = null, diagnostic = null, predictedOnly = false) {
     this.object = object;
     this.sourceId = sourceId;
     this.trackId = trackId;
@@ -5248,7 +5318,8 @@ var ObjectTrackT = class {
     ObjectTrack.addTrackId(builder, this.trackId);
     ObjectTrack.addBox(builder, box);
     ObjectTrack.addConfidence(builder, this.confidence);
-    ObjectTrack.addClassId(builder, this.classId);
+    if (this.classId !== null)
+      ObjectTrack.addClassId(builder, this.classId);
     ObjectTrack.addText(builder, text2);
     ObjectTrack.addDiagnostic(builder, diagnostic);
     ObjectTrack.addPredictedOnly(builder, this.predictedOnly);
@@ -6249,8 +6320,12 @@ var TrackTrace = class _TrackTrace {
     const offset = this.bb.__offset(this.bb_pos, 8);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
+  space(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new ImageSpace()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
   static startTrackTrace(builder) {
-    builder.startObject(3);
+    builder.startObject(4);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -6271,36 +6346,40 @@ var TrackTrace = class _TrackTrace {
   static startPointsVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addSpace(builder, spaceOffset) {
+    builder.addFieldOffset(3, spaceOffset, 0);
+  }
   static endTrackTrace(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createTrackTrace(builder, objectOffset, trackId, pointsOffset) {
-    _TrackTrace.startTrackTrace(builder);
-    _TrackTrace.addObject(builder, objectOffset);
-    _TrackTrace.addTrackId(builder, trackId);
-    _TrackTrace.addPoints(builder, pointsOffset);
-    return _TrackTrace.endTrackTrace(builder);
-  }
   unpack() {
-    return new TrackTraceT(this.object() !== null ? this.object().unpack() : null, this.trackId(), this.bb.createObjList(this.points.bind(this), this.pointsLength()));
+    return new TrackTraceT(this.object() !== null ? this.object().unpack() : null, this.trackId(), this.bb.createObjList(this.points.bind(this), this.pointsLength()), this.space() !== null ? this.space().unpack() : null);
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.trackId = this.trackId();
     _o.points = this.bb.createObjList(this.points.bind(this), this.pointsLength());
+    _o.space = this.space() !== null ? this.space().unpack() : null;
   }
 };
 var TrackTraceT = class {
-  constructor(object = null, trackId = BigInt("0"), points = []) {
+  constructor(object = null, trackId = BigInt("0"), points = [], space = null) {
     this.object = object;
     this.trackId = trackId;
     this.points = points;
+    this.space = space;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const points = TrackTrace.createPointsVector(builder, builder.createObjectOffsetList(this.points));
-    return TrackTrace.createTrackTrace(builder, object, this.trackId, points);
+    const space = this.space !== null ? this.space.pack(builder) : 0;
+    TrackTrace.startTrackTrace(builder);
+    TrackTrace.addObject(builder, object);
+    TrackTrace.addTrackId(builder, this.trackId);
+    TrackTrace.addPoints(builder, points);
+    TrackTrace.addSpace(builder, space);
+    return TrackTrace.endTrackTrace(builder);
   }
 };
 
@@ -7035,7 +7114,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763";
+var SCHEMA_SET_SHA256 = "b8ee79b72a37c0d19b24f49615d294ce0361b981d7de71be1703ad8c7e167a7d";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -7354,6 +7433,28 @@ var Envelope = class {
   }
 };
 
+// development/web/src/image-geometry.js
+function validImageSpace(space) {
+  const id = space?.frameId;
+  return (typeof id === "bigint" ? id > 0n : Number.isSafeInteger(id) && id > 0) && Number.isInteger(space.width) && space.width > 0 && Number.isInteger(space.height) && space.height > 0 && [space.originX, space.originY, space.extentWidth, space.extentHeight].every(Number.isFinite) && space.originX >= 0 && space.originY >= 0 && space.extentWidth > 0 && space.extentHeight > 0 && space.originX + space.extentWidth <= space.width && space.originY + space.extentHeight <= space.height;
+}
+function imagePoint(x, y, space) {
+  return { x: space.originX + x, y: space.originY + y };
+}
+function imageBox(box) {
+  const space = box?.space;
+  if (!validImageSpace(space) || ![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.width <= 0 || box.height <= 0 || ![CoordinateUnits.Pixels, CoordinateUnits.Normalized].includes(box.units)) return null;
+  const unitX = box.units === CoordinateUnits.Normalized ? space.extentWidth : 1;
+  const unitY = box.units === CoordinateUnits.Normalized ? space.extentHeight : 1;
+  return {
+    ...imagePoint(box.x * unitX, box.y * unitY, space),
+    width: box.width * unitX,
+    height: box.height * unitY,
+    frameWidth: space.width,
+    frameHeight: space.height
+  };
+}
+
 // development/web/src/frame-results.js
 var FRAME_RESULTS_ENCODING = "perception-frame-results+base64";
 var FrameResultsDecodeError = class extends Error {
@@ -7400,14 +7501,17 @@ function layer(payload, payloadType, detections) {
   };
 }
 function boxData(item) {
+  const geometry = imageBox(item.box);
   return {
     ...objectData(item.object),
     x: Number(item.box?.x || 0),
     y: Number(item.box?.y || 0),
     width: Number(item.box?.width || 0),
     height: Number(item.box?.height || 0),
-    confidence: Number(item.confidence || 0),
-    classId: Number(item.classId ?? -1),
+    ...geometry,
+    spatialValid: geometry !== null,
+    confidence: item.confidence,
+    classId: item.classId,
     text: text(item.text)
   };
 }
@@ -7471,14 +7575,7 @@ function decodeFrameResultsMessage(message) {
           ...objectData(payload.video.object),
           originalWidth: Number(payload.video.originalWidth),
           originalHeight: Number(payload.video.originalHeight),
-          sourceCropLeft: Number(payload.video.sourceCropLeft),
-          sourceCropRight: Number(payload.video.sourceCropRight),
-          sourceCropTop: Number(payload.video.sourceCropTop),
-          sourceCropBottom: Number(payload.video.sourceCropBottom),
-          letterboxLeft: Number(payload.video.letterboxLeft),
-          letterboxRight: Number(payload.video.letterboxRight),
-          letterboxTop: Number(payload.video.letterboxTop),
-          letterboxBottom: Number(payload.video.letterboxBottom)
+          presentationTsNs: payload.video.presentationTsNs === null ? null : identifier(payload.video.presentationTsNs)
         }
       });
     }
@@ -7526,7 +7623,10 @@ function decodeFrameResultsMessage(message) {
     data: {
       ...objectData(item.object),
       trackId: identifier(item.trackId),
-      points: item.points.map((point) => ({ x: Number(point.x), y: Number(point.y) }))
+      spatialValid: validImageSpace(item.space),
+      frameWidth: item.space?.width,
+      frameHeight: item.space?.height,
+      points: validImageSpace(item.space) ? item.points.map((point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) ? imagePoint(point.x, point.y, item.space) : null) : []
     }
   })), layers);
   addPayloadLayers(envelope, SegmentationMasksT, "SegmentationMasks", (payload) => payload.masks.map((item) => ({
@@ -7681,10 +7781,10 @@ function createCoordinateMapper({ canvasWidth, canvasHeight, videoWidth, videoHe
     sourceWidth,
     sourceHeight,
     display,
-    point(x, y) {
+    point(x, y, basis) {
       return {
-        x: display.x + Number(x || 0) * scaleX,
-        y: display.y + Number(y || 0) * scaleY
+        x: display.x + Number(x || 0) * (positiveNumber(basis?.frameWidth) ? display.width / basis.frameWidth : scaleX),
+        y: display.y + Number(y || 0) * (positiveNumber(basis?.frameHeight) ? display.height / basis.frameHeight : scaleY)
       };
     },
     lengthX(value) {
@@ -7694,12 +7794,13 @@ function createCoordinateMapper({ canvasWidth, canvasHeight, videoWidth, videoHe
       return Number(value || 0) * scaleY;
     },
     rect(rect) {
-      const origin = this.point(rect.x, rect.y);
+      if (rect.spatialValid === false) return null;
+      const origin = this.point(rect.x, rect.y, rect);
       return {
         x: origin.x,
         y: origin.y,
-        width: this.lengthX(rect.width ?? rect.w),
-        height: this.lengthY(rect.height ?? rect.h)
+        width: positiveNumber(rect.frameWidth) ? rect.width * display.width / rect.frameWidth : this.lengthX(rect.width ?? rect.w),
+        height: positiveNumber(rect.frameHeight) ? rect.height * display.height / rect.frameHeight : this.lengthY(rect.height ?? rect.h)
       };
     }
   };
@@ -7731,7 +7832,7 @@ function findVideoFrame(perception) {
 }
 function drawObjectBox(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
-  if (box.width <= 0 || box.height <= 0) {
+  if (!box || box.width <= 0 || box.height <= 0) {
     return;
   }
   ctx.save();
@@ -7746,6 +7847,7 @@ function drawObjectBox(ctx, rect, mapper, color) {
 }
 function drawFace(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
+  if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const radius = Math.abs(box.width) / 2;
@@ -7824,13 +7926,14 @@ function drawPersonClassification(ctx, personClassification, display, now, color
 }
 function drawTrackTrace(ctx, trace, mapper, color) {
   const points = Array.isArray(trace?.points) ? trace.points : [];
-  if (points.length < 2) {
+  if (trace.spatialValid === false || points.length < 2) {
     return;
   }
   const segments = points.length - 1;
   for (let i = 0; i < segments; i += 1) {
-    const from = mapper.point(points[i].x, points[i].y);
-    const to = mapper.point(points[i + 1].x, points[i + 1].y);
+    if (!points[i] || !points[i + 1]) continue;
+    const from = mapper.point(points[i].x, points[i].y, trace);
+    const to = mapper.point(points[i + 1].x, points[i + 1].y, trace);
     const alpha = 0.35 + 0.65 * ((i + 1) / segments);
     drawArrow(ctx, from, to, hexToRgba(color, alpha), 4, 0);
   }
@@ -7838,6 +7941,7 @@ function drawTrackTrace(ctx, trace, mapper, color) {
 function drawGazeVector(ctx, yp, parent, mapper, color) {
   if (nearZero(yp.yaw) && nearZero(yp.pitch)) return;
   const parentBox = mapper.rect(parent);
+  if (!parentBox) return;
   const start = { x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2 };
   drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
 }
@@ -7847,6 +7951,7 @@ function drawCameraContactMarker(ctx, classification, face, mapper, color) {
     return;
   }
   const box = mapper.rect(face);
+  if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const hasContact = candidate.classId === 1;
@@ -8140,7 +8245,7 @@ function resolveFaceParents(result, index, type) {
   let missing = false;
   let ambiguous = false;
   for (const item of items) {
-    const candidates = (index.objects.get(objectId(item.data.parentUuid)) || []).filter((candidate) => ["BoxDetections", "ObjectTracks"].includes(candidate.source.payloadType) && candidate.source.contentType === "humanFace" && candidate.type === "Rect");
+    const candidates = (index.objects.get(objectId(item.data.parentUuid)) || []).filter((candidate) => ["BoxDetections", "ObjectTracks"].includes(candidate.source.payloadType) && candidate.source.contentType === "humanFace" && candidate.type === "Rect" && candidate.data.spatialValid !== false);
     if (candidates.length > 1) ambiguous = true;
     else if (candidates.length === 1) resolved.attached.push({ data: item.data, parent: candidates[0].data });
     else missing = true;

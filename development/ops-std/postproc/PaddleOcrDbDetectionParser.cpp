@@ -468,13 +468,13 @@ opk::Result<void> PaddleOcrDbDetectionParser::parse(const opk::TensorParser::Inp
 
         auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
         detection->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-        detection->box =
-            open_perception_kit::makeBoundingBox(static_cast<float>(bounds->left),
-                                                 static_cast<float>(bounds->top),
-                                                 static_cast<float>(bounds->right - bounds->left),
-                                                 static_cast<float>(bounds->bottom - bounds->top));
+        detection->box = open_perception_kit::makeImageBoundingBox(
+            input.inferenceInfo.image,
+            static_cast<float>(bounds->left),
+            static_cast<float>(bounds->top),
+            static_cast<float>(bounds->right - bounds->left),
+            static_cast<float>(bounds->bottom - bounds->top));
         detection->confidence = static_cast<float>(confidence);
-        detection->class_id = -1;
         payload.detections.push_back(std::move(detection));
     }
     if (!payload.detections.empty())

@@ -17,10 +17,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+import math
 
 from .frame_results_sdk import FrameResults
 
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
+from open_perception_kit.fb.open_perception_kit.metadata.CoordinateUnits import CoordinateUnits
 from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT
@@ -131,20 +133,45 @@ def _object_data(obj: Any) -> dict[str, int]:
     }
 
 
-def _box_data(box: Any) -> dict[str, float]:
+def _image_space_data(space: Any) -> dict[str, Any]:
+    valid = space is not None and space.frameId > 0 and space.width > 0 and space.height > 0
+    if valid:
+        valid = (all(math.isfinite(value) for value in (space.originX, space.originY, space.extentWidth, space.extentHeight))
+                 and space.originX >= 0 and space.originY >= 0 and space.extentWidth > 0 and space.extentHeight > 0
+                 and space.originX + space.extentWidth <= space.width
+                 and space.originY + space.extentHeight <= space.height)
+    return {"spatialValid": valid, "frameWidth": space.width if valid else 0,
+            "frameHeight": space.height if valid else 0}
+
+
+def _box_data(box: Any) -> dict[str, Any]:
     if box is None:
         return {
             "x": 0.0,
             "y": 0.0,
             "width": 0.0,
             "height": 0.0,
+            "spatialValid": False,
+            "frameWidth": 0,
+            "frameHeight": 0,
         }
-    return {
+    data = {
         "x": float(box.x),
         "y": float(box.y),
         "width": float(box.width),
         "height": float(box.height),
     }
+    data.update(_image_space_data(box.space))
+    data["spatialValid"] = (data["spatialValid"] and all(math.isfinite(data[key]) for key in ("x", "y", "width", "height"))
+                            and box.width > 0 and box.height > 0
+                            and box.units in (CoordinateUnits.Pixels, CoordinateUnits.Normalized))
+    if data["spatialValid"]:
+        space = box.space
+        sx = space.extentWidth if box.units == CoordinateUnits.Normalized else 1
+        sy = space.extentHeight if box.units == CoordinateUnits.Normalized else 1
+        data.update(x=space.originX + box.x * sx, y=space.originY + box.y * sy,
+                    width=box.width * sx, height=box.height * sy)
+    return data
 
 
 def _point_data(point: Any) -> dict[str, float]:
@@ -205,7 +232,7 @@ def _normalize_box_detection(box_detection: Any) -> dict[str, Any]:
     data.update(
         {
             "confidence": float(box_detection.confidence),
-            "classId": int(box_detection.classId),
+            "classId": None if box_detection.classId is None else int(box_detection.classId),
             "text": _maybe_text(box_detection.text),
         }
     )
@@ -311,7 +338,7 @@ def _normalize_object_track(track: Any) -> dict[str, Any]:
             "sourceId": int(track.sourceId),
             "trackId": int(track.trackId),
             "confidence": float(track.confidence),
-            "classId": int(track.classId),
+            "classId": None if track.classId is None else int(track.classId),
             "text": _maybe_text(track.text),
             "diagnostic": _maybe_text(track.diagnostic),
             "predictedOnly": bool(track.predictedOnly),
@@ -325,13 +352,16 @@ def _normalize_object_track(track: Any) -> dict[str, Any]:
 
 def _normalize_track_trace(trace: Any) -> dict[str, Any]:
     data = _object_data(trace.object)
+    data.update(_image_space_data(trace.space))
+    data["spatialValid"] = data["spatialValid"] and all(
+        point is not None and math.isfinite(point.x) and math.isfinite(point.y) for point in trace.points or [])
     data.update(
         {
             "trackId": int(trace.trackId),
             "points": [
-                _point_data(point)
+                {"x": trace.space.originX + float(point.x), "y": trace.space.originY + float(point.y)}
                 for point in trace.points or []
-                if point is not None
+                if point is not None and data["spatialValid"]
             ],
         }
     )
@@ -347,14 +377,7 @@ def _normalize_video_frame(video: Any) -> dict[str, Any]:
         {
             "originalWidth": int(video.originalWidth),
             "originalHeight": int(video.originalHeight),
-            "sourceCropLeft": int(video.sourceCropLeft),
-            "sourceCropRight": int(video.sourceCropRight),
-            "sourceCropTop": int(video.sourceCropTop),
-            "sourceCropBottom": int(video.sourceCropBottom),
-            "letterboxLeft": int(video.letterboxLeft),
-            "letterboxRight": int(video.letterboxRight),
-            "letterboxTop": int(video.letterboxTop),
-            "letterboxBottom": int(video.letterboxBottom),
+            "presentationTsNs": video.presentationTsNs,
         }
     )
     return {

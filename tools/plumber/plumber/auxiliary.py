@@ -30,8 +30,8 @@ def frame_size_from_parent(parent_item: dict) -> Optional[Tuple[int, int]]:
     match parent_item["item_type"]:
         case "VideoFrame":
             return (data["originalWidth"], data["originalHeight"])
-        case "BoxDetection" | "ObjectTrack":
-            return (data["width"], data["height"])
+        case "BoxDetection" | "ObjectTrack" | "TrackTrace":
+            return (data["frameWidth"], data["frameHeight"]) if data.get("spatialValid") else None
         case _:
             return None
 

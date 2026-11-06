@@ -50,7 +50,7 @@ export class BoxDetection {
     }
     classId() {
         const offset = this.bb.__offset(this.bb_pos, 10);
-        return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+        return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
     }
     text(optionalEncoding) {
         const offset = this.bb.__offset(this.bb_pos, 12);
@@ -69,7 +69,7 @@ export class BoxDetection {
         builder.addFieldFloat32(2, confidence, 0.0);
     }
     static addClassId(builder, classId) {
-        builder.addFieldInt32(3, classId, -1);
+        builder.addFieldInt32(3, classId, null);
     }
     static addText(builder, textOffset) {
         builder.addFieldOffset(4, textOffset, 0);
@@ -90,7 +90,7 @@ export class BoxDetection {
     }
 }
 export class BoxDetectionT {
-    constructor(object = null, box = null, confidence = 0.0, classId = -1, text = null) {
+    constructor(object = null, box = null, confidence = 0.0, classId = null, text = null) {
         this.object = object;
         this.box = box;
         this.confidence = confidence;
@@ -105,7 +105,8 @@ export class BoxDetectionT {
         BoxDetection.addObject(builder, object);
         BoxDetection.addBox(builder, box);
         BoxDetection.addConfidence(builder, this.confidence);
-        BoxDetection.addClassId(builder, this.classId);
+        if (this.classId !== null)
+            BoxDetection.addClassId(builder, this.classId);
         BoxDetection.addText(builder, text);
         return BoxDetection.endBoxDetection(builder);
     }

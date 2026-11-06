@@ -280,8 +280,17 @@ opk::stdop::postproc::ScrfdParser::parse(const opk::TensorParser::Input &input,
         return tl::unexpected(groupsResult.error());
     }
 
-    const float scaleX = static_cast<float>(frameWidth) / static_cast<float>(modelWidth);
-    const float scaleY = static_cast<float>(frameHeight) / static_cast<float>(modelHeight);
+    const auto &image = input.inferenceInfo.image;
+    if (image.letterboxLeft >= modelWidth ||
+        image.letterboxRight >= modelWidth - image.letterboxLeft ||
+        image.letterboxTop >= modelHeight ||
+        image.letterboxBottom >= modelHeight - image.letterboxTop)
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData, "ScrfdParser: invalid letterbox padding"));
+    const auto activeWidth = modelWidth - image.letterboxLeft - image.letterboxRight;
+    const auto activeHeight = modelHeight - image.letterboxTop - image.letterboxBottom;
+    const float scaleX = static_cast<float>(frameWidth) / static_cast<float>(activeWidth);
+    const float scaleY = static_cast<float>(frameHeight) / static_cast<float>(activeHeight);
     std::vector<FaceDetection> detections;
 
     for (const auto &group : *groupsResult) {
@@ -306,10 +315,22 @@ opk::stdop::postproc::ScrfdParser::parse(const opk::TensorParser::Input &input,
                     const float anchorCenterX = static_cast<float>(x * group.stride);
                     const float anchorCenterY = static_cast<float>(y * group.stride);
 
-                    float x1 = std::clamp(anchorCenterX - l, 0.0f, static_cast<float>(modelWidth));
-                    float y1 = std::clamp(anchorCenterY - t, 0.0f, static_cast<float>(modelHeight));
-                    float x2 = std::clamp(anchorCenterX + r, 0.0f, static_cast<float>(modelWidth));
-                    float y2 = std::clamp(anchorCenterY + b, 0.0f, static_cast<float>(modelHeight));
+                    float x1 =
+                        std::clamp(anchorCenterX - l - static_cast<float>(image.letterboxLeft),
+                                   0.0f,
+                                   static_cast<float>(activeWidth));
+                    float y1 =
+                        std::clamp(anchorCenterY - t - static_cast<float>(image.letterboxTop),
+                                   0.0f,
+                                   static_cast<float>(activeHeight));
+                    float x2 =
+                        std::clamp(anchorCenterX + r - static_cast<float>(image.letterboxLeft),
+                                   0.0f,
+                                   static_cast<float>(activeWidth));
+                    float y2 =
+                        std::clamp(anchorCenterY + b - static_cast<float>(image.letterboxTop),
+                                   0.0f,
+                                   static_cast<float>(activeHeight));
 
                     x1 *= scaleX;
                     y1 *= scaleY;
@@ -326,8 +347,13 @@ opk::stdop::postproc::ScrfdParser::parse(const opk::TensorParser::Input &input,
                     FaceDetection detection;
                     detection.object =
                         open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-                    detection.box = open_perception_kit::makeBoundingBox(
-                        x1, y1, std::max(0.0f, x2 - x1), std::max(0.0f, y2 - y1));
+                    detection.box =
+                        open_perception_kit::makeImageBoundingBox(input.inferenceInfo.image,
+                                                                  x1,
+                                                                  y1,
+                                                                  std::max(0.0f, x2 - x1),
+                                                                  std::max(0.0f, y2 - y1),
+                                                                  normalizeOutputCoordinates);
                     detection.confidence = score;
                     detection.class_id = 0;
                     detections.push_back(std::move(detection));

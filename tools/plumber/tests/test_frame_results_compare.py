@@ -36,6 +36,11 @@ from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import Objec
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements import PerformanceMeasurementsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.FrameRate import FrameRateT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.CoordinateUnits import CoordinateUnits  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.Point2f import Point2fT  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str) -> LayerInfoT:
@@ -64,7 +69,8 @@ def box_payload(*boxes: tuple[int, float, float, float, float]) -> BoxDetections
         detections=[
             BoxDetectionT(
                 object=ObjectMetaT(id=object_id, parentId=1),
-                box=BoundingBoxT(x=x, y=y, width=w, height=h),
+                box=BoundingBoxT(x=x, y=y, width=w, height=h,
+                                 space=ImageSpaceT(frameId=1, width=100, height=100, extentWidth=100, extentHeight=100)),
                 confidence=0.9,
                 classId=1,
                 text="object",
@@ -110,6 +116,44 @@ class FrameResultsCompareTests(unittest.TestCase):
 
         self.assertFalse(ok)
         self.assertIn("payload mismatch", msg)
+
+    def test_normalized_crop_matches_full_frame_without_derivation_parent(self):
+        expected = frame_results_with_boxes((2, 30.0, 30.0, 20.0, 10.0))
+        actual = FrameResults()
+        actual.add(frame_payload())
+        payload = box_payload((7, 0.25, 0.5, 0.5, 0.5))
+        box = payload.detections[0].box
+        box.space = ImageSpaceT(frameId=99, width=100, height=100, originX=20, originY=20,
+                                extentWidth=40, extentHeight=20)
+        box.units = CoordinateUnits.Normalized
+        payload.detections[0].object.parentId = 999  # Derivation does not determine geometry.
+        actual.add(payload)
+        ok, message = compare_frame_results_frame(self.args, frame_results_frame(expected), frame_results_frame(actual))
+        self.assertTrue(ok, message)
+
+    def test_missing_spatial_reference_is_an_error_not_a_parent_fallback(self):
+        expected = frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0))
+        actual = FrameResults()
+        actual.add(frame_payload())
+        payload = box_payload((2, 10.0, 10.0, 20.0, 20.0))
+        payload.detections[0].box.space = None
+        actual.add(payload)
+        ok, message = compare_frame_results_frame(self.args, frame_results_frame(expected), frame_results_frame(actual))
+        self.assertFalse(ok)
+        self.assertIn("spatial reference", message)
+
+    def test_resized_trace_uses_each_sources_dimensions(self):
+        frames = []
+        for scale in (1, 2):
+            frame = FrameResults()
+            frame.add(TrackTracesT(layer=layer("trackTrace", "tracker"), traces=[TrackTraceT(
+                object=ObjectMetaT(id=7, parentId=999), trackId=1,
+                points=[Point2fT(x=10 * scale, y=20 * scale), Point2fT(x=20 * scale, y=30 * scale)],
+                space=ImageSpaceT(frameId=scale, width=100 * scale, height=100 * scale,
+                                  extentWidth=100 * scale, extentHeight=100 * scale))]))
+            frames.append(frame_results_frame(frame))
+        ok, message = compare_frame_results_frame(self.args, *frames)
+        self.assertTrue(ok, message)
 
     def test_performance_measurements_remain_outside_comparison(self) -> None:
         expected = frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0))
