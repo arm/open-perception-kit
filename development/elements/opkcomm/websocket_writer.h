@@ -49,20 +49,31 @@ class WebSocketWriter : public Writer {
     std::thread m_ws_thread;
     std::set<OpkCommConnectionHdl, std::owner_less<OpkCommConnectionHdl>> m_connections;
     mutable std::mutex m_connection_lock;
+    std::condition_variable m_deliveryChanged;
+    std::set<OpkCommConnectionHdl, std::owner_less<OpkCommConnectionHdl>> m_awaitingPong;
+    std::string m_barrier;
+    uint64_t m_nextBarrier = 0;
 
     bool validate(const OpkCommConnectionHdl &connectionHandle);
     void on_open(const OpkCommConnectionHdl &connectionHandle);
     void on_close(const OpkCommConnectionHdl &connectionHandle);
+    bool callOnIoThread(const std::function<bool()> &operation);
 
   protected:
     bool io_open() override;
     void io_close() override;
 
     bool publish(const std::string &record) override;
+    bool ready() override;
+    bool flush(const std::chrono::steady_clock::time_point deadline) override;
 
   public:
+    void setEndpoint(const std::string &endpoint);
+
     WebSocketWriter(_GstOpkComm *self, uint16_t port, std::string endpoint, size_t queue_size)
         : Writer(self, queue_size), m_port(port), m_endpoint(std::move(endpoint)) {}
 
-    ~WebSocketWriter() override = default;
+    ~WebSocketWriter() override {
+        stop();
+    }
 };

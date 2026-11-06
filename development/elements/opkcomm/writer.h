@@ -18,8 +18,10 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -39,10 +41,13 @@ class JobQueue {
     explicit JobQueue(size_t capacity) : m_capacity(capacity) {}
 
     bool try_push(OpkCommJob &&job);
-    bool pop(OpkCommJob &job);
+    bool pop(OpkCommJob &job, const std::function<bool()> &ready);
+    bool pauseUntil(const std::chrono::steady_clock::time_point deadline);
+    void resume();
+    void transferTo(JobQueue &destination);
 
     void stop();
-    void reset();
+    void reset(const bool paused);
 
   private:
     size_t m_capacity;
@@ -50,22 +55,37 @@ class JobQueue {
     std::mutex m_mutex;
     std::condition_variable m_jobsAvailable;
     bool m_stopped = false;
+    bool m_paused = false;
+    bool m_idle = true;
 };
 
 class Writer {
     _GstOpkComm *m_self;
     JobQueue m_queue;
 
+    std::timed_mutex m_lifecycleMutex;
     std::jthread m_worker;
     std::atomic<bool> m_running{false};
+    std::atomic<bool> m_failed{false};
 
   protected:
     void run();
+    void fail();
 
     virtual bool io_open() = 0;
     virtual void io_close() = 0;
 
     virtual bool publish(const std::string &record) = 0;
+    virtual bool ready() {
+        return true;
+    }
+    virtual bool flush(const std::chrono::steady_clock::time_point) {
+        return true;
+    }
+    bool running() const {
+        return m_running;
+    }
+    static constexpr auto retryInterval = std::chrono::milliseconds(10);
 
     const _GstOpkComm *self() const {
         return m_self;
@@ -77,8 +97,13 @@ class Writer {
 
     bool send(OpkCommJob &&job);
 
-    bool check_running();
+    bool healthy() const {
+        return m_running && !m_failed;
+    }
+    bool pauseUntil(const std::chrono::steady_clock::time_point deadline);
+    void resume();
+    void transferTo(Writer &destination);
 
-    virtual bool start();
+    virtual bool start(const bool paused = false);
     virtual void stop();
 };

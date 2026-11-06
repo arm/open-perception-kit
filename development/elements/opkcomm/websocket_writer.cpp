@@ -19,6 +19,7 @@
 
 #include "Log.h"
 
+#include <future>
 #include <utility>
 
 #include <gst/gst.h>
@@ -30,6 +31,7 @@ bool WebSocketWriter::validate(const OpkCommConnectionHdl &connectionHandle) {
 
     auto connection = m_ws->get_con_from_hdl(connectionHandle);
     const auto resource = connection->get_resource();
+    const std::scoped_lock lock(m_connection_lock);
     const bool accepted = resource == m_endpoint;
     if (!accepted) {
         GST_INFO_OBJECT(self(),
@@ -42,7 +44,7 @@ bool WebSocketWriter::validate(const OpkCommConnectionHdl &connectionHandle) {
 
 void WebSocketWriter::on_open(const OpkCommConnectionHdl &connectionHandle) {
     // A handshake accepted before stop_listening() can complete during shutdown.
-    if (!m_ws->is_listening()) {
+    if (!m_ws->is_listening() || !validate(connectionHandle)) {
         websocketpp::lib::error_code error;
         m_ws->close(connectionHandle, websocketpp::close::status::going_away, "", error);
         return;
@@ -55,6 +57,10 @@ void WebSocketWriter::on_open(const OpkCommConnectionHdl &connectionHandle) {
 void WebSocketWriter::on_close(const OpkCommConnectionHdl &connectionHandle) {
     std::scoped_lock lock(m_connection_lock);
     m_connections.erase(connectionHandle);
+    if (m_awaitingPong.erase(connectionHandle)) {
+        fail();
+        m_deliveryChanged.notify_all();
+    }
     GST_INFO_OBJECT(self(), "opkcomm WebSocket client disconnected");
 }
 
@@ -78,6 +84,14 @@ bool WebSocketWriter::io_open() {
             [this](const OpkCommConnectionHdl &connectionHandle) { on_open(connectionHandle); });
         m_ws->set_close_handler(
             [this](const OpkCommConnectionHdl &connectionHandle) { on_close(connectionHandle); });
+        m_ws->set_pong_handler(
+            [this](const OpkCommConnectionHdl &connectionHandle, const std::string &payload) {
+                const std::scoped_lock lock(m_connection_lock);
+                if (payload == m_barrier) {
+                    m_awaitingPong.erase(connectionHandle);
+                    m_deliveryChanged.notify_all();
+                }
+            });
         m_ws->listen(m_port);
         m_ws->start_accept();
         m_ws_thread = std::thread([server = m_ws] { server->run(); });
@@ -120,20 +134,69 @@ void WebSocketWriter::io_close() {
 }
 
 bool WebSocketWriter::publish(const std::string &record) {
-    if (!m_ws) {
-        return false;
-    }
-
-    std::scoped_lock lock(m_connection_lock);
-    for (const auto &connectionHandle : m_connections) {
-        websocketpp::lib::error_code error;
-        m_ws->send(connectionHandle, record, websocketpp::frame::opcode::text, error);
-        if (error) {
-            GST_INFO_OBJECT(self(),
-                            "opkcomm WebSocket send failed: %s",
-                            opk::log::escape(error.message()).c_str());
+    return callOnIoThread([this, &record] {
+        const std::scoped_lock lock(m_connection_lock);
+        if (!healthy() || m_connections.empty())
+            return false;
+        m_barrier = std::to_string(++m_nextBarrier);
+        m_awaitingPong = m_connections;
+        for (const auto &connectionHandle : m_connections) {
+            websocketpp::lib::error_code error;
+            m_ws->send(connectionHandle, record, websocketpp::frame::opcode::text, error);
+            if (!error)
+                m_ws->ping(connectionHandle, m_barrier, error);
+            if (error) {
+                GST_INFO_OBJECT(self(),
+                                "opkcomm WebSocket send failed: %s",
+                                opk::log::escape(error.message()).c_str());
+                return false;
+            }
         }
-    }
+        return true;
+    });
+}
 
-    return true;
+bool WebSocketWriter::ready() {
+    return callOnIoThread([this] {
+        const std::scoped_lock lock(m_connection_lock);
+        if (!healthy() || m_connections.empty())
+            return false;
+        // websocketpp's queue-size getter is only safe on its I/O thread.
+        for (const auto &connectionHandle : m_connections) {
+            websocketpp::lib::error_code error;
+            const auto connection = m_ws->get_con_from_hdl(connectionHandle, error);
+            if (error || connection->get_buffered_amount() != 0)
+                return false;
+        }
+        return true;
+    });
+}
+
+bool WebSocketWriter::callOnIoThread(const std::function<bool()> &operation) {
+    auto task = std::make_shared<std::packaged_task<bool()>>(operation);
+    auto result = task->get_future();
+    m_ws->get_io_service().post([task] { (*task)(); });
+    return result.get();
+}
+
+bool WebSocketWriter::flush(const std::chrono::steady_clock::time_point deadline) {
+    std::unique_lock lock(m_connection_lock);
+    // The latest pong proves preceding writes completed, including in-flight writes.
+    while (healthy() && !m_awaitingPong.empty() && std::chrono::steady_clock::now() < deadline)
+        m_deliveryChanged.wait_until(
+            lock, std::min(deadline, std::chrono::steady_clock::now() + retryInterval));
+    return healthy() && m_awaitingPong.empty();
+}
+
+void WebSocketWriter::setEndpoint(const std::string &endpoint) {
+    callOnIoThread([this, &endpoint] {
+        const std::scoped_lock lock(m_connection_lock);
+        m_endpoint = endpoint;
+        for (const auto &connectionHandle : m_connections) {
+            websocketpp::lib::error_code error;
+            m_ws->close(connectionHandle, websocketpp::close::status::going_away, "", error);
+        }
+        m_connections.clear();
+        return true;
+    });
 }

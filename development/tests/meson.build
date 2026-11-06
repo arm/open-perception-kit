@@ -320,6 +320,15 @@ performance_metrics_tests = executable(
   link_with : [common],
 )
 
+opkcomm_writer_tests = executable(
+  'opkcomm_writer_tests',
+  ['opkcomm_writer_test.cpp', '../elements/opkcomm/writer.cpp', '../elements/opkcomm/file_writer.cpp'],
+  include_directories : [common_include, include_directories('../elements/opkcomm')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('opkcomm_writer_tests', opkcomm_writer_tests)
+
 opktracker_matching_tests = executable(
   'opktracker_matching_tests',
   ['opktracker_matching_test.cpp',

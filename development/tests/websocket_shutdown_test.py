@@ -44,6 +44,21 @@ def receive_until(stream, opcode):
         payload = stream.read(length)
         if header[0] & 0x0F == opcode:
             return payload
+        if header[0] & 0x0F == 9:
+            send_frame(stream, 10, payload)
+
+
+def handshake(stream, port):
+    stream.write((
+        f"GET /ws HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+        "Upgrade: websocket\r\nConnection: Upgrade\r\n"
+        "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+        "Sec-WebSocket-Version: 13\r\n\r\n"
+    ).encode())
+    stream.flush()
+    assert stream.readline().startswith(b"HTTP/1.1 101 ")
+    while stream.readline().strip():
+        pass
 
 
 def main():
@@ -59,10 +74,12 @@ def main():
         )
     publisher = pipeline.get_by_name("publisher")
     disconnect_endpoints = []
+    disconnected = threading.Event()
 
     def read_endpoint_on_disconnect(category, level, filename, function, line, obj, message, data):
         if obj == publisher and message.get() == "opkcomm WebSocket client disconnected":
             disconnect_endpoints.append(publisher.get_property("endpoint"))
+            disconnected.set()
 
     category = next(category for category in gst.debug_get_all_categories()
                     if category.get_name() == "default")
@@ -73,20 +90,12 @@ def main():
         for port, replacement in ((webrtc, None), (ctrl, None), (comm, "/replacement"), (comm, None)):
             publisher.set_property("endpoint", "/ws")
             disconnect_endpoints.clear()
+            disconnected.clear()
             assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
             assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
             with socket.create_connection(("127.0.0.1", port), timeout=3) as client:
                 with client.makefile("rwb") as stream:
-                    stream.write((
-                        f"GET /ws HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
-                        "Upgrade: websocket\r\nConnection: Upgrade\r\n"
-                        "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
-                        "Sec-WebSocket-Version: 13\r\n\r\n"
-                    ).encode())
-                    stream.flush()
-                    assert stream.readline().startswith(b"HTTP/1.1 101 ")
-                    while stream.readline().strip():
-                        pass
+                    handshake(stream, port)
                     # Pong confirms the server has finished opening the connection.
                     send_frame(stream, 9, b"ready")
                     assert receive_until(stream, 10) == b"ready"
@@ -107,6 +116,7 @@ def main():
                     stopper.join(3)
                     assert not stopper.is_alive(), "Writer shutdown or reconfiguration hung"
                     if port == comm:
+                        assert disconnected.wait(3), "No disconnect callback"
                         assert disconnect_endpoints == [replacement or "/ws"]
                     if replacement is not None:
                         assert pipeline.get_state(0)[1] == gst.State.PLAYING

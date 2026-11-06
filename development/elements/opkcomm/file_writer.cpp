@@ -20,7 +20,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <span>
 #include <stdexcept>
 #include <unistd.h>
 
@@ -30,27 +29,6 @@ class FileError : public std::runtime_error {
   public:
     explicit FileError(const std::string &message) : std::runtime_error(message) {}
 };
-
-static bool write_all(int descriptor, const std::span<const char> data) {
-    size_t offset = 0;
-
-    const auto bytes = data.data();
-    const auto size = data.size();
-
-    while (offset < size) {
-        ssize_t bytesWritten = ::write(descriptor, bytes + offset, size - offset);
-        if (bytesWritten > 0) {
-            offset += static_cast<size_t>(bytesWritten);
-            continue;
-        }
-        if (bytesWritten < 0 && errno == EINTR)
-            continue;
-
-        // EAGAIN = would block (nonblocking FIFO).
-        return false;
-    }
-    return true;
-}
 
 bool FileWriter::io_open_existing(const struct stat &fileStatus) {
     if (S_ISFIFO(fileStatus.st_mode)) {
@@ -170,25 +148,23 @@ int FileWriter::check_open() {
 }
 
 bool FileWriter::publish(const std::string &record) {
-    bool success = false;
-
-    if (auto descriptor = check_open(); descriptor >= 0) {
-        bool written = write_all(descriptor, std::span<const char>(record.c_str(), record.size()));
-        close(descriptor);
-
-        if (!written) {
-            if (errno == EPIPE || errno == ENXIO) {
-                GST_INFO_OBJECT(self(), "FIFO reader disappeared for '%s'", m_file_name.c_str());
-                io_close();
-            } else if (errno == EAGAIN) {
-                /* FIFO full -> drop */
-            } else {
-                GST_DEBUG_OBJECT(self(), "FIFO write error: %s", g_strerror(errno));
-            }
+    const int descriptor = check_open();
+    if (descriptor < 0)
+        return false;
+    size_t offset = 0;
+    while (running() && offset < record.size()) {
+        const auto bytesWritten =
+            ::write(descriptor, record.data() + offset, record.size() - offset);
+        if (bytesWritten > 0) {
+            offset += static_cast<size_t>(bytesWritten);
+        } else if (bytesWritten < 0 && errno == EINTR) {
+            continue;
+        } else if (bytesWritten < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            std::this_thread::sleep_for(retryInterval);
         } else {
-            success = true;
+            break;
         }
     }
-
-    return success;
+    close(descriptor);
+    return offset == record.size();
 }

@@ -17,7 +17,10 @@
 
 #include "writer.h"
 
+#include <gst/gst.h>
 #include <mutex>
+#include <pthread.h>
+#include <signal.h>
 #include <unistd.h>
 #include <utility>
 
@@ -39,19 +42,54 @@ bool JobQueue::try_push(OpkCommJob &&job) {
     return true;
 }
 
-bool JobQueue::pop(OpkCommJob &job) {
+bool JobQueue::pop(OpkCommJob &job, const std::function<bool()> &ready) {
+    constexpr auto readinessPollInterval = std::chrono::milliseconds(10);
     std::unique_lock lock(m_mutex);
+    for (;;) {
+        m_idle = true;
+        m_jobsAvailable.notify_all();
+        m_jobsAvailable.wait(lock, [this] { return m_stopped || (!m_paused && !m_jobs.empty()); });
+        if (m_stopped)
+            return false;
+        m_idle = false;
+        lock.unlock();
+        const bool destinationReady = ready();
+        lock.lock();
+        if (m_stopped)
+            return false;
+        if (m_paused)
+            continue;
+        if (!destinationReady) {
+            m_jobsAvailable.wait_for(lock, readinessPollInterval);
+            continue;
+        }
+        job = std::move(m_jobs.front());
+        m_jobs.pop_front();
+        return true;
+    }
+}
 
-    m_jobsAvailable.wait(lock, [this] { return m_stopped || !m_jobs.empty(); });
+bool JobQueue::pauseUntil(const std::chrono::steady_clock::time_point deadline) {
+    std::unique_lock lock(m_mutex);
+    m_paused = true;
+    m_jobsAvailable.notify_all();
+    if (m_jobsAvailable.wait_until(lock, deadline, [this] { return m_idle || m_stopped; }) &&
+        !m_stopped)
+        return true;
+    m_paused = false;
+    m_jobsAvailable.notify_all();
+    return false;
+}
 
-    if (m_jobs.empty())
-        return false;
+void JobQueue::resume() {
+    const std::scoped_lock lock(m_mutex);
+    m_paused = false;
+    m_jobsAvailable.notify_all();
+}
 
-    job = std::move(m_jobs.front());
-
-    m_jobs.pop_front();
-
-    return true;
+void JobQueue::transferTo(JobQueue &destination) {
+    const std::scoped_lock lock(m_mutex, destination.m_mutex);
+    destination.m_jobs = std::move(m_jobs);
 }
 
 void JobQueue::stop() {
@@ -61,51 +99,61 @@ void JobQueue::stop() {
     m_jobsAvailable.notify_all();
 }
 
-void JobQueue::reset() {
+void JobQueue::reset(const bool paused) {
     std::scoped_lock lock(m_mutex);
     m_jobs.clear();
     m_stopped = false;
+    m_paused = paused;
+    m_idle = true;
 }
 
-bool Writer::check_running() {
-    if (!m_running) {
-        return start();
-    } else {
-        return true;
-    }
-}
-
-bool Writer::start() {
-    auto success = false;
-    if (!m_running) {
-        m_queue.reset();
-        success = io_open();
-
-        if (success) {
-            m_running = true;
-            m_worker = std::jthread([this] { run(); });
-        }
-    }
-
-    return success;
+bool Writer::start(const bool paused) {
+    const std::scoped_lock lifecycleLock(m_lifecycleMutex);
+    m_queue.reset(paused);
+    if (!io_open())
+        return false;
+    m_failed = false;
+    m_running = true;
+    m_worker = std::jthread([this] { run(); });
+    return true;
 }
 
 void Writer::stop() {
-    if (m_running) {
-        m_queue.stop();
-        if (m_worker.joinable())
-            m_worker.join();
-        m_running = false;
+    m_running = false;
+    m_queue.stop();
+    const std::scoped_lock lifecycleLock(m_lifecycleMutex);
+    if (m_worker.joinable())
+        m_worker.join();
+    io_close();
+}
 
-        io_close();
-    }
+bool Writer::pauseUntil(const std::chrono::steady_clock::time_point deadline) {
+    std::unique_lock lifecycleLock(m_lifecycleMutex, std::defer_lock);
+    if (!lifecycleLock.try_lock_until(deadline))
+        return false;
+    if (healthy() && m_queue.pauseUntil(deadline) && flush(deadline) && healthy())
+        return true;
+    m_queue.resume();
+    return false;
+}
+
+void Writer::resume() {
+    m_queue.resume();
+}
+void Writer::transferTo(Writer &destination) {
+    m_queue.transferTo(destination.m_queue);
 }
 
 void Writer::run() {
+    // A closed pipe/socket must report an element error, not terminate the application.
+    sigset_t signals;
+    sigemptyset(&signals);
+    sigaddset(&signals, SIGPIPE);
+    pthread_sigmask(SIG_BLOCK, &signals, nullptr);
     using json = nlohmann::json;
 
     OpkCommJob job;
-    while (m_queue.pop(job)) {
+    while (m_queue.pop(job, [this] { return ready(); })) {
 
         json record;
 
@@ -122,17 +170,30 @@ void Writer::run() {
         std::string line = record.dump();
         line.push_back('\n');
 
-        publish(line);
+        if (!publish(line)) {
+            fail();
+            break;
+        }
     }
 }
 
-bool Writer::send(OpkCommJob &&job) {
-    auto success = false;
-    if (m_running) {
-        success = m_queue.try_push(std::move(job));
-    } else {
-        success = false;
-    }
+void Writer::fail() {
+    if (!m_running || m_failed.exchange(true))
+        return;
+    m_queue.stop();
+    gst_element_call_async(
+        GST_ELEMENT(m_self),
+        [](GstElement *const element, gpointer) {
+            GST_ELEMENT_ERROR(element,
+                              RESOURCE,
+                              WRITE,
+                              ("Could not finish the current metadata record"),
+                              (nullptr));
+        },
+        nullptr,
+        nullptr);
+}
 
-    return success;
+bool Writer::send(OpkCommJob &&job) {
+    return healthy() && m_queue.try_push(std::move(job));
 }

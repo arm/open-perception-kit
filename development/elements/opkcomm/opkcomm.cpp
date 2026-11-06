@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <fcntl.h>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 #include <glib.h>
@@ -34,6 +38,7 @@
 #include "writer.h"
 
 #include <gst/FrameResultsMeta.h>
+#include <gst/PropertyChanges.h>
 
 #ifndef PACKAGE
 constexpr const char *PACKAGE = "opkcomm";
@@ -55,8 +60,8 @@ struct GstOpkCommPrivate {
     std::recursive_mutex writer_mutex;
     // Property readback must remain available while writer shutdown joins logging threads.
     std::mutex property_mutex;
-    std::unique_ptr<Writer> writer;
-    bool started = false;
+    std::shared_ptr<Writer> writer;
+    std::atomic<bool> started{false};
     bool writer_open = false;
 };
 
@@ -136,41 +141,64 @@ static gchar *gst_opk_comm_open_failure_details(const GstOpkComm *self) {
                            self->tcp_port);
 }
 
-static bool gst_opk_comm_open_io(GstOpkComm *self) {
-    if (self->priv->writer) {
-        self->priv->writer->stop();
-    }
-    self->priv->writer_open = false;
+struct WriterConfiguration {
+    GstOpkCommMethod method;
+    std::string fileName;
+    guint wsPort;
+    std::string endpoint;
+    std::string tcpHost;
+    guint tcpPort;
 
-    auto success = false;
-    switch (self->method) {
+    bool uses(const char *const property) const {
+        return g_str_equal(property, "method") ||
+               (method == GST_OPK_COMM_METHOD_FILE && g_str_equal(property, "file-name")) ||
+               (method == GST_OPK_COMM_METHOD_WEBSOCKET &&
+                (g_str_equal(property, "ws-port") || g_str_equal(property, "endpoint"))) ||
+               (method == GST_OPK_COMM_METHOD_TCP &&
+                (g_str_equal(property, "tcp-host") || g_str_equal(property, "tcp-port")));
+    }
+    guint listeningPort() const {
+        if (method == GST_OPK_COMM_METHOD_WEBSOCKET)
+            return wsPort;
+        return method == GST_OPK_COMM_METHOD_TCP ? tcpPort : 0;
+    }
+};
+
+static WriterConfiguration gst_opk_comm_configuration(const GstOpkComm *const self) {
+    const std::scoped_lock lock(self->priv->property_mutex);
+    return {self->method,
+            self->file_name,
+            self->ws_port,
+            self->endpoint,
+            self->tcp_host,
+            self->tcp_port};
+}
+
+static std::shared_ptr<Writer>
+gst_opk_comm_create_writer(GstOpkComm *const self, const WriterConfiguration &configuration) {
+    constexpr size_t queueCapacity = 5;
+    switch (configuration.method) {
     case GST_OPK_COMM_METHOD_FILE:
-        self->priv->writer = std::make_unique<FileWriter>(self, self->file_name, 5);
-        success = self->priv->writer->start();
-        break;
+        return std::make_shared<FileWriter>(self, configuration.fileName, queueCapacity);
     case GST_OPK_COMM_METHOD_WEBSOCKET:
-        self->priv->writer = std::make_unique<WebSocketWriter>(
-            self, static_cast<uint16_t>(self->ws_port), self->endpoint ? self->endpoint : "/ws", 5);
-        success = self->priv->writer->start();
-        break;
+        return std::make_shared<WebSocketWriter>(self,
+                                                 static_cast<uint16_t>(configuration.wsPort),
+                                                 configuration.endpoint,
+                                                 queueCapacity);
     case GST_OPK_COMM_METHOD_TCP:
-        self->priv->writer = std::make_unique<TcpWriter>(
-            self, self->tcp_host ? self->tcp_host : "", static_cast<uint16_t>(self->tcp_port), 5);
-        success = self->priv->writer->start();
-        break;
+        return std::make_shared<TcpWriter>(self,
+                                           configuration.tcpHost,
+                                           static_cast<uint16_t>(configuration.tcpPort),
+                                           queueCapacity);
     default:
-        GST_WARNING_OBJECT(
-            self, "Unknown opkcomm publishing method: %d", static_cast<int>(self->method));
-        break;
+        return nullptr;
     }
+}
 
-    if (success) {
-        self->priv->writer_open = true;
-    } else {
-        self->priv->writer.reset();
-    }
-
-    return success;
+static bool gst_opk_comm_open_io(GstOpkComm *const self) {
+    self->priv->writer = gst_opk_comm_create_writer(self, gst_opk_comm_configuration(self));
+    self->priv->writer_open = self->priv->writer && self->priv->writer->start();
+    return self->priv->writer_open;
 }
 
 static void gst_opk_comm_close_io(GstOpkComm *self) {
@@ -217,10 +245,10 @@ static GstFlowReturn gst_opk_comm_transform_ip(GstBaseTransform *selfInParentTyp
     GstOpkComm *self = GST_OPK_COMM(selfInParentType);
     const std::scoped_lock lock(self->priv->writer_mutex);
 
-    if (!self->priv->writer_open)
+    if (!self->priv->writer_open || !self->priv->writer->healthy())
         return GST_FLOW_ERROR;
 
-    if (self->priv->writer && self->priv->writer->check_running()) {
+    if (self->priv->writer && self->priv->writer->healthy()) {
         auto frameResults = opk::FrameResultsMeta::read(buffer);
         OpkCommJob job = {
             .frame_counter = self->frame_counter,
@@ -243,8 +271,6 @@ static void gst_opk_comm_set_property(GObject *object,
                                       const GValue *value,
                                       GParamSpec *propertySpec) {
     GstOpkComm *self = GST_OPK_COMM(object);
-    std::unique_lock lock(self->priv->writer_mutex);
-    std::unique_lock propertyLock(self->priv->property_mutex);
 
     switch (static_cast<OpkCommProps>(propertyId)) {
     case OpkCommProps::PROP_METHOD:
@@ -284,22 +310,8 @@ static void gst_opk_comm_set_property(GObject *object,
         break;
 
     default:
-        propertyLock.unlock();
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         return;
-    }
-
-    propertyLock.unlock();
-
-    if (self->priv->started && !gst_opk_comm_open_io(self)) {
-        g_autofree gchar *failureDetails = gst_opk_comm_open_failure_details(self);
-        // A synchronous bus callback may stop the pipeline and wait for streaming.
-        lock.unlock();
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          OPEN_WRITE,
-                          ("Failed to open opkcomm metadata writer"),
-                          ("%s", failureDetails));
     }
 }
 
@@ -341,6 +353,142 @@ static void gst_opk_comm_get_property(GObject *object,
     }
 }
 
+static void gst_opk_comm_store_properties(GstOpkComm *const self,
+                                          const GstStructure *const values) {
+    const std::scoped_lock lock(self->priv->property_mutex);
+    for (int index = 0; index < gst_structure_n_fields(values); ++index) {
+        const char *const name = gst_structure_nth_field_name(values, index);
+        auto *const propertySpec = g_object_class_find_property(G_OBJECT_GET_CLASS(self), name);
+        gst_opk_comm_set_property(G_OBJECT(self),
+                                  propertySpec->param_id,
+                                  gst_structure_get_value(values, name),
+                                  propertySpec);
+    }
+}
+
+static bool gst_opk_comm_needs_async_apply(GstElement *const propertyOwner, const GParamSpec *) {
+    if (!g_rec_mutex_trylock(GST_STATE_GET_LOCK(propertyOwner)))
+        return true;
+    const bool started = GST_OPK_COMM(propertyOwner)->priv->started;
+    GST_STATE_UNLOCK(propertyOwner);
+    return started;
+}
+
+static gst::PropertyApplyResults gst_opk_comm_apply_properties(GstElement *const propertyOwner,
+                                                               const GstStructure *const values) {
+    auto *const self = GST_OPK_COMM(propertyOwner);
+    std::shared_ptr<Writer> currentWriter;
+    {
+        g_autoptr(GRecMutexLocker) stateLock = g_rec_mutex_locker_new(GST_STATE_GET_LOCK(self));
+        const std::scoped_lock lock(self->priv->writer_mutex);
+        if (!self->priv->started) {
+            gst_opk_comm_store_properties(self, values);
+            return {};
+        }
+        currentWriter = self->priv->writer;
+    }
+    const auto current = gst_opk_comm_configuration(self);
+    auto requested = current;
+    if (const auto *const value = gst_structure_get_value(values, "method"))
+        requested.method = static_cast<GstOpkCommMethod>(g_value_get_enum(value));
+    const auto requestedString = [values](const char *const name,
+                                          const std::string &currentValue,
+                                          const char *const nullValue) {
+        if (const auto *const value = gst_structure_get_value(values, name)) {
+            const auto *const text = g_value_get_string(value);
+            return std::string(text ? text : nullValue);
+        }
+        return currentValue;
+    };
+    requested.fileName = requestedString("file-name", current.fileName, "");
+    requested.endpoint = requestedString("endpoint", current.endpoint, "/ws");
+    requested.tcpHost = requestedString("tcp-host", current.tcpHost, "127.0.0.1");
+    gst_structure_get_uint(values, "ws-port", &requested.wsPort);
+    gst_structure_get_uint(values, "tcp-port", &requested.tcpPort);
+    g_autoptr(GstStructure) destinationValues = gst_structure_new_empty("destination");
+    g_autoptr(GstStructure) independentValues = gst_structure_new_empty("independent");
+    for (int index = 0; index < gst_structure_n_fields(values); ++index) {
+        const char *const name = gst_structure_nth_field_name(values, index);
+        gst_structure_set_value(requested.uses(name) || current.uses(name) ? destinationValues
+                                                                           : independentValues,
+                                name,
+                                gst_structure_get_value(values, name));
+    }
+    gst_opk_comm_store_properties(self, independentValues);
+    if (gst_structure_n_fields(destinationValues) == 0)
+        return {};
+    const auto reject = [destinationValues](const char *const reason,
+                                            const GstState restartState = GST_STATE_VOID_PENDING) {
+        gst::PropertyApplyResults failures;
+        for (int index = 0; index < gst_structure_n_fields(destinationValues); ++index)
+            failures.emplace(gst_structure_nth_field_name(destinationValues, index),
+                             gst::PropertyApplyResult{reason, restartState});
+        return failures;
+    };
+    if (requested.method == GST_OPK_COMM_METHOD_WEBSOCKET &&
+        (requested.endpoint.empty() || requested.endpoint.front() != '/'))
+        return reject("endpoint must start with '/'");
+    const bool sameDestination =
+        requested.method == current.method &&
+        ((requested.method == GST_OPK_COMM_METHOD_FILE && requested.fileName == current.fileName) ||
+         (requested.method == GST_OPK_COMM_METHOD_WEBSOCKET && requested.wsPort == current.wsPort &&
+          requested.endpoint == current.endpoint) ||
+         (requested.method == GST_OPK_COMM_METHOD_TCP && requested.tcpHost == current.tcpHost &&
+          requested.tcpPort == current.tcpPort));
+    if (sameDestination) {
+        gst_opk_comm_store_properties(self, destinationValues);
+        return {};
+    }
+    const bool endpointOnly = current.method == GST_OPK_COMM_METHOD_WEBSOCKET &&
+                              requested.method == current.method &&
+                              requested.wsPort == current.wsPort;
+    auto replacement = endpointOnly ? nullptr : gst_opk_comm_create_writer(self, requested);
+    if (!endpointOnly && (!replacement || !replacement->start(true))) {
+        if (current.listeningPort() && current.listeningPort() == requested.listeningPort())
+            return reject(
+                "The listening addresses overlap; return to READY to release the current listener",
+                GST_STATE_READY);
+        return reject("Could not open the requested destination; the current writer is unchanged");
+    }
+    constexpr auto switchTimeout = std::chrono::seconds(5);
+    if (!currentWriter ||
+        !currentWriter->pauseUntil(std::chrono::steady_clock::now() + switchTimeout)) {
+        g_autoptr(GRecMutexLocker) stateLock = g_rec_mutex_locker_new(GST_STATE_GET_LOCK(self));
+        if (!self->priv->started) {
+            gst_opk_comm_store_properties(self, destinationValues);
+            return {};
+        }
+        return reject(
+            "Could not finish the current record within 5 seconds; no destination switch occurred");
+    }
+    {
+        g_autoptr(GRecMutexLocker) stateLock = g_rec_mutex_locker_new(GST_STATE_GET_LOCK(self));
+        const std::scoped_lock lock(self->priv->writer_mutex);
+        if (!self->priv->started) {
+            gst_opk_comm_store_properties(self, destinationValues);
+            return {};
+        }
+        if (self->priv->writer != currentWriter) {
+            currentWriter->resume();
+            return reject("The writer changed during preparation; request the change again");
+        }
+        if (endpointOnly) {
+            gst_opk_comm_store_properties(self, destinationValues);
+            std::static_pointer_cast<WebSocketWriter>(currentWriter)
+                ->setEndpoint(requested.endpoint);
+            currentWriter->resume();
+        } else {
+            currentWriter->transferTo(*replacement);
+            self->priv->writer = replacement;
+            gst_opk_comm_store_properties(self, destinationValues);
+            replacement->resume();
+        }
+    }
+    if (!endpointOnly)
+        currentWriter->stop();
+    return {};
+}
+
 static void gst_opk_comm_finalize(GObject *object) {
     GstOpkComm *self = GST_OPK_COMM(object);
 
@@ -373,8 +521,8 @@ static void gst_opk_comm_class_init(GstOpkCommClass *commClass) {
         g_param_spec_enum("method",
                           "Method",
                           "Publishing method: file, websocket, or tcp"
-                          "; Changeable while playing; synchronous reopen disconnects clients and "
-                          "may discard queued output",
+                          "; Changeable while playing; asynchronous handoff preserves queued "
+                          "records; overlapping listeners require READY",
                           gst_opk_comm_method_get_type(),
                           GST_OPK_COMM_METHOD_FILE,
                           livePropertyFlags));
@@ -382,13 +530,13 @@ static void gst_opk_comm_class_init(GstOpkCommClass *commClass) {
     g_object_class_install_property(
         objectClass,
         static_cast<guint>(OpkCommProps::PROP_FILE_NAME),
-        g_param_spec_string("file-name",
-                            "File name",
-                            "File path ('-' - std out)"
-                            "; Changeable while playing; synchronous reopen disconnects clients "
-                            "and may discard queued output",
-                            "-",
-                            livePropertyFlags));
+        g_param_spec_string(
+            "file-name",
+            "File name",
+            "File path ('-' - std out)"
+            "; Changeable while playing; asynchronous handoff preserves queued records",
+            "-",
+            livePropertyFlags));
 
     g_object_class_install_property(
         objectClass,
@@ -396,8 +544,8 @@ static void gst_opk_comm_class_init(GstOpkCommClass *commClass) {
         g_param_spec_uint("ws-port",
                           "WebSocket port",
                           "Port used when method=websocket"
-                          "; Changeable while playing; synchronous reopen disconnects clients and "
-                          "may discard queued output",
+                          "; Changeable while playing; asynchronous handoff preserves queued "
+                          "records; overlapping listeners require READY",
                           1,
                           65535,
                           8002,
@@ -406,24 +554,24 @@ static void gst_opk_comm_class_init(GstOpkCommClass *commClass) {
     g_object_class_install_property(
         objectClass,
         static_cast<guint>(OpkCommProps::PROP_ENDPOINT),
-        g_param_spec_string("endpoint",
-                            "WebSocket endpoint",
-                            "Endpoint path used when method=websocket"
-                            "; Changeable while playing; synchronous reopen disconnects clients "
-                            "and may discard queued output",
-                            "/ws",
-                            livePropertyFlags));
+        g_param_spec_string(
+            "endpoint",
+            "WebSocket endpoint",
+            "Endpoint path used when method=websocket"
+            "; Changeable while playing; asynchronous handoff preserves queued records",
+            "/ws",
+            livePropertyFlags));
 
     g_object_class_install_property(
         objectClass,
         static_cast<guint>(OpkCommProps::PROP_TCP_HOST),
-        g_param_spec_string("tcp-host",
-                            "TCP host",
-                            "Bind host used when method=tcp"
-                            "; Changeable while playing; synchronous reopen disconnects clients "
-                            "and may discard queued output",
-                            "127.0.0.1",
-                            livePropertyFlags));
+        g_param_spec_string(
+            "tcp-host",
+            "TCP host",
+            "Bind host used when method=tcp"
+            "; Changeable while playing; asynchronous handoff preserves queued records",
+            "127.0.0.1",
+            livePropertyFlags));
 
     g_object_class_install_property(
         objectClass,
@@ -431,8 +579,8 @@ static void gst_opk_comm_class_init(GstOpkCommClass *commClass) {
         g_param_spec_uint("tcp-port",
                           "TCP port",
                           "Listen port used when method=tcp"
-                          "; Changeable while playing; synchronous reopen disconnects clients and "
-                          "may discard queued output",
+                          "; Changeable while playing; asynchronous handoff preserves queued "
+                          "records; overlapping listeners require READY",
                           1,
                           65535,
                           7001,
@@ -454,6 +602,8 @@ static void gst_opk_comm_class_init(GstOpkCommClass *commClass) {
         "Filter/Metadata",
         "Reads buffer metadata and publishes it (FIFO/file/WebSocket/TCP)",
         "Arm Limited <perception-fdbck@arm.com>");
+    gst::installPropertyChanges(
+        elementClass, gst_opk_comm_apply_properties, gst_opk_comm_needs_async_apply);
 }
 
 static void gst_opk_comm_init(GstOpkComm *self) {

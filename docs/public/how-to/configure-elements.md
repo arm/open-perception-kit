@@ -124,14 +124,14 @@ negotiation; `videoconvert` performs conversion when needed.
 | `opkosd` | `enabled`, `performance-overlay-enabled`, `bg-image` | Live. Drawing uses synchronized flags and background storage. Backgrounds load asynchronously and replace the current image only after validation. Failure retains the current image and reports a failed request. Empty/null clears it. The loaded image survives stop/start; external file edits do not alter that snapshot. |
 | `opkosd` | `copy-input` | NULL or READY. Video memory/caps must be renegotiated; a pause alone does not rebuild them. |
 | `opkperformance` | `enabled`, `show-all-metrics`, `update-interval` | Live. Subsequent measurement/overlay updates use the new values; no pipeline restart. |
-| `opkcomm` | All writable properties | Existing live synchronous writer reopen. This can disconnect clients and discard queued records. A failed reopen posts an error and stops affected processing; the requested configuration remains available for correction. See [metadata output](https://github.com/arm/open-perception-kit/blob/main/docs/arch/elements/opkcomm.md#properties). |
+| `opkcomm` | All writable properties | Live asynchronous handoff: finish the current record, then redirect queued jobs in order. A five-second completion timeout fails the switch. Overlapping listeners may require an explicit READY restart. See [metadata output](https://github.com/arm/open-perception-kit/blob/main/docs/arch/elements/opkcomm.md#properties). |
 | `opksink` | `qos-enabled` | Live. Updates the internal drain sink's synchronization and QoS feedback. |
 | `opksink` | All other writable properties | NULL only. Servers, bindings and WebRTC sessions capture these settings at initialization; stop/start disconnects clients. |
 | `opksrc` | `ws-port`, `rate` | NULL only. Signaling must restart and the receive/silence PCM output must renegotiate; existing connections are closed. |
 
 ## Requests and outcomes
 
-Elements exposing `property-status` accept requests through their ordinary
+OPK elements accept requests through their ordinary
 GObject setters and the `configure-properties` action signal. Getters return the
 effective value. A restart-only request made while processing stays pending,
 with its required state and reason visible beside the requested value. A normal
@@ -241,6 +241,11 @@ if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_ELEMENT &&
 Use the pipeline state API to coordinate its elements. Changing an isolated
 element's state without coordinating its neighbours can break flow. The caller
 owns READY/NULL restarts; property requests never trigger them automatically.
+
+Current live changes use frame or record boundaries without pausing the pipeline.
+The remaining restrictions require READY or NULL teardown; PAUSED alone does not
+apply them. A change made while paused leaves the pipeline paused, and preparing
+a replacement never resumes a pipeline that the caller stopped.
 
 ## Platform validation
 

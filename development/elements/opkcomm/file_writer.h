@@ -45,5 +45,7 @@ class FileWriter : public Writer {
     explicit FileWriter(_GstOpkComm *self, const std::string &file_name, size_t queue_size)
         : Writer(self, queue_size), m_file_name(file_name) {}
 
-    ~FileWriter() override = default;
+    ~FileWriter() override {
+        stop();
+    }
 };

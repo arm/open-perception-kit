@@ -143,12 +143,6 @@ void TcpWriter::close_client() {
         close(m_client_fd);
         m_client_fd = -1;
     }
-    clear_pending();
-}
-
-void TcpWriter::clear_pending() {
-    m_pending.clear();
-    m_pending_offset = 0;
 }
 
 void TcpWriter::io_close() {
@@ -191,57 +185,29 @@ int TcpWriter::check_client() {
     return descriptor;
 }
 
+bool TcpWriter::ready() {
+    const int descriptor = check_client();
+    if (descriptor < 0)
+        return false;
+    close(descriptor);
+    return true;
+}
+
 bool TcpWriter::publish(const std::string &record) {
-    bool success = false;
-
-    if (auto descriptor = check_client(); descriptor >= 0) {
-        SendResult send_result = SendResult::Sent;
-        bool dropped_frame = false;
-
-        if (!m_pending.empty()) {
-            send_result = send_all(descriptor, m_pending, m_pending_offset);
-            if (send_result == SendResult::Sent) {
-                clear_pending();
-            } else {
-                dropped_frame = true;
-            }
+    const int descriptor = check_client();
+    if (descriptor < 0)
+        return false;
+    size_t offset = 0;
+    while (running()) {
+        const auto result = send_all(descriptor, record, offset);
+        if (result == SendResult::Sent) {
+            close(descriptor);
+            return true;
         }
-
-        if (send_result == SendResult::Sent) {
-            size_t offset = 0;
-            send_result = send_all(descriptor, record, offset);
-            if (send_result == SendResult::Backpressure) {
-                m_pending = record;
-                m_pending_offset = offset;
-            }
-        }
-
-        const int send_errno = errno;
-        close(descriptor);
-
-        if (send_result == SendResult::Sent) {
-            success = true;
-        } else if (send_result == SendResult::Backpressure) {
-            if (dropped_frame) {
-                GST_DEBUG_OBJECT(self(),
-                                 "TCP metadata client on '%s:%u' backpressured; dropping frame",
-                                 m_host.c_str(),
-                                 m_port);
-            } else {
-                GST_DEBUG_OBJECT(self(),
-                                 "TCP metadata client on '%s:%u' backpressured; deferring frame",
-                                 m_host.c_str(),
-                                 m_port);
-            }
-        } else if (send_result == SendResult::Disconnected) {
-            GST_INFO_OBJECT(
-                self(), "TCP metadata client on '%s:%u' disconnected", m_host.c_str(), m_port);
-            std::scoped_lock lock(m_io_lock);
-            close_client();
-        } else {
-            GST_DEBUG_OBJECT(self(), "TCP write error: %s", g_strerror(send_errno));
-        }
+        if (result != SendResult::Backpressure)
+            break;
+        std::this_thread::sleep_for(retryInterval);
     }
-
-    return success;
+    close(descriptor);
+    return false;
 }

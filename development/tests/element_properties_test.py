@@ -19,6 +19,10 @@
 import base64
 import ctypes
 import errno
+import json
+import queue
+import socket
+import struct
 import os
 from pathlib import Path
 import sys
@@ -28,6 +32,7 @@ import time
 import unittest
 
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline, write_test_opchain
+from websocket_shutdown_test import handshake, receive_until, send_frame
 
 DELAY_OP_PATH = Path(sys.argv[1]).resolve()
 PLUGIN_PATHS = [Path(argument).resolve() for argument in sys.argv[2:]]
@@ -36,7 +41,9 @@ FRAME_COUNT = 3
 FLOAT_PLACES = 5
 FLOAT_INCREMENT = 0.25
 POLL_INTERVAL_SECONDS = 0.01
-TCP_METHOD = 2
+FILE_METHOD = 1
+WEBSOCKET_METHOD = 2
+TCP_METHOD = 3
 # One red RGB pixel, encoded as PNG (the background loader supports PNG/JPEG).
 RED_PIXEL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC'
 
@@ -64,8 +71,8 @@ class ElementPropertiesTest(unittest.TestCase):
         statuses = element.get_property("property-status")
         return statuses.get_value(name).copy()
 
-    def wait_for_property_status(self, element, name, expected):
-        deadline = time.monotonic() + STATE_TIMEOUT_SECONDS
+    def wait_for_property_status(self, element, name, expected, timeout=STATE_TIMEOUT_SECONDS):
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             status = self.property_status(element, name)
             if status.get_value("status") == expected:
@@ -388,48 +395,153 @@ class ElementPropertiesTest(unittest.TestCase):
         self.assertIsNotNone(message)
         self.assertIn("opchain-path", message.parse_error()[0].message)
 
-    def test_failed_live_writer_reopen_reports_error_and_keeps_requested_value(self):
-        output = Path(self.directory.name) / "valid.jsonl"
+    def test_failed_destination_keeps_active_writer_and_status_callback_can_stop(self):
+        output = Path(self.directory.name) / "output.jsonl"
         invalid = Path(self.directory.name) / "missing-directory" / "invalid.jsonl"
         pipeline = self.Gst.parse_launch(
-            f'videotestsrc ! opkcomm name=comm file-name="{output}" ! fakesink sync=false')
+            f'videotestsrc is-live=true ! opkcomm name=comm file-name="{output}" ! fakesink')
         self.addCleanup(release_pipeline, pipeline, self.Gst)
         pipeline.set_state(self.Gst.State.PLAYING)
         self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
                          self.Gst.State.PLAYING)
         comm = pipeline.get_by_name("comm")
         comm.set_property("file-name", str(invalid))
-        message = pipeline.get_bus().timed_pop_filtered(self.Gst.SECOND, self.Gst.MessageType.ERROR)
-        self.assertIsNotNone(message)
-        self.assertEqual(message.src, comm)
-        self.assertIn("file-name", message.parse_error()[1])
-        self.assertEqual(comm.get_property("file-name"), str(invalid))
-        # No saved working combination: the caller explicitly corrects the value.
-        pipeline.set_state(self.Gst.State.NULL)
-        comm.set_property("file-name", str(output))
-        pipeline.set_state(self.Gst.State.PLAYING)
-        self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
-                         self.Gst.State.PLAYING)
+        failure = self.wait_for_property_status(comm, "file-name", "failed")
+        self.assertEqual(failure.get_value("requested"), str(invalid))
+        self.assertEqual(failure.get_value("effective"), str(output))
+        self.assertIsNone(pipeline.get_bus().timed_pop_filtered(0, self.Gst.MessageType.ERROR))
+        stopped = threading.Event()
 
-        errors = []
-
-        def stop_on_writer_error(_bus, message, _data):
-            if message.type == self.Gst.MessageType.ERROR and message.src == comm:
-                errors.append(message.parse_error())
+        def stop_on_failed_request(_bus, message, _data):
+            structure = message.get_structure()
+            if message.type == self.Gst.MessageType.ELEMENT and message.src == comm and structure \
+                    and structure.get_name() == "opk-property-change" \
+                    and structure.get_value("status") == "failed":
                 pipeline.set_state(self.Gst.State.NULL)
+                stopped.set()
             return self.Gst.BusSyncReply.PASS
 
         bus = pipeline.get_bus()
         self.addCleanup(bus.set_sync_handler, None, None)
-        bus.set_sync_handler(stop_on_writer_error, None)
-        # The setter's synchronous callback must be able to wait for the streaming thread.
+        bus.set_sync_handler(stop_on_failed_request, None)
         comm.set_property("file-name", str(invalid))
-        bus.set_sync_handler(None, None)
-        self.assertEqual(len(errors), 1)
-        self.assertIn(str(invalid), errors[0][1])
-        self.assertEqual(comm.get_property("file-name"), str(invalid))
-        self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
-                         self.Gst.State.NULL)
+        self.assertTrue(stopped.wait(STATE_TIMEOUT_SECONDS))
+        self.assertEqual(comm.get_property("file-name"), str(output))
+
+    def test_unstarted_tcp_queue_moves_to_file_without_a_peer(self):
+        output = Path(self.directory.name) / "redirected.jsonl"
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        pipeline = self.Gst.parse_launch(
+            f'appsrc name=source is-live=true format=time ! opkcomm name=comm method=tcp '
+            f'tcp-port={port} ! fakesink name=sink sync=false async=false signal-handoffs=true')
+        self.addCleanup(release_pipeline, pipeline, self.Gst)
+        delivered = queue.Queue()
+        pipeline.get_by_name("sink").connect("handoff", lambda *_args: delivered.put(True))
+        self.assertNotEqual(pipeline.set_state(self.Gst.State.PLAYING),
+                            self.Gst.StateChangeReturn.FAILURE)
+        for _index in range(FRAME_COUNT):
+            buffer = self.Gst.Buffer.new_allocate(None, 1, None)
+            pipeline.get_by_name("source").emit("push-buffer", buffer)
+            delivered.get(timeout=STATE_TIMEOUT_SECONDS)
+        comm = pipeline.get_by_name("comm")
+        values = self.Gst.Structure.new_empty("properties")
+        values.set_value("method", FILE_METHOD)
+        values.set_value("file-name", str(output))
+        comm.emit("configure-properties", values)
+        self.wait_for_property_status(comm, "method", "applied")
+        deadline = time.monotonic() + STATE_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            if output.exists() and len(output.read_text().splitlines()) == FRAME_COUNT:
+                break
+            time.sleep(POLL_INTERVAL_SECONDS)
+        rows = [json.loads(line) for line in output.read_text().splitlines()]
+        self.assertEqual([row["frame_counter"] for row in rows], list(range(FRAME_COUNT)))
+        self.assertEqual(pipeline.get_state(0)[1], self.Gst.State.PLAYING)
+
+    def test_websocket_timeout_keeps_endpoint_and_late_pong_cannot_switch(self):
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        pipeline = self.Gst.parse_launch(
+            f'videotestsrc is-live=true ! opkcomm name=comm method=websocket ws-port={port} ! fakesink')
+        self.addCleanup(release_pipeline, pipeline, self.Gst)
+        pipeline.set_state(self.Gst.State.PLAYING)
+        comm = pipeline.get_by_name("comm")
+        with socket.create_connection(("127.0.0.1", port), timeout=STATE_TIMEOUT_SECONDS) as client:
+            with client.makefile("rwb") as stream:
+                handshake(stream, port)
+                receive_until(stream, 1)
+                comm.set_property("endpoint", "/new")
+                barrier = receive_until(stream, 9)
+                failure = self.wait_for_property_status(comm, "endpoint", "failed",
+                                                        timeout=2 * STATE_TIMEOUT_SECONDS)
+                self.assertIn("within 5 seconds", failure.get_value("reason"))
+                send_frame(stream, 10, barrier)
+                # A later round trip orders the late pong before the effective-state check.
+                send_frame(stream, 9, b"after-timeout")
+                self.assertEqual(receive_until(stream, 10), b"after-timeout")
+                self.assertEqual(comm.get_property("endpoint"), "/ws")
+                self.assertEqual(pipeline.get_state(0)[1], self.Gst.State.PLAYING)
+                send_frame(stream, 8, b"\x03\xe8")
+                receive_until(stream, 8)
+
+    def test_websocket_disconnect_with_unconfirmed_record_fails_handoff(self):
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        pipeline = self.Gst.parse_launch(
+            f'appsrc name=source is-live=true format=time ! opkcomm name=comm method=websocket '
+            f'ws-port={port} ! fakesink sync=false async=false')
+        self.addCleanup(release_pipeline, pipeline, self.Gst)
+        self.assertNotEqual(pipeline.set_state(self.Gst.State.PLAYING),
+                            self.Gst.StateChangeReturn.FAILURE)
+        with socket.create_connection(("127.0.0.1", port), timeout=STATE_TIMEOUT_SECONDS) as client:
+            with client.makefile("rwb") as stream:
+                handshake(stream, port)
+                buffer = self.Gst.Buffer.new_allocate(None, 1, None)
+                pipeline.get_by_name("source").emit("push-buffer", buffer)
+                receive_until(stream, 1)
+                receive_until(stream, 9)  # Leave the record's completion barrier unanswered.
+                client.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        error = pipeline.get_bus().timed_pop_filtered(
+            STATE_TIMEOUT_SECONDS * self.Gst.SECOND, self.Gst.MessageType.ERROR)
+        self.assertIsNotNone(error)
+        comm = pipeline.get_by_name("comm")
+        self.assertEqual(error.src, comm)
+        values = self.Gst.Structure.new_empty("properties")
+        values.set_value("method", FILE_METHOD)
+        values.set_value("file-name", str(Path(self.directory.name) / "replacement.jsonl"))
+        comm.emit("configure-properties", values)
+        self.wait_for_property_status(comm, "method", "failed")
+        self.assertEqual(comm.get_property("method"), WEBSOCKET_METHOD)
+
+    def test_overlapping_listener_batch_waits_for_explicit_restart(self):
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        pipeline = self.Gst.parse_launch(
+            f'videotestsrc is-live=true ! opkcomm name=comm method=tcp tcp-port={port} ! fakesink')
+        self.addCleanup(release_pipeline, pipeline, self.Gst)
+        pipeline.set_state(self.Gst.State.PLAYING)
+        comm = pipeline.get_by_name("comm")
+        values = self.Gst.Structure.new_empty("properties")
+        values.set_value("method", WEBSOCKET_METHOD)
+        values.set_value("ws-port", port)
+        values.set_value("endpoint", "/replacement")
+        comm.emit("configure-properties", values)
+        self.wait_for_property_status(comm, "method", "restart-required")
+        self.assertEqual(comm.get_property("method"), TCP_METHOD)
+        pipeline.set_state(self.Gst.State.PAUSED)
+        pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)
+        self.assertEqual(comm.get_property("method"), TCP_METHOD)
+        pipeline.set_state(self.Gst.State.READY)
+        self.assertEqual(comm.get_property("method"), WEBSOCKET_METHOD)
+        self.assertEqual(comm.get_property("ws-port"), port)
+        self.assertEqual(comm.get_property("endpoint"), "/replacement")
+        self.assertNotEqual(pipeline.set_state(self.Gst.State.PLAYING),
+                            self.Gst.StateChangeReturn.FAILURE)
 
     def test_file_destination_receives_records_after_explicit_restart(self):
         outputs = [Path(self.directory.name) / name for name in ("first.jsonl", "second.jsonl")]
