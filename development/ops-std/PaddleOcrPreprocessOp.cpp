@@ -251,6 +251,14 @@ opk::Result<opk::op::OpSignal> PaddleOcrPreprocessOp::process(opk::op::OpChainCo
                                    width - inner.x - inner.width,
                                    inner.y,
                                    height - inner.y - inner.height};
+    auto &image = context.inferenceInfo.image;
+    const auto producer = producerInfo(
+        context.inferenceInfo.inferElementId, opName, "opk-std-ops/PaddleOcrPreprocess");
+    image.frameId = context.videoFrameId(inputImageSourceName, producer);
+    image.frameWidth = frame->width();
+    image.frameHeight = frame->height();
+    image.cropX = crop.x;
+    image.cropY = crop.y;
     context.inferenceInfo.modelName = model.name;
     context.inferenceInfo.contentType = model.contentType;
     context.inferenceInfo.parentId = context.inferenceImageCropIds.back();

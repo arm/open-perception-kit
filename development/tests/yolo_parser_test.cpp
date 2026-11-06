@@ -28,6 +28,42 @@
 #include "opk/TensorView.h"
 #include "postproc/YoloParser.h"
 
+TEST(YoloParser, RejectsInvalidCategoryIdsBeforePublishingUnsignedIdentity) {
+    opk::AttributeMap attrs;
+    attrs.set("outputFormat", "cornerScoreClass");
+    attrs.set("applyNms", false);
+    std::vector<float> values;
+    for (const float id : {0.0f,
+                           -1.0f,
+                           .5f,
+                           std::numeric_limits<float>::quiet_NaN(),
+                           std::numeric_limits<float>::infinity(),
+                           std::numeric_limits<float>::max()})
+        values.insert(values.end(), {10, 20, 30, 40, .9f, id});
+    opk::TensorView tensor(values.data(),
+                           values.size() * sizeof(float),
+                           opk::Shape(1, 6, 6),
+                           opk::Dtype::Float32,
+                           1,
+                           0);
+    opk::TensorParser::Input input(attrs);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {.width = 100,
+                                 .height = 100,
+                                 .modelWidth = 100,
+                                 .modelHeight = 100,
+                                 .frameId = 1,
+                                 .frameWidth = 100,
+                                 .frameHeight = 100};
+    open_perception_kit::FrameResults results;
+    opk::stdop::postproc::YoloParser parser;
+    ASSERT_TRUE(parser.parse(input, results));
+    results.for_each<open_perception_kit::metadata::BoxDetectionsT>([](const auto &payload) {
+        ASSERT_EQ(payload.detections.size(), 1U);
+        EXPECT_EQ(payload.detections[0]->class_id, 0U);
+    });
+}
+
 TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     opk::AttributeMap attrs;
     attrs.set("normalizeOutputCoordinates", false);
@@ -77,6 +113,58 @@ TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     ASSERT_NE(detections[0], nullptr);
     EXPECT_EQ(detections[0]->class_id, 1);
     EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
+}
+
+TEST(YoloParser, ZeroThresholdPreservesZeroScoreAndSelectsARealCategory) {
+    for (const bool channelsFirst : {true, false}) {
+        opk::AttributeMap attrs;
+        attrs.set("outputFormat", "centerClassScores");
+        attrs.set("confidenceThreshold", 0.0);
+        attrs.set("applyNms", false);
+        constexpr std::size_t Channels = 6;
+        constexpr std::size_t Candidates = 8;
+        std::vector<float> values(Channels * Candidates, 0);
+        const auto index = [channelsFirst](const std::size_t row, const std::size_t channel) {
+            return channelsFirst ? channel * Candidates + row : row * Channels + channel;
+        };
+        for (std::size_t row = 0; row < Candidates; ++row) {
+            values[index(row, 0)] = 50;
+            values[index(row, 1)] = 50;
+            values[index(row, 2)] = 20;
+            values[index(row, 3)] = 10;
+        }
+        opk::TensorView tensor(values.data(),
+                               values.size() * sizeof(float),
+                               channelsFirst ? opk::Shape(1, 6, 8) : opk::Shape(1, 8, 6),
+                               opk::Dtype::Float32,
+                               1,
+                               0);
+        opk::TensorParser::Input input(attrs);
+        input.tensors[0] = &tensor;
+        input.inferenceInfo.image = {.width = 100,
+                                     .height = 100,
+                                     .modelWidth = 100,
+                                     .modelHeight = 100,
+                                     .frameId = 1,
+                                     .frameWidth = 100,
+                                     .frameHeight = 100};
+        opk::stdop::postproc::YoloParser parser;
+        open_perception_kit::FrameResults results;
+        ASSERT_TRUE(parser.parse(input, results));
+        EXPECT_EQ(results.count<open_perception_kit::metadata::BoxDetectionsT>(), 1U);
+        results.for_each<open_perception_kit::metadata::BoxDetectionsT>(
+            [expected = Candidates](const auto &payload) {
+                ASSERT_EQ(payload.detections.size(), expected);
+                for (const auto &detection : payload.detections) {
+                    EXPECT_EQ(detection->class_id, 0U);
+                    EXPECT_FLOAT_EQ(detection->confidence, 0);
+                }
+            });
+        values[index(0, 5)] = std::numeric_limits<float>::quiet_NaN();
+        open_perception_kit::FrameResults invalid;
+        EXPECT_FALSE(parser.parse(input, invalid));
+        EXPECT_EQ(invalid.count<open_perception_kit::metadata::BoxDetectionsT>(), 0U);
+    }
 }
 
 TEST(YoloParser, ParsesCornerScoreClassOutput) {
@@ -151,7 +239,12 @@ TEST(YoloParser, SuppressesOverlappingBoxesAfterRestoringFrameCoordinates) {
                                  .modelWidth = 100,
                                  .modelHeight = 100,
                                  .letterboxTop = 10,
-                                 .letterboxBottom = 10};
+                                 .letterboxBottom = 10,
+                                 .frameId = 42,
+                                 .frameWidth = 640,
+                                 .frameHeight = 480,
+                                 .cropX = 100,
+                                 .cropY = 50};
 
     open_perception_kit::FrameResults output;
     opk::stdop::postproc::YoloParser parser;
@@ -170,6 +263,15 @@ TEST(YoloParser, SuppressesOverlappingBoxesAfterRestoringFrameCoordinates) {
     EXPECT_FLOAT_EQ(detections[0]->box->y, .125f);
     EXPECT_FLOAT_EQ(detections[0]->box->width, .3f);
     EXPECT_FLOAT_EQ(detections[0]->box->height, .25f);
+    const auto projected = open_perception_kit::projectBoundingBox(*detections[0]->box, 1280, 960);
+    if (!projected) {
+        ADD_FAILURE() << "missing projected detection";
+        return;
+    }
+    EXPECT_NEAR(projected.value()[0], 200, 1e-4);
+    EXPECT_NEAR(projected.value()[1], 140, 1e-4);
+    EXPECT_NEAR(projected.value()[2], 120, 1e-4);
+    EXPECT_NEAR(projected.value()[3], 80, 1e-4);
 }
 
 TEST(YoloParser, RejectsMissingTensor) {

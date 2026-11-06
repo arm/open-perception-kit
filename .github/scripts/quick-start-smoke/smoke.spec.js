@@ -684,6 +684,7 @@ test.describe('OCR overlays', () => {
       duplicate = false, text = 'PLATE 1234', score = 0.9, model = 'reader'} = {}) => {
       const detector = {payloadType: 'BoxDetections', model: 'detector', contentType: '', detections: [{type: 'Rect', data: {
         uuid: '200', parentUuid: '42', x: 80, y: 0, width: 160, height: 40, confidence: 0.8,
+        spatialValid: true, frameWidth: 640, frameHeight: 480,
       }}]};
       const reader = {payloadType: 'Classifications', model, contentType: '', detections: [{type: 'Classification', data: {
         uuid: '300', parentUuid: '200', candidates: [{text, confidence: score}],
@@ -751,7 +752,7 @@ test.describe('OCR overlays', () => {
     await expect(page.locator('img[src="x"]')).toHaveCount(0);
     expect(await page.evaluate(() => window.ocrText.every(item => item.x >= 0 && item.x < 800 && item.y >= 100 && item.y < 700))).toBe(true);
     await emit({missing: true});
-    await expect(card).toContainText('Waiting for parent boxes');
+    await expect(card).toContainText('Waiting for subject boxes');
     await expect.poll(texts).toEqual([]);
     await expect.poll(samples).toEqual(clear);
     await emit({duplicate: true});

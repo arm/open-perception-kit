@@ -40,29 +40,20 @@ function resolve(result, index) {
     let missing = false;
     let ambiguous = false;
     let invalid = false;
-    const videos = index.frame.layers.filter(layer => layer.payloadType === 'FrameContext')
-        .flatMap(layer => layer.detections || []).filter(item => item.type === 'VideoFrame');
     const geometry = data => {
-        const parentId = objectId(data.parentUuid);
-        const parents = parentId ? videos.filter(item => objectId(item.data?.uuid) === parentId) : [];
-        if (parents.length !== 1) {
-            if (parents.length > 1) ambiguous = true;
-            else missing = true;
-            return null;
-        }
-        const frame = parents[0].data;
+        const frame = {originalWidth: data.frameWidth, originalHeight: data.frameHeight};
         const {x, y, width, height, confidence} = data;
-        if (!Number.isSafeInteger(frame.originalWidth) || !Number.isSafeInteger(frame.originalHeight)
+        if (data.spatialValid !== true || !Number.isSafeInteger(frame.originalWidth) || !Number.isSafeInteger(frame.originalHeight)
             || frame.originalWidth <= 0 || frame.originalHeight <= 0
-            || ['sourceCropLeft', 'sourceCropRight', 'sourceCropTop', 'sourceCropBottom'].some(key => frame[key])
-            || ![x, y, width, height].every(Number.isFinite) || x < 0 || y < 0 || width <= 0 || height <= 0
+            || ![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0
             || x >= frame.originalWidth || y >= frame.originalHeight
-            || x + width > frame.originalWidth + 0.001 || y + height > frame.originalHeight + 0.001
-            || (confidence !== undefined && !validScore(confidence))) {
+            || x + width <= 0 || y + height <= 0
+            || (confidence != null && !validScore(confidence))) {
             invalid = true;
             return null;
         }
-        return {box: {x, y, width: Math.min(width, frame.originalWidth - x), height: Math.min(height, frame.originalHeight - y)},
+        const left = Math.max(0, x), top = Math.max(0, y);
+        return {box: {x: left, y: top, width: Math.min(x + width, frame.originalWidth) - left, height: Math.min(y + height, frame.originalHeight) - top},
             frame, text: '', detectionScore: confidence, recognitionScore: undefined};
     };
     const isRecognition = result.output.source.payloadType === 'Classifications';
@@ -115,7 +106,7 @@ function resolve(result, index) {
     const resolved = {...result, items: regions, regions};
     if (ambiguous) Object.assign(resolved, {state: 'ambiguous', message: 'Ambiguous OCR relationships or candidates; unambiguous regions only, conflicting text omitted.'});
     else if (invalid) Object.assign(resolved, {state: regions.length ? 'partial' : 'unsupported', message: 'Invalid OCR geometry, text, or confidence; affected content omitted.'});
-    else if (missing) Object.assign(resolved, {state: 'partial', message: 'Waiting for parent boxes or uncropped VideoFrame geometry.'});
+    else if (missing) Object.assign(resolved, {state: 'partial', message: 'Waiting for subject boxes with declared image geometry.'});
     resolvedFrames.set(result.output, resolved);
     return resolved;
 }

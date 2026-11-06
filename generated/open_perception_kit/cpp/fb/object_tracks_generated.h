@@ -48,7 +48,7 @@ struct ObjectTrackT : public ::flatbuffers::NativeTable {
     uint64_t track_id = 0;
     std::unique_ptr<open_perception_kit::metadata::BoundingBoxT> box{};
     float confidence = 0.0f;
-    int32_t class_id = -1;
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt;
     std::string text{};
     std::string diagnostic{};
     bool predicted_only = false;
@@ -87,8 +87,8 @@ struct ObjectTrack FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     float confidence() const {
         return GetField<float>(VT_CONFIDENCE, 0.0f);
     }
-    int32_t class_id() const {
-        return GetField<int32_t>(VT_CLASS_ID, -1);
+    ::flatbuffers::Optional<uint32_t> class_id() const {
+        return GetOptional<uint32_t, uint32_t>(VT_CLASS_ID);
     }
     const ::flatbuffers::String *text() const {
         return GetPointer<const ::flatbuffers::String *>(VT_TEXT);
@@ -104,7 +104,7 @@ struct ObjectTrack FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
                verifier.VerifyTable(object()) && VerifyField<uint64_t>(verifier, VT_SOURCE_ID, 8) &&
                VerifyField<uint64_t>(verifier, VT_TRACK_ID, 8) && VerifyOffset(verifier, VT_BOX) &&
                verifier.VerifyTable(box()) && VerifyField<float>(verifier, VT_CONFIDENCE, 4) &&
-               VerifyField<int32_t>(verifier, VT_CLASS_ID, 4) && VerifyOffset(verifier, VT_TEXT) &&
+               VerifyField<uint32_t>(verifier, VT_CLASS_ID, 4) && VerifyOffset(verifier, VT_TEXT) &&
                verifier.VerifyString(text()) && VerifyOffset(verifier, VT_DIAGNOSTIC) &&
                verifier.VerifyString(diagnostic()) &&
                VerifyField<uint8_t>(verifier, VT_PREDICTED_ONLY, 1) && verifier.EndTable();
@@ -137,8 +137,8 @@ struct ObjectTrackBuilder {
     void add_confidence(float confidence) {
         fbb_.AddElement<float>(ObjectTrack::VT_CONFIDENCE, confidence, 0.0f);
     }
-    void add_class_id(int32_t class_id) {
-        fbb_.AddElement<int32_t>(ObjectTrack::VT_CLASS_ID, class_id, -1);
+    void add_class_id(uint32_t class_id) {
+        fbb_.AddElement<uint32_t>(ObjectTrack::VT_CLASS_ID, class_id);
     }
     void add_text(::flatbuffers::Offset<::flatbuffers::String> text) {
         fbb_.AddOffset(ObjectTrack::VT_TEXT, text);
@@ -167,7 +167,7 @@ CreateObjectTrack(::flatbuffers::FlatBufferBuilder &_fbb,
                   uint64_t track_id = 0,
                   ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
                   float confidence = 0.0f,
-                  int32_t class_id = -1,
+                  ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
                   ::flatbuffers::Offset<::flatbuffers::String> text = 0,
                   ::flatbuffers::Offset<::flatbuffers::String> diagnostic = 0,
                   bool predicted_only = false) {
@@ -176,7 +176,9 @@ CreateObjectTrack(::flatbuffers::FlatBufferBuilder &_fbb,
     builder_.add_source_id(source_id);
     builder_.add_diagnostic(diagnostic);
     builder_.add_text(text);
-    builder_.add_class_id(class_id);
+    if (class_id) {
+        builder_.add_class_id(*class_id);
+    }
     builder_.add_confidence(confidence);
     builder_.add_box(box);
     builder_.add_object(object);
@@ -191,7 +193,7 @@ CreateObjectTrackDirect(::flatbuffers::FlatBufferBuilder &_fbb,
                         uint64_t track_id = 0,
                         ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
                         float confidence = 0.0f,
-                        int32_t class_id = -1,
+                        ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
                         const char *text = nullptr,
                         const char *diagnostic = nullptr,
                         bool predicted_only = false) {

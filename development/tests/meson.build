@@ -175,6 +175,15 @@ if python_ops_enabled
     meson.project_source_root() / '../generated/open_perception_kit/python/src',
   )
   test(
+    'image_geometry_pipeline_tests',
+    test_python,
+    args : [files('image_geometry_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+    env : python_script_pipeline_test_env,
+    depends : [gstopkinfer, opkcomm, onnxops, stdops, python_ops],
+    timeout : 90,
+    is_parallel : false,
+  )
+  test(
     'python_script_pipeline_tests',
     test_python,
     args : [
@@ -237,6 +246,17 @@ yolo_parser_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
   link_with : [common],
 )
+
+image_geometry_tests = executable(
+  'image_geometry_tests',
+  ['image_geometry_test.cpp', '../ops-std/InferenceControllerOp.cpp',
+   '../ops-std/postproc/UltrafaceParser.cpp', '../ops-std/postproc/ScrfdParser.cpp',
+   '../elements/opktracker/FrameInputs.cpp', '../elements/opktracker/Utils.cpp'],
+  include_directories : [common_include, include_directories('../ops-std'), include_directories('../elements/opktracker')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('image_geometry_tests', image_geometry_tests)
 
 yolo26_instance_segmentation_parser_tests = executable(
   'yolo26_instance_segmentation_parser_tests',
@@ -384,7 +404,8 @@ runtime_pipeline_tests = executable(
 
 paddle_ocr_preprocess_tests = executable(
   'paddle_ocr_preprocess_tests',
-  ['paddle_ocr_preprocess_test.cpp', '../ops-std/PaddleOcrPreprocessOp.cpp'],
+  ['paddle_ocr_preprocess_test.cpp', '../ops-std/PaddleOcrPreprocessOp.cpp',
+   '../ops-std/InferenceControllerOp.cpp', '../ops-std/postproc/PaddleOcrDbDetectionParser.cpp'],
   include_directories : [common_include, include_directories('../ops-std')],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
   link_with : [common],

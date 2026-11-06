@@ -245,7 +245,7 @@ float deg2rad(float degrees) noexcept {
     return degrees * 3.1415926535f / 180.0f;
 }
 
-int roundToInt(float value) noexcept {
+int roundToInt(const double value) noexcept {
     if (!std::isfinite(value)) {
         return 0;
     }
@@ -276,16 +276,16 @@ int clampRasterEdge(double value, std::uint32_t upper) noexcept {
 bool makePixelBox(const DebugOverlaySurface &surface,
                   const open_perception_kit::metadata::BoundingBoxT &box,
                   PixelBox &out) noexcept {
-    if (surface.width == 0U || surface.height == 0U || !std::isfinite(box.x) ||
-        !std::isfinite(box.y) || !std::isfinite(box.width) || !std::isfinite(box.height) ||
-        box.width <= 0.0f || box.height <= 0.0f) {
+    const auto projected =
+        open_perception_kit::projectBoundingBox(box, surface.width, surface.height);
+    if (!projected) {
         return false;
     }
 
-    const int x0 = clampRasterEdge(static_cast<double>(box.x), surface.width);
-    const int y0 = clampRasterEdge(static_cast<double>(box.y), surface.height);
-    const int x1 = clampRasterEdge(static_cast<double>(box.x) + box.width, surface.width);
-    const int y1 = clampRasterEdge(static_cast<double>(box.y) + box.height, surface.height);
+    const int x0 = clampRasterEdge((*projected)[0], surface.width);
+    const int y0 = clampRasterEdge((*projected)[1], surface.height);
+    const int x1 = clampRasterEdge((*projected)[0] + (*projected)[2], surface.width);
+    const int y1 = clampRasterEdge((*projected)[1] + (*projected)[3], surface.height);
     if (x1 <= x0 || y1 <= y0) {
         return false;
     }
@@ -391,11 +391,15 @@ bool isFinitePoint(const open_perception_kit::metadata::Point2fT &point) noexcep
 }
 
 void drawTrackTrace(opk::raster::SurfacePainter &painter,
+                    const DebugOverlaySurface &surface,
                     const open_perception_kit::metadata::TrackTraceT &trace) noexcept {
     if (trace.points.size() < 2U) {
         return;
     }
 
+    if (!open_perception_kit::validImageSpace(trace.space.get()))
+        return;
+    const auto &space = *trace.space;
     const opk::Color color = colorForTrack(trace.track_id);
     bool hasPrevious = false;
     int previousX = 0;
@@ -406,8 +410,8 @@ void drawTrackTrace(opk::raster::SurfacePainter &painter,
             continue;
         }
 
-        const int x = roundToInt(point->x);
-        const int y = roundToInt(point->y);
+        const int x = roundToInt((space.origin_x + point->x) * surface.width / space.width);
+        const int y = roundToInt((space.origin_y + point->y) * surface.height / space.height);
         if (hasPrevious) {
             painter.drawLine(previousX, previousY, x, y, color, TrackTraceThickness);
         }
@@ -419,12 +423,13 @@ void drawTrackTrace(opk::raster::SurfacePainter &painter,
 }
 
 void drawTrackTraces(opk::raster::SurfacePainter &painter,
+                     const DebugOverlaySurface &surface,
                      const open_perception_kit::FrameResults &frameResults) {
     frameResults.for_each<open_perception_kit::metadata::TrackTracesT>(
-        [&painter](const auto &payload) {
+        [&painter, &surface](const auto &payload) {
             for (const auto &trace : payload.traces) {
                 if (trace) {
-                    drawTrackTrace(painter, *trace);
+                    drawTrackTrace(painter, surface, *trace);
                 }
             }
         });
@@ -941,7 +946,7 @@ DebugOverlayStatus drawDebugOverlay(const DebugOverlayRequest &request) noexcept
 
     drawSegmentationMasks(
         makeImageSurfaceView(request.surface), *request.frameResults, request.options);
-    drawTrackTraces(painter, *request.frameResults);
+    drawTrackTraces(painter, request.surface, *request.frameResults);
     drawHumanFaces(painter, request.surface, *request.frameResults);
     drawLabelledBoxes(painter, request.surface, *request.frameResults);
     drawGazeVectors(painter, request.surface, *request.frameResults);

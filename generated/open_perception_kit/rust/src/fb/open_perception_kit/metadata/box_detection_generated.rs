@@ -62,7 +62,9 @@ impl<'a> BoxDetection<'a> {
         if let Some(x) = args.text {
             builder.add_text(x);
         }
-        builder.add_class_id(args.class_id);
+        if let Some(x) = args.class_id {
+            builder.add_class_id(x);
+        }
         builder.add_confidence(args.confidence);
         if let Some(x) = args.box_ {
             builder.add_box_(x);
@@ -120,15 +122,11 @@ impl<'a> BoxDetection<'a> {
         }
     }
     #[inline]
-    pub fn class_id(&self) -> i32 {
+    pub fn class_id(&self) -> Option<u32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<i32>(BoxDetection::VT_CLASS_ID, Some(-1))
-                .unwrap()
-        }
+        unsafe { self._tab.get::<u32>(BoxDetection::VT_CLASS_ID, None) }
     }
     #[inline]
     pub fn text(&self) -> Option<&'a str> {
@@ -157,7 +155,7 @@ impl flatbuffers::Verifiable for BoxDetection<'_> {
             )?
             .visit_field::<flatbuffers::ForwardsUOffset<BoundingBox>>("box_", Self::VT_BOX_, false)?
             .visit_field::<f32>("confidence", Self::VT_CONFIDENCE, false)?
-            .visit_field::<i32>("class_id", Self::VT_CLASS_ID, false)?
+            .visit_field::<u32>("class_id", Self::VT_CLASS_ID, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<&str>>("text", Self::VT_TEXT, false)?
             .finish();
         Ok(())
@@ -167,7 +165,7 @@ pub struct BoxDetectionArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
     pub box_: Option<flatbuffers::WIPOffset<BoundingBox<'a>>>,
     pub confidence: f32,
-    pub class_id: i32,
+    pub class_id: Option<u32>,
     pub text: Option<flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BoxDetectionArgs<'a> {
@@ -177,7 +175,7 @@ impl<'a> Default for BoxDetectionArgs<'a> {
             object: None,
             box_: None,
             confidence: 0.0,
-            class_id: -1,
+            class_id: None,
             text: None,
         }
     }
@@ -207,9 +205,9 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> BoxDetectionBuilder<'a, 'b, A> 
             .push_slot::<f32>(BoxDetection::VT_CONFIDENCE, confidence, 0.0);
     }
     #[inline]
-    pub fn add_class_id(&mut self, class_id: i32) {
+    pub fn add_class_id(&mut self, class_id: u32) {
         self.fbb_
-            .push_slot::<i32>(BoxDetection::VT_CLASS_ID, class_id, -1);
+            .push_slot_always::<u32>(BoxDetection::VT_CLASS_ID, class_id);
     }
     #[inline]
     pub fn add_text(&mut self, text: flatbuffers::WIPOffset<&'b str>) {
@@ -250,7 +248,7 @@ pub struct BoxDetectionT {
     pub object: Option<Box<ObjectMetaT>>,
     pub box_: Option<Box<BoundingBoxT>>,
     pub confidence: f32,
-    pub class_id: i32,
+    pub class_id: Option<u32>,
     pub text: Option<String>,
 }
 impl Default for BoxDetectionT {
@@ -259,7 +257,7 @@ impl Default for BoxDetectionT {
             object: None,
             box_: None,
             confidence: 0.0,
-            class_id: -1,
+            class_id: None,
             text: None,
         }
     }

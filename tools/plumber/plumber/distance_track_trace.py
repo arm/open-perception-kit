@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from . import auxiliary as aux
+import math
 
 
 def distance_track_trace(gt_item: dict, out_item: dict, gt_parent_item: dict, out_parent_item: dict) -> float:
@@ -21,8 +22,6 @@ def distance_track_trace(gt_item: dict, out_item: dict, gt_parent_item: dict, ou
     Distance between two TrackTrace items.
     Returns value in [0,1].
     """
-
-    del out_parent_item
 
     gt_points = gt_item.get("data", {}).get("points", [])
     out_points = out_item.get("data", {}).get("points", [])
@@ -36,6 +35,11 @@ def distance_track_trace(gt_item: dict, out_item: dict, gt_parent_item: dict, ou
     total_dist = 0.0
 
     gt_frame_size = aux.frame_size_from_parent(gt_parent_item)
+    out_frame_size = aux.frame_size_from_parent(out_parent_item)
+    if not gt_frame_size or not out_frame_size or min(*gt_frame_size, *out_frame_size) <= 0:
+        return math.inf
+    fw, fh = gt_frame_size
+    ow, oh = out_frame_size
 
     for i in range(n):
         gx = gt_points[i]["x"]
@@ -43,14 +47,10 @@ def distance_track_trace(gt_item: dict, out_item: dict, gt_parent_item: dict, ou
         ox = out_points[i]["x"]
         oy = out_points[i]["y"]
 
-        # Normalize if frame_size available
-        if gt_frame_size:
-            fw, fh = gt_frame_size
-            if fw > 0 and fh > 0:
-                gx /= fw
-                gy /= fh
-                ox /= fw
-                oy /= fh
+        gx /= fw
+        gy /= fh
+        ox /= ow
+        oy /= oh
 
         dx = gx - ox
         dy = gy - oy

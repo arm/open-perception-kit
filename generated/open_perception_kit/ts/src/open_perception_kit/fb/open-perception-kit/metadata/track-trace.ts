@@ -20,6 +20,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { ImageSpace, ImageSpaceT } from '../../open-perception-kit/metadata/image-space.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
 import { Point2f, Point2fT } from '../../open-perception-kit/metadata/point2f.js';
 
@@ -62,8 +63,13 @@ pointsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+space(obj?:ImageSpace):ImageSpace|null {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? (obj || new ImageSpace()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
 static startTrackTrace(builder:flatbuffers.Builder) {
-  builder.startObject(3);
+  builder.startObject(4);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -90,24 +96,22 @@ static startPointsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addSpace(builder:flatbuffers.Builder, spaceOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(3, spaceOffset, 0);
+}
+
 static endTrackTrace(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createTrackTrace(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, trackId:bigint, pointsOffset:flatbuffers.Offset):flatbuffers.Offset {
-  TrackTrace.startTrackTrace(builder);
-  TrackTrace.addObject(builder, objectOffset);
-  TrackTrace.addTrackId(builder, trackId);
-  TrackTrace.addPoints(builder, pointsOffset);
-  return TrackTrace.endTrackTrace(builder);
-}
 
 unpack(): TrackTraceT {
   return new TrackTraceT(
     (this.object() !== null ? this.object()!.unpack() : null),
     this.trackId(),
-    this.bb!.createObjList<Point2f, Point2fT>(this.points.bind(this), this.pointsLength())
+    this.bb!.createObjList<Point2f, Point2fT>(this.points.bind(this), this.pointsLength()),
+    (this.space() !== null ? this.space()!.unpack() : null)
   );
 }
 
@@ -116,6 +120,7 @@ unpackTo(_o: TrackTraceT): void {
   _o.object = (this.object() !== null ? this.object()!.unpack() : null);
   _o.trackId = this.trackId();
   _o.points = this.bb!.createObjList<Point2f, Point2fT>(this.points.bind(this), this.pointsLength());
+  _o.space = (this.space() !== null ? this.space()!.unpack() : null);
 }
 }
 
@@ -123,18 +128,22 @@ export class TrackTraceT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
   public trackId: bigint = BigInt('0'),
-  public points: (Point2fT)[] = []
+  public points: (Point2fT)[] = [],
+  public space: ImageSpaceT|null = null
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
   const points = TrackTrace.createPointsVector(builder, builder.createObjectOffsetList(this.points));
+  const space = (this.space !== null ? this.space!.pack(builder) : 0);
 
-  return TrackTrace.createTrackTrace(builder,
-    object,
-    this.trackId,
-    points
-  );
+  TrackTrace.startTrackTrace(builder);
+  TrackTrace.addObject(builder, object);
+  TrackTrace.addTrackId(builder, this.trackId);
+  TrackTrace.addPoints(builder, points);
+  TrackTrace.addSpace(builder, space);
+
+  return TrackTrace.endTrackTrace(builder);
 }
 }

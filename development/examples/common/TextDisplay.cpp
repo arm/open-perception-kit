@@ -59,12 +59,18 @@ std::string objectLabel(const ObjectMetaT *object) {
 }
 
 std::string boxLabel(const BoundingBoxT *box) {
-    if (!box) {
+    if (!box || !box->space) {
         return "box=-";
     }
-
-    return fmt::format(
-        "x={:.1f} y={:.1f} w={:.1f} h={:.1f}", box->x, box->y, box->width, box->height);
+    const auto pixels =
+        open_perception_kit::projectBoundingBox(*box, box->space->width, box->space->height);
+    if (!pixels)
+        return "box=unavailable";
+    return fmt::format("x={:.1f} y={:.1f} w={:.1f} h={:.1f}",
+                       (*pixels)[0],
+                       (*pixels)[1],
+                       (*pixels)[2],
+                       (*pixels)[3]);
 }
 
 std::string valueRangeUint8(const std::vector<std::uint8_t> &pixels) {
@@ -115,19 +121,13 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
                               const open_perception_kit::metadata::FrameContextT &payload) {
     lines.push_back(fmt::format("FrameContext: {}", layerLabel(payload.layer.get())));
     if (payload.video) {
-        lines.push_back(fmt::format(
-            "  video: {} original={}x{} crop_lrtb={},{},{},{} letterbox_lrtb={},{},{},{}",
-            objectLabel(payload.video->object.get()),
-            payload.video->original_width,
-            payload.video->original_height,
-            payload.video->source_crop_left,
-            payload.video->source_crop_right,
-            payload.video->source_crop_top,
-            payload.video->source_crop_bottom,
-            payload.video->letterbox_left,
-            payload.video->letterbox_right,
-            payload.video->letterbox_top,
-            payload.video->letterbox_bottom));
+        lines.push_back(fmt::format("  video: {} original={}x{} pts_ns={}",
+                                    objectLabel(payload.video->object.get()),
+                                    payload.video->original_width,
+                                    payload.video->original_height,
+                                    payload.video->presentation_ts_ns
+                                        ? std::to_string(*payload.video->presentation_ts_ns)
+                                        : "unavailable"));
     }
     if (payload.audio) {
         lines.push_back(fmt::format("  audio: {} channels={} frequency={} samples={}",
@@ -150,13 +150,14 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  box #{}: {} label={} class={} conf={:.3f} {}",
-                                    index,
-                                    objectLabel(detection->object.get()),
-                                    textOr(detection->text),
-                                    detection->class_id,
-                                    detection->confidence,
-                                    boxLabel(detection->box.get())));
+        lines.push_back(
+            fmt::format("  box #{}: {} label={} class={} conf={:.3f} {}",
+                        index,
+                        objectLabel(detection->object.get()),
+                        textOr(detection->text),
+                        detection->class_id ? std::to_string(*detection->class_id) : "unspecified",
+                        detection->confidence,
+                        boxLabel(detection->box.get())));
     }
 }
 
@@ -172,18 +173,19 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  track #{}: {} source={} track={} label={} class={} "
-                                    "conf={:.3f} predicted={} {} diagnostic={}",
-                                    index,
-                                    objectLabel(track->object.get()),
-                                    track->source_id,
-                                    track->track_id,
-                                    textOr(track->text),
-                                    track->class_id,
-                                    track->confidence,
-                                    track->predicted_only ? "true" : "false",
-                                    boxLabel(track->box.get()),
-                                    textOr(track->diagnostic)));
+        lines.push_back(
+            fmt::format("  track #{}: {} source={} track={} label={} class={} "
+                        "conf={:.3f} predicted={} {} diagnostic={}",
+                        index,
+                        objectLabel(track->object.get()),
+                        track->source_id,
+                        track->track_id,
+                        textOr(track->text),
+                        track->class_id ? std::to_string(*track->class_id) : "unspecified",
+                        track->confidence,
+                        track->predicted_only ? "true" : "false",
+                        boxLabel(track->box.get()),
+                        textOr(track->diagnostic)));
     }
 }
 
