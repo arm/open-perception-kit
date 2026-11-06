@@ -32,14 +32,14 @@ class FileWriter : public Writer {
 
     int check_open();
 
-    bool io_open_existing(const struct stat &st);
+    bool io_open_existing(const struct stat &fileStatus);
     bool io_create();
 
   protected:
     bool io_open() override;
     void io_close() override;
 
-    bool publish(const std::string &json_str) override;
+    bool publish(const std::string &record) override;
 
   public:
     explicit FileWriter(_GstOpkComm *self, const std::string &file_name, size_t queue_size)

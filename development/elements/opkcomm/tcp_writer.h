@@ -43,7 +43,7 @@ class TcpWriter : public Writer {
     bool io_open() override;
     void io_close() override;
 
-    bool publish(const std::string &json_str) override;
+    bool publish(const std::string &record) override;
 
   public:
     explicit TcpWriter(_GstOpkComm *self, std::string host, uint16_t port, size_t queue_size)

@@ -36,28 +36,28 @@ struct OpkCommJob {
 
 class JobQueue {
   public:
-    explicit JobQueue(size_t max) : max_(max) {}
+    explicit JobQueue(size_t capacity) : m_capacity(capacity) {}
 
-    bool try_push(OpkCommJob &&j);
-    bool pop(OpkCommJob &out);
+    bool try_push(OpkCommJob &&job);
+    bool pop(OpkCommJob &job);
 
     void stop();
     void reset();
 
   private:
-    size_t max_;
-    std::deque<OpkCommJob> q_;
-    std::mutex m_;
-    std::condition_variable cv_;
-    bool stop_ = false;
+    size_t m_capacity;
+    std::deque<OpkCommJob> m_jobs;
+    std::mutex m_mutex;
+    std::condition_variable m_jobsAvailable;
+    bool m_stopped = false;
 };
 
 class Writer {
     _GstOpkComm *m_self;
-    JobQueue q;
+    JobQueue m_queue;
 
-    std::jthread th;
-    std::atomic<bool> running{false};
+    std::jthread m_worker;
+    std::atomic<bool> m_running{false};
 
   protected:
     void run();
@@ -65,14 +65,14 @@ class Writer {
     virtual bool io_open() = 0;
     virtual void io_close() = 0;
 
-    virtual bool publish(const std::string &json_str) = 0;
+    virtual bool publish(const std::string &record) = 0;
 
     const _GstOpkComm *self() const {
         return m_self;
     }
 
   public:
-    explicit Writer(_GstOpkComm *self, size_t max) : m_self(self), q(max) {}
+    explicit Writer(_GstOpkComm *self, size_t capacity) : m_self(self), m_queue(capacity) {}
     virtual ~Writer() = default;
 
     bool send(OpkCommJob &&job);

@@ -23,38 +23,38 @@
 
 #include <gst/gst.h>
 
-bool WebSocketWriter::validate(const OpkCommConnectionHdl &hdl) {
+bool WebSocketWriter::validate(const OpkCommConnectionHdl &connectionHandle) {
     if (!m_ws) {
         return false;
     }
 
-    auto con = m_ws->get_con_from_hdl(hdl);
-    const auto resource = con->get_resource();
-    const bool ok = resource == m_endpoint;
-    if (!ok) {
+    auto connection = m_ws->get_con_from_hdl(connectionHandle);
+    const auto resource = connection->get_resource();
+    const bool accepted = resource == m_endpoint;
+    if (!accepted) {
         GST_INFO_OBJECT(self(),
                         "Rejected opkcomm WebSocket connection for endpoint '%s' (expected '%s')",
                         opk::log::escape(resource).c_str(),
                         opk::log::escape(m_endpoint).c_str());
     }
-    return ok;
+    return accepted;
 }
 
-void WebSocketWriter::on_open(const OpkCommConnectionHdl &hdl) {
+void WebSocketWriter::on_open(const OpkCommConnectionHdl &connectionHandle) {
     // A handshake accepted before stop_listening() can complete during shutdown.
     if (!m_ws->is_listening()) {
-        websocketpp::lib::error_code ec;
-        m_ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+        websocketpp::lib::error_code error;
+        m_ws->close(connectionHandle, websocketpp::close::status::going_away, "", error);
         return;
     }
-    std::lock_guard<std::mutex> lock(m_connection_lock);
-    m_connections.insert(hdl);
+    std::scoped_lock lock(m_connection_lock);
+    m_connections.insert(connectionHandle);
     GST_INFO_OBJECT(self(), "opkcomm WebSocket client connected");
 }
 
-void WebSocketWriter::on_close(const OpkCommConnectionHdl &hdl) {
-    std::lock_guard<std::mutex> lock(m_connection_lock);
-    m_connections.erase(hdl);
+void WebSocketWriter::on_close(const OpkCommConnectionHdl &connectionHandle) {
+    std::scoped_lock lock(m_connection_lock);
+    m_connections.erase(connectionHandle);
     GST_INFO_OBJECT(self(), "opkcomm WebSocket client disconnected");
 }
 
@@ -71,10 +71,13 @@ bool WebSocketWriter::io_open() {
         m_ws->clear_error_channels(websocketpp::log::elevel::all);
         m_ws->init_asio();
         m_ws->set_reuse_addr(true);
-        m_ws->set_validate_handler(
-            [this](const OpkCommConnectionHdl &hdl) { return validate(hdl); });
-        m_ws->set_open_handler([this](const OpkCommConnectionHdl &hdl) { on_open(hdl); });
-        m_ws->set_close_handler([this](const OpkCommConnectionHdl &hdl) { on_close(hdl); });
+        m_ws->set_validate_handler([this](const OpkCommConnectionHdl &connectionHandle) {
+            return validate(connectionHandle);
+        });
+        m_ws->set_open_handler(
+            [this](const OpkCommConnectionHdl &connectionHandle) { on_open(connectionHandle); });
+        m_ws->set_close_handler(
+            [this](const OpkCommConnectionHdl &connectionHandle) { on_close(connectionHandle); });
         m_ws->listen(m_port);
         m_ws->start_accept();
         m_ws_thread = std::thread([server = m_ws] { server->run(); });
@@ -84,10 +87,10 @@ bool WebSocketWriter::io_open() {
                         static_cast<unsigned>(m_port),
                         opk::log::escape(m_endpoint).c_str());
         return true;
-    } catch (const std::exception &e) {
+    } catch (const std::exception &exception) {
         GST_WARNING_OBJECT(self(),
                            "Failed to start opkcomm WebSocket server: %s",
-                           opk::log::escape(e.what()).c_str());
+                           opk::log::escape(exception.what()).c_str());
         io_close();
         return false;
     }
@@ -96,11 +99,11 @@ bool WebSocketWriter::io_open() {
 void WebSocketWriter::io_close() {
     if (m_ws) {
         m_ws->get_io_service().post([this] {
-            websocketpp::lib::error_code ec;
-            m_ws->stop_listening(ec);
-            std::lock_guard<std::mutex> lock(m_connection_lock);
-            for (const auto &hdl : m_connections) {
-                m_ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+            websocketpp::lib::error_code error;
+            m_ws->stop_listening(error);
+            std::scoped_lock lock(m_connection_lock);
+            for (const auto &connectionHandle : m_connections) {
+                m_ws->close(connectionHandle, websocketpp::close::status::going_away, "", error);
             }
         });
     }
@@ -111,24 +114,24 @@ void WebSocketWriter::io_close() {
         m_ws->run(); // Startup may have failed before the worker was created.
     }
 
-    std::lock_guard<std::mutex> lock(m_connection_lock);
+    std::scoped_lock lock(m_connection_lock);
     m_connections.clear();
     m_ws.reset();
 }
 
-bool WebSocketWriter::publish(const std::string &json_str) {
+bool WebSocketWriter::publish(const std::string &record) {
     if (!m_ws) {
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(m_connection_lock);
-    for (const auto &hdl : m_connections) {
-        websocketpp::lib::error_code ec;
-        m_ws->send(hdl, json_str, websocketpp::frame::opcode::text, ec);
-        if (ec) {
+    std::scoped_lock lock(m_connection_lock);
+    for (const auto &connectionHandle : m_connections) {
+        websocketpp::lib::error_code error;
+        m_ws->send(connectionHandle, record, websocketpp::frame::opcode::text, error);
+        if (error) {
             GST_INFO_OBJECT(self(),
                             "opkcomm WebSocket send failed: %s",
-                            opk::log::escape(ec.message()).c_str());
+                            opk::log::escape(error.message()).c_str());
         }
     }
 
