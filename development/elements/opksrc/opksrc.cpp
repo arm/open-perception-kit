@@ -293,16 +293,16 @@ static void gst_opk_src_finalize(GObject *object) {
 }
 
 static void gst_opk_src_set_property(GObject *object,
-                                     guint property_id,
+                                     guint propertyId,
                                      const GValue *value,
-                                     GParamSpec *pspec) {
+                                     GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkSrc *>(object);
 
-    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), pspec);
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
     if (!propertyGuard.isChangeAllowed())
         return;
 
-    switch (property_id) {
+    switch (propertyId) {
     case PROP_WS_PORT:
         GST_OBJECT_LOCK(self);
         self->ws_port = g_value_get_int(value);
@@ -315,17 +315,19 @@ static void gst_opk_src_set_property(GObject *object,
         update_output_caps(self);
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         break;
     }
 }
 
-static void
-gst_opk_src_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
+static void gst_opk_src_get_property(GObject *object,
+                                     guint propertyId,
+                                     GValue *value,
+                                     GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkSrc *>(object);
 
     g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
-    switch (property_id) {
+    switch (propertyId) {
     case PROP_WS_PORT:
         g_value_set_int(value, self->ws_port);
         break;
@@ -333,7 +335,7 @@ gst_opk_src_get_property(GObject *object, guint property_id, GValue *value, GPar
         g_value_set_int(value, self->rate);
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         break;
     }
 }
@@ -347,22 +349,22 @@ static void gst_opk_src_init(GstOpkSrc *self) {
     self->initialized = init_audio(self) && gst_opk_src_init_video(self);
 }
 
-static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
-    auto *gobject_class = G_OBJECT_CLASS(klass);
-    auto *element_class = GST_ELEMENT_CLASS(klass);
+static void gst_opk_src_class_init(GstOpkSrcClass *srcClass) {
+    auto *objectClass = G_OBJECT_CLASS(srcClass);
+    auto *elementClass = GST_ELEMENT_CLASS(srcClass);
 
-    gobject_class->set_property = gst_opk_src_set_property;
-    gobject_class->get_property = gst_opk_src_get_property;
-    gobject_class->dispose = gst_opk_src_dispose;
-    gobject_class->finalize = gst_opk_src_finalize;
-    element_class->change_state = gst_opk_src_change_state;
-    gst_element_class_add_static_pad_template(element_class, &src_template);
-    gst_opk_src_video_class_init(element_class);
+    objectClass->set_property = gst_opk_src_set_property;
+    objectClass->get_property = gst_opk_src_get_property;
+    objectClass->dispose = gst_opk_src_dispose;
+    objectClass->finalize = gst_opk_src_finalize;
+    elementClass->change_state = gst_opk_src_change_state;
+    gst_element_class_add_static_pad_template(elementClass, &src_template);
+    gst_opk_src_video_class_init(elementClass);
 
     constexpr GParamFlags kRW =
         static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-    g_object_class_install_property(gobject_class,
+    g_object_class_install_property(objectClass,
                                     PROP_WS_PORT,
                                     g_param_spec_int("ws-port",
                                                      "WebSocket Port",
@@ -374,7 +376,7 @@ static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
                                                      8003,
                                                      kRW));
 
-    g_object_class_install_property(gobject_class,
+    g_object_class_install_property(objectClass,
                                     PROP_RATE,
                                     g_param_spec_int("rate",
                                                      "Sample rate",
@@ -386,7 +388,7 @@ static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
                                                      16000,
                                                      kRW));
 
-    gst_element_class_set_static_metadata(element_class,
+    gst_element_class_set_static_metadata(elementClass,
                                           "OpkSrc",
                                           "Source/Audio/Video/Network/Bin",
                                           "Receives WebRTC Opus audio and VP8 video",
