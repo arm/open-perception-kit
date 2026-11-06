@@ -656,7 +656,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
 ARG OPK_RELEASE_BUILD=false
-ARG NINJAFLAGS=-j2
 ARG OPK_MLWL=disabled
 
 COPY --from=opk-release-sources /work/tools/perception/sdk.json /work/tools/perception/sdk.json
@@ -738,6 +737,7 @@ COPY --from=opk-release-sources /work/data data
 COPY --from=opk-release-sources /work/config config
 
 ARG OPK_RELEASE_SOURCE_COMMIT=""
+ARG NINJAFLAGS=-j2
 
 FROM opk-deployment-build-base AS opk-deployment-build
 
