@@ -25,6 +25,7 @@ import cameraContact from './features/camera-contact.js';
 import performance from './features/performance.js';
 import backgroundReplacement from './features/background-replacement.js';
 import semanticSegmentation from './features/semantic-segmentation.js';
+import instanceSegmentation from './features/instance-segmentation.js';
 
 export const OVERLAY_FEATURES = [
     boundingBoxes,
@@ -37,6 +38,7 @@ export const OVERLAY_FEATURES = [
     performance,
     backgroundReplacement,
     semanticSegmentation,
+    instanceSegmentation,
 ];
 
 export function featureFor(id) {
