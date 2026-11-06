@@ -17,7 +17,7 @@
 
 #include "DebugOverlayRenderer.h"
 #include "gst/FrameResultsMeta.h"
-#include "gst/PropertyGuard.h"
+#include "gst/PropertyChanges.h"
 #include "gst/Tools.h"
 #include "mediaio/GstVideoFrame.h"
 #include "opk/Bitmap.h"
@@ -121,6 +121,8 @@ static GstFlowReturn gst_opk_osd_transform_frame_in_place(GstOpkOsd *filter, Gst
 static gboolean gst_opk_osd_start(GstBaseTransform *selfInParentType);
 static gboolean gst_opk_osd_stop(GstBaseTransform *selfInParentType);
 static bool gst_opk_osd_load_bg_image(GstOpkOsd *self, const gchar *const path);
+static gst::PropertyApplyResults gst_opk_osd_apply_properties(GstElement *propertyOwner,
+                                                              const GstStructure *values);
 
 #define gst_opk_osd_parent_class parent_class
 G_DEFINE_TYPE(GstOpkOsd, gst_opk_osd, GST_TYPE_BASE_TRANSFORM);
@@ -171,7 +173,7 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *osdClass) {
             "Background Image",
             "Optional replacement background image applied where the segmentation mask marks "
             "background"
-            "; Changeable while playing; synchronously validates and loads before replacement",
+            "; Changeable while playing; loads asynchronously before replacement during processing",
             DEFAULT_BG_IMAGE,
             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                      GST_PARAM_MUTABLE_PLAYING)));
@@ -201,6 +203,11 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *osdClass) {
     gst_element_class_add_pad_template(elementClass, src_template);
     gst_element_class_add_pad_template(elementClass, sink_template);
     gst_caps_unref(caps);
+    gst::installPropertyChanges(elementClass,
+                                gst_opk_osd_apply_properties,
+                                [](GstElement *, const GParamSpec *propertySpec) {
+                                    return g_str_equal(propertySpec->name, "bg-image");
+                                });
 }
 
 static void gst_opk_osd_init(GstOpkOsd *self) {
@@ -292,10 +299,6 @@ static void gst_opk_osd_set_property(GObject *object,
                                      GParamSpec *propertySpec) {
     auto *self = GST_OPK_OSD(object);
 
-    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
-    if (!propertyGuard.isChangeAllowed())
-        return;
-
     switch (static_cast<PropertyId>(propertyId)) {
     case PropertyId::CopyInput:
         g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
@@ -309,20 +312,30 @@ static void gst_opk_osd_set_property(GObject *object,
         g_atomic_int_set(&self->performanceOverlayEnabled, g_value_get_boolean(value));
         break;
 
-    case PropertyId::BgImage:
-        if (!gst_opk_osd_load_bg_image(self, g_value_get_string(value))) {
-            GST_ELEMENT_WARNING(self,
-                                RESOURCE,
-                                OPEN_READ,
-                                ("bg-image was not changed: unable to load the requested image"),
-                                (nullptr));
-        }
-        break;
-
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         break;
     }
+}
+
+static gst::PropertyApplyResults gst_opk_osd_apply_properties(GstElement *propertyOwner,
+                                                              const GstStructure *values) {
+    gst::PropertyApplyResults failures;
+    for (int index = 0; index < gst_structure_n_fields(values); ++index) {
+        const char *const name = gst_structure_nth_field_name(values, index);
+        const auto *const value = gst_structure_get_value(values, name);
+        if (g_str_equal(name, "bg-image")) {
+            if (!gst_opk_osd_load_bg_image(GST_OPK_OSD(propertyOwner), g_value_get_string(value)))
+                failures.emplace(name,
+                                 gst::PropertyApplyResult{"Unable to load the requested image"});
+        } else {
+            auto *const propertySpec =
+                g_object_class_find_property(G_OBJECT_GET_CLASS(propertyOwner), name);
+            gst_opk_osd_set_property(
+                G_OBJECT(propertyOwner), propertySpec->param_id, value, propertySpec);
+        }
+    }
+    return failures;
 }
 
 static void gst_opk_osd_get_property(GObject *object,
@@ -372,14 +385,6 @@ static gboolean gst_opk_osd_start(GstBaseTransform *selfInParentType) {
 
     GST_INFO_OBJECT(self, "Starting OpkOsd element");
     self->frameCount = 0;
-    GST_OBJECT_LOCK(self);
-    const std::string path = self->bgImagePath ? self->bgImagePath : "";
-    GST_OBJECT_UNLOCK(self);
-    if (!gst_opk_osd_load_bg_image(self, path.c_str())) {
-        GST_ELEMENT_ERROR(
-            self, RESOURCE, OPEN_READ, ("Unable to load bg-image '%s'", path.c_str()), (nullptr));
-        return FALSE;
-    }
     return TRUE;
 }
 

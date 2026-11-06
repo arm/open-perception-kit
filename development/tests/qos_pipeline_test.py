@@ -571,11 +571,10 @@ class QosPipelineTest(unittest.TestCase):
             setter_thread.join(transition_timeout_seconds)
             self.assertFalse(setter_thread.is_alive(), "setter blocked behind streaming teardown")
             self.assertEqual(infer.get_property("copy-input"), original)
-            warning = self.pipeline.get_bus().timed_pop_filtered(
-                self.Gst.SECOND, self.Gst.MessageType.WARNING
-            )
-            self.assertIsNotNone(warning)
-            self.assertIn("copy-input", warning.parse_warning()[0].message)
+            statuses = infer.get_property("property-status")
+            status = statuses.get_value("copy-input")
+            self.assertEqual(status.get_value("status"), "restart-required")
+            self.assertEqual(status.get_value("requested"), not original)
         finally:
             self.delay_op.release_process()
             if stop_thread.ident is not None:
@@ -583,7 +582,6 @@ class QosPipelineTest(unittest.TestCase):
             if setter_thread.ident is not None:
                 setter_thread.join(transition_timeout_seconds)
         self.assertFalse(stop_thread.is_alive())
-        infer.set_property("copy-input", not original)
         self.assertEqual(infer.get_property("copy-input"), not original)
 
     def test_lifecycle_reset_discards_in_flight_latency(self) -> None:

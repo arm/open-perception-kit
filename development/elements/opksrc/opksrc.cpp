@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "gst/PropertyGuard.h"
+#include "gst/PropertyChanges.h"
 
 #include "opksrc.h"
 #include "signaling.h"
@@ -298,10 +298,6 @@ static void gst_opk_src_set_property(GObject *object,
                                      GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkSrc *>(object);
 
-    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
-    if (!propertyGuard.isChangeAllowed())
-        return;
-
     switch (propertyId) {
     case PROP_WS_PORT:
         GST_OBJECT_LOCK(self);
@@ -393,6 +389,7 @@ static void gst_opk_src_class_init(GstOpkSrcClass *srcClass) {
                                           "Source/Audio/Video/Network/Bin",
                                           "Receives WebRTC Opus audio and VP8 video",
                                           "Arm Limited <perception-fdbck@arm.com>");
+    gst::installPropertyChanges(elementClass);
 }
 
 static gboolean opksrc_plugin_init(GstPlugin *plugin) {

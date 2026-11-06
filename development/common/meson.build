@@ -18,6 +18,7 @@ common = shared_library(
   sources: [
 
     'gst/Tools.cpp',
+    'gst/PropertyChanges.cpp',
     'gst/TensorMeta.cpp',
 
     'opk/Result.cpp',

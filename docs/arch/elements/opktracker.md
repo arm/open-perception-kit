@@ -22,9 +22,8 @@ FrameResults. It reads a synchronized property snapshot at each frame.
 
 ## Properties
 
-In the table, **Live** permits
-writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
-writes to those states. Read-only entries cannot be set.
+In the table, **Live** applies without restarting. **NULL/READY** and **NULL**
+requests wait for the caller to reach the indicated state. Read-only entries cannot be set.
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
@@ -52,6 +51,7 @@ writes to those states. Read-only entries cannot be set.
 | `emit-trace` | Append `trackTrace` output for active tracks. | `true` | `true`, `false` | Live |
 | `association-mode` | Select the matching strategy. | `hybrid` | `hybrid` (IoU and embeddings), `iou` (IoU only), `embedding` (embeddings only). | Live |
 | `infer-id` | Producer identifier attached to tracker result layers. | `""` → element name | String; e.g. `tracker`. Empty uses the element name. | NULL/READY |
+| `property-status` | Latest requests, effective values and per-property outcomes. | None until requested | `GstStructure`; see [request API](../../public/how-to/configure-elements.md#requests-and-outcomes). | Read-only |
 
 `G_MAXFLOAT` is the largest finite 32-bit float (approximately 3.4028235 × 10³⁸).
 Float defaults above use their intended decimal values; introspection may display
@@ -62,8 +62,8 @@ Their identity/source meaning must stay stable for a tracking history. Returning
 to READY clears that history before the next start. Other writable properties
 can change while playing: association thresholds and weights, confirmation/miss
 limits, history durations, Kalman tuning and output flags. `association-mode`
-accepts `iou`, `embedding`, or `hybrid`; an invalid string is rejected with a bus
-warning and leaves the previous value unchanged.
+accepts `iou`, `embedding`, or `hybrid`; an invalid string reports a failed
+request and leaves the previous value unchanged.
 
 Initial Kalman covariance affects new tracks only. Changing thresholds or noise
 settings does not retroactively recompute existing tracks. Optional features

@@ -100,15 +100,15 @@ The interval is process-wide, matching the recorder's ownership model.
 
 ## Properties
 
-In the table, **Live** permits
-writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
-writes to those states. Read-only entries cannot be set.
+In the table, **Live** applies without restarting. **NULL/READY** and **NULL**
+requests wait for the caller to reach the indicated state. Read-only entries cannot be set.
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
 | `update-interval` | Refresh the performance overlay every N frames. | `5` | Unsigned integer, 1–120; e.g. `10`. | Live |
 | `show-all-metrics` | Publish all completed interval scopes instead of the compact stage view. | `false` | `true`, `false` | Live |
 | `enabled` | Enable performance metadata generation. | `true` | `true`, `false` | Live |
+| `property-status` | Latest requests, effective values and per-property outcomes. | None until requested | `GstStructure`; see [request API](../../public/how-to/configure-elements.md#requests-and-outcomes). | Read-only |
 
 The upstream `opkperformance` event can also toggle `enabled` at runtime.
 The element appends `PerformanceOverlayT`; `opkosd` or the WebUI renders it.

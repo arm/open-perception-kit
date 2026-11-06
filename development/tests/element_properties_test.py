@@ -18,9 +18,12 @@
 
 import base64
 import ctypes
+import errno
+import os
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import time
 import unittest
 
@@ -57,6 +60,19 @@ class ElementPropertiesTest(unittest.TestCase):
         return [prop for prop in element.list_properties()
                 if prop.owner_type == element.__gtype__]
 
+    def property_status(self, element, name):
+        statuses = element.get_property("property-status")
+        return statuses.get_value(name).copy()
+
+    def wait_for_property_status(self, element, name, expected):
+        deadline = time.monotonic() + STATE_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            status = self.property_status(element, name)
+            if status.get_value("status") == expected:
+                return status
+            time.sleep(POLL_INTERVAL_SECONDS)
+        self.fail(f"{name}: expected {expected}, got {status.to_string()}")
+
     def sample_value(self, prop):
         special = {"bg-image": str(self.image), "opchain-path": str(self.opchain),
                    "association-mode": "iou", "static-files": self.directory.name,
@@ -84,7 +100,7 @@ class ElementPropertiesTest(unittest.TestCase):
                 with self.subTest(factory=factory, property=prop.name):
                     self.assertTrue(prop.flags & self.GObject.ParamFlags.READABLE)
                     current = element.get_property(prop.name)
-                    if (factory, prop.name) not in dynamic_defaults:
+                    if prop.name != "property-status" and (factory, prop.name) not in dynamic_defaults:
                         self.assertEqual(current, prop.default_value)
                     if not prop.flags & self.GObject.ParamFlags.WRITABLE:
                         with self.assertRaises(TypeError):
@@ -94,16 +110,20 @@ class ElementPropertiesTest(unittest.TestCase):
                                     "Set in NULL" in prop.blurb, prop.blurb)
                     sample = self.sample_value(prop)
                     element.set_property(prop.name, sample)
+                    if prop.name == "bg-image":
+                        self.wait_for_property_status(element, prop.name, "applied")
                     actual = element.get_property(prop.name)
                     if prop.value_type == self.GObject.TYPE_FLOAT:
                         self.assertAlmostEqual(actual, sample, places=FLOAT_PLACES)
                     else:
                         self.assertEqual(actual, sample)
                     element.set_property(prop.name, current)
+                    if prop.name == "bg-image":
+                        self.wait_for_property_status(element, prop.name, "applied")
             if factory == "opkinfer":
                 self.assertIsNone(element.find_property("format"))
 
-    def test_ready_only_properties_reject_during_processing_and_apply_after_stop(self):
+    def test_ready_only_properties_wait_for_explicit_restart(self):
         pipeline = self.Gst.parse_launch(
             'videotestsrc is-live=true ! video/x-raw,format=BGRA,width=16,height=16 ! '
             f'opkinfer name=infer opchain-path="{self.opchain}" ! '
@@ -126,16 +146,20 @@ class ElementPropertiesTest(unittest.TestCase):
                         candidate = str(write_test_opchain(self.directory.name, "second", {}))
                     element.set_property(prop.name, candidate)
                     self.assertEqual(element.get_property(prop.name), current)
-                    message = pipeline.get_bus().timed_pop_filtered(
-                        self.Gst.SECOND, self.Gst.MessageType.WARNING)
-                    self.assertIsNotNone(message)
-                    self.assertIn(prop.name, message.parse_warning()[0].message)
+                    status = self.property_status(element, prop.name)
+                    self.assertEqual(status.get_value("status"), "restart-required")
+                    self.assertEqual(status.get_value("requested"), candidate)
+                    self.assertEqual(status.get_value("effective"), current)
+                    self.assertTrue(status.get_value("restart-required"))
                     changes.append((element, prop.name, candidate))
+        pipeline.set_state(self.Gst.State.PAUSED)
+        pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)
+        for element, name, candidate in changes:
+            self.assertNotEqual(element.get_property(name), candidate)
         pipeline.set_state(self.Gst.State.READY)
         self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
                          self.Gst.State.READY)
         for element, name, candidate in changes:
-            element.set_property(name, candidate)
             self.assertEqual(element.get_property(name), candidate)
         self.assertNotEqual(pipeline.set_state(self.Gst.State.PLAYING),
                             self.Gst.StateChangeReturn.FAILURE)
@@ -145,28 +169,172 @@ class ElementPropertiesTest(unittest.TestCase):
     def test_invalid_background_does_not_claim_effective_value(self):
         osd = self.Gst.ElementFactory.make("opkosd")
         osd.set_property("bg-image", str(self.image))
+        self.wait_for_property_status(osd, "bg-image", "applied")
         self.assertEqual(osd.get_property("bg-image"), str(self.image))
         osd.set_property("bg-image", str(self.image) + ".missing")
+        self.wait_for_property_status(osd, "bg-image", "failed")
         self.assertEqual(osd.get_property("bg-image"), str(self.image))
         osd.set_property("bg-image", None)
+        self.wait_for_property_status(osd, "bg-image", "applied")
         self.assertEqual(osd.get_property("bg-image"), "")
+        self.assertEqual(self.property_status(osd, "bg-image").get_value("status"), "applied")
 
-    def test_background_removed_before_startup_reports_failure(self):
+    def test_async_background_coalesces_requests_without_blocking_independent_controls(self):
+        pipeline = self.Gst.parse_launch(
+            'videotestsrc is-live=true ! video/x-raw,format=BGRA,width=16,height=16 ! '
+            'opkosd name=osd ! fakesink sync=false')
+        self.addCleanup(release_pipeline, pipeline, self.Gst)
+        pipeline.set_state(self.Gst.State.PLAYING)
+        self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
+                         self.Gst.State.PLAYING)
+        osd = pipeline.get_by_name("osd")
+        image_pipe = Path(self.directory.name) / "loading.png"
+        os.mkfifo(image_pipe)
+        osd.set_property("bg-image", str(image_pipe))
+        active_id = self.property_status(osd, "bg-image").get_value("request-id")
+        writer = None
+        deadline = time.monotonic() + STATE_TIMEOUT_SECONDS
+        try:
+            while writer is None and time.monotonic() < deadline:
+                try:
+                    writer = os.open(image_pipe, os.O_WRONLY | os.O_NONBLOCK)
+                except OSError as error:
+                    if error.errno != errno.ENXIO:
+                        raise
+                    time.sleep(POLL_INTERVAL_SECONDS)
+            self.assertIsNotNone(writer, "Background loader did not open its input")
+            osd.set_property("bg-image", str(self.image))
+            superseded_id = self.property_status(osd, "bg-image").get_value("request-id")
+            # The active request must finish; this value is queued behind it.
+            osd.set_property("bg-image", "")
+            final_id = self.property_status(osd, "bg-image").get_value("request-id")
+            osd.set_property("enabled", False)
+            self.assertFalse(osd.get_property("enabled"))
+            self.assertEqual(osd.get_property("bg-image"), "")
+            self.assertEqual(pipeline.get_state(0)[1], self.Gst.State.PLAYING)
+        finally:
+            if writer is not None:
+                os.write(writer, self.image.read_bytes())
+                os.close(writer)
+        self.wait_for_property_status(osd, "bg-image", "applied")
+        self.assertEqual(osd.get_property("bg-image"), "")
+        expected = {active_id: "applied", superseded_id: "superseded", final_id: "applied"}
+        outcomes = {}
+        deadline = time.monotonic() + STATE_TIMEOUT_SECONDS
+        while outcomes != expected and time.monotonic() < deadline:
+            message = pipeline.get_bus().timed_pop_filtered(self.Gst.SECOND, self.Gst.MessageType.ELEMENT)
+            if message is None or message.src != osd:
+                continue
+            status = message.get_structure()
+            request_id = status.get_value("request-id")
+            if request_id in expected and status.get_value("status") == expected[request_id]:
+                outcomes[request_id] = status.get_value("status")
+        self.assertEqual(outcomes, expected)
+
+        osd.set_property("bg-image", str(self.image) + ".missing")
+        failure = self.wait_for_property_status(osd, "bg-image", "failed")
+        self.assertEqual(failure.get_value("effective"), "")
+        self.assertEqual(failure.get_value("requested"), str(self.image) + ".missing")
+
+    def test_background_snapshot_survives_source_file_removal(self):
         pipeline = self.Gst.parse_launch('videotestsrc ! opkosd name=osd ! fakesink')
         self.addCleanup(release_pipeline, pipeline, self.Gst)
         pipeline.get_by_name("osd").set_property("bg-image", str(self.image))
+        self.wait_for_property_status(pipeline.get_by_name("osd"), "bg-image", "applied")
         self.image.unlink()
-        self.assertEqual(pipeline.set_state(self.Gst.State.PAUSED),
-                         self.Gst.StateChangeReturn.FAILURE)
-        message = pipeline.get_bus().timed_pop_filtered(self.Gst.SECOND, self.Gst.MessageType.ERROR)
-        self.assertIsNotNone(message)
-        self.assertIn("bg-image", message.parse_error()[0].message)
+        self.assertNotEqual(pipeline.set_state(self.Gst.State.PAUSED),
+                            self.Gst.StateChangeReturn.FAILURE)
+        self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
+                         self.Gst.State.PAUSED)
+        self.assertEqual(pipeline.get_by_name("osd").get_property("bg-image"), str(self.image))
 
     def test_invalid_tracker_mode_is_rejected(self):
         tracker = self.Gst.ElementFactory.make("opktracker")
         tracker.set_property("association-mode", "iou")
         tracker.set_property("association-mode", "misspelled")
         self.assertEqual(tracker.get_property("association-mode"), "iou")
+
+    def test_batch_applies_live_values_and_keeps_only_uncancelled_restart_values(self):
+        pipeline = self.Gst.parse_launch(
+            'videotestsrc is-live=true ! video/x-raw,format=BGRA,width=16,height=16 ! '
+            'opktracker name=tracker ! fakesink sync=false')
+        self.addCleanup(release_pipeline, pipeline, self.Gst)
+        pipeline.set_state(self.Gst.State.PLAYING)
+        self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
+                         self.Gst.State.PLAYING)
+        tracker = pipeline.get_by_name("tracker")
+        original_content = tracker.get_property("content-type")
+        values = self.Gst.Structure.new_empty("properties")
+        values.set_value("content_type", "first-content")
+        values.set_value("infer-id", "replacement-id")
+        values.set_value("iou-threshold", FLOAT_INCREMENT)
+        request_id = tracker.emit("configure-properties", values)
+        self.assertGreater(request_id, 0)
+        self.assertAlmostEqual(tracker.get_property("iou-threshold"), FLOAT_INCREMENT)
+        self.assertEqual(tracker.get_property("content-type"), original_content)
+        tracker.set_property("content-type", "latest-content")
+        status = self.property_status(tracker, "content-type")
+        self.assertEqual(status.get_value("requested"), "latest-content")
+        self.assertGreater(status.get_value("request-id"), request_id)
+        tracker.set_property("content-type", original_content)
+        statuses = tracker.get_property("property-status")
+        self.assertFalse(statuses.get_value("content-type").get_value("restart-required"))
+        self.assertTrue(statuses.get_value("infer-id").get_value("restart-required"))
+        pipeline.set_state(self.Gst.State.READY)
+        self.assertEqual(tracker.get_property("content-type"), original_content)
+        self.assertEqual(tracker.get_property("infer-id"), "replacement-id")
+
+    def test_repeated_property_alias_requests_use_canonical_status(self):
+        osd = self.Gst.ElementFactory.make("opkosd")
+        for copy_input in (True, False):
+            values = self.Gst.Structure.new_empty("properties")
+            values.set_value("copy_input", copy_input)
+            request_id = osd.emit("configure-properties", values)
+            self.assertEqual(osd.get_property("copy-input"), copy_input)
+            status = self.property_status(osd, "copy-input")
+            self.assertEqual(status.get_value("request-id"), request_id)
+            self.assertEqual(status.get_value("status"), "applied")
+
+    def test_invalid_batch_field_does_not_prevent_independent_changes(self):
+        tracker = self.Gst.ElementFactory.make("opktracker")
+        original_mode = tracker.get_property("association-mode")
+        values = self.Gst.Structure.new_empty("properties")
+        values.set_value("association-mode", "misspelled")
+        values.set_value("iou-threshold", FLOAT_INCREMENT)
+        values.set_value("unknown-property", "retained request")
+        tracker.emit("configure-properties", values)
+        self.assertEqual(tracker.get_property("association-mode"), original_mode)
+        self.assertAlmostEqual(tracker.get_property("iou-threshold"), FLOAT_INCREMENT)
+        statuses = tracker.get_property("property-status")
+        self.assertEqual(statuses.get_value("association-mode").get_value("status"), "failed")
+        self.assertEqual(statuses.get_value("association-mode").get_value("requested"), "misspelled")
+        self.assertEqual(statuses.get_value("unknown-property").get_value("status"), "failed")
+        self.assertEqual(statuses.get_value("iou-threshold").get_value("status"), "applied")
+
+    def test_property_outcome_callback_can_stop_pipeline(self):
+        pipeline = self.Gst.parse_launch(
+            'videotestsrc is-live=true ! opkperformance name=performance ! fakesink sync=false')
+        self.addCleanup(release_pipeline, pipeline, self.Gst)
+        pipeline.set_state(self.Gst.State.PLAYING)
+        pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)
+        stopped = threading.Event()
+        performance = pipeline.get_by_name("performance")
+
+        def stop_on_applied(_bus, message, _data):
+            if message.type == self.Gst.MessageType.ELEMENT and message.src == performance:
+                status = message.get_structure()
+                if (status.get_name() == "opk-property-change" and
+                        status.get_value("status") == "applied"):
+                    pipeline.set_state(self.Gst.State.NULL)
+                    stopped.set()
+            return self.Gst.BusSyncReply.PASS
+
+        bus = pipeline.get_bus()
+        self.addCleanup(bus.set_sync_handler, None, None)
+        bus.set_sync_handler(stop_on_applied, None)
+        performance.set_property("enabled", False)
+        self.assertTrue(stopped.wait(STATE_TIMEOUT_SECONDS))
+        self.assertEqual(pipeline.get_state(0)[1], self.Gst.State.NULL)
 
     def test_missing_opchain_fails_even_when_inactive(self):
         pipeline = self.Gst.parse_launch('videotestsrc ! opkinfer active=false ! fakesink')

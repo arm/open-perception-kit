@@ -303,9 +303,8 @@ active-state checks, and inference scheduling.
 
 ## Properties
 
-In the table, **Live** permits
-writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
-writes to those states. Read-only entries cannot be set.
+In the table, **Live** applies without restarting. **NULL/READY** and **NULL**
+requests wait for the caller to reach the indicated state. Read-only entries cannot be set.
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
@@ -316,6 +315,7 @@ writes to those states. Read-only entries cannot be set.
 | `qos-accepted-events-debug` | Count of QoS events committed by the element. | `0` | Unsigned 64-bit counter, 0–18446744073709551615; e.g. observed `12`. | Read-only |
 | `copy-input` | Copy video into CPU memory instead of retaining the input DMA-BUF. | `false` | `true`, `false` | NULL/READY |
 | `audio-hop-samples` | New mono 16 kHz samples between audio windows. | `0` | Unsigned integer, 0–4294967295; `0` uses the model PCM window size. A nonzero value must not exceed that window; e.g. `160` for a window of at least 160 samples. | NULL/READY |
+| `property-status` | Latest requests, effective values and per-property outcomes. | None until requested | `GstStructure`; see [request API](../../public/how-to/configure-elements.md#requests-and-outcomes). | Read-only |
 
 `opchain-path`, `infer-id`, `audio-hop-samples`, and `copy-input` require NULL
 or READY. Stop to READY before changing them; the next start recreates the

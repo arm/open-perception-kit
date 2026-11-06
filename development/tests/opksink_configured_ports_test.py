@@ -116,9 +116,11 @@ def main() -> None:
                 original = sink.get_property(name)
                 sink.set_property(name, candidate)
                 assert sink.get_property(name) == original, name
-                warning = pipeline.get_bus().timed_pop_filtered(gst.SECOND, gst.MessageType.WARNING)
-                assert warning is not None, name
-                assert name in warning.parse_warning()[0].message
+                statuses = sink.get_property("property-status")
+                status = statuses.get_value(name)
+                assert status.get_value("status") == "restart-required", name
+                assert status.get_value("requested") == candidate, name
+                sink.set_property(name, original)
             check_endpoints(ports)
 
         # Keep the other pipeline running while this instance changes ports.

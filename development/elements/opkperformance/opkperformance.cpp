@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "gst/FrameResultsMeta.h"
+#include "gst/PropertyChanges.h"
 #include "gst/Tools.h"
 #include "opk/FrameResults.h"
 #include "perf/PerformanceMetrics.h"
@@ -213,6 +214,7 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *performanceCl
     gst_element_class_add_pad_template(elementClass, src_template);
     gst_element_class_add_pad_template(elementClass, sink_template);
     gst_caps_unref(caps);
+    gst::installPropertyChanges(elementClass);
 }
 
 static void gst_opk_performance_init(GstOpkPerformance *self) {

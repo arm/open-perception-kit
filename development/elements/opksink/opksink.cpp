@@ -21,7 +21,7 @@ g++ -fPIC -shared -o libgstopksink.so opksink.cpp \
 */
 
 // WebRTC in GST is unstable: this macro disables the warning
-#include "gst/PropertyGuard.h"
+#include "gst/PropertyChanges.h"
 
 #include "glib-object.h"
 #include "glib.h"
@@ -371,9 +371,6 @@ static void gst_opk_sink_set_property(GObject *object,
                                       const GValue *value,
                                       GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkSink *>(object);
-    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
-    if (!propertyGuard.isChangeAllowed())
-        return;
 
     g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     switch (propertyId) {
@@ -1122,6 +1119,7 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *sinkClass) {
         "Sink/Network/Bin",
         "Encodes & muxes raw video+audio and sends them to WebRTC",
         "Arm Limited <perception-fdbck@arm.com>");
+    gst::installPropertyChanges(elementClass);
 }
 
 /* ===== Plugin boilerplate ===== */

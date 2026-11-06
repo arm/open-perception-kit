@@ -120,7 +120,7 @@ negotiation; `videoconvert` performs conversion when needed.
 | `opkinfer` | `active`, `qos-enabled` | Live. Changes affect subsequent inference decisions; an execution already in progress can finish. Activation can enable upstream content providers. Disabling QoS resets skipping. |
 | `opktracker` | `content-type`, `embedding-content-type`, `infer-id` | NULL or READY. Restart clears tracking history so identities from different sources cannot mix. |
 | `opktracker` | All other writable properties | Live. Each frame takes a synchronized configuration snapshot. Initial Kalman covariance only affects newly created tracks; existing state is retained. See [tracker](https://github.com/arm/open-perception-kit/blob/main/docs/arch/elements/opktracker.md#properties). |
-| `opkosd` | `enabled`, `performance-overlay-enabled`, `bg-image` | Live. Drawing uses synchronized flags and background storage. Loading a background is synchronous; a failed load leaves the current background/path unchanged and posts a warning. Empty/null clears it. |
+| `opkosd` | `enabled`, `performance-overlay-enabled`, `bg-image` | Live. Drawing uses synchronized flags and background storage. Backgrounds load asynchronously and replace the current image only after validation. Failure retains the current image and reports a failed request. Empty/null clears it. The loaded image survives stop/start; external file edits do not alter that snapshot. |
 | `opkosd` | `copy-input` | NULL or READY. Video memory/caps must be renegotiated; a pause alone does not rebuild them. |
 | `opkperformance` | `enabled`, `show-all-metrics`, `update-interval` | Live. Subsequent measurement/overlay updates use the new values; no pipeline restart. |
 | `opkcomm` | All writable properties | Existing live synchronous writer reopen. This can disconnect clients and discard queued records. A failed reopen posts an error and stops affected processing; the requested configuration remains available for correction. See [metadata output](https://github.com/arm/open-perception-kit/blob/main/docs/arch/elements/opkcomm.md#properties). |
@@ -128,28 +128,118 @@ negotiation; `videoconvert` performs conversion when needed.
 | `opksink` | All other writable properties | NULL only. Servers, bindings and WebRTC sessions capture these settings at initialization; stop/start disconnects clients. |
 | `opksrc` | `ws-port`, `rate` | NULL only. Signaling must restart and the receive/silence PCM output must renegotiate; existing connections are closed. |
 
-An unsupported-state write is rejected with a bus WARNING naming the property.
-Readback stays unchanged. Writes racing a state transition can also be rejected;
-wait for the transition to finish before retrying. There is no pending-value
-queue in this version. In particular, setting a restricted property while
-PLAYING does **not** save it for the next restart.
+## Requests and outcomes
 
-Serialize configuration and state requests for each element in the application's
-control thread. A multi-property `g_object_set()` call is a sequence of individual
-sets, not an atomic transaction. For a coordinated change, explicitly stop to the
-required boundary, wait for completion with `gst_element_get_state()`, set the
-properties, and restart. A PAUSED pipeline does not satisfy a READY or NULL
-restriction. Using the pipeline's state API coordinates its elements; changing
-an isolated element's state without coordinating its neighbours can break flow.
+Elements exposing `property-status` accept requests through their ordinary
+GObject setters and the `configure-properties` action signal. Getters return the
+effective value. A restart-only request made while processing stays pending,
+with its required state and reason visible beside the requested value. A normal
+PAUSED/resume cycle does not apply READY- or NULL-only settings.
 
-Monitor the bus for WARNING and ERROR messages and check state-change return
-values. Setters return no success status and `notify` alone is not proof of
-acceptance. GObject rejects type/range violations through its normal diagnostics;
-OPK reports resource failures through the bus. A failed startup must be corrected
-by the caller before retrying. OPK does not save or restore working combinations.
+`configure-properties` accepts a `GstStructure` of property names and typed values
+for one element and returns a request ID. Independent eligible changes apply
+without waiting for restart-only changes in the same batch. A multi-property
+`g_object_set()` remains a sequence of individual requests. Neither API promises
+an all-or-nothing transaction.
 
-Automatic pause/resume, deferred restart requests, atomic batches and
-queue-preserving output handoff are not implemented in this first phase.
+The `property-status` structure contains the latest request for each changed
+property. Each entry has `request-id`, `requested`, `effective`, `status`,
+`reason`, `restart-required` and `required-state`. Statuses are `queued`,
+`applying`, `restart-required`, `applied`, `failed`, `cancelled` and `superseded`.
+Unknown, inherited or read-only batch fields report a failure and may omit
+`effective`, `restart-required` or `required-state`; other fields can still apply.
+
+A new request replaces an unstarted request for the same property. Setting its
+effective value cancels an unstarted request. An application already in progress
+finishes first, then the latest queued value is handled. Other pending properties
+remain intact. Failed requests remain visible for correction; OPK keeps no
+configuration history or restore operation.
+
+The bus receives `ELEMENT` messages named `opk-property-change` with the same
+fields, including outcomes for superseded requests. Property notifications follow
+successful application; setter return or `notify` alone does not establish that
+resources can start successfully. Type/range errors from ordinary setters retain
+GObject's standard diagnostics. Fatal resource/startup errors use the usual ERROR
+messages and state-change failure return.
+
+Delivery uses GStreamer's async scheduler; setting properties does not require a
+GLib main loop. The application can poll its bus or use its normal bus watch.
+NULL may flush the pipeline bus, so also query `property-status` after stopping.
+
+```python
+# tracker belongs to an existing pipeline.
+values = Gst.Structure.new_empty("properties")
+values.set_value("iou-threshold", 0.4)
+values.set_value("content-type", "replacement-content")
+request_id = tracker.emit("configure-properties", values)
+statuses = tracker.get_property("property-status")
+print(statuses.get_value("content-type").to_string())
+
+# Cancel an unstarted request by setting the effective value again.
+tracker.set_property("content-type", tracker.get_property("content-type"))
+
+# The caller explicitly requests any required restart.
+pipeline.set_state(Gst.State.READY)
+result, state, pending = pipeline.get_state(5 * Gst.SECOND)
+if result == Gst.StateChangeReturn.FAILURE or state != Gst.State.READY:
+    raise RuntimeError("Could not reach READY")
+pipeline.set_state(Gst.State.PLAYING)
+```
+
+Keep the outer status structure alive while reading its nested entries in Python,
+or copy the entry before releasing it.
+
+To observe outcomes, attach a bus watch before submitting requests and run your
+application's GLib main loop. This handler reports intermediate and final states;
+match both the source element and request ID when correlating a batch.
+
+```python
+def on_element_message(bus, message):
+    outcome = message.get_structure()
+    if message.src == osd and outcome and outcome.get_name() == "opk-property-change":
+        print(outcome.get_value("request-id"), outcome.get_value("property"),
+              outcome.get_value("status"), outcome.get_value("reason"))
+
+bus = pipeline.get_bus()
+bus.add_signal_watch()
+bus.connect("message::element", on_element_message)
+```
+
+```cpp
+GstStructure *values = gst_structure_new("properties",
+    "iou-threshold", G_TYPE_DOUBLE, 0.4,
+    "content-type", G_TYPE_STRING, "replacement-content", nullptr);
+guint64 requestId = 0;
+g_signal_emit_by_name(tracker, "configure-properties", values, &requestId);
+gst_structure_free(values);
+
+GstStructure *statuses = nullptr;
+g_object_get(tracker, "property-status", &statuses, nullptr);
+if (statuses)
+    gst_structure_free(statuses);
+```
+
+In an existing C++ bus callback, handle property outcomes alongside the
+application's normal ERROR, EOS and state messages:
+
+```cpp
+if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_ELEMENT &&
+    GST_MESSAGE_SRC(message) == GST_OBJECT(osd)) {
+    const GstStructure *outcome = gst_message_get_structure(message);
+    if (outcome && gst_structure_has_name(outcome, "opk-property-change")) {
+        guint64 outcomeRequestId = 0;
+        gst_structure_get_uint64(outcome, "request-id", &outcomeRequestId);
+        g_print("%" G_GUINT64_FORMAT " %s: %s (%s)\n", outcomeRequestId,
+                gst_structure_get_string(outcome, "property"),
+                gst_structure_get_string(outcome, "status"),
+                gst_structure_get_string(outcome, "reason"));
+    }
+}
+```
+
+Use the pipeline state API to coordinate its elements. Changing an isolated
+element's state without coordinating its neighbours can break flow. The caller
+owns READY/NULL restarts; property requests never trigger them automatically.
 
 ## Platform validation
 

@@ -56,9 +56,11 @@ def check_silence(gst, rate):
                 original = source.get_property(name)
                 source.set_property(name, candidate)
                 assert source.get_property(name) == original, name
-                warning = pipeline.get_bus().timed_pop_filtered(gst.SECOND, gst.MessageType.WARNING)
-                assert warning is not None, name
-                assert name in warning.parse_warning()[0].message
+                statuses = source.get_property("property-status")
+                status = statuses.get_value(name)
+                assert status.get_value("status") == "restart-required", name
+                assert status.get_value("requested") == candidate, name
+                source.set_property(name, original)
             previous_pts = None
             for _ in range(3):
                 sample = output.emit("try-pull-sample", 5 * gst.SECOND)

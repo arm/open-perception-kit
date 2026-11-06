@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "gst/PropertyGuard.h"
+#include "gst/PropertyChanges.h"
 
 #include "Tracker.h"
 
@@ -276,21 +276,6 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
                                         const GValue *value,
                                         GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
-    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
-    if (!propertyGuard.isChangeAllowed())
-        return;
-    if (propertyId == PROP_ASSOCIATION_MODE) {
-        if (const gchar *const mode = g_value_get_string(value);
-            mode && g_strcmp0(mode, "iou") != 0 && g_strcmp0(mode, "embedding") != 0 &&
-            g_strcmp0(mode, "hybrid") != 0) {
-            GST_ELEMENT_WARNING(self,
-                                RESOURCE,
-                                SETTINGS,
-                                ("association-mode must be iou, embedding, or hybrid"),
-                                ("The previous value is unchanged"));
-            return;
-        }
-    }
     g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     switch (propertyId) {
     case PROP_CONTENT_TYPE: {
@@ -384,6 +369,29 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(selfInParentType, propertyId, propertySpec);
     }
+}
+
+static gst::PropertyApplyResults gst_opktracker_apply_properties(GstElement *propertyOwner,
+                                                                 const GstStructure *values) {
+    gst::PropertyApplyResults failures;
+    for (int index = 0; index < gst_structure_n_fields(values); ++index) {
+        const char *const name = gst_structure_nth_field_name(values, index);
+        const auto *const value = gst_structure_get_value(values, name);
+        if (g_str_equal(name, "association-mode")) {
+            const gchar *const mode = g_value_get_string(value);
+            if (mode && g_strcmp0(mode, "iou") != 0 && g_strcmp0(mode, "embedding") != 0 &&
+                g_strcmp0(mode, "hybrid") != 0) {
+                failures.emplace(name,
+                                 gst::PropertyApplyResult{"Expected iou, embedding, or hybrid"});
+                continue;
+            }
+        }
+        auto *const propertySpec =
+            g_object_class_find_property(G_OBJECT_GET_CLASS(propertyOwner), name);
+        gst_opktracker_set_property(
+            G_OBJECT(propertyOwner), propertySpec->param_id, value, propertySpec);
+    }
+    return failures;
 }
 
 static void gst_opktracker_get_property(GObject *selfInParentType,
@@ -826,6 +834,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
         [](GstBaseTransform *selfInParentType, GstBuffer *inputBuffer, GstBuffer **outputBuffer) {
             return gst::Tools::prepareVideoBuffer(selfInParentType, inputBuffer, outputBuffer);
         };
+    gst::installPropertyChanges(elementClass, gst_opktracker_apply_properties);
 }
 
 static void gst_opktracker_init(GstOpkTracker *self) {

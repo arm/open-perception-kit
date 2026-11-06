@@ -75,9 +75,8 @@ contract.
 
 ## Properties
 
-In the table, **Live** permits
-writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
-writes to those states. Read-only entries cannot be set.
+In the table, **Live** applies without restarting. **NULL/READY** and **NULL**
+requests wait for the caller to reach the indicated state. Read-only entries cannot be set.
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
@@ -85,12 +84,13 @@ writes to those states. Read-only entries cannot be set.
 | `performance-overlay-enabled` | Allow performance metadata to be drawn when overlays are enabled. | `true` | `true`, `false` | Live |
 | `bg-image` | Replacement background for segmentation masks requesting background compositing. | `""` (none) | Image path; e.g. `/tmp/background.png`. Empty or `null` clears it. | Live |
 | `copy-input` | Draw on a CPU copy instead of the original DMA-BUF. | `false` | `true`, `false` | NULL/READY |
+| `property-status` | Latest requests, effective values and per-property outcomes. | None until requested | `GstStructure`; see [request API](../../public/how-to/configure-elements.md#requests-and-outcomes). | Read-only |
 
 `enabled`, `performance-overlay-enabled`, and `bg-image` can change while
-playing. Background loading is synchronous and commits only after decoding
-succeeds; failure posts a warning and preserves the current image/path. Empty
-or null clears the background. Startup reloads the configured path and fails if
-it is no longer readable. `copy-input` requires NULL or READY because it changes
+playing. Background loading runs asynchronously and commits only after decoding
+succeeds; failure reports a failed request and preserves the current image/path.
+Empty or null clears the background. The loaded snapshot survives stop/start;
+external file edits do not change that snapshot. `copy-input` requires NULL or READY because it changes
 output memory/caps negotiation.
 
 See [Configure GStreamer elements](../../public/how-to/configure-elements.md)

@@ -140,9 +140,8 @@ threads can otherwise retain references longer than expected.
 
 ## Properties
 
-In the table, **Live** permits
-writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
-writes to those states. Read-only entries cannot be set.
+In the table, **Live** applies without restarting. **NULL/READY** and **NULL**
+requests wait for the caller to reach the indicated state. Read-only entries cannot be set.
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
@@ -155,6 +154,7 @@ writes to those states. Read-only entries cannot be set.
 | `webrtc-stun-server` | STUN URI passed to new WebRTC sessions. | Resolved URI; see below | URI; e.g. `stun://stun.example.com:3478`. | NULL |
 | `webrtc-turn-server` | TURN URI advertised to browsers. | Resolved URI or empty; see below | URI; e.g. `turn://user:password@turn.example.com:3478`. | NULL |
 | `qos-enabled` | Enable experimental QoS feedback from the video drain. | `false` | `true`, `false` | Live |
+| `property-status` | Latest requests, effective values and per-property outcomes. | None until requested | `GstStructure`; see [request API](../../public/how-to/configure-elements.md#requests-and-outcomes). | Read-only |
 
 An unset `static-files` property resolves to
 `<plugin-directory>/../../web/content` for development and archive layouts, or

@@ -41,7 +41,7 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
-#include "gst/PropertyGuard.h"
+#include "gst/PropertyChanges.h"
 #include "gst/Tools.h"
 #include "mediaio/GstAudioFrame.h"
 #include "mediaio/GstVideoFrame.h"
@@ -916,9 +916,6 @@ static void gst_opkinfer_set_property(GObject *selfInParentType,
                                       const GValue *value,
                                       GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
-    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
-    if (!propertyGuard.isChangeAllowed())
-        return;
     switch (propertyId) {
     case PROP_COPY_INPUT:
         g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
@@ -1151,6 +1148,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
     baseTransformClass->transform_ip = gst_opkinfer_transform_ip;
     baseTransformClass->prepare_output_buffer = gst_opkinfer_prepare_output_buffer;
     elementClass->change_state = gst_opkinfer_change_state;
+    gst::installPropertyChanges(elementClass);
 }
 
 static void gst_opkinfer_init(GstOpkInfer *self) {
