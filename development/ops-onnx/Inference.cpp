@@ -34,6 +34,10 @@
 #include <thread>
 #include <utility>
 
+#ifdef __linux__
+#include <sched.h>
+#endif
+
 #include <fmt/core.h>
 
 #include "opk/Result.h"
@@ -110,7 +114,18 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
         const unsigned int legacyThreads =
             hwThreads ? std::max(MinimumIntraOpNumThreads, hwThreads - ReservedHardwareThreads)
                       : MinimumIntraOpNumThreads;
-        const int intraThreads = static_cast<int>(intraOpNumThreads.value_or(legacyThreads));
+        int intraThreads = static_cast<int>(intraOpNumThreads.value_or(legacyThreads));
+#ifdef __linux__
+        if (!intraOpNumThreads) {
+            // shortcut: quota-only deployments need explicit counts; add quota detection for them.
+            cpu_set_t allowedCpus;
+            if (sched_getaffinity(0, sizeof(allowedCpus), &allowedCpus) == 0) {
+                intraThreads = std::min(intraThreads, std::max(1, CPU_COUNT(&allowedCpus)));
+            } else {
+                intraThreads = MinimumIntraOpNumThreads;
+            }
+        }
+#endif
         const int interThreads =
             static_cast<int>(interOpNumThreads.value_or(SequentialInterOpNumThreads));
         const auto executionMode = interThreads == SequentialInterOpNumThreads
@@ -122,7 +137,7 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
                        intraThreads,
                        intraThreads == AutomaticNumThreads ? "ORT-managed"
                        : intraOpNumThreads                 ? "explicit"
-                                                           : "legacy hardware policy",
+                                                           : "default",
                        interThreads,
                        executionMode == ExecutionMode::ORT_SEQUENTIAL ? "sequential"
                        : interThreads == AutomaticNumThreads          ? "parallel, ORT-managed"
