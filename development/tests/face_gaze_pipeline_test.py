@@ -29,7 +29,7 @@ import unittest
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
 from open_perception_kit.packet import decode
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
-from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT
 
 
 class FaceGazePipeline(unittest.TestCase):
@@ -56,22 +56,27 @@ class FaceGazePipeline(unittest.TestCase):
 
     def assert_linked_gaze(self, envelope):
         boxes = [box for layer in envelope.for_each(BoxDetectionsT) for box in layer.detections]
-        poses = [pose for layer in envelope.for_each(PoseEstimationsT) for pose in layer.poses]
+        gazes = [gaze for layer in envelope.for_each(GazeMeasurementsT) for gaze in layer.measurements]
         self.assertGreater(len(boxes), 0, "test image must contain detectable faces")
-        self.assertEqual(len(poses), len(boxes))
+        self.assertEqual(len(gazes), len(boxes))
         face_ids = {box.object.id for box in boxes}
         self.assertEqual(len(face_ids), len(boxes))
         self.assertNotIn(0, face_ids)
-        self.assertEqual({pose.object.parentId for pose in poses}, face_ids)
+        self.assertEqual({gaze.subjectId for gaze in gazes}, face_ids)
         for box in boxes:
+            self.assertIsNotNone(box.box.space)
+            self.assertNotEqual(box.box.space.frameId, 0)
+            self.assertGreater(box.box.space.width, 0)
+            self.assertGreater(box.box.space.height, 0)
             self.assertGreater(box.box.width, 0)
             self.assertGreater(box.box.height, 0)
-        for pose in poses:
-            for angle in (pose.yaw, pose.pitch):
+        for gaze in gazes:
+            self.assertIsNotNone(gaze.angles)
+            for angle in (gaze.angles.yawDegrees, gaze.angles.pitchDegrees):
                 self.assertTrue(math.isfinite(angle))
                 self.assertGreaterEqual(angle, -180)
                 self.assertLessEqual(angle, 176)
-        return boxes, poses
+        return boxes, gazes
 
     def run_pipeline(self, gst, chain, source):
         with tempfile.TemporaryDirectory() as temporary:
@@ -100,13 +105,13 @@ class FaceGazePipeline(unittest.TestCase):
                 chain = root / "config/opchains" / name / "opchain.json"
                 with self.subTest(pipeline=name):
                     envelope = self.run_pipeline(gst, chain, f'filesrc location="{image}" ! decodebin')
-                    boxes, poses = self.assert_linked_gaze(envelope)
-                    print(f"{name}: {len(boxes)} faces, {len(poses)} linked gaze results", flush=True)
+                    boxes, gazes = self.assert_linked_gaze(envelope)
+                    print(f"{name}: {len(boxes)} faces, {len(gazes)} linked gaze results", flush=True)
         chain = root / "config/opchains/retinaface-1080x1080-gaze-resnet34/opchain.json"
         envelope = self.run_pipeline(
             gst, chain, "videotestsrc num-buffers=1 pattern=black ! video/x-raw,width=640,height=480")
         self.assertFalse(any(layer.detections for layer in envelope.for_each(BoxDetectionsT)))
-        self.assertFalse(any(layer.poses for layer in envelope.for_each(PoseEstimationsT)))
+        self.assertFalse(any(layer.measurements for layer in envelope.for_each(GazeMeasurementsT)))
         print("black frame: no face or gaze results", flush=True)
 
     def test_switch_combinations_in_shared_pipeline(self):
@@ -163,7 +168,7 @@ class FaceGazePipeline(unittest.TestCase):
                         width, backbone = [(w, b) for w in (1080, 1920) for b in (34, 50)][selected]
                         for kind, model, producer in (
                                 (BoxDetectionsT, f"retinaface-resnet34-{width}x1080-fp32", detector),
-                                (PoseEstimationsT, f"gaze-resnet{backbone}-448-fp32", gaze)):
+                                (GazeMeasurementsT, f"gaze-resnet{backbone}-448-fp32", gaze)):
                             layers = list(envelope.for_each(kind))
                             self.assertEqual({layer.layer.inferElementId for layer in layers},
                                              {infer[producer].get_name().encode()})

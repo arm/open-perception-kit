@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-import {defineFeature, resolveFaceParents} from '../overlay-feature.js';
+import {defineFeature, resolveBoxSubjects} from '../overlay-feature.js';
+import {validGaze} from '../gaze-results.js';
 import {drawGazeVector} from '../overlay-drawing.js';
 
 export default defineFeature({
     id: 'gaze', label: 'Gaze',
-    accepts: (source) => source.payloadType === 'PoseEstimations' && source.contentType === 'eyeYawPitch',
-    resolve: (result, index) => resolveFaceParents(result, index, 'YawPitch'),
+    defaults: {color: '#fafad2'},
+    accepts: (source) => source.payloadType === 'GazeMeasurements',
+    resolve: (result, index) => resolveBoxSubjects(result, index, 'GazeMeasurement', validGaze),
     render({ctx, mapper}, resolved, settings) {
         for (const {data, parent} of resolved.attached) drawGazeVector(ctx, data, parent, mapper, settings.color);
     },

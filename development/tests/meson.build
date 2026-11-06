@@ -193,6 +193,15 @@ if python_ops_enabled
     is_parallel : false,
   )
   test(
+    'gaze_pipeline_tests',
+    test_python,
+    args : [files('gaze_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+    env : python_script_pipeline_test_env,
+    depends : [gstopkinfer, gstopkosd, opkcomm, onnxops, stdops, python_ops],
+    timeout : 90,
+    is_parallel : false,
+  )
+  test(
     'python_script_pipeline_tests',
     test_python,
     args : [

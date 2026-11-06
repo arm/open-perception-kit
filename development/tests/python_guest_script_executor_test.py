@@ -152,6 +152,31 @@ def process(env):
             envelope = decode(output.read_bytes())
             self.assertTrue(envelope.valid(), envelope.error())
 
+    def test_gaze_optional_measurements_cross_the_live_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            imports = """
+from open_perception_kit.fb.open_perception_kit.metadata.GazeAngles import GazeAnglesT
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement import GazeMeasurementT
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT
+"""
+            seed = self.write_script(directory, "seed_gaze.py", imports + """
+def process(env):
+    env.add(GazeMeasurementsT(measurements=[GazeMeasurementT(),
+        GazeMeasurementT(subjectId=9007199254740993, angles=GazeAnglesT(yawDegrees=0, pitchDegrees=0), confidence=0)]))
+""")
+            inspect = self.write_script(directory, "inspect_gaze.py", imports + """
+def process(env):
+    missing, zero = env.get(GazeMeasurementsT).measurements
+    assert missing.angles is None and missing.subjectId is None and missing.confidence is None
+    assert zero.subjectId == 9007199254740993
+    assert zero.angles.yawDegrees == 0 and zero.angles.pitchDegrees == 0 and zero.confidence == 0
+""")
+            output = directory / OUTPUT_FILENAME
+            result = self.run_executor(output, seed, inspect)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(decode(output.read_bytes()).valid())
+
     def test_rejects_non_callable_process(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)

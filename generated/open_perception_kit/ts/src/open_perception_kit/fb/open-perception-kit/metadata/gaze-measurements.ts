@@ -20,30 +20,30 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { GazeMeasurement, GazeMeasurementT } from '../../open-perception-kit/metadata/gaze-measurement.js';
 import { LayerInfo, LayerInfoT } from '../../open-perception-kit/metadata/layer-info.js';
-import { PoseEstimation, PoseEstimationT } from '../../open-perception-kit/metadata/pose-estimation.js';
 
 
-export class PoseEstimations implements flatbuffers.IUnpackableObject<PoseEstimationsT> {
+export class GazeMeasurements implements flatbuffers.IUnpackableObject<GazeMeasurementsT> {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-  __init(i:number, bb:flatbuffers.ByteBuffer):PoseEstimations {
+  __init(i:number, bb:flatbuffers.ByteBuffer):GazeMeasurements {
   this.bb_pos = i;
   this.bb = bb;
   return this;
 }
 
-static getRootAsPoseEstimations(bb:flatbuffers.ByteBuffer, obj?:PoseEstimations):PoseEstimations {
-  return (obj || new PoseEstimations()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+static getRootAsGazeMeasurements(bb:flatbuffers.ByteBuffer, obj?:GazeMeasurements):GazeMeasurements {
+  return (obj || new GazeMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
 }
 
-static getSizePrefixedRootAsPoseEstimations(bb:flatbuffers.ByteBuffer, obj?:PoseEstimations):PoseEstimations {
+static getSizePrefixedRootAsGazeMeasurements(bb:flatbuffers.ByteBuffer, obj?:GazeMeasurements):GazeMeasurements {
   bb.setPosition(bb.position() + flatbuffers.SIZE_PREFIX_LENGTH);
-  return (obj || new PoseEstimations()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  return (obj || new GazeMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
 }
 
 static bufferHasIdentifier(bb:flatbuffers.ByteBuffer):boolean {
-  return bb.__has_identifier('POSE');
+  return bb.__has_identifier('GZMS');
 }
 
 schemaMajor():number {
@@ -61,17 +61,17 @@ layer(obj?:LayerInfo):LayerInfo|null {
   return offset ? (obj || new LayerInfo()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-poses(index: number, obj?:PoseEstimation):PoseEstimation|null {
+measurements(index: number, obj?:GazeMeasurement):GazeMeasurement|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? (obj || new PoseEstimation()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+  return offset ? (obj || new GazeMeasurement()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
 }
 
-posesLength():number {
+measurementsLength():number {
   const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
-static startPoseEstimations(builder:flatbuffers.Builder) {
+static startGazeMeasurements(builder:flatbuffers.Builder) {
   builder.startObject(4);
 }
 
@@ -87,11 +87,11 @@ static addLayer(builder:flatbuffers.Builder, layerOffset:flatbuffers.Offset) {
   builder.addFieldOffset(2, layerOffset, 0);
 }
 
-static addPoses(builder:flatbuffers.Builder, posesOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(3, posesOffset, 0);
+static addMeasurements(builder:flatbuffers.Builder, measurementsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(3, measurementsOffset, 0);
 }
 
-static createPosesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+static createMeasurementsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
   builder.startVector(4, data.length, 4);
   for (let i = data.length - 1; i >= 0; i--) {
     builder.addOffset(data[i]!);
@@ -99,61 +99,61 @@ static createPosesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[])
   return builder.endVector();
 }
 
-static startPosesVector(builder:flatbuffers.Builder, numElems:number) {
+static startMeasurementsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
-static endPoseEstimations(builder:flatbuffers.Builder):flatbuffers.Offset {
+static endGazeMeasurements(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static finishPoseEstimationsBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
-  builder.finish(offset, 'POSE');
+static finishGazeMeasurementsBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
+  builder.finish(offset, 'GZMS');
 }
 
-static finishSizePrefixedPoseEstimationsBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
-  builder.finish(offset, 'POSE', true);
+static finishSizePrefixedGazeMeasurementsBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
+  builder.finish(offset, 'GZMS', true);
 }
 
 
-unpack(): PoseEstimationsT {
-  return new PoseEstimationsT(
+unpack(): GazeMeasurementsT {
+  return new GazeMeasurementsT(
     this.schemaMajor(),
     this.schemaMinor(),
     (this.layer() !== null ? this.layer()!.unpack() : null),
-    this.bb!.createObjList<PoseEstimation, PoseEstimationT>(this.poses.bind(this), this.posesLength())
+    this.bb!.createObjList<GazeMeasurement, GazeMeasurementT>(this.measurements.bind(this), this.measurementsLength())
   );
 }
 
 
-unpackTo(_o: PoseEstimationsT): void {
+unpackTo(_o: GazeMeasurementsT): void {
   _o.schemaMajor = this.schemaMajor();
   _o.schemaMinor = this.schemaMinor();
   _o.layer = (this.layer() !== null ? this.layer()!.unpack() : null);
-  _o.poses = this.bb!.createObjList<PoseEstimation, PoseEstimationT>(this.poses.bind(this), this.posesLength());
+  _o.measurements = this.bb!.createObjList<GazeMeasurement, GazeMeasurementT>(this.measurements.bind(this), this.measurementsLength());
 }
 }
 
-export class PoseEstimationsT implements flatbuffers.IGeneratedObject {
+export class GazeMeasurementsT implements flatbuffers.IGeneratedObject {
 constructor(
   public schemaMajor: number = 1,
   public schemaMinor: number = 0,
   public layer: LayerInfoT|null = null,
-  public poses: (PoseEstimationT)[] = []
+  public measurements: (GazeMeasurementT)[] = []
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const layer = (this.layer !== null ? this.layer!.pack(builder) : 0);
-  const poses = PoseEstimations.createPosesVector(builder, builder.createObjectOffsetList(this.poses));
+  const measurements = GazeMeasurements.createMeasurementsVector(builder, builder.createObjectOffsetList(this.measurements));
 
-  PoseEstimations.startPoseEstimations(builder);
-  PoseEstimations.addSchemaMajor(builder, this.schemaMajor);
-  PoseEstimations.addSchemaMinor(builder, this.schemaMinor);
-  PoseEstimations.addLayer(builder, layer);
-  PoseEstimations.addPoses(builder, poses);
+  GazeMeasurements.startGazeMeasurements(builder);
+  GazeMeasurements.addSchemaMajor(builder, this.schemaMajor);
+  GazeMeasurements.addSchemaMinor(builder, this.schemaMinor);
+  GazeMeasurements.addLayer(builder, layer);
+  GazeMeasurements.addMeasurements(builder, measurements);
 
-  return PoseEstimations.endPoseEstimations(builder);
+  return GazeMeasurements.endGazeMeasurements(builder);
 }
 }
