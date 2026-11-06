@@ -163,29 +163,35 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
         static_cast<guint>(PropertyId::UpdateInterval),
         g_param_spec_uint("update-interval",
                           "Update Interval",
-                          "Update overlay every N frames",
+                          "Update overlay every N frames"
+                          "; Changeable while playing",
                           1,
                           120,
                           DEFAULT_UPDATE_INTERVAL,
-                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                          static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                   GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         gobject_class,
         static_cast<guint>(PropertyId::ShowAllMetrics),
         g_param_spec_boolean("show-all-metrics",
                              "Show All Metrics",
-                             "Display all available metrics instead of predefined list",
+                             "Display all available metrics instead of predefined list"
+                             "; Changeable while playing",
                              DEFAULT_SHOW_ALL_METRICS,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         gobject_class,
         static_cast<guint>(PropertyId::Enabled),
         g_param_spec_boolean("enabled",
                              "Enabled",
-                             "Enable or disable performance metadata generation",
+                             "Enable or disable performance metadata generation"
+                             "; Changeable while playing",
                              DEFAULT_ENABLED,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     // Set metadata
     gst_element_class_set_static_metadata(
@@ -244,7 +250,9 @@ static void gst_opk_performance_set_property(GObject *object,
 
     switch (static_cast<PropertyId>(prop_id)) {
     case PropertyId::UpdateInterval:
+        GST_OBJECT_LOCK(self);
         self->update_interval = g_value_get_uint(value);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PropertyId::ShowAllMetrics:
         GST_OBJECT_LOCK(self);
@@ -270,7 +278,9 @@ gst_opk_performance_get_property(GObject *object, guint prop_id, GValue *value, 
 
     switch (static_cast<PropertyId>(prop_id)) { // NOSONAR: keep property IDs explicit.
     case PropertyId::UpdateInterval:
+        GST_OBJECT_LOCK(self);
         g_value_set_uint(value, self->update_interval);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PropertyId::ShowAllMetrics:
         GST_OBJECT_LOCK(self);

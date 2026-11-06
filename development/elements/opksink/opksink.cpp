@@ -21,6 +21,8 @@ g++ -fPIC -shared -o libgstopksink.so opksink.cpp \
 */
 
 // WebRTC in GST is unstable: this macro disables the warning
+#include "gst/PropertyGuard.h"
+
 #include "glib-object.h"
 #include "glib.h"
 #include "gst/gstobject.h"
@@ -367,6 +369,11 @@ static GstStateChangeReturn gst_opk_sink_change_state(GstElement *element,
 static void
 gst_opk_sink_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     auto *self = reinterpret_cast<GstOpkSink *>(object);
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), pspec);
+    if (!propertyGuard.isChangeAllowed())
+        return;
+
+    g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     switch (prop_id) {
     case PROP_HOST:
         g_free(self->host);
@@ -396,12 +403,17 @@ gst_opk_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
         g_free(self->webrtc_turn_server);
         self->webrtc_turn_server = g_value_dup_string(value);
         break;
-    case PROP_QOS_ENABLED:
-        self->qos_enabled = g_value_get_boolean(value);
-        if (self->drain_fakesink)
-            g_object_set(
-                self->drain_fakesink, "sync", self->qos_enabled, "qos", self->qos_enabled, nullptr);
+    case PROP_QOS_ENABLED: {
+        const gboolean enabled = g_value_get_boolean(value);
+        self->qos_enabled = enabled;
+        g_autoptr(GstElement) drain =
+            self->drain_fakesink ? GST_ELEMENT(gst_object_ref(self->drain_fakesink)) : nullptr;
+        // Child notifications can read properties on this bin.
+        g_clear_pointer(&lock, g_mutex_locker_free);
+        if (drain)
+            g_object_set(drain, "sync", enabled, "qos", enabled, nullptr);
         break;
+    }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         return;
@@ -411,6 +423,7 @@ gst_opk_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
 static void
 gst_opk_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
     auto *self = reinterpret_cast<GstOpkSink *>(object);
+    g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     switch (prop_id) {
     case PROP_HOST:
         g_value_set_string(value, self->host);
@@ -990,27 +1003,58 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
     g_object_class_install_property(
         gobject_class,
         PROP_HOST,
-        g_param_spec_string(
-            "host", "Host", "The interface to bind the HTTP Server", "0.0.0.0", kRW));
+        g_param_spec_string("host",
+                            "Host",
+                            "The interface to bind the HTTP Server"
+                            "; Set in NULL; restart via NULL required because servers and sessions "
+                            "retain configuration",
+                            "0.0.0.0",
+                            kRW));
     g_object_class_install_property(
         gobject_class,
         PROP_HTTP_PORT,
-        g_param_spec_int("http-port", "HTTP Port", "HTTP Server Port", 1, 65535, 9999, kRW));
+        g_param_spec_int("http-port",
+                         "HTTP Port",
+                         "HTTP Server Port"
+                         "; Set in NULL; restart via NULL required because servers and sessions "
+                         "retain configuration",
+                         1,
+                         65535,
+                         9999,
+                         kRW));
     g_object_class_install_property(
         gobject_class,
         PROP_WS_PORT,
-        g_param_spec_int("ws-port", "WebSocket Port", "WebSocket Port", 1, 65535, 8000, kRW));
+        g_param_spec_int("ws-port",
+                         "WebSocket Port",
+                         "WebSocket Port"
+                         "; Set in NULL; restart via NULL required because servers and sessions "
+                         "retain configuration",
+                         1,
+                         65535,
+                         8000,
+                         kRW));
     g_object_class_install_property(
         gobject_class,
         PROP_CTRL_PORT,
-        g_param_spec_int("ctrl-port", "Control Port", "Control Port", 1, 65535, 8001, kRW));
+        g_param_spec_int("ctrl-port",
+                         "Control Port",
+                         "Control Port"
+                         "; Set in NULL; restart via NULL required because servers and sessions "
+                         "retain configuration",
+                         1,
+                         65535,
+                         8001,
+                         kRW));
     g_object_class_install_property(
         gobject_class,
         PROP_METADATA_PORT,
         g_param_spec_uint("metadata-port",
                           "Metadata Port",
                           "Browser metadata WebSocket port (0 discovers opkcomm automatically; "
-                          "restart required)",
+                          "restart required)"
+                          "; Set in NULL; restart via NULL required because servers and sessions "
+                          "retain configuration",
                           0,
                           65535,
                           0,
@@ -1018,34 +1062,46 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
     g_object_class_install_property(
         gobject_class,
         PROP_STATIC_FILES,
-        g_param_spec_string("static-files",
-                            "Static Files Location",
-                            "Location of the static files for HTTP Server",
-                            nullptr,
-                            kRW));
+        g_param_spec_string(
+            "static-files",
+            "Static Files Location",
+            "Location of the static files for HTTP Server"
+            "; Set in NULL; restart via NULL required because servers and sessions retain "
+            "configuration; default resolves web content relative to the plugin location",
+            nullptr,
+            kRW));
     g_object_class_install_property(
         gobject_class,
         PROP_WEBRTC_STUN_SERVER,
-        g_param_spec_string("webrtc-stun-server",
-                            "WebRTC STUN Server",
-                            "STUN server URL passed to webrtcbin, for example stun://host:3478",
-                            nullptr,
-                            kRW));
-    g_object_class_install_property(gobject_class,
-                                    PROP_WEBRTC_TURN_SERVER,
-                                    g_param_spec_string("webrtc-turn-server",
-                                                        "WebRTC TURN Server",
-                                                        "TURN server URL advertised to browsers",
-                                                        nullptr,
-                                                        kRW));
+        g_param_spec_string(
+            "webrtc-stun-server",
+            "WebRTC STUN Server",
+            "STUN server URL passed to webrtcbin, for example stun://host:3478"
+            "; Set in NULL; restart via NULL required because servers and sessions retain "
+            "configuration; default resolves WEBRTC environment settings (see documentation)",
+            nullptr,
+            kRW));
+    g_object_class_install_property(
+        gobject_class,
+        PROP_WEBRTC_TURN_SERVER,
+        g_param_spec_string(
+            "webrtc-turn-server",
+            "WebRTC TURN Server",
+            "TURN server URL advertised to browsers"
+            "; Set in NULL; restart via NULL required because servers and sessions retain "
+            "configuration; default resolves WEBRTC environment settings (see documentation)",
+            nullptr,
+            kRW));
     g_object_class_install_property(
         gobject_class,
         PROP_QOS_ENABLED,
-        g_param_spec_boolean("qos-enabled",
-                             "QoS enabled",
-                             "Enable experimental QoS feedback from the video drain",
-                             false,
-                             kRW));
+        g_param_spec_boolean(
+            "qos-enabled",
+            "QoS enabled",
+            "Enable experimental QoS feedback from the video drain; changeable while playing"
+            "; Changeable while playing",
+            false,
+            static_cast<GParamFlags>(kRW | GST_PARAM_MUTABLE_PLAYING)));
 
     /* pads */
     gst_element_class_add_static_pad_template(element_class, &v_sink_template);

@@ -125,3 +125,21 @@ The `opksrc_audio` test checks the silence output contract and the receive path.
 The `opksrc_video_signaling` test sends real VP8 and Opus on one peer, exercises
 camera-first negotiation and independent disable/re-enable offers, and checks
 black/silence fallback, continued output from the other track, and reconnection.
+
+## Properties
+
+In the table, **Live** permits
+writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
+writes to those states. Read-only entries cannot be set.
+
+| Property | Purpose | Default | Accepted values / Example | Changeable in |
+| --- | --- | --- | --- | --- |
+| `ws-port` | WebRTC signaling WebSocket port. | `8003` | Integer, 1–65535; e.g. `9003`. | NULL |
+| `rate` | Output PCM sample rate. | `16000` | Integer Hz, 1–2147483647 in the property specification; e.g. `48000`. The audio chain must support negotiation at the requested rate. | NULL |
+
+Both `ws-port` and `rate` require NULL. Restarting reopens signaling, renegotiates the
+receive/silence PCM output and closes existing connections. Writes in READY,
+PAUSED or PLAYING are rejected rather than saved for a later restart.
+
+See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
+for discovery, readback, validation and the explicit restart procedure.

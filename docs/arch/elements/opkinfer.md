@@ -34,11 +34,7 @@ micropipeline.
 - Supported video caps: `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Supported audio caps: interleaved raw U8, native-endian S16/S32/F32, or S24LE,
   1–384000 Hz and 1–64 channels
-- Main property: `opchain-path`, the JSON descriptor to execute
-- Control property: `active`, which enables or disables per-frame OpChain execution
-- Experimental property: `qos-enabled`, disabled by default
 - Metadata output: `FrameResultsMeta`
-- `copy-input`: copy video into CPU memory; default `false` preserves input DMA-BUFs
 
 The element retains input DMA-BUFs without mapping their pixels. CPU consumers
 map them on demand through `gst_video_frame_map`, respecting plane offsets and
@@ -304,3 +300,27 @@ resampling, and accumulation as mono Float32 at 16 kHz. Frame construction perfo
 no conversion. Non-GStreamer callers can implement `AudioFrame` or use the raw-byte
 `feed()` overload. The element retains caps/event handling, timestamp continuity,
 active-state checks, and inference scheduling.
+
+## Properties
+
+In the table, **Live** permits
+writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
+writes to those states. Read-only entries cannot be set.
+
+| Property | Purpose | Default | Accepted values / Example | Changeable in |
+| --- | --- | --- | --- | --- |
+| `opchain-path` | OpChain JSON descriptor to load. | Unset (`null`) | Path; e.g. `config/models/yolo26n-320/opchain.json`. Required for startup. | NULL/READY |
+| `active` | Enable per-frame OpChain execution. | `true` | `true`, `false` | Live |
+| `infer-id` | Producer identifier attached to result layers. | `""` → element name | String; e.g. `detector`. Empty uses the element name. | NULL/READY |
+| `qos-enabled` | Enable experimental inference skipping from QoS feedback. | `false` | `true`, `false` | Live |
+| `qos-accepted-events-debug` | Count of QoS events committed by the element. | `0` | Unsigned 64-bit counter, 0–18446744073709551615; e.g. observed `12`. | Read-only |
+| `copy-input` | Copy video into CPU memory instead of retaining the input DMA-BUF. | `false` | `true`, `false` | NULL/READY |
+| `audio-hop-samples` | New mono 16 kHz samples between audio windows. | `0` | Unsigned integer, 0–4294967295; `0` uses the model PCM window size. A nonzero value must not exceed that window; e.g. `160` for a window of at least 160 samples. | NULL/READY |
+
+`opchain-path`, `infer-id`, `audio-hop-samples`, and `copy-input` require NULL
+or READY. Stop to READY before changing them; the next start recreates the
+OpChain and renegotiates its inputs. A missing/invalid OpChain fails startup even
+with `active=false`. `active` and `qos-enabled` remain live controls.
+
+See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
+for discovery, readback, validation and the explicit restart procedure.

@@ -256,3 +256,6 @@ Quick start downloads models into `config/models`. The deployment container
 mounts that directory read-only; its image contains descriptors but no model
 binaries. Stopping the quick-start container frees the container name and ports
 while preserving the downloaded files in the checkout.
+
+To configure OPK from a GStreamer application, see
+[Configure GStreamer elements](how-to/configure-elements.md).

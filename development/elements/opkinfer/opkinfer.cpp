@@ -41,6 +41,7 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/PropertyGuard.h"
 #include "gst/Tools.h"
 #include "mediaio/GstAudioFrame.h"
 #include "mediaio/GstVideoFrame.h"
@@ -103,8 +104,8 @@ struct _GstOpkInfer {
     GstBaseTransform parent;
 
     // cached from caps
-    GstVideoInfo vinfo;
-    GstAudioInfo ainfo;
+    GstVideoInfo videoInfo;
+    GstAudioInfo audioInfo;
     gboolean isAudio;
     guint audioHopSamples;
 
@@ -112,7 +113,6 @@ struct _GstOpkInfer {
     gchar *opChainPath;
     gboolean active;
     gboolean copyInput;
-    gchar *format;
     gchar *inferId;
 
     gboolean qosEnabled;
@@ -126,7 +126,7 @@ struct _GstOpkInfer {
     guint64 qosAcceptedEventsDebug;
 
     // a safe place for c++ stuff
-    GstOpkInferMembers *m;
+    std::shared_ptr<GstOpkInferMembers> runtimeMembers;
 };
 
 G_END_DECLS
@@ -151,11 +151,17 @@ static gboolean gst_opkinfer_is_active(GstOpkInfer *self) {
     return active;
 }
 
+static std::shared_ptr<GstOpkInferMembers> gst_opkinfer_get_members(GstOpkInfer *const self) {
+    g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
+    return self->runtimeMembers;
+}
+
 static void gst_opkinfer_emit_content_requirements(GstOpkInfer *self) {
-    if (self->m == nullptr)
+    const auto members = gst_opkinfer_get_members(self);
+    if (members == nullptr)
         return;
 
-    for (const auto contentType : self->m->opChain.getRequiredContentTypes()) {
+    for (const auto contentType : members->opChain.getRequiredContentTypes()) {
         const std::string contentTypeString(contentType);
         GstStructure *structure =
             gst_structure_new(opk::content_requirement_event::k_name.data(),
@@ -168,11 +174,11 @@ static void gst_opkinfer_emit_content_requirements(GstOpkInfer *self) {
     }
 }
 
-static bool gst_opkinfer_provides_content_type(const GstOpkInfer *self,
-                                               std::string_view contentType) {
-    if (self->m == nullptr)
+static bool gst_opkinfer_provides_content_type(GstOpkInfer *self, std::string_view contentType) {
+    const auto members = gst_opkinfer_get_members(self);
+    if (members == nullptr)
         return false;
-    const auto providedContentTypes = self->m->opChain.getProvidedContentTypes();
+    const auto providedContentTypes = members->opChain.getProvidedContentTypes();
     return std::ranges::find(providedContentTypes, contentType) != providedContentTypes.end();
 }
 
@@ -196,17 +202,18 @@ static void gst_opkinfer_set_content_types(GstStructure *structure,
 }
 
 static void gst_opkinfer_push_model_registration(GstOpkInfer *self) {
-    if (self->m == nullptr)
+    const auto members = gst_opkinfer_get_members(self);
+    if (members == nullptr)
         return;
 
-    GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
-    if (srcpad == nullptr)
+    GstPad *sourcePad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
+    if (sourcePad == nullptr)
         return;
 
     GstStructure *structure = gst_structure_new("opk-model-register",
                                                 "model-name",
                                                 G_TYPE_STRING,
-                                                self->m->opChain.getName().c_str(),
+                                                members->opChain.getName().c_str(),
                                                 "element-name",
                                                 G_TYPE_STRING,
                                                 GST_OBJECT_NAME(self),
@@ -214,27 +221,27 @@ static void gst_opkinfer_push_model_registration(GstOpkInfer *self) {
                                                 G_TYPE_BOOLEAN,
                                                 gst_opkinfer_is_active(self),
                                                 nullptr);
-    if (!self->m->opChain.getDisplayName().empty()) {
+    if (!members->opChain.getDisplayName().empty()) {
         gst_structure_set(structure,
                           "display-name",
                           G_TYPE_STRING,
-                          self->m->opChain.getDisplayName().c_str(),
+                          members->opChain.getDisplayName().c_str(),
                           nullptr);
     }
-    if (!self->m->opChain.getTask().empty()) {
+    if (!members->opChain.getTask().empty()) {
         gst_structure_set(
-            structure, "task", G_TYPE_STRING, self->m->opChain.getTask().c_str(), nullptr);
+            structure, "task", G_TYPE_STRING, members->opChain.getTask().c_str(), nullptr);
     }
-    if (!self->m->opChain.getRuntime().empty()) {
+    if (!members->opChain.getRuntime().empty()) {
         gst_structure_set(
-            structure, "runtime", G_TYPE_STRING, self->m->opChain.getRuntime().c_str(), nullptr);
+            structure, "runtime", G_TYPE_STRING, members->opChain.getRuntime().c_str(), nullptr);
     }
     gst_opkinfer_set_content_types(
-        structure, "provided-content-types", self->m->opChain.getProvidedContentTypes());
+        structure, "provided-content-types", members->opChain.getProvidedContentTypes());
     gst_opkinfer_set_content_types(
-        structure, "required-content-types", self->m->opChain.getRequiredContentTypes());
-    gst_pad_push_event(srcpad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure));
-    gst_object_unref(srcpad);
+        structure, "required-content-types", members->opChain.getRequiredContentTypes());
+    gst_pad_push_event(sourcePad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure));
+    gst_object_unref(sourcePad);
 }
 
 static void gst_opkinfer_reset_qos_unlocked(GstOpkInfer *self) {
@@ -281,15 +288,16 @@ static bool gst_opkinfer_has_supported_or_defaultable_yuv_colorimetry(const GstV
     }
 }
 
-static gboolean gst_opkinfer_start(GstBaseTransform *b) {
-    auto *self = (GstOpkInfer *)b;
+static gboolean gst_opkinfer_start(GstBaseTransform *selfInParentType) {
+    auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
 
     gst_opkinfer_reset_qos(self);
 
     auto members = std::make_unique<GstOpkInferMembers>();
 
     if (!self->opChainPath || !self->opChainPath[0]) {
-        GST_ERROR_OBJECT(self, "opchain property is mandatory but not set");
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, SETTINGS, ("opchain-path is mandatory but not set"), (nullptr));
         return FALSE;
     }
 
@@ -307,40 +315,44 @@ static gboolean gst_opkinfer_start(GstBaseTransform *b) {
         return FALSE;
     }
 
-    self->m = members.release();
+    GST_OBJECT_LOCK(self);
+    self->runtimeMembers = std::move(members);
+    GST_OBJECT_UNLOCK(self);
 
     gst_opkinfer_push_model_registration(self);
 
     return TRUE;
 }
 
-static gboolean gst_opkinfer_stop(GstBaseTransform *b) {
-    auto *self = (GstOpkInfer *)b;
+static gboolean gst_opkinfer_stop(GstBaseTransform *selfInParentType) {
+    auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
     gst_opkinfer_reset_qos(self);
-    delete self->m;
-    self->m = nullptr;
+    std::shared_ptr<GstOpkInferMembers> retiredMembers;
+    GST_OBJECT_LOCK(self);
+    retiredMembers.swap(self->runtimeMembers);
+    GST_OBJECT_UNLOCK(self);
     return TRUE;
 }
 
-static GstStateChangeReturn gst_opkinfer_change_state(GstElement *element,
+static GstStateChangeReturn gst_opkinfer_change_state(GstElement *selfInParentType,
                                                       GstStateChange transition) {
     const auto result =
-        GST_ELEMENT_CLASS(gst_opkinfer_parent_class)->change_state(element, transition);
+        GST_ELEMENT_CLASS(gst_opkinfer_parent_class)->change_state(selfInParentType, transition);
     if (result != GST_STATE_CHANGE_FAILURE && transition == GST_STATE_CHANGE_PAUSED_TO_PLAYING &&
-        gst_opkinfer_is_active(GST_OPKINFER(element))) {
-        gst_opkinfer_emit_content_requirements(GST_OPKINFER(element));
+        gst_opkinfer_is_active(GST_OPKINFER(selfInParentType))) {
+        gst_opkinfer_emit_content_requirements(GST_OPKINFER(selfInParentType));
     }
     return result;
 }
 
-static GstCaps *gst_opkinfer_transform_caps(GstBaseTransform *base,
+static GstCaps *gst_opkinfer_transform_caps(GstBaseTransform *selfInParentType,
                                             GstPadDirection direction,
                                             GstCaps *caps,
                                             GstCaps *filter) {
-    const bool copyVideo = g_atomic_int_get(&GST_OPKINFER(base)->copyInput);
+    const bool copyVideo = g_atomic_int_get(&GST_OPKINFER(selfInParentType)->copyInput);
     GstCaps *result = gst_caps_is_any(caps) ? gst_caps_copy(caps) : gst_caps_new_empty();
-    for (guint i = 0; i < gst_caps_get_size(caps); ++i) {
-        GstCaps *const entry = gst_caps_copy_nth(caps, i);
+    for (guint capsIndex = 0; capsIndex < gst_caps_get_size(caps); ++capsIndex) {
+        GstCaps *const entry = gst_caps_copy_nth(caps, capsIndex);
         if (gst_structure_has_name(gst_caps_get_structure(entry, 0), "video/x-raw")) {
             gst_caps_append(result,
                             gst::Tools::transformVideoCaps(direction, entry, nullptr, copyVideo));
@@ -359,45 +371,46 @@ static GstCaps *gst_opkinfer_transform_caps(GstBaseTransform *base,
     return result;
 }
 
-static gboolean gst_opkinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstCaps *outcaps) {
-    auto *self = (GstOpkInfer *)b;
-    (void)outcaps;
+static gboolean
+gst_opkinfer_set_caps(GstBaseTransform *selfInParentType, GstCaps *inCaps, GstCaps *outCaps) {
+    auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
+    (void)outCaps;
 
     self->isAudio = FALSE;
-    if (self->m)
-        self->m->resetAudio();
-    if (gst_structure_has_name(gst_caps_get_structure(incaps, 0), "audio/x-raw")) {
-        if (!gst_audio_info_from_caps(&self->ainfo, incaps) ||
-            !opk::mediaio::gst::GstAudioFrame::supports(self->ainfo)) {
+    if (self->runtimeMembers)
+        self->runtimeMembers->resetAudio();
+    if (gst_structure_has_name(gst_caps_get_structure(inCaps, 0), "audio/x-raw")) {
+        if (!gst_audio_info_from_caps(&self->audioInfo, inCaps) ||
+            !opk::mediaio::gst::GstAudioFrame::supports(self->audioInfo)) {
             GST_ERROR_OBJECT(self, "Unsupported raw audio caps");
             return FALSE;
         }
-        if (!self->m)
+        if (!self->runtimeMembers)
             return FALSE;
-        const auto required = self->m->opChain.getRequiredAudioSamples();
+        const auto required = self->runtimeMembers->opChain.getRequiredAudioSamples();
         if (!required) {
             GST_ERROR_OBJECT(self, "%s", required.error().toString().c_str());
             return FALSE;
         }
         const size_t window = *required;
-        const size_t hop = self->audioHopSamples ? self->audioHopSamples : window;
-        if (!window || window > GstOpkInferMembers::audioBufferCapacity || hop > window) {
+        const size_t hopSamples = self->audioHopSamples ? self->audioHopSamples : window;
+        if (!window || window > GstOpkInferMembers::audioBufferCapacity || hopSamples > window) {
             GST_ERROR_OBJECT(self,
                              "Audio requires a PCM window within ring capacity and hop <= window");
             return FALSE;
         }
-        self->m->audioWindowSamples = window;
-        self->m->audioHopSamples = hop;
+        self->runtimeMembers->audioWindowSamples = window;
+        self->runtimeMembers->audioHopSamples = hopSamples;
         self->isAudio = TRUE;
         return TRUE;
     }
 
-    if (!gst_video_info_from_caps(&self->vinfo, incaps)) {
+    if (!gst_video_info_from_caps(&self->videoInfo, inCaps)) {
         GST_ERROR_OBJECT(self, "Failed to parse input caps");
         return FALSE;
     }
 
-    const auto format = GST_VIDEO_INFO_FORMAT(&self->vinfo);
+    const auto format = GST_VIDEO_INFO_FORMAT(&self->videoInfo);
     if (format != GST_VIDEO_FORMAT_BGRA && format != GST_VIDEO_FORMAT_RGB &&
         format != GST_VIDEO_FORMAT_I420 && format != GST_VIDEO_FORMAT_NV12 &&
         format != GST_VIDEO_FORMAT_YUY2) {
@@ -406,8 +419,8 @@ static gboolean gst_opkinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
     }
 
     if (gst_opkinfer_is_yuv_format(format) &&
-        !gst_opkinfer_has_supported_or_defaultable_yuv_colorimetry(self->vinfo)) {
-        const GstVideoColorimetry colorimetry = GST_VIDEO_INFO_COLORIMETRY(&self->vinfo);
+        !gst_opkinfer_has_supported_or_defaultable_yuv_colorimetry(self->videoInfo)) {
+        const GstVideoColorimetry colorimetry = GST_VIDEO_INFO_COLORIMETRY(&self->videoInfo);
         GST_ERROR_OBJECT(self,
                          "Unsupported YUV colorimetry/range (matrix=%d, range=%d)",
                          static_cast<int>(colorimetry.matrix),
@@ -423,8 +436,8 @@ static GstClockTime gst_opkinfer_saturating_add(GstClockTime timestamp, GstClock
                                                        : timestamp + duration;
 }
 
-static gboolean gst_opkinfer_src_event(GstBaseTransform *trans, GstEvent *event) {
-    auto *self = GST_OPKINFER(trans);
+static gboolean gst_opkinfer_src_event(GstBaseTransform *selfInParentType, GstEvent *event) {
+    auto *self = GST_OPKINFER(selfInParentType);
     const auto eventType = GST_EVENT_TYPE(event);
 
     if (eventType == GST_EVENT_CUSTOM_UPSTREAM) {
@@ -445,17 +458,19 @@ static gboolean gst_opkinfer_src_event(GstBaseTransform *trans, GstEvent *event)
         GST_OBJECT_UNLOCK(self);
 
         if (!handleQos)
-            return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)->src_event(trans, event);
+            return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)
+                ->src_event(selfInParentType, event);
 
-        GstQOSType type = GST_QOS_TYPE_UNDERFLOW;
+        GstQOSType qosType = GST_QOS_TYPE_UNDERFLOW;
         gdouble proportion = 1.0;
-        GstClockTimeDiff diff = 0;
+        GstClockTimeDiff qosJitter = 0;
         GstClockTime timestamp = GST_CLOCK_TIME_NONE;
-        gst_event_parse_qos(event, &type, &proportion, &diff, &timestamp);
+        gst_event_parse_qos(event, &qosType, &proportion, &qosJitter, &timestamp);
 
         GstClockTime qosEarliestTime = GST_CLOCK_TIME_NONE;
-        if (type == GST_QOS_TYPE_UNDERFLOW && diff > 0 && GST_CLOCK_TIME_IS_VALID(timestamp)) {
-            const auto lateness = static_cast<GstClockTime>(diff);
+        if (qosType == GST_QOS_TYPE_UNDERFLOW && qosJitter > 0 &&
+            GST_CLOCK_TIME_IS_VALID(timestamp)) {
+            const auto lateness = static_cast<GstClockTime>(qosJitter);
             qosEarliestTime = gst_opkinfer_saturating_add(timestamp, lateness);
         }
 
@@ -471,16 +486,17 @@ static gboolean gst_opkinfer_src_event(GstBaseTransform *trans, GstEvent *event)
         GST_OBJECT_UNLOCK(self);
 
         if (!publishQos)
-            return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)->src_event(trans, event);
+            return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)
+                ->src_event(selfInParentType, event);
 
         g_object_notify(G_OBJECT(self), "qos-accepted-events-debug");
 
         GST_DEBUG_OBJECT(self,
                          "Received QoS event: type=%d proportion=%f diff=%" G_GINT64_FORMAT
                          " timestamp=%" G_GUINT64_FORMAT,
-                         type,
+                         qosType,
                          proportion,
-                         diff,
+                         qosJitter,
                          timestamp);
 
         // This element owns the QoS policy for inference. Consuming the event
@@ -490,19 +506,19 @@ static gboolean gst_opkinfer_src_event(GstBaseTransform *trans, GstEvent *event)
     }
 
     // Unrelated events keep the native path.
-    return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)->src_event(trans, event);
+    return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)->src_event(selfInParentType, event);
 }
 
-static gboolean gst_opkinfer_sink_event(GstBaseTransform *trans, GstEvent *event) {
+static gboolean gst_opkinfer_sink_event(GstBaseTransform *selfInParentType, GstEvent *event) {
     const auto eventType = GST_EVENT_TYPE(event);
     switch (eventType) {
     case GST_EVENT_STREAM_START:
-        if (auto *members = GST_OPKINFER(trans)->m) {
+        if (const auto members = gst_opkinfer_get_members(GST_OPKINFER(selfInParentType))) {
             members->resetAudio();
             members->inputIsLive.reset();
         }
-        if (gst_opkinfer_is_active(GST_OPKINFER(trans)))
-            gst_opkinfer_emit_content_requirements(GST_OPKINFER(trans));
+        if (gst_opkinfer_is_active(GST_OPKINFER(selfInParentType)))
+            gst_opkinfer_emit_content_requirements(GST_OPKINFER(selfInParentType));
         break;
     case GST_EVENT_SEGMENT:
     case GST_EVENT_GAP:
@@ -511,15 +527,15 @@ static gboolean gst_opkinfer_sink_event(GstBaseTransform *trans, GstEvent *event
         // FLUSH_START can arrive concurrently with processing. Clear only on
         // serialized stream events or FLUSH_STOP, once processing has stopped.
         if (eventType != GST_EVENT_FLUSH_START) {
-            if (auto *members = GST_OPKINFER(trans)->m)
+            if (const auto members = gst_opkinfer_get_members(GST_OPKINFER(selfInParentType)))
                 members->resetAudio();
         }
-        gst_opkinfer_reset_qos(GST_OPKINFER(trans));
+        gst_opkinfer_reset_qos(GST_OPKINFER(selfInParentType));
         break;
     default:
         break;
     }
-    return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)->sink_event(trans, event);
+    return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)->sink_event(selfInParentType, event);
 }
 
 struct GstOpkInferFramePolicy {
@@ -560,9 +576,9 @@ static std::shared_ptr<opk::mediaio::VideoFrame>
 gst_opkinfer_retain_video_frame(GstOpkInfer *self, GstBuffer *buffer) {
     const bool dmaBuf = opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer);
     if (dmaBuf || opk::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
-        auto frame{dmaBuf ? opk::mediaio::gst::GstVideoFrame::retainDmaBuf(buffer, self->vinfo)
+        auto frame{dmaBuf ? opk::mediaio::gst::GstVideoFrame::retainDmaBuf(buffer, self->videoInfo)
                           : opk::mediaio::gst::GstVideoFrame::mapGstBuffer(
-                                buffer, self->vinfo, opk::AccessMode::Read)};
+                                buffer, self->videoInfo, opk::AccessMode::Read)};
         if (!frame) {
             GST_ELEMENT_ERROR(self,
                               RESOURCE,
@@ -581,14 +597,15 @@ gst_opkinfer_retain_video_frame(GstOpkInfer *self, GstBuffer *buffer) {
     return nullptr;
 }
 
-static GstFlowReturn gst_opkinfer_prepare_output_buffer(GstBaseTransform *const base,
-                                                        GstBuffer *const input,
-                                                        GstBuffer **const output) {
-    auto *const self = GST_OPKINFER(base);
+static GstFlowReturn gst_opkinfer_prepare_output_buffer(GstBaseTransform *const selfInParentType,
+                                                        GstBuffer *const inputBuffer,
+                                                        GstBuffer **const outputBuffer) {
+    auto *const self = GST_OPKINFER(selfInParentType);
     if (self->isAudio)
         return GST_BASE_TRANSFORM_CLASS(gst_opkinfer_parent_class)
-            ->prepare_output_buffer(base, input, output);
-    return gst::Tools::prepareVideoBuffer(base, input, output, g_atomic_int_get(&self->copyInput));
+            ->prepare_output_buffer(selfInParentType, inputBuffer, outputBuffer);
+    return gst::Tools::prepareVideoBuffer(
+        selfInParentType, inputBuffer, outputBuffer, g_atomic_int_get(&self->copyInput));
 }
 
 /// Execute one scheduled PCM window against writable result metadata.
@@ -597,7 +614,7 @@ gst_opkinfer_process_audio_window(GstOpkInfer *self,
                                   const opk::PcmRingBuffer::View &window,
                                   open_perception_kit::FrameResults &frameResults,
                                   std::string &opChainError) {
-    auto &members = *self->m;
+    auto &members = *self->runtimeMembers;
     opk::op::OpChainContext context;
     context.frameResults = &frameResults;
     context.inferenceInfo.inferElementId = gst_opkinfer_get_effective_inferId(self);
@@ -608,15 +625,15 @@ gst_opkinfer_process_audio_window(GstOpkInfer *self,
     audio.windowStartSample = window.beginPosition();
     audio.windowEndSample = window.endPosition();
     if (members.audioOriginTimestampNs) {
-        const auto delay = members.pcmAudioBuffer->resamplingDelayNs();
-        auto timestamp = [&](uint64_t sample) -> std::optional<uint64_t> {
-            if (sample > G_MAXUINT64 / 62500)
+        const auto delayNs = members.pcmAudioBuffer->resamplingDelayNs();
+        auto timestamp = [&](uint64_t samplePosition) -> std::optional<uint64_t> {
+            if (samplePosition > G_MAXUINT64 / 62500)
                 return std::nullopt;
-            const uint64_t offset = sample * 62500;
+            const uint64_t offset = samplePosition * 62500;
             const uint64_t origin = *members.audioOriginTimestampNs;
-            if (offset > G_MAXUINT64 - origin || origin + offset < delay)
+            if (offset > G_MAXUINT64 - origin || origin + offset < delayNs)
                 return std::nullopt;
-            return origin + offset - delay;
+            return origin + offset - delayNs;
         };
         const auto start = timestamp(audio.windowStartSample);
         const auto end = timestamp(audio.windowEndSample);
@@ -649,7 +666,8 @@ gst_opkinfer_process_video_frame(GstOpkInfer *self,
     opChainContext.frameResults = &frameResults;
     opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
 
-    auto executeResult = self->m->executeOpChain(opChainContext, GST_BASE_TRANSFORM_SINK_PAD(self));
+    auto executeResult =
+        self->runtimeMembers->executeOpChain(opChainContext, GST_BASE_TRANSFORM_SINK_PAD(self));
     if (!executeResult) {
         opChainError = executeResult.error().info;
         opk::log::error("{}\n", executeResult.error().toString());
@@ -660,65 +678,70 @@ gst_opkinfer_process_video_frame(GstOpkInfer *self,
 }
 
 /// Convert incoming audio and execute all complete windows in chronological order.
-static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuffer *buf) {
-    if (!self->m)
+static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuffer *buffer) {
+    if (!self->runtimeMembers)
         return GST_FLOW_OK;
     if (!gst_opkinfer_is_active(self)) {
-        self->m->resetAudio();
+        self->runtimeMembers->resetAudio();
         return GST_FLOW_OK;
     }
-    if (GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_DISCONT) ||
-        GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_GAP)) {
-        self->m->resetAudio();
-        if (GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_GAP))
+    if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_DISCONT) ||
+        GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP)) {
+        self->runtimeMembers->resetAudio();
+        if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP))
             return GST_FLOW_OK;
     }
     // Anchor sample zero to source PTS, not arrival/processing time. Missing
     // initial PTS can be recovered from a later timestamp on the same stream.
-    auto frame = opk::mediaio::gst::GstAudioFrame::mapGstBuffer(buf, self->ainfo);
+    auto frame = opk::mediaio::gst::GstAudioFrame::mapGstBuffer(buffer, self->audioInfo);
     if (!frame) {
         GST_ELEMENT_ERROR(self, RESOURCE, READ, ("Failed to map PCM audio frame"), (nullptr));
         return GST_FLOW_ERROR;
     }
-    const auto rate = static_cast<uint64_t>(frame->sampleRate());
-    auto elapsedNs = gst_util_uint64_scale(self->m->audioSourceFrames, GST_SECOND, rate);
+    const auto sampleRate = static_cast<uint64_t>(frame->sampleRate());
+    auto elapsedNs =
+        gst_util_uint64_scale(self->runtimeMembers->audioSourceFrames, GST_SECOND, sampleRate);
     if (frame->timestampNs() != opk::mediaio::InvalidTimestampNs) {
-        const uint64_t pts = frame->timestampNs();
-        if (self->m->audioOriginTimestampNs &&
-            elapsedNs <= G_MAXUINT64 - *self->m->audioOriginTimestampNs) {
-            const auto expected = *self->m->audioOriginTimestampNs + elapsedNs;
-            const auto difference = pts > expected ? pts - expected : expected - pts;
+        const uint64_t presentationTimestampNs = frame->timestampNs();
+        if (self->runtimeMembers->audioOriginTimestampNs &&
+            elapsedNs <= G_MAXUINT64 - *self->runtimeMembers->audioOriginTimestampNs) {
+            const auto expected = *self->runtimeMembers->audioOriginTimestampNs + elapsedNs;
+            const auto difference = presentationTimestampNs > expected
+                                        ? presentationTimestampNs - expected
+                                        : expected - presentationTimestampNs;
             // Permit timestamp rounding of one source sample, but never stitch a gap.
-            if (difference > (GST_SECOND + rate - 1) / rate) {
-                self->m->resetAudio();
+            if (difference > (GST_SECOND + sampleRate - 1) / sampleRate) {
+                self->runtimeMembers->resetAudio();
                 elapsedNs = 0;
             }
         }
-        if (!self->m->audioOriginTimestampNs && pts >= elapsedNs)
-            self->m->audioOriginTimestampNs = pts - elapsedNs;
+        if (!self->runtimeMembers->audioOriginTimestampNs && presentationTimestampNs >= elapsedNs)
+            self->runtimeMembers->audioOriginTimestampNs = presentationTimestampNs - elapsedNs;
     }
     const auto sourceFrames = frame->sampleCount();
-    bool fed = false;
+    bool inputBuffered = false;
     try {
-        if (!self->m->pcmAudioBuffer)
-            self->m->pcmAudioBuffer =
+        if (!self->runtimeMembers->pcmAudioBuffer)
+            self->runtimeMembers->pcmAudioBuffer =
                 std::make_unique<opk::PcmRingBuffer>(GstOpkInferMembers::audioBufferCapacity);
-        fed = sourceFrames <= G_MAXUINT64 - self->m->audioSourceFrames &&
-              self->m->pcmAudioBuffer->feed(*frame);
+        inputBuffered = sourceFrames <= G_MAXUINT64 - self->runtimeMembers->audioSourceFrames &&
+                        self->runtimeMembers->pcmAudioBuffer->feed(*frame);
     } catch (const std::exception &error) {
         GST_ERROR_OBJECT(self, "Audio buffering failed: %s", error.what());
     }
     frame.reset(); // Release the input mapping before mutating downstream metadata.
-    if (!fed) {
+    if (!inputBuffered) {
         GST_ELEMENT_ERROR(self, STREAM, FORMAT, ("Failed to buffer input PCM audio"), (nullptr));
         return GST_FLOW_ERROR;
     }
-    auto &pcm = *self->m->pcmAudioBuffer;
-    self->m->audioSourceFrames += sourceFrames;
-    GST_LOG_OBJECT(
-        self, "Buffered audio: retained=%zu end=%" G_GUINT64_FORMAT, pcm.size(), pcm.endPosition());
-    auto &members = *self->m;
-    if (members.nextAudioPosition < pcm.beginPosition()) {
+    auto &pcmBuffer = *self->runtimeMembers->pcmAudioBuffer;
+    self->runtimeMembers->audioSourceFrames += sourceFrames;
+    GST_LOG_OBJECT(self,
+                   "Buffered audio: retained=%zu end=%" G_GUINT64_FORMAT,
+                   pcmBuffer.size(),
+                   pcmBuffer.endPosition());
+    auto &members = *self->runtimeMembers;
+    if (members.nextAudioPosition < pcmBuffer.beginPosition()) {
         GST_ELEMENT_ERROR(self,
                           STREAM,
                           FAILED,
@@ -726,19 +749,20 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
                           (nullptr));
         return GST_FLOW_ERROR;
     }
-    if (!opk::FrameResultsMeta::get(buf)) {
-        if (!opk::FrameResultsMeta::add(buf, std::make_shared<open_perception_kit::FrameResults>()))
+    if (!opk::FrameResultsMeta::get(buffer)) {
+        if (!opk::FrameResultsMeta::add(buffer,
+                                        std::make_shared<open_perception_kit::FrameResults>()))
             return GST_FLOW_ERROR;
     }
     // Consume complete windows in order, including multiple windows from one input buffer.
     // Audio scheduling deliberately bypasses the video QoS frame-dropping policy.
-    while (pcm.endPosition() - members.nextAudioPosition >= members.audioWindowSamples) {
-        const auto window = pcm.window(members.nextAudioPosition, members.audioWindowSamples);
+    while (pcmBuffer.endPosition() - members.nextAudioPosition >= members.audioWindowSamples) {
+        const auto window = pcmBuffer.window(members.nextAudioPosition, members.audioWindowSamples);
         if (!window)
             return GST_FLOW_ERROR;
         std::string opChainError;
         const auto result = opk::FrameResultsMeta::mutate<GstFlowReturn>(
-            buf, [self, window = *window, &opChainError](auto &frameResults) {
+            buffer, [self, window = *window, &opChainError](auto &frameResults) {
                 return gst_opkinfer_process_audio_window(self, window, frameResults, opChainError);
             });
         if (!std::holds_alternative<GstFlowReturn>(result) ||
@@ -760,24 +784,24 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
 }
 
 /// Apply video QoS policy, map the frame, and run inference when scheduled.
-static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuffer *buf) {
-    auto *b = GST_BASE_TRANSFORM(self);
+static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuffer *buffer) {
     if (!gst_opkinfer_is_active(self))
         return GST_FLOW_OK;
 
     // Keep the downstream metadata contract even when QoS skips inference.
-    if (auto frameResultsMeta = opk::FrameResultsMeta::get(buf); !frameResultsMeta) {
+    if (auto frameResultsMeta = opk::FrameResultsMeta::get(buffer); !frameResultsMeta) {
         auto frameResults = std::make_shared<open_perception_kit::FrameResults>();
-        if (!opk::FrameResultsMeta::add(buf, frameResults)) {
+        if (!opk::FrameResultsMeta::add(buffer, frameResults)) {
             GST_WARNING_OBJECT(self, "Failed to attach FrameResultsMeta");
             return GST_FLOW_OK;
         }
     }
 
-    const GstClockTime runningTime =
-        GST_BUFFER_PTS_IS_VALID(buf)
-            ? gst_segment_to_running_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf))
-            : GST_CLOCK_TIME_NONE;
+    const GstClockTime runningTime = GST_BUFFER_PTS_IS_VALID(buffer)
+                                         ? gst_segment_to_running_time(&self->parent.segment,
+                                                                       GST_FORMAT_TIME,
+                                                                       GST_BUFFER_PTS(buffer))
+                                         : GST_CLOCK_TIME_NONE;
 
     const auto framePolicy = gst_opkinfer_get_frame_policy(self, runningTime);
 
@@ -796,9 +820,10 @@ static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuf
             GST_OBJECT(self),
             FALSE,
             runningTime,
-            gst_segment_to_stream_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf)),
-            GST_BUFFER_PTS_IS_VALID(buf) ? GST_BUFFER_PTS(buf) : framePolicy.qosTimestamp,
-            GST_BUFFER_DURATION(buf));
+            gst_segment_to_stream_time(
+                &self->parent.segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buffer)),
+            GST_BUFFER_PTS_IS_VALID(buffer) ? GST_BUFFER_PTS(buffer) : framePolicy.qosTimestamp,
+            GST_BUFFER_DURATION(buffer));
         gst_message_set_qos_values(
             message, framePolicy.qosJitter, framePolicy.qosProportion, GST_FORMAT_PERCENT_MAX);
         gst_message_set_qos_stats(message, GST_FORMAT_BUFFERS, processed, dropped);
@@ -806,37 +831,36 @@ static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuf
         return GST_FLOW_OK;
     }
 
-    if (!self->m)
+    if (!self->runtimeMembers)
         return GST_FLOW_OK;
 
     const GstClockTime processingStartedAt =
         framePolicy.qosEnabled ? gst_util_get_timestamp() : GST_CLOCK_TIME_NONE;
 
     // Retain after attaching FrameResultsMeta: the extra reference prevents adding metadata.
-    auto sharedMediaFrame{gst_opkinfer_retain_video_frame(self, buf)};
+    auto sharedMediaFrame{gst_opkinfer_retain_video_frame(self, buffer)};
     if (!sharedMediaFrame) {
         return GST_FLOW_ERROR;
     }
 
     // Keep the frame and its metadata alive throughout the op-chain execution.
     std::string opChainError;
-    auto ret = opk::FrameResultsMeta::mutate<GstFlowReturn>(
-        buf, [self, sharedMediaFrame, &opChainError](auto &frameResults) {
+    auto mutationResult = opk::FrameResultsMeta::mutate<GstFlowReturn>(
+        buffer, [self, sharedMediaFrame, &opChainError](auto &frameResults) {
             return gst_opkinfer_process_video_frame(
                 self, sharedMediaFrame, frameResults, opChainError);
         });
 
     // Collapse op-chain failures and metadata mutation failures into a GStreamer
     // element error so the pipeline fails consistently.
-    using ME = opk::MetaError;
-    if ((std::holds_alternative<GstFlowReturn>(ret) &&
-         std::get<GstFlowReturn>(ret) != GST_FLOW_OK) ||
-        std::holds_alternative<ME>(ret)) {
+    if ((std::holds_alternative<GstFlowReturn>(mutationResult) &&
+         std::get<GstFlowReturn>(mutationResult) != GST_FLOW_OK) ||
+        std::holds_alternative<opk::MetaError>(mutationResult)) {
         GST_ELEMENT_ERROR(self,
                           RESOURCE,
                           FAILED,
                           ("Error while executing op-chain: %s",
-                           std::holds_alternative<ME>(ret)
+                           std::holds_alternative<opk::MetaError>(mutationResult)
                                ? "Failed to update FrameResults metadata."
                                : opChainError.c_str()),
                           ("%s", self->opChainPath));
@@ -846,10 +870,11 @@ static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuf
 
     const GstClockTime processingLatency =
         framePolicy.qosEnabled ? gst_util_get_timestamp() - processingStartedAt : 0;
-    GstClockTime frameDuration = GST_BUFFER_DURATION(buf);
-    if (GST_VIDEO_INFO_FPS_N(&self->vinfo) > 0 && GST_VIDEO_INFO_FPS_D(&self->vinfo) > 0) {
-        frameDuration = gst_util_uint64_scale(
-            GST_SECOND, GST_VIDEO_INFO_FPS_D(&self->vinfo), GST_VIDEO_INFO_FPS_N(&self->vinfo));
+    GstClockTime frameDuration = GST_BUFFER_DURATION(buffer);
+    if (GST_VIDEO_INFO_FPS_N(&self->videoInfo) > 0 && GST_VIDEO_INFO_FPS_D(&self->videoInfo) > 0) {
+        frameDuration = gst_util_uint64_scale(GST_SECOND,
+                                              GST_VIDEO_INFO_FPS_D(&self->videoInfo),
+                                              GST_VIDEO_INFO_FPS_N(&self->videoInfo));
     }
     GST_OBJECT_LOCK(self);
     const gboolean publishProcessing = framePolicy.qosEnabled && self->qosEnabled && self->active &&
@@ -868,39 +893,47 @@ static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuf
     return GST_FLOW_OK;
 }
 
-static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
-    auto *self = GST_OPKINFER(b);
+static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *selfInParentType,
+                                               GstBuffer *buffer) {
+    auto *self = GST_OPKINFER(selfInParentType);
     if (self->isAudio)
-        return gst_opkinfer_process_audio_buffer(self, buf);
-    return gst_opkinfer_process_video_buffer(self, buf);
+        return gst_opkinfer_process_audio_buffer(self, buffer);
+    return gst_opkinfer_process_video_buffer(self, buffer);
 }
 
 // ---------------- properties & class init ----------------
 
 constexpr guint PROP_OPCHAIN_PATH = 1;
 constexpr guint PROP_MODEL_ACTIVE = 2;
-constexpr guint PROP_FORMAT = 3;
 constexpr guint PROP_INFER_ID = 4;
 constexpr guint PROP_QOS_ENABLED = 5;
 constexpr guint PROP_QOS_ACCEPTED_EVENTS_DEBUG = 6;
 constexpr guint PROP_COPY_INPUT = 7;
 constexpr guint PROP_AUDIO_HOP_SAMPLES = 8;
 
-static void gst_opkinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
-    auto *self = (GstOpkInfer *)o;
-    switch (id) {
+static void gst_opkinfer_set_property(GObject *selfInParentType,
+                                      guint propertyId,
+                                      const GValue *value,
+                                      GParamSpec *propertySpec) {
+    auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
+    if (!propertyGuard.isChangeAllowed())
+        return;
+    switch (propertyId) {
     case PROP_COPY_INPUT:
-        g_atomic_int_set(&self->copyInput, g_value_get_boolean(v));
+        g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
         gst_base_transform_reconfigure_src(GST_BASE_TRANSFORM(self));
         break;
     case PROP_OPCHAIN_PATH:
+        GST_OBJECT_LOCK(self);
         g_free(self->opChainPath);
-        self->opChainPath = g_value_dup_string(v);
+        self->opChainPath = g_value_dup_string(value);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_MODEL_ACTIVE: {
         gboolean activeChanged = FALSE;
         gboolean emitContentRequirements = FALSE;
-        const gboolean active = g_value_get_boolean(v);
+        const gboolean active = g_value_get_boolean(value);
         GST_OBJECT_LOCK(self);
         activeChanged = self->active != active;
         emitContentRequirements = !self->active && active;
@@ -914,140 +947,140 @@ static void gst_opkinfer_set_property(GObject *o, guint id, const GValue *v, GPa
             gst_opkinfer_emit_content_requirements(self);
         break;
     }
-    case PROP_FORMAT:
-        g_free(self->format);
-        self->format = g_value_dup_string(v);
-        break;
     case PROP_INFER_ID:
+        GST_OBJECT_LOCK(self);
         g_free(self->inferId);
-        self->inferId = g_value_dup_string(v);
+        self->inferId = g_value_dup_string(value);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_AUDIO_HOP_SAMPLES:
         GST_OBJECT_LOCK(self);
-        if (GST_STATE(self) <= GST_STATE_READY && GST_STATE_PENDING(self) <= GST_STATE_READY)
-            self->audioHopSamples = g_value_get_uint(v);
-        else
-            GST_WARNING_OBJECT(self, "audio-hop-samples can only change in NULL or READY");
+        self->audioHopSamples = g_value_get_uint(value);
         GST_OBJECT_UNLOCK(self);
         break;
     case PROP_QOS_ENABLED:
         GST_OBJECT_LOCK(self);
-        self->qosEnabled = g_value_get_boolean(v);
+        self->qosEnabled = g_value_get_boolean(value);
         if (!self->qosEnabled)
             gst_opkinfer_reset_qos_unlocked(self);
         GST_OBJECT_UNLOCK(self);
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(selfInParentType, propertyId, propertySpec);
     }
 }
 
-static void gst_opkinfer_get_property(GObject *o, guint id, GValue *v, GParamSpec *ps) {
-    auto *self = (GstOpkInfer *)o;
-    switch (id) {
+static void gst_opkinfer_get_property(GObject *selfInParentType,
+                                      guint propertyId,
+                                      GValue *value,
+                                      GParamSpec *propertySpec) {
+    auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
+    switch (propertyId) {
     case PROP_COPY_INPUT:
-        g_value_set_boolean(v, g_atomic_int_get(&self->copyInput));
+        g_value_set_boolean(value, g_atomic_int_get(&self->copyInput));
         break;
     case PROP_OPCHAIN_PATH:
-        g_value_set_string(v, self->opChainPath);
+        GST_OBJECT_LOCK(self);
+        g_value_set_string(value, self->opChainPath);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_MODEL_ACTIVE:
-        g_value_set_boolean(v, gst_opkinfer_is_active(self));
-        break;
-    case PROP_FORMAT:
-        g_value_set_string(v, self->format);
+        g_value_set_boolean(value, gst_opkinfer_is_active(self));
         break;
     case PROP_INFER_ID:
-        g_value_set_string(v, gst_opkinfer_get_effective_inferId(self));
+        GST_OBJECT_LOCK(self);
+        g_value_set_string(value, gst_opkinfer_get_effective_inferId(self));
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_AUDIO_HOP_SAMPLES:
         GST_OBJECT_LOCK(self);
-        g_value_set_uint(v, self->audioHopSamples);
+        g_value_set_uint(value, self->audioHopSamples);
         GST_OBJECT_UNLOCK(self);
         break;
     case PROP_QOS_ENABLED:
         GST_OBJECT_LOCK(self);
-        g_value_set_boolean(v, self->qosEnabled);
+        g_value_set_boolean(value, self->qosEnabled);
         GST_OBJECT_UNLOCK(self);
         break;
     case PROP_QOS_ACCEPTED_EVENTS_DEBUG:
         GST_OBJECT_LOCK(self);
-        g_value_set_uint64(v, self->qosAcceptedEventsDebug);
+        g_value_set_uint64(value, self->qosAcceptedEventsDebug);
         GST_OBJECT_UNLOCK(self);
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(selfInParentType, propertyId, propertySpec);
     }
 }
 
-static void gst_opkinfer_finalize(GObject *object) {
-    auto *self = reinterpret_cast<GstOpkInfer *>(object);
+static void gst_opkinfer_finalize(GObject *selfInParentType) {
+    auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
 
-    delete self->m;
-    self->m = nullptr;
+    std::destroy_at(&self->runtimeMembers);
     g_clear_pointer(&self->opChainPath, g_free);
-    g_clear_pointer(&self->format, g_free);
     g_clear_pointer(&self->inferId, g_free);
 
-    G_OBJECT_CLASS(gst_opkinfer_parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_opkinfer_parent_class)->finalize(selfInParentType);
 }
 
-static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
-    GObjectClass *gobj = G_OBJECT_CLASS(klass);
-    GstElementClass *ecls = GST_ELEMENT_CLASS(klass);
-    GstBaseTransformClass *bcls = GST_BASE_TRANSFORM_CLASS(klass);
+static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
+    GObjectClass *objectClass = G_OBJECT_CLASS(inferClass);
+    GstElementClass *elementClass = GST_ELEMENT_CLASS(inferClass);
+    GstBaseTransformClass *baseTransformClass = GST_BASE_TRANSFORM_CLASS(inferClass);
 
-    gobj->set_property = gst_opkinfer_set_property;
-    gobj->get_property = gst_opkinfer_get_property;
-    gobj->finalize = gst_opkinfer_finalize;
+    objectClass->set_property = gst_opkinfer_set_property;
+    objectClass->get_property = gst_opkinfer_get_property;
+    objectClass->finalize = gst_opkinfer_finalize;
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_OPCHAIN_PATH,
-        g_param_spec_string("opchain-path",
-                            "OpChain path",
-                            "Path to OpChain setup JSON",
-                            nullptr,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_string(
+            "opchain-path",
+            "OpChain path",
+            "Path to OpChain setup JSON"
+            "; Set in NULL or READY; restart via READY required because the OpChain is loaded at "
+            "start",
+            nullptr,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_MODEL_ACTIVE,
         g_param_spec_boolean("active",
                              "Active",
-                             "Do or not do",
+                             "Do or not do"
+                             "; Changeable while playing; model loading still happens at startup",
                              true,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
-        PROP_FORMAT,
-        g_param_spec_string("format",
-                            "Video format",
-                            "Video format (BGRA, RGB, I420, NV12, or YUY2)",
-                            "BGRA",
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_INFER_ID,
-        g_param_spec_string("infer-id",
-                            "ID of the inference element",
-                            "ID of the inference element (used in Plumber to identify the layers. "
-                            "Defaults to the name property of the element)",
-                            "",
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_string(
+            "infer-id",
+            "ID of the inference element",
+            "ID of the inference element (used in Plumber to identify the layers. "
+            "Defaults to the name property of the element)"
+            "; Set in NULL or READY; restart via READY required because result producer identity "
+            "must remain stable while processing",
+            "",
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_QOS_ENABLED,
         g_param_spec_boolean("qos-enabled",
                              "QoS enabled",
-                             "Enable experimental inference skipping from QoS feedback",
+                             "Enable experimental inference skipping from QoS feedback"
+                             "; Changeable while playing; disabling resets inference skipping",
                              false,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_QOS_ACCEPTED_EVENTS_DEBUG,
         g_param_spec_uint64("qos-accepted-events-debug",
                             "QoS accepted events debug",
@@ -1067,12 +1100,14 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
     ", layout=interleaved, rate=[1,384000], channels=[1,64]"
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_AUDIO_HOP_SAMPLES,
         g_param_spec_uint(
             "audio-hop-samples",
             "Audio hop samples",
-            "New mono 16 kHz samples between audio windows; 0 uses the PCM input window size",
+            "New mono 16 kHz samples between audio windows; 0 uses the PCM input window size"
+            "; Set in NULL or READY; restart via READY required because audio window scheduling is "
+            "configured during negotiation",
             0,
             G_MAXUINT,
             0,
@@ -1080,11 +1115,13 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
                                      GST_PARAM_MUTABLE_READY)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_COPY_INPUT,
         g_param_spec_boolean("copy-input",
                              "Copy input",
-                             "Copy video into CPU memory instead of retaining the input DMA-BUF",
+                             "Copy video into CPU memory instead of retaining the input DMA-BUF"
+                             "; Set in NULL or READY; restart via READY required because video "
+                             "memory and caps are negotiated at startup",
                              FALSE,
                              static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                                       GST_PARAM_MUTABLE_READY)));
@@ -1092,35 +1129,35 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
     GstCaps *const caps = gst_caps_from_string(
         (std::string(gst::Tools::supportedVideoCaps) + "; " OPKINFER_AUDIO_CAPS).c_str());
     gst_element_class_add_pad_template(
-        ecls, gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps));
+        elementClass, gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps));
     gst_element_class_add_pad_template(
-        ecls, gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps));
+        elementClass, gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps));
     gst_caps_unref(caps);
 #undef OPKINFER_AUDIO_CAPS
 #undef OPKINFER_AUDIO_FORMATS
 
-    gst_element_class_set_static_metadata(ecls,
+    gst_element_class_set_static_metadata(elementClass,
                                           "OPK Inference",
                                           "Filter/Effect/Video",
                                           "ONNX Runtime inference",
                                           "Arm Limited <perception-fdbck@arm.com>");
 
-    bcls->start = gst_opkinfer_start;
-    bcls->stop = gst_opkinfer_stop;
-    bcls->set_caps = gst_opkinfer_set_caps;
-    bcls->transform_caps = gst_opkinfer_transform_caps;
-    bcls->sink_event = gst_opkinfer_sink_event;
-    bcls->src_event = gst_opkinfer_src_event;
-    bcls->transform_ip = gst_opkinfer_transform_ip;
-    bcls->prepare_output_buffer = gst_opkinfer_prepare_output_buffer;
-    ecls->change_state = gst_opkinfer_change_state;
+    baseTransformClass->start = gst_opkinfer_start;
+    baseTransformClass->stop = gst_opkinfer_stop;
+    baseTransformClass->set_caps = gst_opkinfer_set_caps;
+    baseTransformClass->transform_caps = gst_opkinfer_transform_caps;
+    baseTransformClass->sink_event = gst_opkinfer_sink_event;
+    baseTransformClass->src_event = gst_opkinfer_src_event;
+    baseTransformClass->transform_ip = gst_opkinfer_transform_ip;
+    baseTransformClass->prepare_output_buffer = gst_opkinfer_prepare_output_buffer;
+    elementClass->change_state = gst_opkinfer_change_state;
 }
 
 static void gst_opkinfer_init(GstOpkInfer *self) {
     self->opChainPath = nullptr;
     self->active = true;
     self->copyInput = false;
-    self->m = nullptr;
+    std::construct_at(&self->runtimeMembers);
     self->inferId = nullptr;
     self->qosEnabled = false;
     self->qosAcceptedEventsDebug = 0;
@@ -1132,12 +1169,11 @@ static void gst_opkinfer_init(GstOpkInfer *self) {
     self->qosDropped = 0;
     self->qosGeneration = 0;
 
-    gst_video_info_init(&self->vinfo);
-    gst_audio_info_init(&self->ainfo);
+    gst_video_info_init(&self->videoInfo);
+    gst_audio_info_init(&self->audioInfo);
     self->isAudio = FALSE;
     self->audioHopSamples = 0;
 
-    self->format = g_strdup("BGRA");
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     gst_base_transform_set_passthrough(GST_BASE_TRANSFORM(self), FALSE);
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);

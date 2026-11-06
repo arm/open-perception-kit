@@ -17,6 +17,7 @@
 
 #include "DebugOverlayRenderer.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/PropertyGuard.h"
 #include "gst/Tools.h"
 #include "mediaio/GstVideoFrame.h"
 #include "opk/Bitmap.h"
@@ -113,7 +114,7 @@ static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *base, GstB
 static GstFlowReturn gst_opk_osd_transform_frame_in_place(GstOpkOsd *filter, GstVideoFrame *frame);
 static gboolean gst_opk_osd_start(GstBaseTransform *trans);
 static gboolean gst_opk_osd_stop(GstBaseTransform *trans);
-static bool gst_opk_osd_load_bg_image(GstOpkOsd *self);
+static bool gst_opk_osd_load_bg_image(GstOpkOsd *self, const gchar *const path);
 
 #define gst_opk_osd_parent_class parent_class
 G_DEFINE_TYPE(GstOpkOsd, gst_opk_osd, GST_TYPE_BASE_TRANSFORM);
@@ -139,18 +140,22 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
         static_cast<guint>(PropertyId::Enabled),
         g_param_spec_boolean("enabled",
                              "Enabled",
-                             "Enable or disable OSD overlay",
+                             "Enable or disable OSD overlay"
+                             "; Changeable while playing",
                              DEFAULT_ENABLED,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         gobject_class,
         static_cast<guint>(PropertyId::PerformanceOverlayEnabled),
         g_param_spec_boolean("performance-overlay-enabled",
                              "Performance Overlay Enabled",
-                             "Enable or disable drawing performance metadata",
+                             "Enable or disable drawing performance metadata"
+                             "; Changeable while playing",
                              DEFAULT_PERFORMANCE_OVERLAY_ENABLED,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         gobject_class,
@@ -159,19 +164,23 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
             "bg-image",
             "Background Image",
             "Optional replacement background image applied where the segmentation mask marks "
-            "background",
+            "background"
+            "; Changeable while playing; synchronously validates and loads before replacement",
             DEFAULT_BG_IMAGE,
-            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         gobject_class,
         static_cast<guint>(PropertyId::CopyInput),
-        g_param_spec_boolean("copy-input",
-                             "Copy input",
-                             "Draw on a CPU copy instead of the original DMA-BUF",
-                             FALSE,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
-                                                      GST_PARAM_MUTABLE_READY)));
+        g_param_spec_boolean(
+            "copy-input",
+            "Copy input",
+            "Draw on a CPU copy instead of the original DMA-BUF"
+            "; Set in NULL or READY; restart via READY required to renegotiate video memory",
+            FALSE,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
 
     gst_element_class_set_static_metadata(element_class,
                                           "OPK OSD Overlay",
@@ -201,21 +210,22 @@ static void gst_opk_osd_init(GstOpkOsd *self) {
     GST_DEBUG_OBJECT(self, "Initialized OpkOsd element");
 }
 
-static bool gst_opk_osd_load_bg_image(GstOpkOsd *self) {
-    self->bgImage.reset();
-
-    if (self->bgImagePath == nullptr || self->bgImagePath[0] == '\0') {
-        GST_DEBUG_OBJECT(self, "No bg-image configured");
-        return false;
+static bool gst_opk_osd_load_bg_image(GstOpkOsd *self, const gchar *const path) {
+    if (path == nullptr || path[0] == '\0') {
+        g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
+        self->bgImage.reset();
+        g_free(self->bgImagePath);
+        self->bgImagePath = g_strdup(DEFAULT_BG_IMAGE);
+        return true;
     }
 
     size_t imageWidth = 0;
     size_t imageHeight = 0;
-    auto loadedPixels = opk::Tools::loadImageFile(self->bgImagePath, imageWidth, imageHeight);
+    auto loadedPixels = opk::Tools::loadImageFile(path, imageWidth, imageHeight);
     if (!loadedPixels) {
         GST_WARNING_OBJECT(self,
                            "Failed to load bg-image '%s': %s",
-                           self->bgImagePath,
+                           path,
                            loadedPixels.error().toString().c_str());
         return false;
     }
@@ -226,7 +236,7 @@ static bool gst_opk_osd_load_bg_image(GstOpkOsd *self) {
     if (imageWidth == 0U || imageHeight == 0U ||
         imageWidth > std::numeric_limits<size_t>::max() / imageHeight ||
         imageWidth * imageHeight > std::numeric_limits<size_t>::max() / dstBytesPerPixel) {
-        GST_WARNING_OBJECT(self, "Invalid bg-image '%s': dimensions too large", self->bgImagePath);
+        GST_WARNING_OBJECT(self, "Invalid bg-image '%s': dimensions too large", path);
         return false;
     }
 
@@ -236,8 +246,7 @@ static bool gst_opk_osd_load_bg_image(GstOpkOsd *self) {
     const auto pixels = std::move(*loadedPixels);
 
     if (pixels.size() != srcByteCount) {
-        GST_WARNING_OBJECT(
-            self, "Invalid bg-image '%s': decoded byte count mismatch", self->bgImagePath);
+        GST_WARNING_OBJECT(self, "Invalid bg-image '%s': decoded byte count mismatch", path);
         return false;
     }
 
@@ -260,10 +269,14 @@ static bool gst_opk_osd_load_bg_image(GstOpkOsd *self) {
         }
     }
 
-    self->bgImage = std::move(bitmap);
+    {
+        g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
+        self->bgImage = std::move(bitmap);
+        g_free(self->bgImagePath);
+        self->bgImagePath = g_strdup(path);
+    }
 
-    GST_INFO_OBJECT(
-        self, "Loaded bg-image '%s' (%zux%zu)", self->bgImagePath, imageWidth, imageHeight);
+    GST_INFO_OBJECT(self, "Loaded bg-image '%s' (%zux%zu)", path, imageWidth, imageHeight);
     return true;
 }
 
@@ -271,26 +284,31 @@ static void
 gst_opk_osd_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     auto *self = GST_OPK_OSD(object);
 
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), pspec);
+    if (!propertyGuard.isChangeAllowed())
+        return;
+
     switch (static_cast<PropertyId>(prop_id)) {
     case PropertyId::CopyInput:
         g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
         gst_base_transform_reconfigure_src(GST_BASE_TRANSFORM(self));
         break;
     case PropertyId::Enabled:
-        self->enabled = g_value_get_boolean(value);
-        GST_INFO_OBJECT(self, "Enabled set to: %d", self->enabled);
+        g_atomic_int_set(&self->enabled, g_value_get_boolean(value));
         break;
 
     case PropertyId::PerformanceOverlayEnabled:
-        self->performanceOverlayEnabled = g_value_get_boolean(value);
-        GST_INFO_OBJECT(
-            self, "Performance overlay enabled set to: %d", self->performanceOverlayEnabled);
+        g_atomic_int_set(&self->performanceOverlayEnabled, g_value_get_boolean(value));
         break;
 
     case PropertyId::BgImage:
-        g_free(self->bgImagePath);
-        self->bgImagePath = g_value_dup_string(value);
-        gst_opk_osd_load_bg_image(self);
+        if (!gst_opk_osd_load_bg_image(self, g_value_get_string(value))) {
+            GST_ELEMENT_WARNING(self,
+                                RESOURCE,
+                                OPEN_READ,
+                                ("bg-image was not changed: unable to load the requested image"),
+                                (nullptr));
+        }
         break;
 
     default:
@@ -308,15 +326,17 @@ gst_opk_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSp
         g_value_set_boolean(value, g_atomic_int_get(&self->copyInput));
         break;
     case PropertyId::Enabled:
-        g_value_set_boolean(value, self->enabled);
+        g_value_set_boolean(value, g_atomic_int_get(&self->enabled));
         break;
 
     case PropertyId::PerformanceOverlayEnabled:
-        g_value_set_boolean(value, self->performanceOverlayEnabled);
+        g_value_set_boolean(value, g_atomic_int_get(&self->performanceOverlayEnabled));
         break;
 
     case PropertyId::BgImage:
+        GST_OBJECT_LOCK(self);
         g_value_set_string(value, self->bgImagePath);
+        GST_OBJECT_UNLOCK(self);
         break;
 
     default:
@@ -342,8 +362,14 @@ static gboolean gst_opk_osd_start(GstBaseTransform *trans) {
 
     GST_INFO_OBJECT(self, "Starting OpkOsd element");
     self->frameCount = 0;
-    gst_opk_osd_load_bg_image(self);
-
+    GST_OBJECT_LOCK(self);
+    const std::string path = self->bgImagePath ? self->bgImagePath : "";
+    GST_OBJECT_UNLOCK(self);
+    if (!gst_opk_osd_load_bg_image(self, path.c_str())) {
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, OPEN_READ, ("Unable to load bg-image '%s'", path.c_str()), (nullptr));
+        return FALSE;
+    }
     return TRUE;
 }
 
@@ -362,7 +388,8 @@ gst_opk_osd_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, GstB
                                           input,
                                           output,
                                           g_atomic_int_get(&self->copyInput),
-                                          self->enabled && opk::FrameResultsMeta::read(input));
+                                          g_atomic_int_get(&self->enabled) &&
+                                              opk::FrameResultsMeta::read(input));
 }
 
 static GstCaps *gst_opk_osd_transform_caps(GstBaseTransform *base,
@@ -379,7 +406,7 @@ static gboolean gst_opk_osd_set_caps(GstBaseTransform *base, GstCaps *caps, GstC
 
 static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *base, GstBuffer *buffer) {
     auto *self = GST_OPK_OSD(base);
-    if (!self->enabled || !opk::FrameResultsMeta::read(buffer)) {
+    if (!g_atomic_int_get(&self->enabled) || !opk::FrameResultsMeta::read(buffer)) {
         return GST_FLOW_OK;
     }
     std::vector<GstMemory *> memory;
@@ -566,7 +593,8 @@ makeDebugOverlayRequest(GstOpkOsd *self,
         .frameResults = &frameResults,
         .options =
             Osd::DebugOverlayOptions{
-                .performanceOverlayEnabled = self->performanceOverlayEnabled ? true : false,
+                .performanceOverlayEnabled =
+                    g_atomic_int_get(&self->performanceOverlayEnabled) != FALSE,
                 .backgroundImage = self->bgImage ? &*self->bgImage : nullptr,
             },
     };
@@ -592,7 +620,7 @@ static const char *debugOverlayStatusName(Osd::DebugOverlayStatus status) noexce
 static GstFlowReturn gst_opk_osd_transform_frame_in_place(GstOpkOsd *filter, GstVideoFrame *frame) {
     auto *self = GST_OPK_OSD(filter);
 
-    if (!self->enabled) {
+    if (!g_atomic_int_get(&self->enabled)) {
         return GST_FLOW_OK;
     }
 
@@ -600,9 +628,13 @@ static GstFlowReturn gst_opk_osd_transform_frame_in_place(GstOpkOsd *filter, Gst
 
     if (auto frameResults = opk::FrameResultsMeta::read(frame->buffer); frameResults != nullptr) {
         std::array<opk::ImagePlaneDesc, opk::MaxImagePlaneCount> debugOverlayPlanes{};
-        const auto request =
-            makeDebugOverlayRequest(self, frame, *frameResults, debugOverlayPlanes);
-        const auto status = Osd::drawDebugOverlay(request);
+        Osd::DebugOverlayStatus status;
+        {
+            g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
+            const auto request =
+                makeDebugOverlayRequest(self, frame, *frameResults, debugOverlayPlanes);
+            status = Osd::drawDebugOverlay(request);
+        }
         if (status == Osd::DebugOverlayStatus::InvalidSurface) {
             GST_ELEMENT_ERROR(self,
                               RESOURCE,

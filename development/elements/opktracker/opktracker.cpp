@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "gst/PropertyGuard.h"
+
 #include "Tracker.h"
 
 #include <gst/FrameResultsMeta.h>
@@ -37,7 +39,7 @@ G_DECLARE_FINAL_TYPE(GstOpkTracker, gst_opktracker, GST, OPKTRACKER, GstBaseTran
 struct _GstOpkTracker {
     GstBaseTransform parent;
 
-    GstVideoInfo vinfo;
+    GstVideoInfo videoInfo;
 
     gchar *contentType;
     gboolean useEmbeddings;
@@ -67,7 +69,7 @@ struct _GstOpkTracker {
     gchar *inferId;
 
     struct Members;
-    Members *m;
+    Members *runtimeMembers;
 };
 
 G_END_DECLS
@@ -143,7 +145,8 @@ static const gchar *gst_opktracker_get_effective_inferId(const GstOpkTracker *se
     return GST_OBJECT_NAME(GST_ELEMENT(self));
 }
 
-static opk::tracker::Config trackerConfigFromElement(const GstOpkTracker *self) {
+static opk::tracker::Config trackerConfigFromElement(GstOpkTracker *const self) {
+    g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     opk::tracker::Config config;
     config.contentType =
         self->contentType ? self->contentType : opk::tracker::Defaults::contentType;
@@ -176,22 +179,22 @@ static opk::tracker::Config trackerConfigFromElement(const GstOpkTracker *self) 
     return config;
 }
 
-static gboolean gst_opktracker_start(GstBaseTransform *b) {
-    auto *self = (GstOpkTracker *)b;
+static gboolean gst_opktracker_start(GstBaseTransform *selfInParentType) {
+    auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
 
-    if (!self->m) {
-        self->m = new GstOpkTracker::Members();
+    if (!self->runtimeMembers) {
+        self->runtimeMembers = new GstOpkTracker::Members();
     }
-    self->m->tracker.reset();
+    self->runtimeMembers->tracker.reset();
     self->kalmanDtFallbackActive = FALSE;
 
     return TRUE;
 }
 
-static gboolean gst_opktracker_stop(GstBaseTransform *b) {
-    auto *self = (GstOpkTracker *)b;
-    if (self->m) {
-        self->m->tracker.reset();
+static gboolean gst_opktracker_stop(GstBaseTransform *selfInParentType) {
+    auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
+    if (self->runtimeMembers) {
+        self->runtimeMembers->tracker.reset();
     }
     return TRUE;
 }
@@ -209,16 +212,17 @@ static bool gst_opktracker_is_supported_format(GstVideoFormat format) noexcept {
     }
 }
 
-static gboolean gst_opktracker_set_caps(GstBaseTransform *b, GstCaps *incaps, GstCaps *outcaps) {
-    auto *self = (GstOpkTracker *)b;
-    (void)outcaps;
+static gboolean
+gst_opktracker_set_caps(GstBaseTransform *selfInParentType, GstCaps *inCaps, GstCaps *outCaps) {
+    auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
+    (void)outCaps;
 
-    if (!gst_video_info_from_caps(&self->vinfo, incaps)) {
+    if (!gst_video_info_from_caps(&self->videoInfo, inCaps)) {
         GST_ERROR_OBJECT(self, "Failed to parse input caps");
         return FALSE;
     }
 
-    if (!gst_opktracker_is_supported_format(GST_VIDEO_INFO_FORMAT(&self->vinfo))) {
+    if (!gst_opktracker_is_supported_format(GST_VIDEO_INFO_FORMAT(&self->videoInfo))) {
         GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA, RGB, I420, NV12, or YUY2)");
         return FALSE;
     }
@@ -226,29 +230,32 @@ static gboolean gst_opktracker_set_caps(GstBaseTransform *b, GstCaps *incaps, Gs
     return TRUE;
 }
 
-static GstFlowReturn gst_opktracker_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
-    auto *self = (GstOpkTracker *)b;
+static GstFlowReturn gst_opktracker_transform_ip(GstBaseTransform *selfInParentType,
+                                                 GstBuffer *buffer) {
+    auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
 
-    if (!self->m) {
+    if (!self->runtimeMembers) {
         return GST_FLOW_OK;
     }
 
-    if (const auto frameResultsMeta = opk::FrameResultsMeta::get(buf); !frameResultsMeta) {
+    if (const auto frameResultsMeta = opk::FrameResultsMeta::get(buffer); !frameResultsMeta) {
         return GST_FLOW_OK;
     }
 
-    const GstClockTime runningTime =
-        GST_BUFFER_PTS_IS_VALID(buf)
-            ? gst_segment_to_running_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf))
-            : GST_CLOCK_TIME_NONE;
+    const GstClockTime runningTime = GST_BUFFER_PTS_IS_VALID(buffer)
+                                         ? gst_segment_to_running_time(&self->parent.segment,
+                                                                       GST_FORMAT_TIME,
+                                                                       GST_BUFFER_PTS(buffer))
+                                         : GST_CLOCK_TIME_NONE;
     const auto runningTimeMs = GST_CLOCK_TIME_IS_VALID(runningTime)
                                    ? std::optional<uint64_t>{GST_TIME_AS_MSECONDS(runningTime)}
                                    : std::nullopt;
-    opk::FrameResultsMeta::mutate<GstFlowReturn>(buf, [self, runningTimeMs](auto &frameResults) {
-        self->m->tracker.process(frameResults, trackerConfigFromElement(self), runningTimeMs);
+    opk::FrameResultsMeta::mutate<GstFlowReturn>(buffer, [self, runningTimeMs](auto &frameResults) {
+        self->runtimeMembers->tracker.process(
+            frameResults, trackerConfigFromElement(self), runningTimeMs);
         return GST_FLOW_OK;
     });
-    const auto &kalmanDeltaTime = self->m->tracker.kalmanDeltaTimeTracking();
+    const auto &kalmanDeltaTime = self->runtimeMembers->tracker.kalmanDeltaTimeTracking();
     if (kalmanDeltaTime.usesFallback() && !self->kalmanDtFallbackActive) {
         GST_DEBUG_OBJECT(self,
                          "Using fallback Kalman dt %.6f seconds (%s)",
@@ -264,172 +271,207 @@ static GstFlowReturn gst_opktracker_transform_ip(GstBaseTransform *b, GstBuffer 
     return GST_FLOW_OK;
 }
 
-static void gst_opktracker_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
-    auto *self = (GstOpkTracker *)o;
-    switch (id) {
-    case PROP_CONTENT_TYPE:
+static void gst_opktracker_set_property(GObject *selfInParentType,
+                                        guint propertyId,
+                                        const GValue *value,
+                                        GParamSpec *propertySpec) {
+    auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
+    if (!propertyGuard.isChangeAllowed())
+        return;
+    if (propertyId == PROP_ASSOCIATION_MODE) {
+        if (const gchar *const mode = g_value_get_string(value);
+            mode && g_strcmp0(mode, "iou") != 0 && g_strcmp0(mode, "embedding") != 0 &&
+            g_strcmp0(mode, "hybrid") != 0) {
+            GST_ELEMENT_WARNING(self,
+                                RESOURCE,
+                                SETTINGS,
+                                ("association-mode must be iou, embedding, or hybrid"),
+                                ("The previous value is unchanged"));
+            return;
+        }
+    }
+    g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
+    switch (propertyId) {
+    case PROP_CONTENT_TYPE: {
+        const auto *const requestedContentType = g_value_get_string(value);
         g_free(self->contentType);
-        self->contentType = g_value_dup_string(v);
+        self->contentType = g_strdup(requestedContentType ? requestedContentType
+                                                          : opk::tracker::Defaults::contentType);
         break;
+    }
     case PROP_USE_EMBEDDINGS:
-        self->useEmbeddings = g_value_get_boolean(v);
+        self->useEmbeddings = g_value_get_boolean(value);
         break;
-    case PROP_EMBEDDING_CONTENT_TYPE:
+    case PROP_EMBEDDING_CONTENT_TYPE: {
+        const auto *const requestedEmbeddingContentType = g_value_get_string(value);
         g_free(self->embeddingContentType);
-        self->embeddingContentType = g_value_dup_string(v);
+        self->embeddingContentType =
+            g_strdup(requestedEmbeddingContentType ? requestedEmbeddingContentType
+                                                   : opk::tracker::Defaults::embeddingContentType);
         break;
+    }
     case PROP_EMBEDDING_WEIGHT:
-        self->embeddingWeight = g_value_get_float(v);
+        self->embeddingWeight = g_value_get_float(value);
         break;
     case PROP_MIN_COSINE_SIMILARITY:
-        self->minCosineSimilarity = g_value_get_float(v);
+        self->minCosineSimilarity = g_value_get_float(value);
         break;
     case PROP_REID_REASSOCIATE_THRESHOLD:
-        self->reidReassociateThreshold = g_value_get_float(v);
+        self->reidReassociateThreshold = g_value_get_float(value);
         break;
     case PROP_DORMANT_TRACK_HISTORY_SECONDS:
-        self->dormantTrackHistorySeconds = g_value_get_float(v);
+        self->dormantTrackHistorySeconds = g_value_get_float(value);
         break;
     case PROP_IOU_THRESHOLD:
-        self->iouThreshold = g_value_get_float(v);
+        self->iouThreshold = g_value_get_float(value);
         break;
     case PROP_MAX_MISSED_FRAMES:
-        self->maxMissedFrames = g_value_get_int(v);
+        self->maxMissedFrames = g_value_get_int(value);
         break;
     case PROP_MIN_HITS_TO_CONFIRM:
-        self->minHitsToConfirm = g_value_get_int(v);
+        self->minHitsToConfirm = g_value_get_int(value);
         break;
     case PROP_APPEND_TRACK_ID_TO_TEXT:
-        self->appendIdentityIdToText = g_value_get_boolean(v);
+        self->appendIdentityIdToText = g_value_get_boolean(value);
         break;
     case PROP_TRACE_HISTORY_SECONDS:
-        self->traceHistorySeconds = g_value_get_float(v);
+        self->traceHistorySeconds = g_value_get_float(value);
         break;
     case PROP_KALMAN_DT_FALLBACK:
-        self->kalmanDtFallback = g_value_get_float(v);
+        self->kalmanDtFallback = g_value_get_float(value);
         break;
     case PROP_KALMAN_DT_FORCE_FALLBACK:
-        self->kalmanDtForceFallback = g_value_get_boolean(v);
+        self->kalmanDtForceFallback = g_value_get_boolean(value);
         break;
     case PROP_KALMAN_INITIAL_COVARIANCE_POS:
-        self->kalmanInitialCovariancePos = g_value_get_float(v);
+        self->kalmanInitialCovariancePos = g_value_get_float(value);
         break;
     case PROP_KALMAN_INITIAL_COVARIANCE_VEL:
-        self->kalmanInitialCovarianceVel = g_value_get_float(v);
+        self->kalmanInitialCovarianceVel = g_value_get_float(value);
         break;
     case PROP_KALMAN_PROCESS_NOISE_POS:
-        self->kalmanProcessNoisePos = g_value_get_float(v);
+        self->kalmanProcessNoisePos = g_value_get_float(value);
         break;
     case PROP_KALMAN_PROCESS_NOISE_VEL:
-        self->kalmanProcessNoiseVel = g_value_get_float(v);
+        self->kalmanProcessNoiseVel = g_value_get_float(value);
         break;
     case PROP_KALMAN_MEASUREMENT_NOISE_POS:
-        self->kalmanMeasurementNoisePos = g_value_get_float(v);
+        self->kalmanMeasurementNoisePos = g_value_get_float(value);
         break;
     case PROP_USE_KALMAN:
-        self->useKalman = g_value_get_boolean(v);
+        self->useKalman = g_value_get_boolean(value);
         break;
     case PROP_EMIT_PREDICTED_DETECTIONS:
-        self->emitPredictedDetections = g_value_get_boolean(v);
+        self->emitPredictedDetections = g_value_get_boolean(value);
         break;
     case PROP_EMIT_TRACE:
-        self->emitTrace = g_value_get_boolean(v);
+        self->emitTrace = g_value_get_boolean(value);
         break;
-    case PROP_ASSOCIATION_MODE:
+    case PROP_ASSOCIATION_MODE: {
+        const auto *const requestedAssociationMode = g_value_get_string(value);
         g_free(self->associationMode);
-        self->associationMode = g_value_dup_string(v);
+        self->associationMode =
+            g_strdup(requestedAssociationMode
+                         ? requestedAssociationMode
+                         : associationModeToString(opk::tracker::Defaults::associationMode));
         break;
+    }
     case PROP_INFER_ID:
         g_free(self->inferId);
-        self->inferId = g_value_dup_string(v);
+        self->inferId = g_value_dup_string(value);
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(selfInParentType, propertyId, propertySpec);
     }
 }
 
-static void gst_opktracker_get_property(GObject *o, guint id, GValue *v, GParamSpec *ps) {
-    auto *self = (GstOpkTracker *)o;
-    switch (id) {
+static void gst_opktracker_get_property(GObject *selfInParentType,
+                                        guint propertyId,
+                                        GValue *value,
+                                        GParamSpec *propertySpec) {
+    auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
+    g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
+    switch (propertyId) {
     case PROP_CONTENT_TYPE:
-        g_value_set_string(v, self->contentType);
+        g_value_set_string(value, self->contentType);
         break;
     case PROP_USE_EMBEDDINGS:
-        g_value_set_boolean(v, self->useEmbeddings);
+        g_value_set_boolean(value, self->useEmbeddings);
         break;
     case PROP_EMBEDDING_CONTENT_TYPE:
-        g_value_set_string(v, self->embeddingContentType);
+        g_value_set_string(value, self->embeddingContentType);
         break;
     case PROP_EMBEDDING_WEIGHT:
-        g_value_set_float(v, self->embeddingWeight);
+        g_value_set_float(value, self->embeddingWeight);
         break;
     case PROP_MIN_COSINE_SIMILARITY:
-        g_value_set_float(v, self->minCosineSimilarity);
+        g_value_set_float(value, self->minCosineSimilarity);
         break;
     case PROP_REID_REASSOCIATE_THRESHOLD:
-        g_value_set_float(v, self->reidReassociateThreshold);
+        g_value_set_float(value, self->reidReassociateThreshold);
         break;
     case PROP_DORMANT_TRACK_HISTORY_SECONDS:
-        g_value_set_float(v, self->dormantTrackHistorySeconds);
+        g_value_set_float(value, self->dormantTrackHistorySeconds);
         break;
     case PROP_IOU_THRESHOLD:
-        g_value_set_float(v, self->iouThreshold);
+        g_value_set_float(value, self->iouThreshold);
         break;
     case PROP_MAX_MISSED_FRAMES:
-        g_value_set_int(v, self->maxMissedFrames);
+        g_value_set_int(value, self->maxMissedFrames);
         break;
     case PROP_MIN_HITS_TO_CONFIRM:
-        g_value_set_int(v, self->minHitsToConfirm);
+        g_value_set_int(value, self->minHitsToConfirm);
         break;
     case PROP_APPEND_TRACK_ID_TO_TEXT:
-        g_value_set_boolean(v, self->appendIdentityIdToText);
+        g_value_set_boolean(value, self->appendIdentityIdToText);
         break;
     case PROP_TRACE_HISTORY_SECONDS:
-        g_value_set_float(v, self->traceHistorySeconds);
+        g_value_set_float(value, self->traceHistorySeconds);
         break;
     case PROP_KALMAN_DT_FALLBACK:
-        g_value_set_float(v, self->kalmanDtFallback);
+        g_value_set_float(value, self->kalmanDtFallback);
         break;
     case PROP_KALMAN_DT_FORCE_FALLBACK:
-        g_value_set_boolean(v, self->kalmanDtForceFallback);
+        g_value_set_boolean(value, self->kalmanDtForceFallback);
         break;
     case PROP_KALMAN_INITIAL_COVARIANCE_POS:
-        g_value_set_float(v, self->kalmanInitialCovariancePos);
+        g_value_set_float(value, self->kalmanInitialCovariancePos);
         break;
     case PROP_KALMAN_INITIAL_COVARIANCE_VEL:
-        g_value_set_float(v, self->kalmanInitialCovarianceVel);
+        g_value_set_float(value, self->kalmanInitialCovarianceVel);
         break;
     case PROP_KALMAN_PROCESS_NOISE_POS:
-        g_value_set_float(v, self->kalmanProcessNoisePos);
+        g_value_set_float(value, self->kalmanProcessNoisePos);
         break;
     case PROP_KALMAN_PROCESS_NOISE_VEL:
-        g_value_set_float(v, self->kalmanProcessNoiseVel);
+        g_value_set_float(value, self->kalmanProcessNoiseVel);
         break;
     case PROP_KALMAN_MEASUREMENT_NOISE_POS:
-        g_value_set_float(v, self->kalmanMeasurementNoisePos);
+        g_value_set_float(value, self->kalmanMeasurementNoisePos);
         break;
     case PROP_USE_KALMAN:
-        g_value_set_boolean(v, self->useKalman);
+        g_value_set_boolean(value, self->useKalman);
         break;
     case PROP_EMIT_PREDICTED_DETECTIONS:
-        g_value_set_boolean(v, self->emitPredictedDetections);
+        g_value_set_boolean(value, self->emitPredictedDetections);
         break;
     case PROP_EMIT_TRACE:
-        g_value_set_boolean(v, self->emitTrace);
+        g_value_set_boolean(value, self->emitTrace);
         break;
     case PROP_ASSOCIATION_MODE:
-        g_value_set_string(v, self->associationMode);
+        g_value_set_string(value, self->associationMode);
         break;
     case PROP_INFER_ID:
-        g_value_set_string(v, gst_opktracker_get_effective_inferId(self));
+        g_value_set_string(value, gst_opktracker_get_effective_inferId(self));
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(selfInParentType, propertyId, propertySpec);
     }
 }
 
-static void gst_opktracker_finalize(GObject *object) {
-    auto *self = (GstOpkTracker *)object;
+static void gst_opktracker_finalize(GObject *selfInParentType) {
+    auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
 
     g_free(self->contentType);
     self->contentType = nullptr;
@@ -443,292 +485,351 @@ static void gst_opktracker_finalize(GObject *object) {
     g_free(self->inferId);
     self->inferId = nullptr;
 
-    delete self->m;
-    self->m = nullptr;
+    delete self->runtimeMembers;
+    self->runtimeMembers = nullptr;
 
-    G_OBJECT_CLASS(gst_opktracker_parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_opktracker_parent_class)->finalize(selfInParentType);
 }
 
-static void gst_opktracker_class_init(GstOpkTrackerClass *klass) {
-    GObjectClass *gobj = G_OBJECT_CLASS(klass);
-    GstElementClass *ecls = GST_ELEMENT_CLASS(klass);
-    GstBaseTransformClass *bcls = GST_BASE_TRANSFORM_CLASS(klass);
+static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
+    GObjectClass *objectClass = G_OBJECT_CLASS(trackerClass);
+    GstElementClass *elementClass = GST_ELEMENT_CLASS(trackerClass);
+    GstBaseTransformClass *baseTransformClass = GST_BASE_TRANSFORM_CLASS(trackerClass);
 
-    gobj->set_property = gst_opktracker_set_property;
-    gobj->get_property = gst_opktracker_get_property;
-    gobj->finalize = gst_opktracker_finalize;
+    objectClass->set_property = gst_opktracker_set_property;
+    objectClass->get_property = gst_opktracker_get_property;
+    objectClass->finalize = gst_opktracker_finalize;
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_CONTENT_TYPE,
-        g_param_spec_string("content-type",
-                            "Content type",
-                            "FrameResults layer content type to track",
-                            opk::tracker::Defaults::contentType,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_string(
+            "content-type",
+            "Content type",
+            "FrameResults layer content type to track"
+            "; Set in NULL or READY; restart via READY resets tracking history for changed "
+            "identity/content",
+            opk::tracker::Defaults::contentType,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_USE_EMBEDDINGS,
         g_param_spec_boolean("use-embeddings",
                              "Use embeddings",
-                             "Enable ReID embedding-based association",
+                             "Enable ReID embedding-based association"
+                             "; Changeable while playing; applied to subsequent frames",
                              opk::tracker::Defaults::useEmbeddings,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_EMBEDDING_CONTENT_TYPE,
-        g_param_spec_string("embedding-content-type",
-                            "Embedding content type",
-                            "FrameResults layer content type containing object embeddings",
-                            opk::tracker::Defaults::embeddingContentType,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_string(
+            "embedding-content-type",
+            "Embedding content type",
+            "FrameResults layer content type containing object embeddings"
+            "; Set in NULL or READY; restart via READY resets tracking history for changed "
+            "identity/content",
+            opk::tracker::Defaults::embeddingContentType,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_EMBEDDING_WEIGHT,
         g_param_spec_float("embedding-weight",
                            "Embedding weight",
-                           "Blend factor between IoU and embedding cost (0..1)",
+                           "Blend factor between IoU and embedding cost (0..1)"
+                           "; Changeable while playing; applied to subsequent frames",
                            0.0f,
                            1.0f,
                            opk::tracker::Defaults::embeddingWeight,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_MIN_COSINE_SIMILARITY,
         g_param_spec_float("min-cosine-similarity",
                            "Min cosine similarity",
-                           "Minimum cosine similarity to accept embedding contribution",
+                           "Minimum cosine similarity to accept embedding contribution"
+                           "; Changeable while playing; applied to subsequent frames",
                            -1.0f,
                            1.0f,
                            opk::tracker::Defaults::minCosineSimilarity,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_REID_REASSOCIATE_THRESHOLD,
         g_param_spec_float("reid-reassociate-threshold",
                            "ReID reassociate threshold",
-                           "Similarity threshold to restore track from dormant gallery",
+                           "Similarity threshold to restore track from dormant gallery"
+                           "; Changeable while playing; applied to subsequent frames",
                            -1.0f,
                            1.0f,
                            opk::tracker::Defaults::reidReassociateThreshold,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_DORMANT_TRACK_HISTORY_SECONDS,
         g_param_spec_float("dormant-track-history-seconds",
                            "Dormant track history seconds",
-                           "How long expired track embeddings remain available for reassociation",
+                           "How long expired track embeddings remain available for reassociation"
+                           "; Changeable while playing; applied to subsequent frames",
                            0.0f,
                            G_MAXFLOAT,
                            opk::tracker::Defaults::dormantTrackHistorySeconds,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_IOU_THRESHOLD,
         g_param_spec_float("iou-threshold",
                            "IoU threshold",
-                           "Minimum IoU for matching detection to track",
+                           "Minimum IoU for matching detection to track"
+                           "; Changeable while playing; applied to subsequent frames",
                            0.0f,
                            1.0f,
                            opk::tracker::Defaults::iouThreshold,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_MAX_MISSED_FRAMES,
         g_param_spec_int("max-missed-frames",
                          "Max missed frames",
-                         "Frames to keep unmatched tracks alive",
+                         "Frames to keep unmatched tracks alive"
+                         "; Changeable while playing; applied to subsequent frames",
                          0,
                          G_MAXINT,
                          opk::tracker::Defaults::maxMissedFrames,
-                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                         static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                  GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_MIN_HITS_TO_CONFIRM,
         g_param_spec_int("min-hits-to-confirm",
                          "Min hits to confirm",
-                         "Hits before track is shown",
+                         "Hits before track is shown"
+                         "; Changeable while playing; applied to subsequent frames",
                          1,
                          G_MAXINT,
                          opk::tracker::Defaults::minHitsToConfirm,
-                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                         static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                  GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_APPEND_TRACK_ID_TO_TEXT,
         g_param_spec_boolean("append-track-id-to-text",
                              "Append track ID",
-                             "Append [ID:n] to detection text",
+                             "Append [ID:n] to detection text"
+                             "; Changeable while playing; applied to subsequent frames",
                              opk::tracker::Defaults::appendIdentityIdToText,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_TRACE_HISTORY_SECONDS,
         g_param_spec_float(
             "trace-history-seconds",
             "Trace history seconds",
-            "Time-window for trace history (stored points use the current Kalman time step)",
+            "Time-window for trace history (stored points use the current Kalman time step)"
+            "; Changeable while playing; applied to subsequent frames",
             0.0f,
             G_MAXFLOAT,
             opk::tracker::Defaults::traceHistorySeconds,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_KALMAN_DT_FALLBACK,
         g_param_spec_float("kalman-dt-fallback",
                            "Kalman dt fallback",
-                           "Kalman time step used when timestamps are unavailable or forced",
+                           "Kalman time step used when timestamps are unavailable or forced"
+                           "; Changeable while playing; applied to subsequent frames",
                            0.0001f,
                            G_MAXFLOAT,
                            opk::tracker::Defaults::kalmanDtFallback,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_KALMAN_DT_FORCE_FALLBACK,
         g_param_spec_boolean("kalman-dt-force-fallback",
                              "Force Kalman dt fallback",
-                             "Use kalman-dt-fallback instead of buffer timestamps",
+                             "Use kalman-dt-fallback instead of buffer timestamps"
+                             "; Changeable while playing; applied to subsequent frames",
                              opk::tracker::Defaults::kalmanDtForceFallback,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_KALMAN_INITIAL_COVARIANCE_POS,
-        g_param_spec_float("kalman-initial-covariance-pos",
-                           "Kalman initial covariance position",
-                           "Initial position covariance",
-                           0.0f,
-                           G_MAXFLOAT,
-                           opk::tracker::Defaults::kalmanInitialCovariancePos,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_float(
+            "kalman-initial-covariance-pos",
+            "Kalman initial covariance position",
+            "Initial position covariance"
+            "; Changeable while playing; applied to subsequent frames when creating new tracks; "
+            "existing tracks retain their covariance",
+            0.0f,
+            G_MAXFLOAT,
+            opk::tracker::Defaults::kalmanInitialCovariancePos,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_KALMAN_INITIAL_COVARIANCE_VEL,
-        g_param_spec_float("kalman-initial-covariance-vel",
-                           "Kalman initial covariance velocity",
-                           "Initial velocity covariance",
-                           0.0f,
-                           G_MAXFLOAT,
-                           opk::tracker::Defaults::kalmanInitialCovarianceVel,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_float(
+            "kalman-initial-covariance-vel",
+            "Kalman initial covariance velocity",
+            "Initial velocity covariance"
+            "; Changeable while playing; applied to subsequent frames when creating new tracks; "
+            "existing tracks retain their covariance",
+            0.0f,
+            G_MAXFLOAT,
+            opk::tracker::Defaults::kalmanInitialCovarianceVel,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_KALMAN_PROCESS_NOISE_POS,
         g_param_spec_float("kalman-process-noise-pos",
                            "Kalman process noise position",
-                           "Process noise on position",
+                           "Process noise on position"
+                           "; Changeable while playing; applied to subsequent frames",
                            0.0f,
                            G_MAXFLOAT,
                            opk::tracker::Defaults::kalmanProcessNoisePos,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_KALMAN_PROCESS_NOISE_VEL,
         g_param_spec_float("kalman-process-noise-vel",
                            "Kalman process noise velocity",
-                           "Process noise on velocity",
+                           "Process noise on velocity"
+                           "; Changeable while playing; applied to subsequent frames",
                            0.0f,
                            G_MAXFLOAT,
                            opk::tracker::Defaults::kalmanProcessNoiseVel,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_KALMAN_MEASUREMENT_NOISE_POS,
         g_param_spec_float("kalman-measurement-noise-pos",
                            "Kalman measurement noise position",
-                           "Measurement noise on x/y",
+                           "Measurement noise on x/y"
+                           "; Changeable while playing; applied to subsequent frames",
                            0.0f,
                            G_MAXFLOAT,
                            opk::tracker::Defaults::kalmanMeasurementNoisePos,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_USE_KALMAN,
         g_param_spec_boolean("use-kalman",
                              "Use Kalman",
-                             "Enable Kalman prediction and measurement smoothing",
+                             "Enable Kalman prediction and measurement smoothing"
+                             "; Changeable while playing; applied to subsequent frames",
                              opk::tracker::Defaults::useKalman,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_EMIT_PREDICTED_DETECTIONS,
         g_param_spec_boolean("emit-predicted-detections",
                              "Emit predicted detections",
-                             "Append predicted-only tracks when detections are temporarily missing",
+                             "Append predicted-only tracks when detections are temporarily missing"
+                             "; Changeable while playing; applied to subsequent frames",
                              opk::tracker::Defaults::emitPredictedDetections,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_EMIT_TRACE,
         g_param_spec_boolean("emit-trace",
                              "Emit trace",
-                             "Append trackTrace output for active tracks",
+                             "Append trackTrace output for active tracks"
+                             "; Changeable while playing; applied to subsequent frames",
                              opk::tracker::Defaults::emitTrace,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_ASSOCIATION_MODE,
         g_param_spec_string("association-mode",
                             "Association mode",
-                            "Association strategy: hybrid, iou, or embedding",
+                            "Association strategy: hybrid, iou, or embedding"
+                            "; Changeable while playing; applied to subsequent frames",
                             associationModeToString(opk::tracker::Defaults::associationMode),
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                     GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobj,
+        objectClass,
         PROP_INFER_ID,
-        g_param_spec_string("infer-id",
-                            "ID of the inference element",
-                            "ID of the inference element (used in Plumber to identify the layers. "
-                            "Defaults to the name property of the element)",
-                            "",
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_string(
+            "infer-id",
+            "ID of the inference element",
+            "ID of the inference element (used in Plumber to identify the layers. "
+            "Defaults to the name property of the element)"
+            "; Set in NULL or READY; restart via READY resets tracking history for changed "
+            "identity/content",
+            "",
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
 
-    static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
+    static GstStaticPadTemplate sinkPadTemplate = GST_STATIC_PAD_TEMPLATE(
         "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(gst::Tools::supportedVideoCaps));
-    static GstStaticPadTemplate src_t = GST_STATIC_PAD_TEMPLATE(
+    static GstStaticPadTemplate sourcePadTemplate = GST_STATIC_PAD_TEMPLATE(
         "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS(gst::Tools::supportedVideoCaps));
-    gst_element_class_add_static_pad_template(ecls, &sink_t);
-    gst_element_class_add_static_pad_template(ecls, &src_t);
+    gst_element_class_add_static_pad_template(elementClass, &sinkPadTemplate);
+    gst_element_class_add_static_pad_template(elementClass, &sourcePadTemplate);
 
     gst_element_class_set_static_metadata(
-        ecls,
+        elementClass,
         "OPK Tracker",
         "Filter/Effect/Video",
         "Tracks detections across frames using FrameResults metadata",
         "Arm Limited <perception-fdbck@arm.com>");
 
-    bcls->start = gst_opktracker_start;
-    bcls->stop = gst_opktracker_stop;
-    bcls->set_caps = gst_opktracker_set_caps;
-    bcls->transform_ip = gst_opktracker_transform_ip;
-    bcls->prepare_output_buffer = [](GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
-        return gst::Tools::prepareVideoBuffer(base, input, output);
-    };
+    baseTransformClass->start = gst_opktracker_start;
+    baseTransformClass->stop = gst_opktracker_stop;
+    baseTransformClass->set_caps = gst_opktracker_set_caps;
+    baseTransformClass->transform_ip = gst_opktracker_transform_ip;
+    baseTransformClass->prepare_output_buffer =
+        [](GstBaseTransform *selfInParentType, GstBuffer *inputBuffer, GstBuffer **outputBuffer) {
+            return gst::Tools::prepareVideoBuffer(selfInParentType, inputBuffer, outputBuffer);
+        };
 }
 
 static void gst_opktracker_init(GstOpkTracker *self) {
-    self->m = nullptr;
+    self->runtimeMembers = nullptr;
 
     self->contentType = g_strdup(opk::tracker::Defaults::contentType);
     self->useEmbeddings = opk::tracker::Defaults::useEmbeddings;
@@ -757,7 +858,7 @@ static void gst_opktracker_init(GstOpkTracker *self) {
         g_strdup(associationModeToString(opk::tracker::Defaults::associationMode));
     self->inferId = nullptr;
 
-    gst_video_info_init(&self->vinfo);
+    gst_video_info_init(&self->videoInfo);
 
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     gst_base_transform_set_passthrough(GST_BASE_TRANSFORM(self), FALSE);

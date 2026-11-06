@@ -98,11 +98,24 @@ scopes therefore disappear instead of leaving stale rows.
 
 The interval is process-wide, matching the recorder's ownership model.
 
-## Controls
+## Properties
 
-- `enabled`: enable or disable publishing.
-- `update-interval`: refresh cadence in frames.
-- `show-all-metrics`: publish all completed interval scopes instead of the
-  compact stage view.
-- The upstream `opkperformance` event can toggle `enabled` at runtime.
-- The element appends `PerformanceOverlayT`; `opkosd` or the WebUI renders it.
+In the table, **Live** permits
+writes in NULL, READY, PAUSED and PLAYING; **NULL/READY** and **NULL** restrict
+writes to those states. Read-only entries cannot be set.
+
+| Property | Purpose | Default | Accepted values / Example | Changeable in |
+| --- | --- | --- | --- | --- |
+| `update-interval` | Refresh the performance overlay every N frames. | `5` | Unsigned integer, 1–120; e.g. `10`. | Live |
+| `show-all-metrics` | Publish all completed interval scopes instead of the compact stage view. | `false` | `true`, `false` | Live |
+| `enabled` | Enable performance metadata generation. | `true` | `true`, `false` | Live |
+
+The upstream `opkperformance` event can also toggle `enabled` at runtime.
+The element appends `PerformanceOverlayT`; `opkosd` or the WebUI renders it.
+
+`enabled`, `show-all-metrics`, and `update-interval` are live properties.
+Measurement and configuration access are synchronized; no pipeline restart is
+needed. Changes affect subsequent measurement/overlay updates.
+
+See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
+for discovery, readback, validation and the explicit restart procedure.
