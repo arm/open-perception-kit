@@ -77,7 +77,8 @@ class FrameResultsNormalizeTests(unittest.TestCase):
                            windowStartSample=512, windowEndSample=128512),
         ]))
         snapshot = normalize_frame_results(FrameResults(results.serialize()))
-        key = PayloadKey("open_perception_kit.metadata.TurnDetections", "infer0", "turnDetection", "model-a")
+        key = PayloadKey("open_perception_kit.metadata.TurnDetections", "infer0",
+                         "turnDetection", "model-a", "test/Producer", "infer0/fixture")
         items = snapshot.payloads[key].items
         self.assertEqual(len(items), 2)
         self.assertEqual(items[0]["item_type"], "TurnDetection")
@@ -115,7 +116,8 @@ class FrameResultsNormalizeTests(unittest.TestCase):
                                     windowStartSample=320, windowEndSample=640),
         ]))
         snapshot = normalize_frame_results(FrameResults(results.serialize()))
-        key = PayloadKey("open_perception_kit.metadata.VoiceActivityDetections", "infer0", "voiceActivity", "model-a")
+        key = PayloadKey("open_perception_kit.metadata.VoiceActivityDetections", "infer0",
+                         "voiceActivity", "model-a", "test/Producer", "infer0/fixture")
         items = snapshot.payloads[key].items
         self.assertEqual(len(items), 2)
         self.assertEqual(items[0]["data"]["windowStartTsNs"], 0)
@@ -168,12 +170,16 @@ class FrameResultsNormalizeTests(unittest.TestCase):
             infer_element_id="camera",
             content_type="frameContext",
             model="model-a",
+            producer_component="test/Producer",
+            producer_instance_id="camera/fixture",
         )
         box_key = PayloadKey(
             "open_perception_kit.metadata.BoxDetections",
             infer_element_id="infer0",
             content_type="humanFace",
             model="model-a",
+            producer_component="test/Producer",
+            producer_instance_id="infer0/fixture",
         )
 
         self.assertEqual(snapshot.frame_counter, 42)

@@ -1,0 +1,29 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+table CameraContactResult {
+  // Explicit semantic outcome; absence of the enclosing result means unavailable.
+  in_contact:bool;
+  confidence:float = null;
+  // Optional diagnostic model index. Consumers never derive the outcome from it.
+  model_class_index:uint = null;
+}
+
+table CameraContact {
+  object:open_perception_kit.metadata.ObjectMeta;
+  // Absent means no selected result. This does not manufacture a negative decision.
+  result:CameraContactResult;
+  // Subject observation ID, not a derivation parent or persistent track ID.
+  subject_id:ulong = null;
+}
+
+table CameraContacts {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:open_perception_kit.metadata.LayerInfo;
+  contacts:[CameraContact];
+}
+
+root_type CameraContacts;
+file_identifier "CCON";

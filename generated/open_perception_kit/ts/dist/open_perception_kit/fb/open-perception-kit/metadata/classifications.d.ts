@@ -19,7 +19,6 @@
 import * as flatbuffers from 'flatbuffers';
 import { Classification, ClassificationT } from '../../open-perception-kit/metadata/classification.js';
 import { LayerInfo, LayerInfoT } from '../../open-perception-kit/metadata/layer-info.js';
-import { PersonPresence, PersonPresenceT } from '../../open-perception-kit/metadata/person-presence.js';
 export declare class Classifications implements flatbuffers.IUnpackableObject<ClassificationsT> {
     bb: flatbuffers.ByteBuffer | null;
     bb_pos: number;
@@ -32,8 +31,6 @@ export declare class Classifications implements flatbuffers.IUnpackableObject<Cl
     layer(obj?: LayerInfo): LayerInfo | null;
     classifications(index: number, obj?: Classification): Classification | null;
     classificationsLength(): number;
-    personPresence(index: number, obj?: PersonPresence): PersonPresence | null;
-    personPresenceLength(): number;
     static startClassifications(builder: flatbuffers.Builder): void;
     static addSchemaMajor(builder: flatbuffers.Builder, schemaMajor: number): void;
     static addSchemaMinor(builder: flatbuffers.Builder, schemaMinor: number): void;
@@ -41,9 +38,6 @@ export declare class Classifications implements flatbuffers.IUnpackableObject<Cl
     static addClassifications(builder: flatbuffers.Builder, classificationsOffset: flatbuffers.Offset): void;
     static createClassificationsVector(builder: flatbuffers.Builder, data: flatbuffers.Offset[]): flatbuffers.Offset;
     static startClassificationsVector(builder: flatbuffers.Builder, numElems: number): void;
-    static addPersonPresence(builder: flatbuffers.Builder, personPresenceOffset: flatbuffers.Offset): void;
-    static createPersonPresenceVector(builder: flatbuffers.Builder, data: flatbuffers.Offset[]): flatbuffers.Offset;
-    static startPersonPresenceVector(builder: flatbuffers.Builder, numElems: number): void;
     static endClassifications(builder: flatbuffers.Builder): flatbuffers.Offset;
     static finishClassificationsBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
     static finishSizePrefixedClassificationsBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
@@ -55,7 +49,6 @@ export declare class ClassificationsT implements flatbuffers.IGeneratedObject {
     schemaMinor: number;
     layer: LayerInfoT | null;
     classifications: (ClassificationT)[];
-    personPresence: (PersonPresenceT)[];
-    constructor(schemaMajor?: number, schemaMinor?: number, layer?: LayerInfoT | null, classifications?: (ClassificationT)[], personPresence?: (PersonPresenceT)[]);
+    constructor(schemaMajor?: number, schemaMinor?: number, layer?: LayerInfoT | null, classifications?: (ClassificationT)[]);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

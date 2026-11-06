@@ -22,6 +22,7 @@ import {resolveOverlay, overlayStatus} from '../../src/overlay-features.js';
 import {indexFrame, outputSource, sourceKey} from '../../src/overlay-sources.js';
 import {bindPendingOverlays, createOverlay, loadOverlays, saveOverlays} from '../../src/overlays.js';
 import {render, select} from '../overlay-test-utils.mjs';
+import {ClassificationKind} from '../../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-kind.js';
 
 const video = {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {
     uuid: '42', originalWidth: 640, originalHeight: 480,
@@ -34,8 +35,8 @@ function fixture() {
         ]};
     const reader = {payloadType: 'Classifications', model: 'reader', contentType: '',
         producer: {instanceId: 'another-producer', component: 'parser'}, detections: [
-            {type: 'Classification', data: {uuid: '301', parentUuid: '201', candidates: [{text: '東京 AB', confidence: 0.9}]}},
-            {type: 'Classification', data: {uuid: '302', parentUuid: '9007199254740993', candidates: [{text: 'PLATE 1234', confidence: 0.95}]}},
+            {type: 'Classification', data: {uuid: '301', parentUuid: 'unrelated', subjectUuid: '201', kind: ClassificationKind.RecognizedText, candidates: [{text: '東京 AB', confidence: 0.9}]}},
+            {type: 'Classification', data: {uuid: '302', parentUuid: 'unrelated', subjectUuid: '9007199254740993', kind: ClassificationKind.RecognizedText, candidates: [{text: 'PLATE 1234', confidence: 0.95}]}},
         ]};
     return {detector, reader, frame: {layers: [video, detector, reader]}};
 }
@@ -67,7 +68,7 @@ test('OCR requires an explicit compatible source, without content-type or model-
     assert.equal(resolved({layers: [video, detector, {...reader, model: 'other'}]}, reader).state, 'waiting');
 });
 
-test('recognition joins explicitly positioned boxes by ID, not by order or producer name', () => {
+test('recognition joins declared subjects, not derivation parents, order or producer names', () => {
     const {detector, reader, frame} = fixture();
     const other = {...reader, model: 'other reader', detections: [{...reader.detections[0], data: {
         ...reader.detections[0].data, candidates: [{text: 'WRONG', confidence: 1}],
@@ -86,6 +87,21 @@ test('recognition joins explicitly positioned boxes by ID, not by order or produ
     assert.equal(resolved(frame, reader).regions[0].text, '', 'whitespace-only results never become an ellipsis label');
     reader.detections = [];
     assert.deepEqual(resolved(frame, reader).items, []);
+});
+
+test('categorical labels and missing subjects cannot masquerade as recognized text', () => {
+    const {detector, reader, frame} = fixture();
+    reader.detections[0].data.kind = ClassificationKind.Categorical;
+    reader.detections[0].data.labelSet = 'categories';
+    reader.detections[0].data.candidates[0].classId = 0;
+    const categorical = resolved(frame, reader);
+    assert.equal(categorical.state, 'partial');
+    assert.deepEqual(categorical.regions.map(region => region.text), ['PLATE 1234']);
+    reader.detections = [reader.detections[1]];
+    reader.detections[0].data.parentUuid = detector.detections[0].data.uuid;
+    delete reader.detections[0].data.subjectUuid;
+    assert.equal(resolved(frame, reader).state, 'partial');
+    assert.deepEqual(resolved(frame, reader).regions, []);
 });
 
 test('missing, ambiguous and malformed OCR relationships do not invent text or geometry', () => {

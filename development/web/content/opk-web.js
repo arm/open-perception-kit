@@ -2176,6 +2176,36 @@ window.addEventListener("metadata-message", (event) => {
 });
 updateCopyButtonState();
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-kind.js
+var ClassificationKind;
+(function(ClassificationKind2) {
+  ClassificationKind2[ClassificationKind2["Unspecified"] = 0] = "Unspecified";
+  ClassificationKind2[ClassificationKind2["Categorical"] = 1] = "Categorical";
+  ClassificationKind2[ClassificationKind2["RecognizedText"] = 2] = "RecognizedText";
+})(ClassificationKind || (ClassificationKind = {}));
+
+// development/web/src/classification-results.js
+var validProbability = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+function validCandidate(classification, candidate) {
+  if (!candidate || candidate.confidence != null && !validProbability(candidate.confidence)) return false;
+  if (classification.kind === ClassificationKind.Categorical)
+    return Boolean(classification.labelSet) && Number.isInteger(candidate.classId) && candidate.classId >= 0;
+  if (classification.kind === ClassificationKind.RecognizedText)
+    return !classification.labelSet && candidate.classId == null;
+  return false;
+}
+function presenceOutcome(data) {
+  const result = data?.result;
+  if (!result || typeof result.personPresent !== "boolean") return null;
+  if (result.yesScore == null && result.noScore == null) return result.personPresent;
+  return Number.isFinite(result.yesScore) && Number.isFinite(result.noScore) ? result.personPresent : null;
+}
+function contactOutcome(data) {
+  const result = data?.result;
+  if (!result || typeof result.inContact !== "boolean" || result.confidence != null && !validProbability(result.confidence)) return null;
+  return result.inContact;
+}
+
 // development/web/src/inference-output.js
 var body2 = document.getElementById("inferenceOutputBody");
 var copyButton2 = document.getElementById("copyInferenceOutputBtn");
@@ -2204,8 +2234,20 @@ function detectionSummary(detection) {
       meta: number(data.confidence)
     };
   }
+  if (type === "CameraContact") {
+    if (contactOutcome(data) === null)
+      return { title: "Contact unavailable", detail: "classification", meta: "" };
+    const result = data.result;
+    return {
+      title: result.inContact ? "Contact" : "No contact",
+      detail: "classification",
+      meta: number(result?.confidence)
+    };
+  }
   if (type === "Classification") {
     const best = Array.isArray(data.candidates) ? data.candidates[0] : null;
+    if (best && !validCandidate(data, best))
+      return { title: "Classification unavailable", detail: "Invalid kind, identity or score", meta: "" };
     return {
       title: best?.text || `Class ${best?.classId ?? "-"}`,
       detail: "classification",
@@ -2229,7 +2271,7 @@ function detectionSummary(detection) {
   if (type === "PersonClassification") {
     return {
       title: "Person classification",
-      detail: `yes ${number(data.yesConfidence)} no ${number(data.noConfidence)}`,
+      detail: presenceOutcome(data) === null ? "Presence unavailable" : `${data.result.personPresent ? "Person" : "No person"}; raw yes ${number(data.result.yesScore)} no ${number(data.result.noScore)}`,
       meta: ""
     };
   }
@@ -4018,6 +4060,259 @@ var BoxDetectionsT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contact-result.js
+var CameraContactResult = class _CameraContactResult {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsCameraContactResult(bb, obj) {
+    return (obj || new _CameraContactResult()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsCameraContactResult(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _CameraContactResult()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  inContact() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  confidence() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  modelClassIndex() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
+  }
+  static startCameraContactResult(builder) {
+    builder.startObject(3);
+  }
+  static addInContact(builder, inContact) {
+    builder.addFieldInt8(0, +inContact, 0);
+  }
+  static addConfidence(builder, confidence) {
+    builder.addFieldFloat32(1, confidence, null);
+  }
+  static addModelClassIndex(builder, modelClassIndex) {
+    builder.addFieldInt32(2, modelClassIndex, null);
+  }
+  static endCameraContactResult(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createCameraContactResult(builder, inContact, confidence, modelClassIndex) {
+    _CameraContactResult.startCameraContactResult(builder);
+    _CameraContactResult.addInContact(builder, inContact);
+    if (confidence !== null)
+      _CameraContactResult.addConfidence(builder, confidence);
+    if (modelClassIndex !== null)
+      _CameraContactResult.addModelClassIndex(builder, modelClassIndex);
+    return _CameraContactResult.endCameraContactResult(builder);
+  }
+  unpack() {
+    return new CameraContactResultT(this.inContact(), this.confidence(), this.modelClassIndex());
+  }
+  unpackTo(_o) {
+    _o.inContact = this.inContact();
+    _o.confidence = this.confidence();
+    _o.modelClassIndex = this.modelClassIndex();
+  }
+};
+var CameraContactResultT = class {
+  constructor(inContact = false, confidence = null, modelClassIndex = null) {
+    this.inContact = inContact;
+    this.confidence = confidence;
+    this.modelClassIndex = modelClassIndex;
+  }
+  pack(builder) {
+    return CameraContactResult.createCameraContactResult(builder, this.inContact, this.confidence, this.modelClassIndex);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contact.js
+var CameraContact = class _CameraContact {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsCameraContact(bb, obj) {
+    return (obj || new _CameraContact()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsCameraContact(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _CameraContact()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  result(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? (obj || new CameraContactResult()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  static startCameraContact(builder) {
+    builder.startObject(3);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addResult(builder, resultOffset) {
+    builder.addFieldOffset(1, resultOffset, 0);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(2, subjectId, null);
+  }
+  static endCameraContact(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new CameraContactT(this.object() !== null ? this.object().unpack() : null, this.result() !== null ? this.result().unpack() : null, this.subjectId());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.result = this.result() !== null ? this.result().unpack() : null;
+    _o.subjectId = this.subjectId();
+  }
+};
+var CameraContactT = class {
+  constructor(object = null, result = null, subjectId = null) {
+    this.object = object;
+    this.result = result;
+    this.subjectId = subjectId;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    const result = this.result !== null ? this.result.pack(builder) : 0;
+    CameraContact.startCameraContact(builder);
+    CameraContact.addObject(builder, object);
+    CameraContact.addResult(builder, result);
+    if (this.subjectId !== null)
+      CameraContact.addSubjectId(builder, this.subjectId);
+    return CameraContact.endCameraContact(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contacts.js
+var CameraContacts = class _CameraContacts {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsCameraContacts(bb, obj) {
+    return (obj || new _CameraContacts()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsCameraContacts(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _CameraContacts()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("CCON");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  contacts(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new CameraContact()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  contactsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startCameraContacts(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addContacts(builder, contactsOffset) {
+    builder.addFieldOffset(3, contactsOffset, 0);
+  }
+  static createContactsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startContactsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endCameraContacts(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishCameraContactsBuffer(builder, offset) {
+    builder.finish(offset, "CCON");
+  }
+  static finishSizePrefixedCameraContactsBuffer(builder, offset) {
+    builder.finish(offset, "CCON", true);
+  }
+  unpack() {
+    return new CameraContactsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.contacts.bind(this), this.contactsLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.contacts = this.bb.createObjList(this.contacts.bind(this), this.contactsLength());
+  }
+};
+var CameraContactsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, contacts = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.contacts = contacts;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const contacts = CameraContacts.createContactsVector(builder, builder.createObjectOffsetList(this.contacts));
+    CameraContacts.startCameraContacts(builder);
+    CameraContacts.addSchemaMajor(builder, this.schemaMajor);
+    CameraContacts.addSchemaMinor(builder, this.schemaMinor);
+    CameraContacts.addLayer(builder, layer2);
+    CameraContacts.addContacts(builder, contacts);
+    return CameraContacts.endCameraContacts(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.js
 var ClassificationCandidate = class _ClassificationCandidate {
   constructor() {
@@ -4038,97 +4333,59 @@ var ClassificationCandidate = class _ClassificationCandidate {
   }
   confidence() {
     const offset = this.bb.__offset(this.bb_pos, 4);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
   }
   text(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 8);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  x() {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  y() {
-    const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  w() {
-    const offset = this.bb.__offset(this.bb_pos, 14);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  h() {
-    const offset = this.bb.__offset(this.bb_pos, 16);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
   static startClassificationCandidate(builder) {
-    builder.startObject(7);
+    builder.startObject(3);
   }
   static addConfidence(builder, confidence) {
-    builder.addFieldFloat32(0, confidence, 0);
+    builder.addFieldFloat32(0, confidence, null);
   }
   static addClassId(builder, classId) {
-    builder.addFieldInt32(1, classId, -1);
+    builder.addFieldInt32(1, classId, null);
   }
   static addText(builder, textOffset) {
     builder.addFieldOffset(2, textOffset, 0);
-  }
-  static addX(builder, x) {
-    builder.addFieldFloat32(3, x, 0);
-  }
-  static addY(builder, y) {
-    builder.addFieldFloat32(4, y, 0);
-  }
-  static addW(builder, w) {
-    builder.addFieldFloat32(5, w, 0);
-  }
-  static addH(builder, h) {
-    builder.addFieldFloat32(6, h, 0);
   }
   static endClassificationCandidate(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createClassificationCandidate(builder, confidence, classId, textOffset, x, y, w, h) {
+  static createClassificationCandidate(builder, confidence, classId, textOffset) {
     _ClassificationCandidate.startClassificationCandidate(builder);
-    _ClassificationCandidate.addConfidence(builder, confidence);
-    _ClassificationCandidate.addClassId(builder, classId);
+    if (confidence !== null)
+      _ClassificationCandidate.addConfidence(builder, confidence);
+    if (classId !== null)
+      _ClassificationCandidate.addClassId(builder, classId);
     _ClassificationCandidate.addText(builder, textOffset);
-    _ClassificationCandidate.addX(builder, x);
-    _ClassificationCandidate.addY(builder, y);
-    _ClassificationCandidate.addW(builder, w);
-    _ClassificationCandidate.addH(builder, h);
     return _ClassificationCandidate.endClassificationCandidate(builder);
   }
   unpack() {
-    return new ClassificationCandidateT(this.confidence(), this.classId(), this.text(), this.x(), this.y(), this.w(), this.h());
+    return new ClassificationCandidateT(this.confidence(), this.classId(), this.text());
   }
   unpackTo(_o) {
     _o.confidence = this.confidence();
     _o.classId = this.classId();
     _o.text = this.text();
-    _o.x = this.x();
-    _o.y = this.y();
-    _o.w = this.w();
-    _o.h = this.h();
   }
 };
 var ClassificationCandidateT = class {
-  constructor(confidence = 0, classId = -1, text2 = null, x = 0, y = 0, w = 0, h = 0) {
+  constructor(confidence = null, classId = null, text2 = null) {
     this.confidence = confidence;
     this.classId = classId;
     this.text = text2;
-    this.x = x;
-    this.y = y;
-    this.w = w;
-    this.h = h;
   }
   pack(builder) {
     const text2 = this.text !== null ? builder.createString(this.text) : 0;
-    return ClassificationCandidate.createClassificationCandidate(builder, this.confidence, this.classId, text2, this.x, this.y, this.w, this.h);
+    return ClassificationCandidate.createClassificationCandidate(builder, this.confidence, this.classId, text2);
   }
 };
 
@@ -4162,8 +4419,20 @@ var Classification = class _Classification {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
+  labelSet(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  kind() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : ClassificationKind.Unspecified;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
   static startClassification(builder) {
-    builder.startObject(2);
+    builder.startObject(5);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -4181,107 +4450,53 @@ var Classification = class _Classification {
   static startCandidatesVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addLabelSet(builder, labelSetOffset) {
+    builder.addFieldOffset(2, labelSetOffset, 0);
+  }
+  static addKind(builder, kind) {
+    builder.addFieldInt8(3, kind, ClassificationKind.Unspecified);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(4, subjectId, null);
+  }
   static endClassification(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createClassification(builder, objectOffset, candidatesOffset) {
+  static createClassification(builder, objectOffset, candidatesOffset, labelSetOffset, kind, subjectId) {
     _Classification.startClassification(builder);
     _Classification.addObject(builder, objectOffset);
     _Classification.addCandidates(builder, candidatesOffset);
+    _Classification.addLabelSet(builder, labelSetOffset);
+    _Classification.addKind(builder, kind);
+    if (subjectId !== null)
+      _Classification.addSubjectId(builder, subjectId);
     return _Classification.endClassification(builder);
   }
   unpack() {
-    return new ClassificationT(this.object() !== null ? this.object().unpack() : null, this.bb.createObjList(this.candidates.bind(this), this.candidatesLength()));
+    return new ClassificationT(this.object() !== null ? this.object().unpack() : null, this.bb.createObjList(this.candidates.bind(this), this.candidatesLength()), this.labelSet(), this.kind(), this.subjectId());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.candidates = this.bb.createObjList(this.candidates.bind(this), this.candidatesLength());
+    _o.labelSet = this.labelSet();
+    _o.kind = this.kind();
+    _o.subjectId = this.subjectId();
   }
 };
 var ClassificationT = class {
-  constructor(object = null, candidates = []) {
+  constructor(object = null, candidates = [], labelSet = null, kind = ClassificationKind.Unspecified, subjectId = null) {
     this.object = object;
     this.candidates = candidates;
+    this.labelSet = labelSet;
+    this.kind = kind;
+    this.subjectId = subjectId;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const candidates = Classification.createCandidatesVector(builder, builder.createObjectOffsetList(this.candidates));
-    return Classification.createClassification(builder, object, candidates);
-  }
-};
-
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.js
-var PersonPresence = class _PersonPresence {
-  constructor() {
-    this.bb = null;
-    this.bb_pos = 0;
-  }
-  __init(i, bb) {
-    this.bb_pos = i;
-    this.bb = bb;
-    return this;
-  }
-  static getRootAsPersonPresence(bb, obj) {
-    return (obj || new _PersonPresence()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  static getSizePrefixedRootAsPersonPresence(bb, obj) {
-    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _PersonPresence()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  object(obj) {
-    const offset = this.bb.__offset(this.bb_pos, 4);
-    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
-  }
-  yesConfidence() {
-    const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  noConfidence() {
-    const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  static startPersonPresence(builder) {
-    builder.startObject(3);
-  }
-  static addObject(builder, objectOffset) {
-    builder.addFieldOffset(0, objectOffset, 0);
-  }
-  static addYesConfidence(builder, yesConfidence) {
-    builder.addFieldFloat32(1, yesConfidence, 0);
-  }
-  static addNoConfidence(builder, noConfidence) {
-    builder.addFieldFloat32(2, noConfidence, 0);
-  }
-  static endPersonPresence(builder) {
-    const offset = builder.endObject();
-    return offset;
-  }
-  static createPersonPresence(builder, objectOffset, yesConfidence, noConfidence) {
-    _PersonPresence.startPersonPresence(builder);
-    _PersonPresence.addObject(builder, objectOffset);
-    _PersonPresence.addYesConfidence(builder, yesConfidence);
-    _PersonPresence.addNoConfidence(builder, noConfidence);
-    return _PersonPresence.endPersonPresence(builder);
-  }
-  unpack() {
-    return new PersonPresenceT(this.object() !== null ? this.object().unpack() : null, this.yesConfidence(), this.noConfidence());
-  }
-  unpackTo(_o) {
-    _o.object = this.object() !== null ? this.object().unpack() : null;
-    _o.yesConfidence = this.yesConfidence();
-    _o.noConfidence = this.noConfidence();
-  }
-};
-var PersonPresenceT = class {
-  constructor(object = null, yesConfidence = 0, noConfidence = 0) {
-    this.object = object;
-    this.yesConfidence = yesConfidence;
-    this.noConfidence = noConfidence;
-  }
-  pack(builder) {
-    const object = this.object !== null ? this.object.pack(builder) : 0;
-    return PersonPresence.createPersonPresence(builder, object, this.yesConfidence, this.noConfidence);
+    const labelSet = this.labelSet !== null ? builder.createString(this.labelSet) : 0;
+    return Classification.createClassification(builder, object, candidates, labelSet, this.kind, this.subjectId);
   }
 };
 
@@ -4326,16 +4541,8 @@ var Classifications = class _Classifications {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
-  personPresence(index, obj) {
-    const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? (obj || new PersonPresence()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
-  }
-  personPresenceLength() {
-    const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
-  }
   static startClassifications(builder) {
-    builder.startObject(5);
+    builder.startObject(4);
   }
   static addSchemaMajor(builder, schemaMajor) {
     builder.addFieldInt16(0, schemaMajor, 1);
@@ -4359,19 +4566,6 @@ var Classifications = class _Classifications {
   static startClassificationsVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
-  static addPersonPresence(builder, personPresenceOffset) {
-    builder.addFieldOffset(4, personPresenceOffset, 0);
-  }
-  static createPersonPresenceVector(builder, data) {
-    builder.startVector(4, data.length, 4);
-    for (let i = data.length - 1; i >= 0; i--) {
-      builder.addOffset(data[i]);
-    }
-    return builder.endVector();
-  }
-  static startPersonPresenceVector(builder, numElems) {
-    builder.startVector(4, numElems, 4);
-  }
   static endClassifications(builder) {
     const offset = builder.endObject();
     return offset;
@@ -4383,34 +4577,30 @@ var Classifications = class _Classifications {
     builder.finish(offset, "CLSF", true);
   }
   unpack() {
-    return new ClassificationsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.classifications.bind(this), this.classificationsLength()), this.bb.createObjList(this.personPresence.bind(this), this.personPresenceLength()));
+    return new ClassificationsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.classifications.bind(this), this.classificationsLength()));
   }
   unpackTo(_o) {
     _o.schemaMajor = this.schemaMajor();
     _o.schemaMinor = this.schemaMinor();
     _o.layer = this.layer() !== null ? this.layer().unpack() : null;
     _o.classifications = this.bb.createObjList(this.classifications.bind(this), this.classificationsLength());
-    _o.personPresence = this.bb.createObjList(this.personPresence.bind(this), this.personPresenceLength());
   }
 };
 var ClassificationsT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, classifications = [], personPresence = []) {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, classifications = []) {
     this.schemaMajor = schemaMajor;
     this.schemaMinor = schemaMinor;
     this.layer = layer2;
     this.classifications = classifications;
-    this.personPresence = personPresence;
   }
   pack(builder) {
     const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
     const classifications = Classifications.createClassificationsVector(builder, builder.createObjectOffsetList(this.classifications));
-    const personPresence = Classifications.createPersonPresenceVector(builder, builder.createObjectOffsetList(this.personPresence));
     Classifications.startClassifications(builder);
     Classifications.addSchemaMajor(builder, this.schemaMajor);
     Classifications.addSchemaMinor(builder, this.schemaMinor);
     Classifications.addLayer(builder, layer2);
     Classifications.addClassifications(builder, classifications);
-    Classifications.addPersonPresence(builder, personPresence);
     return Classifications.endClassifications(builder);
   }
 };
@@ -5703,6 +5893,259 @@ var PerformanceMeasurementsT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence-result.js
+var PersonPresenceResult = class _PersonPresenceResult {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPersonPresenceResult(bb, obj) {
+    return (obj || new _PersonPresenceResult()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPersonPresenceResult(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PersonPresenceResult()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  personPresent() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  yesScore() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  noScore() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  static startPersonPresenceResult(builder) {
+    builder.startObject(3);
+  }
+  static addPersonPresent(builder, personPresent) {
+    builder.addFieldInt8(0, +personPresent, 0);
+  }
+  static addYesScore(builder, yesScore) {
+    builder.addFieldFloat32(1, yesScore, null);
+  }
+  static addNoScore(builder, noScore) {
+    builder.addFieldFloat32(2, noScore, null);
+  }
+  static endPersonPresenceResult(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createPersonPresenceResult(builder, personPresent, yesScore, noScore) {
+    _PersonPresenceResult.startPersonPresenceResult(builder);
+    _PersonPresenceResult.addPersonPresent(builder, personPresent);
+    if (yesScore !== null)
+      _PersonPresenceResult.addYesScore(builder, yesScore);
+    if (noScore !== null)
+      _PersonPresenceResult.addNoScore(builder, noScore);
+    return _PersonPresenceResult.endPersonPresenceResult(builder);
+  }
+  unpack() {
+    return new PersonPresenceResultT(this.personPresent(), this.yesScore(), this.noScore());
+  }
+  unpackTo(_o) {
+    _o.personPresent = this.personPresent();
+    _o.yesScore = this.yesScore();
+    _o.noScore = this.noScore();
+  }
+};
+var PersonPresenceResultT = class {
+  constructor(personPresent = false, yesScore = null, noScore = null) {
+    this.personPresent = personPresent;
+    this.yesScore = yesScore;
+    this.noScore = noScore;
+  }
+  pack(builder) {
+    return PersonPresenceResult.createPersonPresenceResult(builder, this.personPresent, this.yesScore, this.noScore);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.js
+var PersonPresence = class _PersonPresence {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPersonPresence(bb, obj) {
+    return (obj || new _PersonPresence()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPersonPresence(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PersonPresence()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  result(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? (obj || new PersonPresenceResult()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  static startPersonPresence(builder) {
+    builder.startObject(3);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addResult(builder, resultOffset) {
+    builder.addFieldOffset(1, resultOffset, 0);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(2, subjectId, null);
+  }
+  static endPersonPresence(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new PersonPresenceT(this.object() !== null ? this.object().unpack() : null, this.result() !== null ? this.result().unpack() : null, this.subjectId());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.result = this.result() !== null ? this.result().unpack() : null;
+    _o.subjectId = this.subjectId();
+  }
+};
+var PersonPresenceT = class {
+  constructor(object = null, result = null, subjectId = null) {
+    this.object = object;
+    this.result = result;
+    this.subjectId = subjectId;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    const result = this.result !== null ? this.result.pack(builder) : 0;
+    PersonPresence.startPersonPresence(builder);
+    PersonPresence.addObject(builder, object);
+    PersonPresence.addResult(builder, result);
+    if (this.subjectId !== null)
+      PersonPresence.addSubjectId(builder, this.subjectId);
+    return PersonPresence.endPersonPresence(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presences.js
+var PersonPresences = class _PersonPresences {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPersonPresences(bb, obj) {
+    return (obj || new _PersonPresences()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPersonPresences(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PersonPresences()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("PPRS");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  presences(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new PersonPresence()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  presencesLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startPersonPresences(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addPresences(builder, presencesOffset) {
+    builder.addFieldOffset(3, presencesOffset, 0);
+  }
+  static createPresencesVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startPresencesVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endPersonPresences(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishPersonPresencesBuffer(builder, offset) {
+    builder.finish(offset, "PPRS");
+  }
+  static finishSizePrefixedPersonPresencesBuffer(builder, offset) {
+    builder.finish(offset, "PPRS", true);
+  }
+  unpack() {
+    return new PersonPresencesT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.presences.bind(this), this.presencesLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.presences = this.bb.createObjList(this.presences.bind(this), this.presencesLength());
+  }
+};
+var PersonPresencesT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, presences = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.presences = presences;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const presences = PersonPresences.createPresencesVector(builder, builder.createObjectOffsetList(this.presences));
+    PersonPresences.startPersonPresences(builder);
+    PersonPresences.addSchemaMajor(builder, this.schemaMajor);
+    PersonPresences.addSchemaMinor(builder, this.schemaMinor);
+    PersonPresences.addLayer(builder, layer2);
+    PersonPresences.addPresences(builder, presences);
+    return PersonPresences.endPersonPresences(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js
 var PoseEstimation = class _PoseEstimation {
   constructor() {
@@ -6956,6 +7399,8 @@ var VoiceActivityDetectionsT = class {
 // generated/open_perception_kit/ts/dist/open_perception_kit/registry.js
 var decode_3248104387212218840 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
 var verify_3248104387212218840 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7630654510173219138 = (blob) => CameraContacts.getRootAsCameraContacts(new ByteBuffer(blob)).unpack();
+var verify_7630654510173219138 = (blob) => CameraContacts.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_3375056508603945320 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
 var verify_3375056508603945320 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_5246681475592864076 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
@@ -6968,6 +7413,8 @@ var decode_5316059591418463553 = (blob) => ObjectTracks.getRootAsObjectTracks(ne
 var verify_5316059591418463553 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_2630163151625760217 = (blob) => PerformanceMeasurements.getRootAsPerformanceMeasurements(new ByteBuffer(blob)).unpack();
 var verify_2630163151625760217 = (blob) => PerformanceMeasurements.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7550522492754457054 = (blob) => PersonPresences.getRootAsPersonPresences(new ByteBuffer(blob)).unpack();
+var verify_7550522492754457054 = (blob) => PersonPresences.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_5268014742632501193 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
 var verify_5268014742632501193 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_3128408959875976772 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
@@ -6988,6 +7435,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     file_identifier: "BDET",
     decode: decode_3248104387212218840,
     verify: verify_3248104387212218840
+  }],
+  [7630654510173219138n, {
+    name: "open_perception_kit::metadata::CameraContacts",
+    root_type: "CameraContacts",
+    qualified_root_type: "open_perception_kit.metadata.CameraContacts",
+    file_identifier: "CCON",
+    decode: decode_7630654510173219138,
+    verify: verify_7630654510173219138
   }],
   [3375056508603945320n, {
     name: "open_perception_kit::metadata::Classifications",
@@ -7036,6 +7491,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     file_identifier: "PMET",
     decode: decode_2630163151625760217,
     verify: verify_2630163151625760217
+  }],
+  [7550522492754457054n, {
+    name: "open_perception_kit::metadata::PersonPresences",
+    root_type: "PersonPresences",
+    qualified_root_type: "open_perception_kit.metadata.PersonPresences",
+    file_identifier: "PPRS",
+    decode: decode_7550522492754457054,
+    verify: verify_7550522492754457054
   }],
   [5268014742632501193n, {
     name: "open_perception_kit::metadata::PoseEstimations",
@@ -7088,12 +7551,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
 ]);
 var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [BoxDetectionsT, 3248104387212218840n],
+  [CameraContactsT, 7630654510173219138n],
   [ClassificationsT, 3375056508603945320n],
   [FrameContextT, 5246681475592864076n],
   [InstanceSegmentationMasksT, 7634499802271603959n],
   [ObjectEmbeddingsT, 6121378805478677067n],
   [ObjectTracksT, 5316059591418463553n],
   [PerformanceMeasurementsT, 2630163151625760217n],
+  [PersonPresencesT, 7550522492754457054n],
   [PoseEstimationsT, 5268014742632501193n],
   [SegmentationMasksT, 3128408959875976772n],
   [SemanticSegmentationMasksT, 133049182594848948n],
@@ -7117,7 +7582,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "b8ee79b72a37c0d19b24f49615d294ce0361b981d7de71be1703ad8c7e167a7d";
+var SCHEMA_SET_SHA256 = "5ac6f6f4fd21ba588e045f9766e0bcd66ce5a077ef86bab7b706962374f5507c";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -7520,18 +7985,61 @@ function boxData(item) {
 }
 function candidateData(candidate) {
   return {
-    confidence: Number(candidate.confidence ?? 0),
-    classId: Number(candidate.classId ?? -1),
-    text: text(candidate.text),
-    x: Number(candidate.x || 0),
-    y: Number(candidate.y || 0),
-    w: Number(candidate.w || 0),
-    h: Number(candidate.h || 0)
+    confidence: candidate.confidence,
+    classId: candidate.classId,
+    text: text(candidate.text)
   };
 }
 function addPayloadLayers(envelope, payloadType, name, mapper, layers) {
   for (const payload of envelope.for_each(payloadType)) {
     layers.push(layer(payload, name, mapper(payload)));
+  }
+}
+var classificationMappers = /* @__PURE__ */ new Map([
+  ["Classifications", (payload) => payload.classifications.map((item) => ({ type: "Classification", data: {
+    ...objectData(item.object),
+    candidates: item.candidates.map(candidateData),
+    labelSet: text(item.labelSet),
+    kind: item.kind,
+    subjectUuid: item.subjectId == null ? null : identifier(item.subjectId)
+  } }))],
+  ["CameraContacts", (payload) => payload.contacts.map((item) => ({ type: "CameraContact", data: {
+    ...objectData(item.object),
+    subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+    result: item.result ? {
+      inContact: item.result.inContact,
+      modelClassIndex: item.result.modelClassIndex,
+      confidence: item.result.confidence
+    } : null
+  } }))],
+  ["PersonPresences", (payload) => payload.presences.map((item) => ({ type: "PersonClassification", data: {
+    ...objectData(item.object),
+    result: item.result ? {
+      personPresent: item.result.personPresent,
+      yesScore: item.result.yesScore,
+      noScore: item.result.noScore
+    } : null,
+    subjectUuid: item.subjectId == null ? null : identifier(item.subjectId)
+  } }))]
+]);
+function addClassificationLayers(packet, layers) {
+  const wire = WireEnvelope.getRootAsWireEnvelope(new ByteBuffer(packet));
+  for (let index = 0; index < wire.payloadsLength(); index++) {
+    const entry = wire.payloads(index);
+    const info = entry && _TYPE_REGISTRY.get(entry.id());
+    const mapper = classificationMappers.get(info?.root_type);
+    if (!mapper) continue;
+    const blob = entry.blobArray();
+    if (!blob) continue;
+    let payload;
+    try {
+      const copy = new Uint8Array(blob);
+      if (info.verify && !info.verify(copy)) continue;
+      payload = info.decode(copy);
+    } catch {
+      continue;
+    }
+    layers.push(layer(payload, info.root_type, mapper(payload)));
   }
 }
 function decodeBase64(value) {
@@ -7557,7 +8065,8 @@ function decodeFrameResultsMessage(message) {
       `unsupported frame_results_encoding: ${String(message?.frame_results_encoding)}`
     );
   }
-  const envelope = new Envelope(decodeBase64(message.frame_results_packet_b64));
+  const packet = decodeBase64(message.frame_results_packet_b64);
+  const envelope = new Envelope(packet);
   if (!envelope.valid()) {
     throw new FrameResultsDecodeError(
       `invalid frame results packet: ${envelope.error() || "unknown error"}`
@@ -7597,23 +8106,7 @@ function decodeFrameResultsMessage(message) {
       predictedOnly: Boolean(item.predictedOnly)
     }
   })), layers);
-  addPayloadLayers(envelope, ClassificationsT, "Classifications", (payload) => [
-    ...payload.classifications.map((item) => ({
-      type: "Classification",
-      data: {
-        ...objectData(item.object),
-        candidates: item.candidates.map(candidateData)
-      }
-    })),
-    ...payload.personPresence.map((item) => ({
-      type: "PersonClassification",
-      data: {
-        ...objectData(item.object),
-        yesConfidence: Number(item.yesConfidence || 0),
-        noConfidence: Number(item.noConfidence || 0)
-      }
-    }))
-  ], layers);
+  addClassificationLayers(packet, layers);
   addPayloadLayers(envelope, PoseEstimationsT, "PoseEstimations", (payload) => payload.poses.map((item) => ({
     type: "YawPitch",
     data: {
@@ -7917,7 +8410,9 @@ function drawClassification(ctx, classification, display, color, heading, alignR
     );
   }
   candidates.forEach((candidate, index) => {
-    const text2 = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
+    if (!validCandidate(classification, candidate)) return;
+    const score = candidate.confidence == null ? "" : ` (${(candidate.confidence * 100).toFixed(1)}%)`;
+    const text2 = `#${index + 1}: ${candidate.text || (candidate.classId ?? "")}${score}`;
     drawTextChip(
       ctx,
       text2,
@@ -7946,10 +8441,10 @@ function classificationPanelHeight(candidateCount, heading) {
   return candidateCount * lineHeight + (heading ? lineHeight : 0) + 2 * padding;
 }
 function drawPersonClassification(ctx, personClassification, display, now, color) {
-  if (now % 1e3 >= 800) {
+  const isPerson = presenceOutcome(personClassification);
+  if (now % 1e3 >= 800 || isPerson === null) {
     return;
   }
-  const isPerson = Number(personClassification?.yesConfidence || 0) > Number(personClassification?.noConfidence || 0);
   const label = isPerson ? "PERSON" : "NON-PERSON";
   const fontSize = Math.max(28, Math.min(64, display.width / 12));
   ctx.save();
@@ -7982,15 +8477,14 @@ function drawGazeVector(ctx, yp, parent, mapper, color) {
   drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
 }
 function drawCameraContactMarker(ctx, classification, face, mapper, color) {
-  const candidate = classification?.candidates?.[0];
-  if (!candidate || !face) {
+  const hasContact = contactOutcome(classification);
+  if (hasContact === null || !face) {
     return;
   }
   const box = mapper.rect(face);
   if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  const hasContact = candidate.classId === 1;
   const radiusBase = Math.min(Math.abs(box.width), Math.abs(box.height)) * 0.5;
   const radius = hasContact ? clamp2(radiusBase * 0.65, 18, 80) : clamp2(radiusBase * 1.15, 28, 140);
   ctx.save();
@@ -8290,6 +8784,26 @@ function resolveFaceParents(result, index, type) {
   if (missing) return { ...resolved, state: "partial", message: "Waiting for parent face geometry." };
   return resolved;
 }
+function resolveBoxSubjects(result, index, type, available2) {
+  const items = result.items.filter((item) => item.type === type);
+  const resolved = { ...result, items, attached: [] };
+  let missing = false, ambiguous = false, unavailable = false;
+  for (const item of items) {
+    if (!available2(item.data)) {
+      unavailable = true;
+      continue;
+    }
+    const candidates = (index.objects.get(objectId(item.data.subjectUuid)) || []).filter((subject) => ["BoxDetections", "ObjectTracks"].includes(subject.source.payloadType) && subject.type === "Rect");
+    if (candidates.length > 1) ambiguous = true;
+    else if (candidates.length === 1 && candidates[0].data.spatialValid !== false)
+      resolved.attached.push({ data: item.data, parent: candidates[0].data });
+    else missing = true;
+  }
+  if (ambiguous) return { ...resolved, state: "ambiguous", message: "Multiple subjects match; ambiguous markers are omitted." };
+  if (missing) return { ...resolved, state: "partial", message: "Subject geometry is missing or invalid." };
+  if (unavailable) return { ...resolved, state: "partial", message: "Measurement unavailable." };
+  return resolved;
+}
 
 // development/web/src/features/bounding-boxes.js
 var bounding_boxes_default = defineFeature({
@@ -8370,7 +8884,7 @@ var movement_trails_default = defineFeature({
 var classifications_default = defineFeature({
   id: "classifications",
   label: "Classifications",
-  accepts: (source) => source.payloadType === "Classifications" && source.contentType !== "cameraContact",
+  accepts: (source) => ["Classifications", "PersonPresences"].includes(source.payloadType),
   render({ ctx, mapper, layout, now }, resolved, settings) {
     for (const { type, data, layer: layer2 } of resolved.items) {
       if (type === "PersonClassification") drawPersonClassification(ctx, data, mapper.display, now, settings.color);
@@ -8405,8 +8919,9 @@ var gaze_default = defineFeature({
 var camera_contact_default = defineFeature({
   id: "camera-contact",
   label: "Camera contact",
-  accepts: (source) => source.payloadType === "Classifications" && source.contentType === "cameraContact",
-  resolve: (result, index) => resolveFaceParents(result, index, "Classification"),
+  defaults: { color: "#66ff00" },
+  accepts: (source) => source.payloadType === "CameraContacts",
+  resolve: (result, index) => resolveBoxSubjects(result, index, "CameraContact", (data) => contactOutcome(data) !== null),
   render({ ctx, mapper }, resolved, settings) {
     for (const { data, parent } of resolved.attached) drawCameraContactMarker(ctx, data, parent, mapper, settings.color);
   }
@@ -8827,7 +9342,11 @@ function resolve4(result, index) {
   if (isRecognition) {
     const groups = /* @__PURE__ */ new Map();
     for (const item of items) {
-      const id = objectId(item.data.parentUuid);
+      if (item.data.kind !== ClassificationKind.RecognizedText || item.data.labelSet) {
+        invalid = true;
+        continue;
+      }
+      const id = objectId(item.data.subjectUuid);
       if (!id) {
         missing = true;
         continue;
@@ -8849,7 +9368,7 @@ function resolve4(result, index) {
       else if (!Array.isArray(candidates)) invalid = true;
       else if (candidates.length) {
         const candidate = candidates[0];
-        if (!candidate || typeof candidate.text !== "string" || candidate.confidence !== void 0 && !validScore(candidate.confidence)) invalid = true;
+        if (!validCandidate(records[0].data, candidate) || typeof candidate.text !== "string") invalid = true;
         else {
           region.text = displayText(candidate.text);
           region.recognitionScore = candidate.confidence;
@@ -9113,6 +9632,10 @@ function loadOverlays(storage2) {
     let relabelled = false;
     for (const overlay2 of overlays2) {
       const source = overlay2.selection.primary;
+      if (source?.payloadType === "Classifications" && ["cameraContact", "personClassification"].includes(source.contentType)) {
+        source.payloadType = source.contentType === "cameraContact" ? "CameraContacts" : "PersonPresences";
+        relabelled = true;
+      }
       if (overlay2.featureId === "performance" && source?.payloadType === "PerformanceOverlay") {
         source.payloadType = "PerformanceMeasurements";
         relabelled = true;

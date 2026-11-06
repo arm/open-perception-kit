@@ -16,6 +16,7 @@
  */
 
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
+import {contactOutcome, validCandidate, presenceOutcome} from './classification-results.js';
 
 const body = document.getElementById('inferenceOutputBody');
 const copyButton = document.getElementById('copyInferenceOutputBtn');
@@ -50,8 +51,18 @@ function detectionSummary(detection) {
         };
     }
 
+    if (type === 'CameraContact') {
+        if (contactOutcome(data) === null)
+            return {title: 'Contact unavailable', detail: 'classification', meta: ''};
+        const result = data.result;
+        return {title: result.inContact ? 'Contact' : 'No contact',
+            detail: 'classification', meta: number(result?.confidence)};
+    }
+
     if (type === 'Classification') {
         const best = Array.isArray(data.candidates) ? data.candidates[0] : null;
+        if (best && !validCandidate(data, best))
+            return {title: 'Classification unavailable', detail: 'Invalid kind, identity or score', meta: ''};
         return {
             title: best?.text || `Class ${best?.classId ?? '-'}`,
             detail: 'classification',
@@ -78,7 +89,8 @@ function detectionSummary(detection) {
     if (type === 'PersonClassification') {
         return {
             title: 'Person classification',
-            detail: `yes ${number(data.yesConfidence)} no ${number(data.noConfidence)}`,
+            detail: presenceOutcome(data) === null ? 'Presence unavailable'
+                : `${data.result.personPresent ? 'Person' : 'No person'}; raw yes ${number(data.result.yesScore)} no ${number(data.result.noScore)}`,
             meta: '',
         };
     }

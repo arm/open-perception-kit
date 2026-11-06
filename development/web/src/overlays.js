@@ -95,6 +95,12 @@ export function loadOverlays(storage) {
         let relabelled = false;
         for (const overlay of overlays) {
             const source = overlay.selection.primary;
+            // Saved selections follow the typed payload split; no old packets are decoded.
+            if (source?.payloadType === 'Classifications'
+                && ['cameraContact', 'personClassification'].includes(source.contentType)) {
+                source.payloadType = source.contentType === 'cameraContact' ? 'CameraContacts' : 'PersonPresences';
+                relabelled = true;
+            }
             // Keep saved UI selections when the SDK payload is replaced. This
             // migrates preferences only; old packets are not decoded.
             if (overlay.featureId === 'performance' && source?.payloadType === 'PerformanceOverlay') {

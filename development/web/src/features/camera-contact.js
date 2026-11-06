@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-import {defineFeature, resolveFaceParents} from '../overlay-feature.js';
+import {defineFeature, resolveBoxSubjects} from '../overlay-feature.js';
+import {contactOutcome} from '../classification-results.js';
 import {drawCameraContactMarker} from '../overlay-drawing.js';
 
 export default defineFeature({
     id: 'camera-contact', label: 'Camera contact',
-    accepts: (source) => source.payloadType === 'Classifications' && source.contentType === 'cameraContact',
-    resolve: (result, index) => resolveFaceParents(result, index, 'Classification'),
+    defaults: {color: '#66ff00'},
+    accepts: (source) => source.payloadType === 'CameraContacts',
+    resolve: (result, index) => resolveBoxSubjects(result, index, 'CameraContact', data => contactOutcome(data) !== null),
     render({ctx, mapper}, resolved, settings) {
         for (const {data, parent} of resolved.attached) drawCameraContactMarker(ctx, data, parent, mapper, settings.color);
     },

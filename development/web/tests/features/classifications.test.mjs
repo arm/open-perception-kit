@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {classificationHeading, classificationPanelHeight, classificationTextX} from '../../src/overlay-drawing.js';
 import {render, select} from '../overlay-test-utils.mjs';
+import {ClassificationKind} from '../../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-kind.js';
 
 test('classification labels retain producer headings and separate left/right columns', () => {
     assert.equal(classificationHeading({producer: {implementation: 'Parser'}}), 'Parser');
@@ -26,8 +27,9 @@ test('classification labels retain producer headings and separate left/right col
     assert.equal(classificationPanelHeight(5, 'Parser'), 146);
     assert.equal(classificationPanelHeight(5, ''), 125);
     assert.equal(classificationTextX({x: 20, width: 1000}, 10, true), 1010);
-    const first = {payloadType: 'Classifications', contentType: 'classification', compositingMode: 'bottomLeft',
-        producer: {implementation: 'Parser'}, detections: [{type: 'Classification', data: {candidates: [{text: 'chainlink fence', classId: 489, confidence: 0.56}]}}]};
+    const first = {payloadType: 'Classifications', contentType: 'customClassification', compositingMode: 'bottomLeft',
+        producer: {implementation: 'Parser'}, detections: [{type: 'Classification', data: {kind: ClassificationKind.Categorical,
+            labelSet: 'test:labels', candidates: [{text: 'chainlink fence', classId: 489, confidence: 0.56}]}}]};
     const second = {...first, compositingMode: 'bottomRight', producer: {implementation: 'script.py'}};
     for (const width of [640, 1000]) {
         const calls = render({layers: [first, second]}, [select('classifications', first), select('classifications', second)], width, 360).calls;
@@ -40,9 +42,31 @@ test('classification labels retain producer headings and separate left/right col
 });
 
 test('person presence uses the classification feature without implying face contact', () => {
-    const layer = {payloadType: 'Classifications', contentType: 'personClassification',
-        detections: [{type: 'PersonClassification', data: {yesConfidence: 0.9, noConfidence: 0.1}}]};
+    const layer = {payloadType: 'PersonPresences', contentType: 'personClassification',
+        detections: [{type: 'PersonClassification', data: {result: {personPresent: true, yesScore: 2, noScore: -1}}}]};
     assert.equal(render({layers: [layer]}, [select('classifications', layer)]).calls[0].text, 'PERSON');
-    layer.detections[0].data.noConfidence = 1;
+    layer.detections[0].data = {result: {personPresent: false, yesScore: .1, noScore: .9}};
     assert.equal(render({layers: [layer]}, [select('classifications', layer)]).calls[0].text, 'NON-PERSON');
+    for (const data of [{result: null}, {result: {personPresent: true, yesScore: .8, noScore: NaN}},
+        {result: {personPresent: false, yesScore: .8, noScore: null}}]) {
+        layer.detections[0].data = data;
+        assert.equal(render({layers: [layer]}, [select('classifications', layer)]).calls.length, 0);
+    }
+    layer.detections[0].data = {result: {personPresent: false, yesScore: 0, noScore: 1}};
+    assert.equal(render({layers: [layer]}, [select('classifications', layer)]).calls[0].text, 'NON-PERSON');
+});
+
+test('kind is explicit and invalid confidence is never rendered as zero', () => {
+    const data = {kind: ClassificationKind.Unspecified, labelSet: '', candidates: [{text: 'text', classId: null, confidence: null}]};
+    const layer = {payloadType: 'Classifications', detections: [{type: 'Classification', data}]};
+    const draw = () => render({layers: [layer]}, [select('classifications', layer)]).calls.filter(call => call.text);
+    assert.deepEqual(draw(), []);
+    data.kind = ClassificationKind.Categorical;
+    assert.deepEqual(draw(), []);
+    data.kind = ClassificationKind.RecognizedText;
+    assert.equal(draw()[0].text, '#1: text');
+    data.candidates[0].confidence = NaN;
+    assert.deepEqual(draw(), []);
+    data.candidates[0].confidence = 0;
+    assert.equal(draw()[0].text, '#1: text (0.0%)');
 });

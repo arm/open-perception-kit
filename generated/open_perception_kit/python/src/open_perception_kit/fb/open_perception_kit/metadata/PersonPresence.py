@@ -18,6 +18,7 @@
 # namespace: metadata
 
 import open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta
+import open_perception_kit.fb.open_perception_kit.metadata.PersonPresenceResult
 import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
@@ -40,7 +41,7 @@ class PersonPresence(object):
 
     @classmethod
     def PersonPresenceBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x43\x4C\x53\x46", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x50\x50\x52\x53", size_prefixed=size_prefixed)
 
     # PersonPresence
     def Init(self, buf, pos):
@@ -58,18 +59,22 @@ class PersonPresence(object):
         return None
 
     # PersonPresence
-    def YesConfidence(self):
+    def Result(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.PersonPresenceResult import PersonPresenceResult
+            obj = PersonPresenceResult()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
 
     # PersonPresence
-    def NoConfidence(self):
+    def SubjectId(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return None
 
 
 def PersonPresenceStart(builder):
@@ -88,20 +93,20 @@ def AddObject(builder, object):
     PersonPresenceAddObject(builder, object)
 
 
-def PersonPresenceAddYesConfidence(builder, yesConfidence):
-    builder.PrependFloat32Slot(1, yesConfidence, 0.0)
+def PersonPresenceAddResult(builder, result):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(result), 0)
 
 
-def AddYesConfidence(builder, yesConfidence):
-    PersonPresenceAddYesConfidence(builder, yesConfidence)
+def AddResult(builder, result):
+    PersonPresenceAddResult(builder, result)
 
 
-def PersonPresenceAddNoConfidence(builder, noConfidence):
-    builder.PrependFloat32Slot(2, noConfidence, 0.0)
+def PersonPresenceAddSubjectId(builder, subjectId):
+    builder.PrependUint64Slot(2, subjectId, None)
 
 
-def AddNoConfidence(builder, noConfidence):
-    PersonPresenceAddNoConfidence(builder, noConfidence)
+def AddSubjectId(builder, subjectId):
+    PersonPresenceAddSubjectId(builder, subjectId)
 
 
 def PersonPresenceEnd(builder):
@@ -124,13 +129,14 @@ class PersonPresenceT(object):
     def __init__(
         self,
         object=None,
-        yesConfidence=0.0,
-        noConfidence=0.0,
+        result=None,
+        subjectId=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
-        self.yesConfidence = yesConfidence  # type: float
-        self.noConfidence = noConfidence  # type: float
+        # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.PersonPresenceResult.PersonPresenceResultT]
+        self.result = result
+        self.subjectId = subjectId  # type: Optional[int]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -156,17 +162,22 @@ class PersonPresenceT(object):
         if personPresence.Object() is not None:
             self.object = open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT.InitFromObj(
                 personPresence.Object())
-        self.yesConfidence = personPresence.YesConfidence()
-        self.noConfidence = personPresence.NoConfidence()
+        if personPresence.Result() is not None:
+            self.result = open_perception_kit.fb.open_perception_kit.metadata.PersonPresenceResult.PersonPresenceResultT.InitFromObj(
+                personPresence.Result())
+        self.subjectId = personPresence.SubjectId()
 
     # PersonPresenceT
     def Pack(self, builder):
         if self.object is not None:
             object = self.object.Pack(builder)
+        if self.result is not None:
+            result = self.result.Pack(builder)
         PersonPresenceStart(builder)
         if self.object is not None:
             PersonPresenceAddObject(builder, object)
-        PersonPresenceAddYesConfidence(builder, self.yesConfidence)
-        PersonPresenceAddNoConfidence(builder, self.noConfidence)
+        if self.result is not None:
+            PersonPresenceAddResult(builder, result)
+        PersonPresenceAddSubjectId(builder, self.subjectId)
         personPresence = PersonPresenceEnd(builder)
         return personPresence

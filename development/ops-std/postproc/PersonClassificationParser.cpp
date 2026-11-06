@@ -17,7 +17,6 @@
 
 #include "postproc/PersonClassificationParser.h"
 
-#include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
 #include <memory>
@@ -55,39 +54,24 @@ opk::Result<void> PersonClassificationParser::parse(const opk::TensorParser::Inp
 
     const float rawYes = input.tensors[0]->get(0);
     const float rawNo = input.tensors[0]->get(1);
-
-    float noConfidence = rawNo;
-    float yesConfidence = rawYes;
-
-    // Some models output logits while others output probabilities.
-    // If output does not look like probabilities, apply softmax.
-    const float sum = rawNo + rawYes;
-    const bool looksLikeProbabilities =
-        rawNo >= 0.0f && rawYes >= 0.0f && std::abs(sum - 1.0f) < 1e-3f;
-
-    if (!looksLikeProbabilities) {
-        const float maxLogit = std::max(rawNo, rawYes);
-        const float expNo = std::exp(rawNo - maxLogit);
-        const float expYes = std::exp(rawYes - maxLogit);
-        const float denom = expNo + expYes;
-        if (denom > 0.0f) {
-            noConfidence = expNo / denom;
-            yesConfidence = expYes / denom;
-        }
-    }
-
     auto result = std::make_unique<open_perception_kit::metadata::PersonPresenceT>();
     result->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-    result->yes_confidence = yesConfidence;
-    result->no_confidence = noConfidence;
+    if (input.inferenceInfo.parentId != 0U)
+        result->subject_id = input.inferenceInfo.parentId;
+    if (std::isfinite(rawYes) && std::isfinite(rawNo)) {
+        result->result = std::make_unique<open_perception_kit::metadata::PersonPresenceResultT>();
+        result->result->person_present = rawYes > rawNo;
+        result->result->yes_score = rawYes;
+        result->result->no_score = rawNo;
+    }
 
-    open_perception_kit::metadata::ClassificationsT payload;
+    open_perception_kit::metadata::PersonPresencesT payload;
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
                                             .contentType = k_content_type,
                                             .producer = &input.producerInfo});
-    payload.person_presence.push_back(std::move(result));
+    payload.presences.push_back(std::move(result));
     results.add(std::move(payload));
 
     return {};
