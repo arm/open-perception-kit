@@ -18,7 +18,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {Builder} from 'flatbuffers';
+import {Builder, ByteBuffer} from 'flatbuffers';
 import {Envelope, OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {WireEnvelope, WireEnvelopeT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
 import {BitmapDataT, BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
@@ -26,7 +26,14 @@ import {BoxDetectionT} from '../../../generated/open_perception_kit/ts/dist/open
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
 import {ClassificationCandidateT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.js';
 import {ClassificationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification.js';
+import {ClassificationKind} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-kind.js';
 import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js';
+import {CameraContactsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contacts.js';
+import {CameraContactT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contact.js';
+import {CameraContactResultT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contact-result.js';
+import {PersonPresencesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presences.js';
+import {PersonPresenceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.js';
+import {PersonPresenceResultT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence-result.js';
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
 import {InstanceSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.js';
 import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
@@ -113,13 +120,13 @@ function encodedFixture() {
             'face',
         )],
     ));
-    envelope.add(new ClassificationsT(
+    envelope.add(new CameraContactsT(
         1,
         0,
         layer('cameraContact'),
-        [new ClassificationT(
+        [new CameraContactT(
             new ObjectMetaT(30n, 20n),
-            [new ClassificationCandidateT(0.8, 1, 'contact')],
+            new CameraContactResultT(true, 0.8, 1), 20n,
         )],
     ));
     envelope.add(new PoseEstimationsT(
@@ -178,6 +185,86 @@ function trackedFixture() {
     ));
     return Buffer.from(envelope.serialize()).toString('base64');
 }
+
+test('classification identity, candidate order and recognized text round trip without reinterpretation', () => {
+    const envelope = new Envelope();
+    const recognized = 'Hello\n世界';
+    envelope.add(new ClassificationsT(1, 0, layer('classification'), [
+        new ClassificationT(new ObjectMetaT(7n), [
+            new ClassificationCandidateT(.8, 7, 'display label'),
+            new ClassificationCandidateT(.2, 0, 'zero label')], 'test:labels', ClassificationKind.Categorical, 9007199254740993n),
+        new ClassificationT(new ObjectMetaT(8n), [new ClassificationCandidateT(null, null, recognized)], '', ClassificationKind.RecognizedText),
+        new ClassificationT(new ObjectMetaT(9n), []),
+    ]));
+    envelope.add(new CameraContactsT(1, 0, layer('cameraContact'), [
+        new CameraContactT(new ObjectMetaT(10n), new CameraContactResultT(true, .5, 0), 7n),
+        new CameraContactT(new ObjectMetaT(11n)),
+    ]));
+    envelope.add(new PersonPresencesT(1, 0, layer('personClassification'), [new PersonPresenceT(new ObjectMetaT(12n), new PersonPresenceResultT(true, 2, -1), 7n)]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    const classifications = frame.layers.find(item => item.payloadType === 'Classifications').detections;
+    assert.equal(classifications[0].data.labelSet, 'test:labels');
+    assert.equal(classifications[0].data.kind, ClassificationKind.Categorical);
+    assert.equal(classifications[0].data.subjectUuid, '9007199254740993');
+    assert.deepEqual(classifications[0].data.candidates.map(item => item.classId), [7, 0]);
+    assert.equal(classifications[1].data.labelSet, '');
+    assert.equal(classifications[1].data.candidates[0].text, recognized);
+    assert.equal(classifications[1].data.candidates[0].classId, null);
+    assert.equal(classifications[1].data.candidates[0].confidence, null);
+    assert.equal(classifications[1].data.kind, ClassificationKind.RecognizedText);
+    assert.deepEqual(classifications[2].data.candidates, []);
+    const contacts = frame.layers.find(item => item.payloadType === 'CameraContacts').detections;
+    assert.equal(contacts[0].data.subjectUuid, '7');
+    assert.deepEqual(contacts[0].data.result, {inContact: true, modelClassIndex: 0, confidence: .5});
+    assert.equal(contacts[1].data.result, null);
+    assert.equal(frame.layers.find(item => item.payloadType === 'PersonPresences').detections[0].type, 'PersonClassification');
+});
+
+test('splitting classification roots preserves their mixed publication order', () => {
+    const envelope = new Envelope();
+    envelope.add(new PersonPresencesT(1, 0, layer('personClassification'), []));
+    envelope.add(new CameraContactsT(1, 0, layer('cameraContact'), []));
+    envelope.add(new ClassificationsT(1, 0, layer('classification'), []));
+    envelope.add(new PersonPresencesT(1, 0, layer('personClassification'), []));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    assert.deepEqual(frame.layers.map(item => item.payloadType), [
+        'PersonPresences', 'CameraContacts', 'Classifications', 'PersonPresences']);
+    const wire = WireEnvelope.getRootAsWireEnvelope(new ByteBuffer(envelope.serialize())).unpack();
+    wire.payloads[0].blob = [0, 0, 0, 0];
+    const builder = new Builder(1024);
+    WireEnvelope.finishWireEnvelopeBuffer(builder, wire.pack(builder));
+    const filtered = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(builder.asUint8Array()).toString('base64')}).frame_results;
+    assert.deepEqual(filtered.layers.map(item => item.payloadType), ['CameraContacts', 'Classifications', 'PersonPresences']);
+});
+
+test('presence decoding distinguishes unavailable and zero scores without coercing NaN', () => {
+    const envelope = new Envelope();
+    envelope.add(new PersonPresencesT(1, 0, layer('personClassification'), [
+        new PersonPresenceT(new ObjectMetaT(1n)),
+        new PersonPresenceT(new ObjectMetaT(2n), new PersonPresenceResultT(false, 0, 1)),
+        new PersonPresenceT(new ObjectMetaT(3n), new PersonPresenceResultT(true, .8, NaN)),
+    ]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    const data = frame.layers[0].detections.map(item => item.data);
+    assert.equal(data[0].result, null);
+    assert.equal(data[1].result.personPresent, false);
+    assert.equal(data[1].result.yesScore, 0);
+    assert.equal(data[1].result.noScore, 1);
+    assert.ok(Number.isNaN(data[2].result.noScore));
+});
+
+test('classification decoding preserves non-finite confidence for validation', () => {
+    const envelope = new Envelope();
+    envelope.add(new ClassificationsT(1, 0, null, [new ClassificationT(null,
+        [new ClassificationCandidateT(NaN, 1, 'label')], 'test:labels', ClassificationKind.Categorical)]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    assert.ok(Number.isNaN(frame.layers[0].detections[0].data.candidates[0].confidence));
+});
 
 test('decodes typed FrameResults into the established WebUI view model', () => {
     const decoded = decodeFrameResultsMessage({
@@ -347,7 +434,7 @@ test('decodes instance masks with separate binary pixels, wide class IDs, confid
     assert.equal(frame.layers.find(item => item.payloadType === 'SemanticSegmentationMasks').count, 0);
 });
 
-test('OCR wire payloads preserve text, parent links and malformed numeric values without content-type routing', () => {
+test('OCR wire payloads preserve recognized text, explicit subjects and invalid numeric values', () => {
     const envelope = new Envelope();
     envelope.add(new FrameContextT(1, 0, null, new VideoFrameContextT(new ObjectMetaT(42n), 640n, 480n)));
     const detectorInfo = layer('');
@@ -358,13 +445,14 @@ test('OCR wire payloads preserve text, parent links and malformed numeric values
     ]));
     const readerInfo = layer('arbitrary');
     readerInfo.model = 'reader';
-    envelope.add(new ClassificationsT(1, 0, readerInfo, [new ClassificationT(new ObjectMetaT(10n, 9007199254740993n), [
-        new ClassificationCandidateT(0.9, -1, '東京 <text>'),
-    ])]));
+    envelope.add(new ClassificationsT(1, 0, readerInfo, [new ClassificationT(new ObjectMetaT(10n, 999n), [
+        new ClassificationCandidateT(0.9, null, '東京 <text>'),
+    ], null, ClassificationKind.RecognizedText, 9007199254740993n)]));
     const {frame_results: frame} = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')});
     const reader = frame.layers.find(item => item.payloadType === 'Classifications');
-    assert.equal(reader.detections[0].data.parentUuid, '9007199254740993');
+    assert.equal(reader.detections[0].data.parentUuid, '999');
+    assert.equal(reader.detections[0].data.subjectUuid, '9007199254740993');
     const overlay = createOverlay('ocr', outputSource(reader));
     const resolved = resolveOverlay(indexFrame(frame), overlay);
     assert.equal(resolved.state, 'ready');
@@ -376,7 +464,7 @@ test('OCR wire payloads preserve text, parent links and malformed numeric values
         new BoxDetectionT(new ObjectMetaT(1n, 42n), new BoundingBoxT(NaN, 0, 10, 10), NaN),
     ]));
     malformed.add(new ClassificationsT(1, 0, readerInfo, [new ClassificationT(new ObjectMetaT(2n, 1n), [
-        new ClassificationCandidateT(NaN, -1, 'bad score'),
+        new ClassificationCandidateT(NaN, null, 'bad score'),
     ])]));
     const decoded = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(malformed.serialize()).toString('base64')}).frame_results;

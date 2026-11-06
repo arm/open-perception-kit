@@ -25,7 +25,9 @@ ExecuTorch/XNNPACK variant of the NITEC camera-contact classifier.
 - Preprocessing: ImageNet mean and standard-deviation normalization
 - Output: logits `[1, 2]`; class `0` is no contact and class `1` is contact
 - Postprocessor: `CameraContactParser`
-- Dependency: `humanFace` detections from UltraFace
+- FrameResults payload: `CameraContactsT`; `result.in_contact` is the contact decision,
+  and `subject_id` identifies the face observation being classified.
+- Dependency: face detections from UltraFace
 
 The model artifact is downloaded from the pinned `hfDownload` entry and is
 not stored in the repository. Run the complete UltraFace cascade with:

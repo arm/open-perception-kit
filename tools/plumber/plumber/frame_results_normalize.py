@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import astuple, dataclass, field
 from typing import Any
 import math
 
@@ -24,6 +24,8 @@ from .frame_results_sdk import FrameResults
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
 from open_perception_kit.fb.open_perception_kit.metadata.CoordinateUnits import CoordinateUnits
 from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT
+from open_perception_kit.fb.open_perception_kit.metadata.CameraContacts import CameraContactsT
+from open_perception_kit.fb.open_perception_kit.metadata.PersonPresences import PersonPresencesT
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT
@@ -40,6 +42,8 @@ class PayloadKey:
     infer_element_id: str = ""
     content_type: str = ""
     model: str = ""
+    producer_component: str = ""
+    producer_instance_id: str = ""
 
 
 @dataclass
@@ -111,11 +115,14 @@ def _layer_info_dict(layer_info: Any) -> dict[str, Any]:
 
 def _payload_key(payload_type: str, layer_info: Any) -> PayloadKey:
     layer_info_fields = _layer_info_dict(layer_info)
+    producer = layer_info_fields["producer"] or {}
     return PayloadKey(
         payload_type=payload_type,
         infer_element_id=layer_info_fields["inferElementId"],
         content_type=layer_info_fields["contentType"],
         model=layer_info_fields["model"],
+        producer_component=producer.get("component", ""),
+        producer_instance_id=producer.get("instanceId", ""),
     )
 
 
@@ -183,13 +190,9 @@ def _point_data(point: Any) -> dict[str, float]:
 
 def _candidate_data(candidate: Any) -> dict[str, Any]:
     return {
-        "confidence": float(candidate.confidence),
-        "classId": int(candidate.classId),
+        "confidence": None if candidate.confidence is None else float(candidate.confidence),
+        "classId": None if candidate.classId is None else int(candidate.classId),
         "text": _text(candidate.text),
-        "x": float(candidate.x),
-        "y": float(candidate.y),
-        "w": float(candidate.w),
-        "h": float(candidate.h),
     }
 
 
@@ -244,6 +247,9 @@ def _normalize_box_detection(box_detection: Any) -> dict[str, Any]:
 
 def _normalize_classification(classification: Any) -> dict[str, Any]:
     data = _object_data(classification.object)
+    data["labelSet"] = _text(classification.labelSet)
+    data["kind"] = int(classification.kind)
+    data["subjectId"] = None if classification.subjectId is None else int(classification.subjectId)
     data["candidates"] = [
         _candidate_data(candidate)
         for candidate in classification.candidates or []
@@ -255,12 +261,27 @@ def _normalize_classification(classification: Any) -> dict[str, Any]:
     }
 
 
+def _normalize_camera_contact(contact: Any) -> dict[str, Any]:
+    data = _object_data(contact.object)
+    result = contact.result
+    data["subjectId"] = None if contact.subjectId is None else int(contact.subjectId)
+    data["result"] = None if result is None else {
+        "inContact": bool(result.inContact),
+        "modelClassIndex": None if result.modelClassIndex is None else int(result.modelClassIndex),
+        "confidence": None if result.confidence is None else float(result.confidence)}
+    return {"item_type": "CameraContact", "data": data}
+
+
 def _normalize_person_presence(person_presence: Any) -> dict[str, Any]:
     data = _object_data(person_presence.object)
     data.update(
         {
-            "yesConfidence": float(person_presence.yesConfidence),
-            "noConfidence": float(person_presence.noConfidence),
+            "result": None if person_presence.result is None else {
+                "personPresent": bool(person_presence.result.personPresent),
+                "yesScore": None if person_presence.result.yesScore is None else float(person_presence.result.yesScore),
+                "noScore": None if person_presence.result.noScore is None else float(person_presence.result.noScore),
+            },
+            "subjectId": None if person_presence.subjectId is None else int(person_presence.subjectId),
         }
     )
     return {
@@ -418,26 +439,6 @@ def _normalize_frame_contexts(frame_results: FrameResults, snapshot: FrameResult
         )
 
 
-def _normalize_classifications(frame_results: FrameResults, snapshot: FrameResultsSnapshot) -> None:
-    for payload in frame_results.for_each(ClassificationsT):
-        items = [
-            _normalize_classification(item)
-            for item in payload.classifications or []
-            if item is not None
-        ]
-        items.extend(
-            _normalize_person_presence(item)
-            for item in payload.personPresence or []
-            if item is not None
-        )
-        _add_payload_items(
-            snapshot,
-            _payload_key("open_perception_kit.metadata.Classifications", payload.layer),
-            payload.layer,
-            items,
-        )
-
-
 def _normalize_payload_collection(
     frame_results: FrameResults,
     snapshot: FrameResultsSnapshot,
@@ -456,6 +457,36 @@ def _normalize_payload_collection(
         )
 
 
+def _resolve_subjects(snapshot: FrameResultsSnapshot) -> None:
+    subjects = {}
+    frame_counts = {}
+    for key, payload in snapshot.payloads.items():
+        for item in payload.items:
+            if item["item_type"] in ("BoxDetection", "ObjectTrack", "VideoFrame") and item["data"]["id"]:
+                subjects.setdefault(item["data"]["id"], []).append((key, item))
+                if item["item_type"] == "VideoFrame":
+                    frame_counts[key] = frame_counts.get(key, 0) + 1
+    for payload in snapshot.payloads.values():
+        for item in payload.items:
+            if item["item_type"] not in ("Classification", "CameraContact", "PersonPresence"):
+                continue
+            candidates = subjects.get(item["data"]["subjectId"], [])
+            if item["item_type"] == "CameraContact":
+                candidates = [(key, subject) for key, subject in candidates if subject["item_type"] != "VideoFrame"]
+            item["subject"], item["subject_source"] = None, None
+            if len(candidates) != 1:
+                continue
+            key, subject = candidates[0]
+            data = subject["data"]
+            # Observation IDs are packet-local. Multiple frames in one source
+            # group do not establish a cross-packet correspondence by themselves.
+            valid = (frame_counts[key] == 1 and data["originalWidth"] > 0 and data["originalHeight"] > 0
+                     if subject["item_type"] == "VideoFrame" else data.get("spatialValid"))
+            if valid:
+                item["subject"] = subject
+                item["subject_source"] = astuple(key)
+
+
 def normalize_frame_results(frame_results: FrameResults, frame_counter: int | None = None) -> FrameResultsSnapshot:
     snapshot = FrameResultsSnapshot(
         frame_counter=frame_counter,
@@ -467,7 +498,18 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         frame_results, snapshot, BoxDetectionsT,
         "open_perception_kit.metadata.BoxDetections", "detections", _normalize_box_detection,
     )
-    _normalize_classifications(frame_results, snapshot)
+    _normalize_payload_collection(
+        frame_results, snapshot, ClassificationsT,
+        "open_perception_kit.metadata.Classifications", "classifications", _normalize_classification,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, CameraContactsT,
+        "open_perception_kit.metadata.CameraContacts", "contacts", _normalize_camera_contact,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, PersonPresencesT,
+        "open_perception_kit.metadata.PersonPresences", "presences", _normalize_person_presence,
+    )
     _normalize_payload_collection(
         frame_results, snapshot, VoiceActivityDetectionsT,
         "open_perception_kit.metadata.VoiceActivityDetections", "detections", _normalize_voice_activity,
@@ -496,4 +538,5 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         frame_results, snapshot, TrackTracesT,
         "open_perception_kit.metadata.TrackTraces", "traces", _normalize_track_trace,
     )
+    _resolve_subjects(snapshot)
     return snapshot

@@ -664,7 +664,7 @@ test.describe('instance masks', () => {
 test.describe('OCR overlays', () => {
   test.use({deviceScaleFactor: 2});
 
-  test('explicit sources, parent-linked Unicode text, geometry and saved OCR controls', async ({page}) => {
+  test('explicit sources, subject-linked Unicode text, geometry and saved OCR controls', async ({page}) => {
     await page.routeWebSocket('**/ws', () => {});
     await page.addInitScript(() => {
       window.ocrText = [];
@@ -687,7 +687,7 @@ test.describe('OCR overlays', () => {
         spatialValid: true, frameWidth: 640, frameHeight: 480,
       }}]};
       const reader = {payloadType: 'Classifications', model, contentType: '', detections: [{type: 'Classification', data: {
-        uuid: '300', parentUuid: '200', candidates: [{text, confidence: score}],
+        uuid: '300', parentUuid: 'unrelated', subjectUuid: '200', kind: 2, labelSet: '', candidates: [{text, confidence: score}],
       }}]};
       const frame = {layers: [
         {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {uuid: '42', originalWidth: 640, originalHeight: 480}}]},

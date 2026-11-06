@@ -365,6 +365,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         nlohmann::json{{"parser", "RetinaFaceParser"}, {"confidenceThreshold", 1.1}},
         nlohmann::json{{"parser", "RetinaFaceParser"}, {"iouThreshold", -0.1}},
         nlohmann::json{{"parser", "RetinaFaceParser"}, {"unexpected", true}},
+        nlohmann::json{{"parser", "PersonClassificationParser"}, {"scoreFormat", "auto"}},
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"unexpected", true}},
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"angleBinWidthDeg", 0}},
         nlohmann::json{{"parser", "CameraContactParser"},

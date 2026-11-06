@@ -152,11 +152,14 @@ opk::Result<void> PaddleOcrRecognitionParser::parse(const opk::TensorParser::Inp
 
     auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
     candidate->text = std::move(text);
-    candidate->confidence = retained == 0 ? 0.0f : static_cast<float>(confidenceSum / retained);
-    candidate->class_id = -1;
+    if (retained != 0)
+        candidate->confidence = static_cast<float>(confidenceSum / retained);
 
     auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
     classification->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    classification->kind = open_perception_kit::metadata::ClassificationKind::RecognizedText;
+    if (input.inferenceInfo.parentId != 0U)
+        classification->subject_id = input.inferenceInfo.parentId;
     classification->candidates.push_back(std::move(candidate));
 
     open_perception_kit::metadata::ClassificationsT payload;
