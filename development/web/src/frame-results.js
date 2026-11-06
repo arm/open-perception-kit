@@ -24,7 +24,7 @@ import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open
 import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
 import {PerformanceMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js';
-import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
+import {GazeMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 
@@ -224,14 +224,15 @@ export function decodeFrameResultsMessage(message) {
 
     addClassificationLayers(packet, layers);
 
-    addPayloadLayers(envelope, PoseEstimationsT, 'PoseEstimations', (payload) =>
-        payload.poses.map((item) => ({
-            type: 'YawPitch',
+    addPayloadLayers(envelope, GazeMeasurementsT, 'GazeMeasurements', (payload) =>
+        payload.measurements.map((item) => ({
+            type: 'GazeMeasurement',
             data: {
                 ...objectData(item.object),
-                confidence: Number(item.confidence || 0),
-                yaw: Number(item.yaw || 0),
-                pitch: Number(item.pitch || 0),
+                subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+                confidence: item.confidence,
+                angles: item.angles ? {yawDegrees: item.angles.yawDegrees,
+                    pitchDegrees: item.angles.pitchDegrees} : null,
             },
         })), layers);
 

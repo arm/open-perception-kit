@@ -48,6 +48,14 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.FrameContext',
         'file_identifier': 'FCTX',
     },
+    2646100978796938776: {
+        'name': 'open_perception_kit::metadata::GazeMeasurements',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements',
+        'root_type': 'GazeMeasurements',
+        'native_type': 'GazeMeasurementsT',
+        'qualified_root_type': 'open_perception_kit.metadata.GazeMeasurements',
+        'file_identifier': 'GZMS',
+    },
     7634499802271603959: {
         'name': 'open_perception_kit::metadata::InstanceSegmentationMasks',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks',
@@ -87,14 +95,6 @@ _TYPE_REGISTRY = {
         'native_type': 'PersonPresencesT',
         'qualified_root_type': 'open_perception_kit.metadata.PersonPresences',
         'file_identifier': 'PPRS',
-    },
-    5268014742632501193: {
-        'name': 'open_perception_kit::metadata::PoseEstimations',
-        'module': 'open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations',
-        'root_type': 'PoseEstimations',
-        'native_type': 'PoseEstimationsT',
-        'qualified_root_type': 'open_perception_kit.metadata.PoseEstimations',
-        'file_identifier': 'POSE',
     },
     3128408959875976772: {
         'name': 'open_perception_kit::metadata::SegmentationMasks',

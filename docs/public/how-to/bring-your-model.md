@@ -283,7 +283,7 @@ The easiest models to integrate without code changes are models that fit one of 
 - `BoxDetectionsT` for detections such as faces and generic objects
 - `ClassificationsT` for ordered classification candidates with a declared label set when known
 - `CameraContactsT` and `PersonPresencesT` for their respective domain results
-- `PoseEstimationsT` for gaze estimation
+- `GazeMeasurementsT` for gaze angles in degrees and explicit subject references
 - `SemanticSegmentationMasksT` for per-pixel class IDs, including valid class `0`
 - `InstanceSegmentationMasksT` for binary object masks with class, confidence, and box
 - `SegmentationMasksT` for compositing masks and alpha mattes with values `0` through `255`

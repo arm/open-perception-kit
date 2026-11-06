@@ -37,7 +37,7 @@ class TextDisplay {
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::PersonPresencesT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const open_perception_kit::metadata::PoseEstimationsT &payload);
+                            const open_perception_kit::metadata::GazeMeasurementsT &payload);
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::SegmentationMasksT &payload);
     static void appendLines(std::vector<std::string> &lines,

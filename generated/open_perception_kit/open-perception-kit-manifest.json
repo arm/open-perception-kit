@@ -49,6 +49,11 @@
       "size": 29319
     },
     {
+      "path": "cpp/fb/gaze_measurements_generated.h",
+      "sha256": "a7699220bea75b26f72a593d3351a2088a38203a6f56ff75d57ee4ddb05770e6",
+      "size": 25283
+    },
+    {
       "path": "cpp/fb/instance_segmentation_masks_generated.h",
       "sha256": "fa7446be40da6a8e44ad4db60c993b999d273a6c427d9e1bad705acd557b81d8",
       "size": 23099
@@ -77,11 +82,6 @@
       "path": "cpp/fb/person_presences_generated.h",
       "sha256": "a8a54a1419f09008bb91cde741bde6828b7506b5c8c296de9bdad2fe18385a75",
       "size": 25499
-    },
-    {
-      "path": "cpp/fb/pose_estimations_generated.h",
-      "sha256": "37da4d10bc8f4ae5b3482aa5e8cd31c9c313a07596fd4036f1f8d3a6f89de0e4",
-      "size": 19405
     },
     {
       "path": "cpp/fb/segmentation_masks_generated.h",
@@ -120,13 +120,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "27342ff56b0533f05a2dbf09056924f9d628b6b528d3172e63f86c18ec38e63b",
-      "size": 37126
+      "sha256": "2f3ca06355ce51915d2c769384a24722d6a272a74fece4e45fd798724768f775",
+      "size": 37133
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "61e45cefdb83d2e462f23854486f50821253e02f11c9fc4c10f5ec96a3ad5d1c",
-      "size": 411743
+      "sha256": "ba78dc03ba20d2bbd6e6cea6a3f8036c8a75cc43bdad6606704ea81e83cc2fa7",
+      "size": 416721
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -150,7 +150,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "aafe12dfd843b7abf44d526a3fc9220402ce6873f1b8e2772cc780fe6737bccb",
+      "sha256": "f4d23f9e65355e9d4dfb95d082153e91ea6bf18b81133b17a8bbdb3e45482244",
       "size": 1166
     },
     {
@@ -239,6 +239,21 @@
       "size": 3191
     },
     {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/GazeAngles.py",
+      "sha256": "d6b77c30a042da91b85c85b93801b124707bd80b83bdbd838d4ea5ab8d6ec66a",
+      "size": 3919
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/GazeMeasurement.py",
+      "sha256": "7021a2da55bd8137b41c6cc3d8ee58eb1164d3fa669321c80e3a53ad60573ced",
+      "size": 6615
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/GazeMeasurements.py",
+      "sha256": "82da4f80471be6dfa3663451ae40413a8d6a97c3e20361b3f0ceb27a1679cdc7",
+      "size": 8187
+    },
+    {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ImageSpace.py",
       "sha256": "dd6f1f210d2bb975c5985ba18201ef1c77e89fb52438f0886f49bcb60c01728e",
       "size": 6582
@@ -307,16 +322,6 @@
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/Point2f.py",
       "sha256": "97abadb48f204af32e94a1b568027ad985a5dc8332ead464b11322b336e0a181",
       "size": 3303
-    },
-    {
-      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PoseEstimation.py",
-      "sha256": "4e785eae88c1d479ef713b1604e89210f13c8d8eebbcec0d9f4de78a2da30fec",
-      "size": 5796
-    },
-    {
-      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PoseEstimations.py",
-      "sha256": "7935229bd815cccbc6d21275608b1c14616fc4380b1ab1dae4ced7541b81c8e6",
-      "size": 7870
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ProducerInfo.py",
@@ -425,12 +430,12 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "a52dd07da95609f91b28fc909c8d54b7ea6ec77e00c387533e7bc3fc3787ff7f",
-      "size": 6703
+      "sha256": "abfde8f1991f1cbc5930ec1571c7b764591390cf7f42bc93a36bb9030773876f",
+      "size": 6708
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "de5d521ca3fdf07d2ad62313230800c22474d4b547ccef185b03fa1f89938fb4",
+      "sha256": "d7b504508f643b695b8775a1d2ff76e03123e5b969b234c7eef4d135662e76f6",
       "size": 15484
     },
     {
@@ -529,6 +534,21 @@
       "size": 4514
     },
     {
+      "path": "rust/src/fb/open_perception_kit/metadata/gaze_angles_generated.rs",
+      "sha256": "f5bc94390800c3c6d90dab985300f6f5526179c60861ed58c8386e11c87d9b43",
+      "size": 5919
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/gaze_measurement_generated.rs",
+      "sha256": "b7dc847db062138700dc335772c536b45cc22fc45305151726775854c2c06ece",
+      "size": 8605
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/gaze_measurements_generated.rs",
+      "sha256": "75582c1b85b9d96a8553c76a83f0ad54dd42fa29a75c376e9a23b9649ba0d9f1",
+      "size": 13171
+    },
+    {
       "path": "rust/src/fb/open_perception_kit/metadata/image_space_generated.rs",
       "sha256": "1d4540ea45887562e2d8406bdb703fd06eb785ea8f9248ee605deae58a5bb17b",
       "size": 10347
@@ -550,8 +570,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "ac8fc8242aa03d12bae7dd75975d4214cf49998d6c3c9f9b9dd85108b614a024",
-      "size": 4119
+      "sha256": "532fcf0835337b8820e5620422de8ba4aaa823b69dd17fec29b6395d57a2610f",
+      "size": 4190
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -602,16 +622,6 @@
       "path": "rust/src/fb/open_perception_kit/metadata/point_2f_generated.rs",
       "sha256": "408ef91799adef1efd48250708fc502838f32ea4f4046cc6ae6397637c2b839e",
       "size": 4989
-    },
-    {
-      "path": "rust/src/fb/open_perception_kit/metadata/pose_estimation_generated.rs",
-      "sha256": "5f21ade882b411b283901bee10b43b5aa332ad04fdfab8ef9ccf877f081bb9fe",
-      "size": 7956
-    },
-    {
-      "path": "rust/src/fb/open_perception_kit/metadata/pose_estimations_generated.rs",
-      "sha256": "71220d6b3eb26a845a4ce403e04bd637da790f2e07619be87756c59f9d873405",
-      "size": 12879
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/producer_info_generated.rs",
@@ -705,12 +715,12 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "d951c8d8e3e4557398cf8b0b3ce6f3a27c0105d8934b5461fda646543b902c0d",
-      "size": 58625
+      "sha256": "25f15cdc9aafa610954ca3cec213fc08c28131cdd0113bb190af19952f6d7426",
+      "size": 58636
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
-      "sha256": "21f4b4c90fb25c01ddc74a3a30786215dd0847e24d951e40199225ea8bd15280",
+      "sha256": "bb618d1873cc7a4dd1effe484d7ae5e4c7fd8bbea386023cbb927beaf3ca181e",
       "size": 1025
     },
     {
@@ -730,12 +740,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "aad0d391696f6be3588f1473709f2b699553af4a1364cdd86de6c51bb956ca01",
+      "sha256": "6b7c376e022ad2cda9616144377c6370ea14e3841c242b5f9e8f662d2aa5cab8",
       "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "200b2f6b4da82a093766f4ffe29ef81380b8ab57b9122ab19f807429e2218477",
+      "sha256": "69d8457203c081719694eb2dc02edd8290424350379fc9ae2ac15f1a72f643a0",
       "size": 14047
     },
     {
@@ -919,6 +929,36 @@
       "size": 2418
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-angles.d.ts",
+      "sha256": "c016c084ffba6579d719ff7b83cc3047d26b1fde1816f891f75f6ed7a1d6666d",
+      "size": 2033
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-angles.js",
+      "sha256": "57a0a2968a8cb07c3eb7b6d6a28ca2b9ecd94677b94c86de4dd1ca49ec2a9ce3",
+      "size": 2992
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurement.d.ts",
+      "sha256": "95f6f586577212bdc36735a96e09a01cf16a532306548f893e52af9e6cca54b3",
+      "size": 2599
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurement.js",
+      "sha256": "0186d242e996b04bd65f5ffc011be9bd188424531715a69abf0e6216a819e4cb",
+      "size": 4354
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.d.ts",
+      "sha256": "92522ab50380bbd6591bbcbf178861c3b0103901c7d2d452aa452281be34a506",
+      "size": 3178
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.js",
+      "sha256": "9a2e9dd0540cb7a73094c5617f9180d4d454bfb74db6bb5e35210c08415f8ab5",
+      "size": 5321
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/image-space.d.ts",
       "sha256": "f3a15a7af45cfba7af31feb9ffe48a8b85af697f9a1c5c5e5af7f669d6b2c0da",
       "size": 2796
@@ -1057,26 +1097,6 @@
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/point2f.js",
       "sha256": "4488b15e4ca05425de4237298a3b8b6267d98d0664102a6c3ad2f13d09848366",
       "size": 2658
-    },
-    {
-      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.d.ts",
-      "sha256": "847b66f7ad32ccd4bc38ca5ea173d24a76c01a7e76bdc71e8e12019e5347c5b7",
-      "size": 2511
-    },
-    {
-      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js",
-      "sha256": "3b06fed1de6c5c6ccb90ea6b20314cd5c34f68d366ca5ae61b106da25c78049f",
-      "size": 4057
-    },
-    {
-      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.d.ts",
-      "sha256": "0f8881b0c15e8d67672b96f58ae3bb1f440ee32807ed349dd9b55b9cbe7425c4",
-      "size": 3099
-    },
-    {
-      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js",
-      "sha256": "b29ed217ad435ba388a21202efdccaead5727199d7ab5c139a19d1aef2f67b49",
-      "size": 5158
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/producer-info.d.ts",
@@ -1220,12 +1240,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "a9fcdfc8a43d40b6863e2f3767b26116b07d9b19797c8f16ebb51c4a68026f48",
+      "sha256": "31c4093ecbc095da3208a39d45bd272602703a45d8c50993a0a5edee3394aa80",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "c4118cefde7d62ee58e5e6fc2367d1d6a77cc662b3d8d342e2b753f22cfe4dc1",
+      "sha256": "819ffee01c408cdf6eb96655f2edc8185b040a1f335db5f331cb9ee29c34e009",
       "size": 1203
     },
     {
@@ -1235,8 +1255,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "f88ba6ac6c8cd753b9ea0971d484b07138cb290d05a51434bfb50ebed5a47879",
-      "size": 14394
+      "sha256": "d36b1935a7f90132586081264ba2d0877b51133eb0c3ef2fc4e623288bbb0129",
+      "size": 14406
     },
     {
       "path": "ts/package.json",
@@ -1245,7 +1265,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "432e8f9e04a8d6bd2df30c54a5364da897ab4c52f0b285a1a1650595c5cda7cf",
+      "sha256": "879acbb911f9d9bb2c697131a42a4fd1cdf075d945c7faad61634d508dacaf43",
       "size": 12726
     },
     {
@@ -1339,6 +1359,21 @@
       "size": 2662
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/gaze-angles.ts",
+      "sha256": "46d627a8fa1db2a21f0d017d5a13ea9096a160b78cd256db0bd573e383d9cce5",
+      "size": 3205
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurement.ts",
+      "sha256": "172f9413d0dd8877de60e4265112b1ae77249fa7cafb1edeaa31e74fca2134e8",
+      "size": 4643
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.ts",
+      "sha256": "52bcf1bd1a278a5ee00fdb72bc46a71905e4a4c1fc7c702b045382ea76b328ef",
+      "size": 5787
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/image-space.ts",
       "sha256": "1bc62c5d55c7ee1a0bbef7f73cdcdff650c78aa5a6c727dd28d323cdffb33c73",
       "size": 5258
@@ -1407,16 +1442,6 @@
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/point2f.ts",
       "sha256": "cfe2f800df4075693c672152440e1ab463806ac472befec3b3631627ae546c72",
       "size": 2887
-    },
-    {
-      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.ts",
-      "sha256": "63cd875a192ff85b36c9621bafd1b2729ce07d3a248cf2fb6ff7f3c4c6cadeb0",
-      "size": 4377
-    },
-    {
-      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.ts",
-      "sha256": "fe5c5d0a2b690b5b70b3d21f9d4990024ad8bee62a80146d1ccf458fec21b1ee",
-      "size": 5622
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/producer-info.ts",
@@ -1490,13 +1515,13 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "1968c6a49a3666137a49d6a9f5079b5755842e0ecb5fa58be0e7e71474ea8c0a",
+      "sha256": "deb833df9c86b991143a35145fe72c4e952ad84d92bac879b0816d3042ae6deb",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "c98afd21dcc2cde9c0c7d5c4baf95b88ec3db02cd6d87654a678b05a830fe767",
-      "size": 14472
+      "sha256": "192d0ed74cc9000e2abf25761d5becc9f199c30ffab349611a77c8fba83bed89",
+      "size": 14484
     },
     {
       "path": "ts/tsconfig.json",
@@ -1843,6 +1868,11 @@
           "size": 25876
         },
         {
+          "path": "fb/gaze_measurements_generated.h",
+          "sha256": "0938cd2550c79b48adf510d799779f21884b960d8706c44d022f9a646c9f7cbd",
+          "size": 22154
+        },
+        {
           "path": "fb/instance_segmentation_masks_generated.h",
           "sha256": "4828cd43b740451d866a4adde65f24d0b46518866c69ae8871e61157915d70f5",
           "size": 20239
@@ -1871,11 +1901,6 @@
           "path": "fb/person_presences_generated.h",
           "sha256": "861c82c12667a7ae2ba454ce3d4542856c9fa30f05d68b83ddcf0fcad5a0389f",
           "size": 22391
-        },
-        {
-          "path": "fb/pose_estimations_generated.h",
-          "sha256": "83523efc284279d02ac20690ba4a28e73a6aae68b5285f1c1abfb70889169c23",
-          "size": 16898
         },
         {
           "path": "fb/segmentation_masks_generated.h",
@@ -1914,13 +1939,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "e4a08468ee7efcc3884c50b9542c9b1aa7cbecae340d3931def5467890ccb55d",
-          "size": 35739
+          "sha256": "ca5b88305754464276c6ad6fbf493f699a29be94af4b5ce1294caf761a2abf9e",
+          "size": 35746
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "0ae8e46aa87c6e27449d2a78b0ac8b58853088d46897dc872da97118a79b3f62",
-          "size": 390910
+          "sha256": "09814f3bd32942926453e28ce3690c4ce48c2d7ad2585726b0182e73dc83ca2e",
+          "size": 395604
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -1983,6 +2008,12 @@
           "schema": "frame_context.fbs"
         },
         {
+          "file_identifier": "GZMS",
+          "payload_id": "0x24b8d6d211014618",
+          "qualified_root_type": "open_perception_kit.metadata.GazeMeasurements",
+          "schema": "gaze_measurements.fbs"
+        },
+        {
           "file_identifier": "ISGM",
           "payload_id": "0x69f3311ef0305cf7",
           "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
@@ -2011,12 +2042,6 @@
           "payload_id": "0x68c8d833e939f1de",
           "qualified_root_type": "open_perception_kit.metadata.PersonPresences",
           "schema": "person_presences.fbs"
-        },
-        {
-          "file_identifier": "POSE",
-          "payload_id": "0x491bbf7f4e218fc9",
-          "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
-          "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
@@ -2085,6 +2110,11 @@
           "size": 822
         },
         {
+          "path": "gaze_measurements.fbs",
+          "sha256": "b9aa1b784f82a8450fbe299d2e90a8d4294b3443ad148a0d8fb80d79bac2df8e",
+          "size": 1402
+        },
+        {
           "path": "instance_segmentation_masks.fbs",
           "sha256": "385134212e99a6fd461d556f8727188e3a0909e6b18dd4f7f5fd9338efe4a876",
           "size": 554
@@ -2108,11 +2138,6 @@
           "path": "person_presences.fbs",
           "sha256": "7ed1e74518ad2036be2f0ec7d0094194975c6cc181ee4c0df54c2c7d80da5179",
           "size": 806
-        },
-        {
-          "path": "pose_estimations.fbs",
-          "sha256": "66b9a99168366ce8c9d0bc9f22767899ed318cafa7ada67c2851d5c3b85cb0ee",
-          "size": 423
         },
         {
           "path": "segmentation_masks.fbs",
@@ -2140,7 +2165,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "5ac6f6f4fd21ba588e045f9766e0bcd66ce5a077ef86bab7b706962374f5507c",
+      "schema_set_sha256": "18a212000d9a00662a0e6de673716fcb76e44196603e1e5c203117abd22cc2df",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2155,7 +2180,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "b41f55029b9fe48d50684ab9a64cf4542b10febd6f1d5aaad743371def9ca3a3",
+          "sha256": "0e34f6673b679247c22f1101fdb1f88fd17f6b1781ee9a77cc185add269d45cc",
           "size": 506
         },
         {
@@ -2244,6 +2269,21 @@
           "size": 2522
         },
         {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/GazeAngles.py",
+          "sha256": "c522d5b44770e139444706285f9cb4978454d196d51507f262067ceccb47b663",
+          "size": 3252
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/GazeMeasurement.py",
+          "sha256": "8dab67152b98288ff983fb7115024933f48f6bd5ef438fa5786c3c3c2f2962a9",
+          "size": 5898
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/GazeMeasurements.py",
+          "sha256": "18898de0bd84700ed5f0a459d5dfb869b75b764340a942f4fea8ee51d28ca4ac",
+          "size": 7467
+        },
+        {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ImageSpace.py",
           "sha256": "1eddb3ca43f37981d0f6c8b09d7e32361dd322c0a4507c0c08cf816a02ba8b00",
           "size": 5915
@@ -2312,16 +2352,6 @@
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/Point2f.py",
           "sha256": "f2c86389f548235e821962de0bdf55cdcc99e174b44562f3418073b825aad492",
           "size": 2636
-        },
-        {
-          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PoseEstimation.py",
-          "sha256": "f13c2af5891096e1a89c9554e1f73e696511fbf5680356eacb648101677def60",
-          "size": 5103
-        },
-        {
-          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PoseEstimations.py",
-          "sha256": "3bbf13458a3b869ca03d43e9a2dfb0536fb581f62a8359d9b8ace6212fb66196",
-          "size": 7150
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ProducerInfo.py",
@@ -2430,12 +2460,12 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "fb168bd26531cceea203ab8aaf67b751463d24c8ac7b26579436d05c60cfe658",
-          "size": 6042
+          "sha256": "bc3f8454713442d3da311768d6940769907ae3e9dc7db9cd025da18b29ef88d2",
+          "size": 6047
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "f7fbf85d629e71e3bb588c5d6f16b61068ecf5f73dd7b5ff2bfdeb074d32b7c9",
+          "sha256": "a3dff076a06d0cd1b7649ea516cb4efc52c65bd67685473d7079026509e6080f",
           "size": 14823
         }
       ],
@@ -2486,6 +2516,12 @@
           "schema": "frame_context.fbs"
         },
         {
+          "file_identifier": "GZMS",
+          "payload_id": "0x24b8d6d211014618",
+          "qualified_root_type": "open_perception_kit.metadata.GazeMeasurements",
+          "schema": "gaze_measurements.fbs"
+        },
+        {
           "file_identifier": "ISGM",
           "payload_id": "0x69f3311ef0305cf7",
           "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
@@ -2514,12 +2550,6 @@
           "payload_id": "0x68c8d833e939f1de",
           "qualified_root_type": "open_perception_kit.metadata.PersonPresences",
           "schema": "person_presences.fbs"
-        },
-        {
-          "file_identifier": "POSE",
-          "payload_id": "0x491bbf7f4e218fc9",
-          "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
-          "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
@@ -2594,6 +2624,11 @@
           "size": 822
         },
         {
+          "path": "gaze_measurements.fbs",
+          "sha256": "b9aa1b784f82a8450fbe299d2e90a8d4294b3443ad148a0d8fb80d79bac2df8e",
+          "size": 1402
+        },
+        {
           "path": "instance_segmentation_masks.fbs",
           "sha256": "385134212e99a6fd461d556f8727188e3a0909e6b18dd4f7f5fd9338efe4a876",
           "size": 554
@@ -2617,11 +2652,6 @@
           "path": "person_presences.fbs",
           "sha256": "7ed1e74518ad2036be2f0ec7d0094194975c6cc181ee4c0df54c2c7d80da5179",
           "size": 806
-        },
-        {
-          "path": "pose_estimations.fbs",
-          "sha256": "66b9a99168366ce8c9d0bc9f22767899ed318cafa7ada67c2851d5c3b85cb0ee",
-          "size": 423
         },
         {
           "path": "segmentation_masks.fbs",
@@ -2649,7 +2679,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "5ac6f6f4fd21ba588e045f9766e0bcd66ce5a077ef86bab7b706962374f5507c",
+      "schema_set_sha256": "18a212000d9a00662a0e6de673716fcb76e44196603e1e5c203117abd22cc2df",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2743,6 +2773,21 @@
           "size": 3833
         },
         {
+          "path": "src/fb/open_perception_kit/metadata/gaze_angles_generated.rs",
+          "sha256": "f2809a2e0110c98f5a2cf5ab71c7dcb195c4d5c26b6de9535835fc3030408cc2",
+          "size": 5238
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/gaze_measurement_generated.rs",
+          "sha256": "d4ea83c440d3c16badf2974029028781627c9a834d5a38de7454113efb128242",
+          "size": 7924
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/gaze_measurements_generated.rs",
+          "sha256": "faab70a3f919e62986322e31abe4296bc87aecf6c1b39c8d42f69323044bb35b",
+          "size": 12490
+        },
+        {
           "path": "src/fb/open_perception_kit/metadata/image_space_generated.rs",
           "sha256": "e26d5bca649d9d926e3a81da43192c791ce71b21baf4d303361a3a6fb464c2ca",
           "size": 9666
@@ -2764,8 +2809,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "c979634b09c2a8dc4e5961411d3348f37a6d94b36e8d341b87da0330bcbafa71",
-          "size": 3438
+          "sha256": "bce1d94b32139c7960845df809a44d7cb7a7a5c829781e35a021089fe1c2f30c",
+          "size": 3509
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -2816,16 +2861,6 @@
           "path": "src/fb/open_perception_kit/metadata/point_2f_generated.rs",
           "sha256": "56211396e4a9d2eb4fd2ba5fbb98804ec4353b0e1992b296a70f7d9c79db4e74",
           "size": 4308
-        },
-        {
-          "path": "src/fb/open_perception_kit/metadata/pose_estimation_generated.rs",
-          "sha256": "ad51b523f523362f259870174713460994aa4e3612a337a7eb5cd44513f22246",
-          "size": 7275
-        },
-        {
-          "path": "src/fb/open_perception_kit/metadata/pose_estimations_generated.rs",
-          "sha256": "0a176e519151c95278ba04f9c5e9cb3fb7e8548eb702ec5da14325ecf3d5f38b",
-          "size": 12198
         },
         {
           "path": "src/fb/open_perception_kit/metadata/producer_info_generated.rs",
@@ -2919,8 +2954,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "efeee5e6d7491a7db0f1cb48bcbff802b5c8b4f8e1914d54e24b104228baa7f1",
-          "size": 57944
+          "sha256": "ee9164b3c048d4851d46609dd56a8333f0cabeceada207717d5cc5320b0a782e",
+          "size": 57955
         }
       ],
       "flatbuffers_runtimes": [
@@ -2970,6 +3005,12 @@
           "schema": "frame_context.fbs"
         },
         {
+          "file_identifier": "GZMS",
+          "payload_id": "0x24b8d6d211014618",
+          "qualified_root_type": "open_perception_kit.metadata.GazeMeasurements",
+          "schema": "gaze_measurements.fbs"
+        },
+        {
           "file_identifier": "ISGM",
           "payload_id": "0x69f3311ef0305cf7",
           "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
@@ -2998,12 +3039,6 @@
           "payload_id": "0x68c8d833e939f1de",
           "qualified_root_type": "open_perception_kit.metadata.PersonPresences",
           "schema": "person_presences.fbs"
-        },
-        {
-          "file_identifier": "POSE",
-          "payload_id": "0x491bbf7f4e218fc9",
-          "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
-          "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
@@ -3063,6 +3098,11 @@
           "size": 822
         },
         {
+          "path": "gaze_measurements.fbs",
+          "sha256": "b9aa1b784f82a8450fbe299d2e90a8d4294b3443ad148a0d8fb80d79bac2df8e",
+          "size": 1402
+        },
+        {
           "path": "instance_segmentation_masks.fbs",
           "sha256": "385134212e99a6fd461d556f8727188e3a0909e6b18dd4f7f5fd9338efe4a876",
           "size": 554
@@ -3086,11 +3126,6 @@
           "path": "person_presences.fbs",
           "sha256": "7ed1e74518ad2036be2f0ec7d0094194975c6cc181ee4c0df54c2c7d80da5179",
           "size": 806
-        },
-        {
-          "path": "pose_estimations.fbs",
-          "sha256": "66b9a99168366ce8c9d0bc9f22767899ed318cafa7ada67c2851d5c3b85cb0ee",
-          "size": 423
         },
         {
           "path": "segmentation_masks.fbs",
@@ -3118,7 +3153,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "5ac6f6f4fd21ba588e045f9766e0bcd66ce5a077ef86bab7b706962374f5507c",
+      "schema_set_sha256": "18a212000d9a00662a0e6de673716fcb76e44196603e1e5c203117abd22cc2df",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3133,7 +3168,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "93a595adc8afd3d86f783333f4a299b9ddedf8b98a0b7ea139809319a63d3513",
+          "sha256": "a1e012f084f7cc46180c650538631957c016ff3bc8e6896f29dde2fef52f44c8",
           "size": 12045
         },
         {
@@ -3232,6 +3267,21 @@
           "size": 1981
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/gaze-angles.ts",
+          "sha256": "c685b6695db51a70f69592147a0de03836bdd16aee824f95c90ff42531f0242d",
+          "size": 2524
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurement.ts",
+          "sha256": "9587d23817c921b5a5e8f94fd154a6a4728160deeef9138c8d28bff4ed933f4b",
+          "size": 3962
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.ts",
+          "sha256": "b1754e4f8cd73ab6bfcea81972c9f9f71b66a5ddb347c6ab16ffb69b0fcde342",
+          "size": 5106
+        },
+        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/image-space.ts",
           "sha256": "ae2a3edefad956c52ac2da8435cab70967425e30bc2694edee03f28e3b874d82",
           "size": 4577
@@ -3302,16 +3352,6 @@
           "size": 2206
         },
         {
-          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.ts",
-          "sha256": "1c670e475798fcedf8be83f6b8d9e280690a1e3cf779a7a6d7f605465ac25158",
-          "size": 3696
-        },
-        {
-          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.ts",
-          "sha256": "751a7a6c553220d0c09ef594ffbd0876ac0cdf4ba8754314cf3bc37947aaaa56",
-          "size": 4941
-        },
-        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/producer-info.ts",
           "sha256": "bd896ee2fda4b075d8c45e00897d53b70e7caec774be5815189884deebb4abfe",
           "size": 3962
@@ -3378,13 +3418,13 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "435b81161620a2e034f9088cb51f05d3d342fbb664dc810a67005c3baf6311e2",
+          "sha256": "7a09de7cd982699031401d6d2a3e9a934c101cc8f43e2de8312187ad3b10eb06",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "e92eb69d33c3b3096adb830036c8ad17c2fdb2bd5a9c629f4753022951678fa1",
-          "size": 13791
+          "sha256": "b7b68c8754d7980d85a39d19cde7e8a027352c433275416b8b17f1a16fe3d06d",
+          "size": 13803
         },
         {
           "path": "tsconfig.json",
@@ -3439,6 +3479,12 @@
           "schema": "frame_context.fbs"
         },
         {
+          "file_identifier": "GZMS",
+          "payload_id": "0x24b8d6d211014618",
+          "qualified_root_type": "open_perception_kit.metadata.GazeMeasurements",
+          "schema": "gaze_measurements.fbs"
+        },
+        {
           "file_identifier": "ISGM",
           "payload_id": "0x69f3311ef0305cf7",
           "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
@@ -3467,12 +3513,6 @@
           "payload_id": "0x68c8d833e939f1de",
           "qualified_root_type": "open_perception_kit.metadata.PersonPresences",
           "schema": "person_presences.fbs"
-        },
-        {
-          "file_identifier": "POSE",
-          "payload_id": "0x491bbf7f4e218fc9",
-          "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
-          "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
@@ -3532,6 +3572,11 @@
           "size": 822
         },
         {
+          "path": "gaze_measurements.fbs",
+          "sha256": "b9aa1b784f82a8450fbe299d2e90a8d4294b3443ad148a0d8fb80d79bac2df8e",
+          "size": 1402
+        },
+        {
           "path": "instance_segmentation_masks.fbs",
           "sha256": "385134212e99a6fd461d556f8727188e3a0909e6b18dd4f7f5fd9338efe4a876",
           "size": 554
@@ -3555,11 +3600,6 @@
           "path": "person_presences.fbs",
           "sha256": "7ed1e74518ad2036be2f0ec7d0094194975c6cc181ee4c0df54c2c7d80da5179",
           "size": 806
-        },
-        {
-          "path": "pose_estimations.fbs",
-          "sha256": "66b9a99168366ce8c9d0bc9f22767899ed318cafa7ada67c2851d5c3b85cb0ee",
-          "size": 423
         },
         {
           "path": "segmentation_masks.fbs",
@@ -3587,7 +3627,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "5ac6f6f4fd21ba588e045f9766e0bcd66ce5a077ef86bab7b706962374f5507c",
+      "schema_set_sha256": "18a212000d9a00662a0e6de673716fcb76e44196603e1e5c203117abd22cc2df",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
