@@ -42,8 +42,8 @@ and useful for validating pipelines across host platforms.
 Each ONNX Inference Op owns a session and accepts the optional
 `intraOpNumThreads` and `interOpNumThreads` attributes in its OpChain. The backend
 validates both counts before creating the session. For intra-op threading, zero
-delegates selection to ORT; a positive integer sets the pool size. Omission keeps
-the existing hardware-thread-count minus one policy, with a minimum/fallback of
+delegates selection to ORT; a positive integer sets the pool size. Omission uses
+hardware threads minus one, capped by the CPUs available to the process, with a minimum/fallback of
 one. Inter-op omission or one selects sequential graph execution. Zero selects parallel execution with an ORT-managed inter-op pool;
 larger counts select parallel execution with that pool size. Both settings take
 effect when the OpChain is created; changing `active` does not recreate or retune the session.

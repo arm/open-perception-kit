@@ -34,7 +34,7 @@
             "maximum": 2147483647
           },
           "intraOpNumThreads": {
-            "description": "ONNX Runtime intra-op thread count: zero selects ORT automatic; omission preserves the legacy hardware policy.",
+            "description": "ONNX Runtime intra-op thread count: zero selects ORT automatic; omission uses hardware threads minus one, capped by the CPUs available to the process, with a minimum/fallback of one.",
             "type": "integer",
             "minimum": 0,
             "maximum": 2147483647
