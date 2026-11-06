@@ -106,6 +106,7 @@ class BuildScriptTests(unittest.TestCase):
         environment["OPK_BUILD_SCRIPT_TEST_LOG"] = str(log_path)
         environment["container"] = "opk-build-script-test"
         for variable in (
+            "NINJAFLAGS",
             "OPK_EXECUTORCH",
             "OPK_PYTHON_OPS",
             "OPK_MLWL",
@@ -172,7 +173,7 @@ class BuildScriptTests(unittest.TestCase):
             )
             self.assertEqual(
                 invocations[1]["argv"],
-                ["compile", "-C", str(checkout / NATIVE_BUILD_PATH)],
+                ["compile", "-C", str(checkout / NATIVE_BUILD_PATH), "--ninja-args=[]"],
             )
             self.assertTrue((checkout / OPK_MENU_PATH).is_file())
             self.assertTrue((checkout / "tools/opk-config-check").is_file())
@@ -199,6 +200,24 @@ class BuildScriptTests(unittest.TestCase):
                 "Run it with:\n  ./scripts/run.sh",
                 completed.stdout,
             )
+
+    def test_ninja_flags_are_forwarded_to_meson(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary_root = Path(temporary)
+            checkout = self.make_checkout(temporary_root, "checkout")
+            bin_dir, log_path = self.make_fake_tools(temporary_root)
+
+            completed = self.run_build(
+                checkout,
+                bin_dir,
+                log_path,
+                "release",
+                environment_overrides={"NINJAFLAGS": "-j8 -l2"},
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            compile_args = self.read_invocations(log_path)[1]["argv"]
+            self.assertIn("--ninja-args=['-j8', '-l2']", compile_args)
 
     def test_explicit_backend_selection_is_forwarded_to_meson(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
