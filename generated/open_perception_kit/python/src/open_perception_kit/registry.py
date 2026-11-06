@@ -64,13 +64,13 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.ObjectTracks',
         'file_identifier': 'TRKS',
     },
-    2126073810871404430: {
-        'name': 'open_perception_kit::metadata::PerformanceOverlay',
-        'module': 'open_perception_kit.fb.open_perception_kit.metadata.PerformanceOverlay',
-        'root_type': 'PerformanceOverlay',
-        'native_type': 'PerformanceOverlayT',
-        'qualified_root_type': 'open_perception_kit.metadata.PerformanceOverlay',
-        'file_identifier': 'PERF',
+    2630163151625760217: {
+        'name': 'open_perception_kit::metadata::PerformanceMeasurements',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements',
+        'root_type': 'PerformanceMeasurements',
+        'native_type': 'PerformanceMeasurementsT',
+        'qualified_root_type': 'open_perception_kit.metadata.PerformanceMeasurements',
+        'file_identifier': 'PMET',
     },
     5268014742632501193: {
         'name': 'open_perception_kit::metadata::PoseEstimations',

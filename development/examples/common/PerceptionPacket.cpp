@@ -90,7 +90,7 @@ bool validateKnownPayloadBlob(const open_perception_kit::internalfb::WirePayload
                payload, payloadIndex, error) ||
            validatePayloadBlobAsType<open_perception_kit::metadata::ObjectTracksT>(
                payload, payloadIndex, error) ||
-           validatePayloadBlobAsType<open_perception_kit::metadata::PerformanceOverlayT>(
+           validatePayloadBlobAsType<open_perception_kit::metadata::PerformanceMeasurementsT>(
                payload, payloadIndex, error) ||
            validatePayloadBlobAsType<open_perception_kit::metadata::PoseEstimationsT>(
                payload, payloadIndex, error) ||

@@ -248,7 +248,7 @@ size. Preserve numerical contracts, generated statistics, and dated measurements
 - Video-processing elements currently assume `BGRA` caps unless the task explicitly changes the contract.
 - Runtime result data is carried downstream as FrameResults through `FrameResultsMeta`.
 - OpChain loop execution is driven by `loopId`.
-- `opkperformance` appends `PerformanceOverlayT` FrameResults payloads; `opkosd` renders supported FrameResults overlays.
+- `opkperformance` appends `PerformanceMeasurementsT` FrameResults payloads; `opkosd` renders supported FrameResults overlays.
 - `opkcomm` publishes serialized FrameResults packets for file/stdout output.
 - `opksink` currently owns the WebRTC, HTTP, and control WebSocket stack.
 

@@ -19,6 +19,8 @@
 
 #include "opk/Tools.h"
 
+#include <cmath>
+#include <format>
 #include <utility>
 
 namespace open_perception_kit {
@@ -76,10 +78,31 @@ std::unique_ptr<metadata::BitmapDataT> makeBitmapData(const opk::Bitmap &bitmap)
     return data;
 }
 
-void appendPerformanceOverlay(FrameResults &frameResults, const std::vector<std::string> &lines) {
-    metadata::PerformanceOverlayT overlay;
-    overlay.lines = lines;
-    frameResults.add(std::move(overlay));
+std::vector<std::pair<std::string, std::string>>
+formatPerformanceRows(const metadata::PerformanceMeasurementsT &measurements) {
+    const auto available = [](const double value) { return std::isfinite(value) && value >= 0.0; };
+    std::vector<std::pair<std::string, std::string>> rows;
+    if (!measurements.pixel_format.empty())
+        rows.emplace_back("Pixel format", measurements.pixel_format);
+    for (const auto &timing : measurements.timings) {
+        if (!timing)
+            continue;
+        const auto label = !timing->name.empty()       ? timing->name
+                           : !timing->scope_id.empty() ? timing->scope_id
+                                                       : "Unnamed scope";
+        auto value = timing->mean_ms && available(*timing->mean_ms)
+                         ? std::format("{:7.2f}ms", *timing->mean_ms)
+                         : "  --.--ms";
+        if (timing->p95_ms && available(*timing->p95_ms))
+            value += std::format(" (p95: {:.2f}ms)", *timing->p95_ms);
+        rows.emplace_back(label, std::move(value));
+    }
+    if (measurements.frame_rate) {
+        const auto &fps = measurements.frame_rate->fps;
+        rows.emplace_back(
+            "Pipeline", fps && available(*fps) ? std::format("{:6.1f} FPS", *fps) : "   --.- FPS");
+    }
+    return rows;
 }
 
 std::vector<uint8_t> serialize(const FrameResults &frameResults) {

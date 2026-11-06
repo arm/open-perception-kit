@@ -430,13 +430,20 @@ open_perception_kit::FrameResults makeImageClassificationFrameResults() {
     return frameResults;
 }
 
-open_perception_kit::FrameResults makePerformanceOverlayFrameResults() {
+open_perception_kit::FrameResults makePerformanceOverlayFrameResults(
+    const std::vector<std::pair<std::string, double>> &timings = {{"OSD", 1.23}},
+    const double fps = 60.0) {
+    open_perception_kit::metadata::PerformanceMeasurementsT measurements;
+    for (const auto &[name, meanMs] : timings) {
+        auto timing = std::make_unique<open_perception_kit::metadata::ScopeTimingT>();
+        timing->name = name;
+        timing->mean_ms = meanMs;
+        measurements.timings.push_back(std::move(timing));
+    }
+    measurements.frame_rate = std::make_unique<open_perception_kit::metadata::FrameRateT>();
+    measurements.frame_rate->fps = fps;
     open_perception_kit::FrameResults frameResults;
-    open_perception_kit::appendPerformanceOverlay(frameResults,
-                                                  {
-                                                      "OSD                     :    1.23ms",
-                                                      "Pipeline                :   60.0 FPS",
-                                                  });
+    frameResults.add(std::move(measurements));
     return frameResults;
 }
 
@@ -758,6 +765,24 @@ TEST(DebugOverlayRendererTest, DrawsGenericObjectLabelledBoxesInAllSupportedForm
     }
 }
 
+TEST(DebugOverlayRendererTest, PerformanceLabelsAreOptionalPresentationMetadata) {
+    open_perception_kit::metadata::PerformanceMeasurementsT payload;
+    auto identified = std::make_unique<open_perception_kit::metadata::ScopeTimingT>();
+    identified->scope_id = "inference";
+    identified->mean_ms = 10;
+    identified->p95_ms = 20;
+    payload.timings.push_back(std::move(identified));
+    auto unnamed = std::make_unique<open_perception_kit::metadata::ScopeTimingT>();
+    unnamed->p95_ms = 0;
+    payload.timings.push_back(std::move(unnamed));
+    const auto rows = open_perception_kit::formatPerformanceRows(payload);
+    ASSERT_EQ(rows.size(), 2U);
+    EXPECT_EQ(rows[0].first, "inference");
+    EXPECT_NE(rows[0].second.find("10.00ms"), std::string::npos);
+    EXPECT_EQ(rows[1].first, "Unnamed scope");
+    EXPECT_NE(rows[1].second.find("p95: 0.00ms"), std::string::npos);
+}
+
 TEST(DebugOverlayRendererTest, DrawsHumanFaceCirclesAndGazeVectorsInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
@@ -914,13 +939,8 @@ TEST(DebugOverlayRendererTest, DrawsPerformanceOverlayInAllSupportedFormats) {
 }
 
 TEST(DebugOverlayRendererTest, DrawsPerformanceOverlayAsRectangularBlock) {
-    open_perception_kit::FrameResults frameResults;
-    open_perception_kit::appendPerformanceOverlay(frameResults,
-                                                  {
-                                                      "A: 1",
-                                                      "STD/GENIMGPRE/YOLO-OBJDET:   1.18ms",
-                                                      "Pipeline:  26.0 FPS",
-                                                  });
+    const auto frameResults =
+        makePerformanceOverlayFrameResults({{"A", 1.0}, {"STD/GENIMGPRE/YOLO-OBJDET", 1.18}}, 26.0);
     auto surface = makeSurface(RawImagePixelFormat::Bgra, 360, 80);
 
     opk::osd::DebugOverlayRequest request;
@@ -965,6 +985,57 @@ TEST(DebugOverlayRendererTest, SkipsPerformanceOverlayWhenDisabled) {
     EXPECT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
     EXPECT_FALSE(activeAreaChanged(surface));
     expectPaddingUnchanged(surface);
+}
+
+TEST(DebugOverlayRendererTest, StructuredPerformancePreservesExistingPixels) {
+    const auto frameResults = makePerformanceOverlayFrameResults();
+    auto actual = makeSurface(RawImagePixelFormat::Bgra, 180, 48);
+    auto expected = makeSurface(RawImagePixelFormat::Bgra, 180, 48);
+    opk::osd::DebugOverlayRequest request;
+    request.surface.format = actual.format;
+    request.surface.width = actual.width;
+    request.surface.height = actual.height;
+    request.surface.planes = planeSpan(actual);
+    request.frameResults = &frameResults;
+    ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
+
+    // Golden display text from the former producer and rectangular alignment.
+    SurfacePainter painter(expected.format, expected.width, expected.height, planeSpan(expected));
+    const int lineHeight = static_cast<int>(SurfacePainter::measureText("M", 1).height);
+    painter.drawText(10, 10, "OSD     :    1.23ms ", opk::Colors::lime, opk::Colors::black, 1);
+    painter.drawText(
+        10, 10 + lineHeight, "Pipeline:   60.0 FPS", opk::Colors::lime, opk::Colors::black, 1);
+    EXPECT_EQ(actual.storage[0].bytes, expected.storage[0].bytes);
+}
+
+TEST(DebugOverlayRendererTest, PerformancePreservesMissingAndZeroMeasurements) {
+    open_perception_kit::metadata::PerformanceMeasurementsT payload;
+    payload.pixel_format = "BGRA";
+    payload.frame_rate = std::make_unique<open_perception_kit::metadata::FrameRateT>();
+    auto timing = std::make_unique<open_perception_kit::metadata::ScopeTimingT>();
+    timing->name = "Stage: retry";
+    timing->mean_ms = 0.0;
+    timing->p95_ms = 1.125;
+    payload.timings.push_back(std::move(timing));
+    open_perception_kit::FrameResults original;
+    original.add(std::move(payload));
+    const open_perception_kit::FrameResults decoded(open_perception_kit::serialize(original));
+    const auto ref = decoded.get<open_perception_kit::metadata::PerformanceMeasurementsT>();
+    if (!ref) {
+        ADD_FAILURE() << "missing PerformanceMeasurements payload";
+        return;
+    }
+    const auto &measurements = ref->value();
+    ASSERT_TRUE(measurements.frame_rate);
+    EXPECT_FALSE(measurements.frame_rate->fps);
+    ASSERT_EQ(measurements.timings.size(), 1U);
+    ASSERT_TRUE(measurements.timings[0]->mean_ms);
+    EXPECT_DOUBLE_EQ(measurements.timings[0]->mean_ms.value_or(-1.0), 0.0);
+    const std::vector<std::pair<std::string, std::string>> expected{
+        {"Pixel format", "BGRA"},
+        {"Stage: retry", "   0.00ms (p95: 1.12ms)"},
+        {"Pipeline", "   --.- FPS"}};
+    EXPECT_EQ(open_perception_kit::formatPerformanceRows(measurements), expected);
 }
 
 TEST(SurfacePainterTest, DrawsAndClipsAllSupportedFormatsWithoutTouchingPadding) {

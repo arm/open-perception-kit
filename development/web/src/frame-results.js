@@ -22,7 +22,7 @@ import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open
 import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
-import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
+import {PerformanceMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
@@ -149,7 +149,7 @@ export function decodeFrameResultsMessage(message) {
     }
 
     const layers = [];
-    const perfdata = [];
+    const performance = [];
 
     addPayloadLayers(envelope, FrameContextT, 'FrameContext', (payload) => {
         const detections = [];
@@ -274,15 +274,22 @@ export function decodeFrameResultsMessage(message) {
             data: {...objectData(item.object), values: [...item.values]},
         })), layers);
 
-    for (const payload of envelope.for_each(PerformanceOverlayT)) {
-        perfdata.push(...payload.lines.map(text));
-        layers.push(layer(payload, 'PerformanceOverlay', payload.lines.map((line) => ({
-            type: 'PerformanceLine', data: {text: text(line)},
-        }))));
+    for (const payload of envelope.for_each(PerformanceMeasurementsT)) {
+        const data = {
+            pixelFormat: text(payload.pixelFormat),
+            producer: layerData({producer: payload.producer}).producer,
+            timings: payload.timings.filter(Boolean).map(timing => ({
+                scopeId: text(timing.scopeId), name: text(timing.name), meanMs: timing.meanMs, p95Ms: timing.p95Ms,
+            })),
+            frameRate: payload.frameRate ? {fps: payload.frameRate.fps} : null,
+        };
+        performance.push(data);
+        layers.push({...layer(payload, 'PerformanceMeasurements', [{type: 'PerformanceMeasurements', data}]),
+            producer: data.producer});
     }
 
     return {
         frame_counter: Number.isInteger(message.frame_counter) ? message.frame_counter : undefined,
-        frame_results: {layers, perfdata},
+        frame_results: {layers, performance},
     };
 }

@@ -64,7 +64,7 @@ export function trackKey(source, id) {
 }
 
 export function sourceLabel(source) {
-    if (source.payloadType === 'PerformanceOverlay') return 'Pipeline performance';
+    if (source.payloadType === 'PerformanceMeasurements') return 'Pipeline performance';
     return source.model || source.producerImplementation || source.producerInstanceId
         || source.inferElementId || source.producerComponent || 'Unspecified source';
 }

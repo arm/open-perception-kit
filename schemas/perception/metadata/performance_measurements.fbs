@@ -1,0 +1,35 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+// Timing of completed scopes over the producer's reporting interval.
+// Values are finite, non-negative milliseconds; null means not measured.
+// Names are display labels, never identities, units or statistics.
+table ScopeTiming {
+  name:string;
+  mean_ms:double = null;
+  p95_ms:double = null;
+  // Stable identity within the producer, independent of name and list position.
+  // Absent/empty or duplicated identities cannot establish smoothing continuity.
+  scope_id:string;
+}
+
+// The producer's smoothed pipeline frame rate. Null means not yet measured;
+// zero is a valid rate. An absent table means no frame-rate measurement.
+table FrameRate {
+  fps:double = null;
+}
+
+table PerformanceMeasurements {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  // Optional display information, not a discriminator for measurement values.
+  pixel_format:string;
+  // Preserve the producer's reporting order, including repeated scope names.
+  timings:[ScopeTiming];
+  frame_rate:FrameRate;
+  producer:open_perception_kit.metadata.ProducerInfo;
+}
+
+root_type PerformanceMeasurements;
+file_identifier "PMET";

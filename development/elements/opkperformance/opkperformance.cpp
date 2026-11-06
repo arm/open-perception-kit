@@ -25,7 +25,6 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <format>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -72,8 +71,8 @@ struct _GstOpkPerformance {
     std::chrono::steady_clock::time_point last_frame_time;
     gdouble fps_average;
 
-    // Cached overlay surface
-    std::vector<std::string> cached_lines;
+    // Cached measurements; display consumers own formatting.
+    open_perception_kit::metadata::PerformanceMeasurementsT cached_measurements;
     opk::perf::PerformanceMetrics::Snapshot internal_baseline;
     gboolean cache_dirty;
     gboolean started;
@@ -220,7 +219,7 @@ static void gst_opk_performance_init(GstOpkPerformance *self) {
     std::construct_at(&self->last_frame_time, std::chrono::steady_clock::now());
     self->fps_average = 0.0;
     self->enabled = DEFAULT_ENABLED;
-    std::construct_at(&self->cached_lines);
+    std::construct_at(&self->cached_measurements);
     std::construct_at(&self->internal_baseline);
     self->cache_dirty = true;
     self->started = false;
@@ -236,7 +235,7 @@ static void gst_opk_performance_finalize(GObject *object) {
     GST_OBJECT_UNLOCK(self);
 
     std::destroy_at(&self->internal_baseline);
-    std::destroy_at(&self->cached_lines);
+    std::destroy_at(&self->cached_measurements);
     std::destroy_at(&self->last_frame_time);
 
     G_OBJECT_CLASS(parent_class)->finalize(object);
@@ -316,9 +315,8 @@ static gboolean gst_opk_performance_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-// Helper function to render overlay to cached surface
-static std::vector<std::string> get_performance_data(GstOpkPerformance *self,
-                                                     const char *pixel_format) {
+static open_perception_kit::metadata::PerformanceMeasurementsT
+get_performance_measurements(GstOpkPerformance *self, const char *pixel_format) {
     std::vector<opk::perf::ScopeIntervalMetrics> scope_interval_metrics;
     gboolean show_all_metrics;
     gdouble fps_average;
@@ -334,27 +332,43 @@ static std::vector<std::string> get_performance_data(GstOpkPerformance *self,
     fps_average = self->fps_average;
     GST_OBJECT_UNLOCK(self);
 
-    std::vector<std::string> lines;
-    lines.emplace_back(std::format("{:<24}: {}", "Pixel format", pixel_format));
+    open_perception_kit::metadata::PerformanceMeasurementsT measurements;
+    measurements.pixel_format = pixel_format;
+    gchar *const producerPath = gst_object_get_path_string(GST_OBJECT(self));
+    measurements.producer =
+        open_perception_kit::makeProducerInfo(producerPath, "opkperformance", "");
+    g_free(producerPath);
+    const auto addTiming =
+        [&measurements](const std::string &id, const std::string &name, const double meanMs) {
+            auto timing = std::make_unique<open_perception_kit::metadata::ScopeTimingT>();
+            timing->scope_id = id;
+            timing->name = name;
+            timing->mean_ms = meanMs;
+            measurements.timings.push_back(std::move(timing));
+        };
 
     if (show_all_metrics) {
         for (const auto &metric : scope_interval_metrics) {
             const double average_duration_ms =
                 static_cast<double>(metric.averageDurationNs) / 1000000.0;
-            lines.emplace_back(std::format("{:<24}: {:7.2f}ms", metric.name, average_duration_ms));
+            addTiming(metric.scopeId.empty() ? "" : "scope:" + metric.scopeId,
+                      metric.name,
+                      average_duration_ms);
         }
     } else {
         struct StageIntervalTotals {
+            const char *id;
             const char *display_name;
             std::string_view metric_name_marker;
             std::uint64_t completed_scope_count = 0;
             std::uint64_t total_duration_ns = 0;
         };
 
-        std::array stage_interval_totals = {StageIntervalTotals{"PreProc", "/GenImgPre/"},
-                                            StageIntervalTotals{"Inference", "/Infer/"},
-                                            StageIntervalTotals{"PostProc", "/Post/"},
-                                            StageIntervalTotals{"OSD", "osd/render"}};
+        std::array stage_interval_totals = {
+            StageIntervalTotals{"stage:preprocess", "PreProc", "/GenImgPre/"},
+            StageIntervalTotals{"stage:inference", "Inference", "/Infer/"},
+            StageIntervalTotals{"stage:postprocess", "PostProc", "/Post/"},
+            StageIntervalTotals{"stage:osd", "OSD", "osd/render"}};
         for (const auto &metric : scope_interval_metrics) {
             const auto stage =
                 std::ranges::find_if(stage_interval_totals, [&metric](const auto &item) {
@@ -373,20 +387,17 @@ static std::vector<std::string> get_performance_data(GstOpkPerformance *self,
             const double average_duration_ms = static_cast<double>(stage.total_duration_ns) /
                                                static_cast<double>(stage.completed_scope_count) /
                                                1000000.0;
-            lines.emplace_back(
-                std::format("{:<24}: {:7.2f}ms", stage.display_name, average_duration_ms));
+            addTiming(stage.id, stage.display_name, average_duration_ms);
         }
     }
 
-    // Always include an FPS line so downstream OSD can show at least FPS when
-    // no model metrics are available. If FPS not yet measured, show placeholder.
+    // Preserve the startup placeholder without using a magic numeric value.
+    measurements.frame_rate = std::make_unique<open_perception_kit::metadata::FrameRateT>();
     if (fps_average > 0) {
-        lines.emplace_back(std::format("Pipeline                : {:6.1f} FPS", fps_average));
-    } else {
-        lines.emplace_back("Pipeline                :    --.- FPS");
+        measurements.frame_rate->fps = fps_average;
     }
 
-    return lines;
+    return measurements;
 }
 
 static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, GstBuffer *buffer) {
@@ -423,7 +434,8 @@ static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, 
         // Update cache every N frames
         const auto format = GST_VIDEO_INFO_FORMAT(&self->vinfo);
         const char *format_name = gst_video_format_to_string(format);
-        self->cached_lines = get_performance_data(self, format_name ? format_name : "unknown");
+        self->cached_measurements =
+            get_performance_measurements(self, format_name ? format_name : "unknown");
     }
 
     // Ensure generated FrameResults metadata exists so performance is a standalone payload.
@@ -433,7 +445,7 @@ static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, 
     }
 
     auto ret = opk::FrameResultsMeta::mutate<GstFlowReturn>(buffer, [self](auto &frameResults) {
-        open_perception_kit::appendPerformanceOverlay(frameResults, self->cached_lines);
+        frameResults.add(self->cached_measurements);
         return GST_FLOW_OK;
     });
 
