@@ -29,7 +29,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.PersonPresences import 
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT
-from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT
 from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
 from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
@@ -318,17 +318,20 @@ def _normalize_turn_detection(detection: Any) -> dict[str, Any]:
     return {"item_type": "TurnDetection", "data": data}
 
 
-def _normalize_pose_estimation(pose: Any) -> dict[str, Any]:
-    data = _object_data(pose.object)
+def _normalize_gaze(gaze: Any) -> dict[str, Any]:
+    data = _object_data(gaze.object)
     data.update(
         {
-            "confidence": float(pose.confidence),
-            "yaw": float(pose.yaw),
-            "pitch": float(pose.pitch),
+            "subjectId": None if gaze.subjectId is None else int(gaze.subjectId),
+            "confidence": None if gaze.confidence is None else float(gaze.confidence),
+            "angles": None if gaze.angles is None else {
+                "yawDegrees": float(gaze.angles.yawDegrees),
+                "pitchDegrees": float(gaze.angles.pitchDegrees),
+            },
         }
     )
     return {
-        "item_type": "PoseEstimation",
+        "item_type": "GazeMeasurement",
         "data": data,
     }
 
@@ -479,10 +482,10 @@ def _resolve_subjects(snapshot: FrameResultsSnapshot) -> None:
                     frame_counts[key] = frame_counts.get(key, 0) + 1
     for payload in snapshot.payloads.values():
         for item in payload.items:
-            if item["item_type"] not in ("Classification", "CameraContact", "PersonPresence"):
+            if item["item_type"] not in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
                 continue
             candidates = subjects.get(item["data"]["subjectId"], [])
-            if item["item_type"] == "CameraContact":
+            if item["item_type"] in ("CameraContact", "GazeMeasurement"):
                 candidates = [(key, subject) for key, subject in candidates if subject["item_type"] != "VideoFrame"]
             item["subject"], item["subject_source"] = None, None
             if len(candidates) != 1:
@@ -527,8 +530,8 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         "open_perception_kit.metadata.TurnDetections", "detections", _normalize_turn_detection,
     )
     _normalize_payload_collection(
-        frame_results, snapshot, PoseEstimationsT,
-        "open_perception_kit.metadata.PoseEstimations", "poses", _normalize_pose_estimation,
+        frame_results, snapshot, GazeMeasurementsT,
+        "open_perception_kit.metadata.GazeMeasurements", "measurements", _normalize_gaze,
     )
     _normalize_payload_collection(
         frame_results, snapshot, SegmentationMasksT,

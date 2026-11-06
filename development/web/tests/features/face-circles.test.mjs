@@ -25,7 +25,7 @@ test('face circles selects only face regions and retains their circle geometry a
     const face = faceFixture();
     const tracked = {...face, payloadType: 'ObjectTracks'};
     const nonFace = {...face, contentType: 'genericObject'};
-    const invalid = {...face, payloadType: 'PoseEstimations'};
+    const invalid = {...face, payloadType: 'GazeMeasurements'};
     const catalog = new Map([face, tracked, nonFace, invalid].map((layer) => [sourceKey(outputSource(layer)), outputSource(layer)]));
     const feature = featureFor('face-circles');
     assert.deepEqual(feature.discover(catalog), [outputSource(face), outputSource(tracked)]);
