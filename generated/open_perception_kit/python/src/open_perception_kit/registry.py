@@ -24,6 +24,14 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.BoxDetections',
         'file_identifier': 'BDET',
     },
+    7630654510173219138: {
+        'name': 'open_perception_kit::metadata::CameraContacts',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.CameraContacts',
+        'root_type': 'CameraContacts',
+        'native_type': 'CameraContactsT',
+        'qualified_root_type': 'open_perception_kit.metadata.CameraContacts',
+        'file_identifier': 'CCON',
+    },
     3375056508603945320: {
         'name': 'open_perception_kit::metadata::Classifications',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.Classifications',
@@ -71,6 +79,14 @@ _TYPE_REGISTRY = {
         'native_type': 'PerformanceMeasurementsT',
         'qualified_root_type': 'open_perception_kit.metadata.PerformanceMeasurements',
         'file_identifier': 'PMET',
+    },
+    7550522492754457054: {
+        'name': 'open_perception_kit::metadata::PersonPresences',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.PersonPresences',
+        'root_type': 'PersonPresences',
+        'native_type': 'PersonPresencesT',
+        'qualified_root_type': 'open_perception_kit.metadata.PersonPresences',
+        'file_identifier': 'PPRS',
     },
     5268014742632501193: {
         'name': 'open_perception_kit::metadata::PoseEstimations',

@@ -18,6 +18,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 import * as flatbuffers from 'flatbuffers';
 import { ClassificationCandidate } from '../../open-perception-kit/metadata/classification-candidate.js';
+import { ClassificationKind } from '../../open-perception-kit/metadata/classification-kind.js';
 import { ObjectMeta } from '../../open-perception-kit/metadata/object-meta.js';
 export class Classification {
     constructor() {
@@ -48,8 +49,20 @@ export class Classification {
         const offset = this.bb.__offset(this.bb_pos, 6);
         return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
     }
+    labelSet(optionalEncoding) {
+        const offset = this.bb.__offset(this.bb_pos, 8);
+        return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+    }
+    kind() {
+        const offset = this.bb.__offset(this.bb_pos, 10);
+        return offset ? this.bb.readUint8(this.bb_pos + offset) : ClassificationKind.Unspecified;
+    }
+    subjectId() {
+        const offset = this.bb.__offset(this.bb_pos, 12);
+        return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+    }
     static startClassification(builder) {
-        builder.startObject(2);
+        builder.startObject(5);
     }
     static addObject(builder, objectOffset) {
         builder.addFieldOffset(0, objectOffset, 0);
@@ -67,32 +80,52 @@ export class Classification {
     static startCandidatesVector(builder, numElems) {
         builder.startVector(4, numElems, 4);
     }
+    static addLabelSet(builder, labelSetOffset) {
+        builder.addFieldOffset(2, labelSetOffset, 0);
+    }
+    static addKind(builder, kind) {
+        builder.addFieldInt8(3, kind, ClassificationKind.Unspecified);
+    }
+    static addSubjectId(builder, subjectId) {
+        builder.addFieldInt64(4, subjectId, null);
+    }
     static endClassification(builder) {
         const offset = builder.endObject();
         return offset;
     }
-    static createClassification(builder, objectOffset, candidatesOffset) {
+    static createClassification(builder, objectOffset, candidatesOffset, labelSetOffset, kind, subjectId) {
         Classification.startClassification(builder);
         Classification.addObject(builder, objectOffset);
         Classification.addCandidates(builder, candidatesOffset);
+        Classification.addLabelSet(builder, labelSetOffset);
+        Classification.addKind(builder, kind);
+        if (subjectId !== null)
+            Classification.addSubjectId(builder, subjectId);
         return Classification.endClassification(builder);
     }
     unpack() {
-        return new ClassificationT((this.object() !== null ? this.object().unpack() : null), this.bb.createObjList(this.candidates.bind(this), this.candidatesLength()));
+        return new ClassificationT((this.object() !== null ? this.object().unpack() : null), this.bb.createObjList(this.candidates.bind(this), this.candidatesLength()), this.labelSet(), this.kind(), this.subjectId());
     }
     unpackTo(_o) {
         _o.object = (this.object() !== null ? this.object().unpack() : null);
         _o.candidates = this.bb.createObjList(this.candidates.bind(this), this.candidatesLength());
+        _o.labelSet = this.labelSet();
+        _o.kind = this.kind();
+        _o.subjectId = this.subjectId();
     }
 }
 export class ClassificationT {
-    constructor(object = null, candidates = []) {
+    constructor(object = null, candidates = [], labelSet = null, kind = ClassificationKind.Unspecified, subjectId = null) {
         this.object = object;
         this.candidates = candidates;
+        this.labelSet = labelSet;
+        this.kind = kind;
+        this.subjectId = subjectId;
     }
     pack(builder) {
         const object = (this.object !== null ? this.object.pack(builder) : 0);
         const candidates = Classification.createCandidatesVector(builder, builder.createObjectOffsetList(this.candidates));
-        return Classification.createClassification(builder, object, candidates);
+        const labelSet = (this.labelSet !== null ? builder.createString(this.labelSet) : 0);
+        return Classification.createClassification(builder, object, candidates, labelSet, this.kind, this.subjectId);
     }
 }

@@ -45,6 +45,9 @@ impl<'a> flatbuffers::Follow<'a> for Classification<'a> {
 impl<'a> Classification<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
     pub const VT_CANDIDATES: flatbuffers::VOffsetT = 6;
+    pub const VT_LABEL_SET: flatbuffers::VOffsetT = 8;
+    pub const VT_KIND: flatbuffers::VOffsetT = 10;
+    pub const VT_SUBJECT_ID: flatbuffers::VOffsetT = 12;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -56,12 +59,19 @@ impl<'a> Classification<'a> {
         args: &'args ClassificationArgs<'args>,
     ) -> flatbuffers::WIPOffset<Classification<'bldr>> {
         let mut builder = ClassificationBuilder::new(_fbb);
+        if let Some(x) = args.subject_id {
+            builder.add_subject_id(x);
+        }
+        if let Some(x) = args.label_set {
+            builder.add_label_set(x);
+        }
         if let Some(x) = args.candidates {
             builder.add_candidates(x);
         }
         if let Some(x) = args.object {
             builder.add_object(x);
         }
+        builder.add_kind(args.kind);
         builder.finish()
     }
 
@@ -70,7 +80,16 @@ impl<'a> Classification<'a> {
         let candidates = self
             .candidates()
             .map(|x| x.iter().map(|t| t.unpack()).collect());
-        ClassificationT { object, candidates }
+        let label_set = self.label_set().map(|x| x.to_string());
+        let kind = self.kind();
+        let subject_id = self.subject_id();
+        ClassificationT {
+            object,
+            candidates,
+            label_set,
+            kind,
+            subject_id,
+        }
     }
 
     #[inline]
@@ -97,6 +116,37 @@ impl<'a> Classification<'a> {
             >>(Classification::VT_CANDIDATES, None)
         }
     }
+    #[inline]
+    pub fn label_set(&self) -> Option<&'a str> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<flatbuffers::ForwardsUOffset<&str>>(Classification::VT_LABEL_SET, None)
+        }
+    }
+    #[inline]
+    pub fn kind(&self) -> ClassificationKind {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<ClassificationKind>(
+                    Classification::VT_KIND,
+                    Some(ClassificationKind::Unspecified),
+                )
+                .unwrap()
+        }
+    }
+    #[inline]
+    pub fn subject_id(&self) -> Option<u64> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe { self._tab.get::<u64>(Classification::VT_SUBJECT_ID, None) }
+    }
 }
 
 impl flatbuffers::Verifiable for Classification<'_> {
@@ -115,6 +165,13 @@ impl flatbuffers::Verifiable for Classification<'_> {
             .visit_field::<flatbuffers::ForwardsUOffset<
                 flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<ClassificationCandidate>>,
             >>("candidates", Self::VT_CANDIDATES, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                "label_set",
+                Self::VT_LABEL_SET,
+                false,
+            )?
+            .visit_field::<ClassificationKind>("kind", Self::VT_KIND, false)?
+            .visit_field::<u64>("subject_id", Self::VT_SUBJECT_ID, false)?
             .finish();
         Ok(())
     }
@@ -126,6 +183,9 @@ pub struct ClassificationArgs<'a> {
             flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ClassificationCandidate<'a>>>,
         >,
     >,
+    pub label_set: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub kind: ClassificationKind,
+    pub subject_id: Option<u64>,
 }
 impl<'a> Default for ClassificationArgs<'a> {
     #[inline]
@@ -133,6 +193,9 @@ impl<'a> Default for ClassificationArgs<'a> {
         ClassificationArgs {
             object: None,
             candidates: None,
+            label_set: None,
+            kind: ClassificationKind::Unspecified,
+            subject_id: None,
         }
     }
 }
@@ -163,6 +226,24 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ClassificationBuilder<'a, 'b, A
         );
     }
     #[inline]
+    pub fn add_label_set(&mut self, label_set: flatbuffers::WIPOffset<&'b str>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Classification::VT_LABEL_SET, label_set);
+    }
+    #[inline]
+    pub fn add_kind(&mut self, kind: ClassificationKind) {
+        self.fbb_.push_slot::<ClassificationKind>(
+            Classification::VT_KIND,
+            kind,
+            ClassificationKind::Unspecified,
+        );
+    }
+    #[inline]
+    pub fn add_subject_id(&mut self, subject_id: u64) {
+        self.fbb_
+            .push_slot_always::<u64>(Classification::VT_SUBJECT_ID, subject_id);
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> ClassificationBuilder<'a, 'b, A> {
@@ -184,6 +265,9 @@ impl core::fmt::Debug for Classification<'_> {
         let mut ds = f.debug_struct("Classification");
         ds.field("object", &self.object());
         ds.field("candidates", &self.candidates());
+        ds.field("label_set", &self.label_set());
+        ds.field("kind", &self.kind());
+        ds.field("subject_id", &self.subject_id());
         ds.finish()
     }
 }
@@ -192,12 +276,18 @@ impl core::fmt::Debug for Classification<'_> {
 pub struct ClassificationT {
     pub object: Option<Box<ObjectMetaT>>,
     pub candidates: Option<Vec<ClassificationCandidateT>>,
+    pub label_set: Option<String>,
+    pub kind: ClassificationKind,
+    pub subject_id: Option<u64>,
 }
 impl Default for ClassificationT {
     fn default() -> Self {
         Self {
             object: None,
             candidates: None,
+            label_set: None,
+            kind: ClassificationKind::Unspecified,
+            subject_id: None,
         }
     }
 }
@@ -211,6 +301,18 @@ impl ClassificationT {
             let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
             _fbb.create_vector(&w)
         });
-        Classification::create(_fbb, &ClassificationArgs { object, candidates })
+        let label_set = self.label_set.as_ref().map(|x| _fbb.create_string(x));
+        let kind = self.kind;
+        let subject_id = self.subject_id;
+        Classification::create(
+            _fbb,
+            &ClassificationArgs {
+                object,
+                candidates,
+                label_set,
+                kind,
+                subject_id,
+            },
+        )
     }
 }

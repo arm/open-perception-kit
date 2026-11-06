@@ -361,6 +361,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
 
     const auto invalidAttributes = std::array{
         nlohmann::json{{"parser", "UnknownParser"}},
+        nlohmann::json{{"parser", "PersonClassificationParser"}, {"scoreFormat", "auto"}},
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"unexpected", true}},
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"angleBinWidthDeg", 0}},
         nlohmann::json{{"parser", "CameraContactParser"},

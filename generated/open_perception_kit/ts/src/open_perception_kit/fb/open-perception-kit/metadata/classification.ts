@@ -21,6 +21,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { ClassificationCandidate, ClassificationCandidateT } from '../../open-perception-kit/metadata/classification-candidate.js';
+import { ClassificationKind } from '../../open-perception-kit/metadata/classification-kind.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
 
 
@@ -57,8 +58,25 @@ candidatesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+labelSet():string|null
+labelSet(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+labelSet(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+kind():ClassificationKind {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : ClassificationKind.Unspecified;
+}
+
+subjectId():bigint|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : null;
+}
+
 static startClassification(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(5);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -81,22 +99,41 @@ static startCandidatesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addLabelSet(builder:flatbuffers.Builder, labelSetOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, labelSetOffset, 0);
+}
+
+static addKind(builder:flatbuffers.Builder, kind:ClassificationKind) {
+  builder.addFieldInt8(3, kind, ClassificationKind.Unspecified);
+}
+
+static addSubjectId(builder:flatbuffers.Builder, subjectId:bigint) {
+  builder.addFieldInt64(4, subjectId, null);
+}
+
 static endClassification(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createClassification(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, candidatesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createClassification(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, candidatesOffset:flatbuffers.Offset, labelSetOffset:flatbuffers.Offset, kind:ClassificationKind, subjectId:bigint|null):flatbuffers.Offset {
   Classification.startClassification(builder);
   Classification.addObject(builder, objectOffset);
   Classification.addCandidates(builder, candidatesOffset);
+  Classification.addLabelSet(builder, labelSetOffset);
+  Classification.addKind(builder, kind);
+  if (subjectId !== null)
+    Classification.addSubjectId(builder, subjectId);
   return Classification.endClassification(builder);
 }
 
 unpack(): ClassificationT {
   return new ClassificationT(
     (this.object() !== null ? this.object()!.unpack() : null),
-    this.bb!.createObjList<ClassificationCandidate, ClassificationCandidateT>(this.candidates.bind(this), this.candidatesLength())
+    this.bb!.createObjList<ClassificationCandidate, ClassificationCandidateT>(this.candidates.bind(this), this.candidatesLength()),
+    this.labelSet(),
+    this.kind(),
+    this.subjectId()
   );
 }
 
@@ -104,23 +141,33 @@ unpack(): ClassificationT {
 unpackTo(_o: ClassificationT): void {
   _o.object = (this.object() !== null ? this.object()!.unpack() : null);
   _o.candidates = this.bb!.createObjList<ClassificationCandidate, ClassificationCandidateT>(this.candidates.bind(this), this.candidatesLength());
+  _o.labelSet = this.labelSet();
+  _o.kind = this.kind();
+  _o.subjectId = this.subjectId();
 }
 }
 
 export class ClassificationT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public candidates: (ClassificationCandidateT)[] = []
+  public candidates: (ClassificationCandidateT)[] = [],
+  public labelSet: string|Uint8Array|null = null,
+  public kind: ClassificationKind = ClassificationKind.Unspecified,
+  public subjectId: bigint|null = null
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
   const candidates = Classification.createCandidatesVector(builder, builder.createObjectOffsetList(this.candidates));
+  const labelSet = (this.labelSet !== null ? builder.createString(this.labelSet!) : 0);
 
   return Classification.createClassification(builder,
     object,
-    candidates
+    candidates,
+    labelSet,
+    this.kind,
+    this.subjectId
   );
 }
 }

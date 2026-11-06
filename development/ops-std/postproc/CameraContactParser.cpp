@@ -16,33 +16,14 @@
  */
 
 #include "postproc/CameraContactParser.h"
+#include "opk/ClassificationScores.h"
 
-#include <algorithm>
-#include <array>
-#include <cmath>
 #include <fmt/core.h>
 #include <memory>
 #include <utility>
 
 using namespace opk;
 using namespace opk::stdop::postproc;
-
-namespace {
-
-std::array<float, 2> softmax2(const opk::TensorView &tensor) {
-    const float maxLogit = std::max(tensor.get(0), tensor.get(1));
-    const float exp0 = std::exp(tensor.get(0) - maxLogit);
-    const float exp1 = std::exp(tensor.get(1) - maxLogit);
-    const float sum = exp0 + exp1;
-
-    if (!(sum > 0.0f) || !std::isfinite(sum)) {
-        return {0.5f, 0.5f};
-    }
-
-    return {exp0 / sum, exp1 / sum};
-}
-
-} // namespace
 
 opk::Result<void> CameraContactParser::parse(const opk::TensorParser::Input &input,
                                              open_perception_kit::FrameResults &results) {
@@ -60,10 +41,8 @@ opk::Result<void> CameraContactParser::parse(const opk::TensorParser::Input &inp
             fmt::format("CameraContactParser expects [1,2] logits, got {}", shape.toString())));
     }
 
-    const int contactClassIndex =
-        static_cast<int>(input.attributes.getIntOrDefault("contactClassIndex", 1));
-    const int noContactClassIndex =
-        static_cast<int>(input.attributes.getIntOrDefault("noContactClassIndex", 0));
+    const auto contactClassIndex = input.attributes.getIntOrDefault("contactClassIndex", 1);
+    const auto noContactClassIndex = input.attributes.getIntOrDefault("noContactClassIndex", 0);
 
     if (contactClassIndex == noContactClassIndex || contactClassIndex < 0 ||
         contactClassIndex > 1 || noContactClassIndex < 0 || noContactClassIndex > 1) {
@@ -75,27 +54,30 @@ opk::Result<void> CameraContactParser::parse(const opk::TensorParser::Input &inp
                 noContactClassIndex)));
     }
 
-    const auto probabilities = softmax2(tensor);
-    const bool isContact = probabilities[static_cast<size_t>(contactClassIndex)] >=
-                           probabilities[static_cast<size_t>(noContactClassIndex)];
-
-    auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+    auto classification = std::make_unique<open_perception_kit::metadata::CameraContactT>();
     classification->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    if (input.inferenceInfo.parentId != 0U)
+        classification->subject_id = input.inferenceInfo.parentId;
+    const auto probabilities = opk::classification::softmaxPair(tensor.get(0), tensor.get(1));
+    if (probabilities) {
+        const bool isContact = (*probabilities)[static_cast<size_t>(contactClassIndex)] >=
+                               (*probabilities)[static_cast<size_t>(noContactClassIndex)];
+        auto candidate = std::make_unique<open_perception_kit::metadata::CameraContactResultT>();
+        const auto selected =
+            static_cast<std::uint32_t>(isContact ? contactClassIndex : noContactClassIndex);
+        candidate->in_contact = isContact;
+        candidate->model_class_index = selected;
+        candidate->confidence = (*probabilities)[selected];
+        classification->result = std::move(candidate);
+    }
 
-    auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
-    candidate->class_id = isContact ? contactClassIndex : noContactClassIndex;
-    candidate->confidence = isContact ? probabilities[static_cast<size_t>(contactClassIndex)]
-                                      : probabilities[static_cast<size_t>(noContactClassIndex)];
-    candidate->text = isContact ? "contact" : "no contact";
-    classification->candidates.push_back(std::move(candidate));
-
-    open_perception_kit::metadata::ClassificationsT payload;
+    open_perception_kit::metadata::CameraContactsT payload;
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
                                             .contentType = k_content_type,
                                             .producer = &input.producerInfo});
-    payload.classifications.push_back(std::move(classification));
+    payload.contacts.push_back(std::move(classification));
     results.add(std::move(payload));
 
     return {};

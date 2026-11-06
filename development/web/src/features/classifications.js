@@ -20,7 +20,7 @@ import {classificationHeading, drawClassification, drawPersonClassification} fro
 
 export default defineFeature({
     id: 'classifications', label: 'Classifications',
-    accepts: (source) => source.payloadType === 'Classifications' && source.contentType !== 'cameraContact',
+    accepts: (source) => ['Classifications', 'PersonPresences'].includes(source.payloadType),
     render({ctx, mapper, layout, now}, resolved, settings) {
         for (const {type, data, layer} of resolved.items) {
             if (type === 'PersonClassification') drawPersonClassification(ctx, data, mapper.display, now, settings.color);

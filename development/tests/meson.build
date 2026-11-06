@@ -77,6 +77,15 @@ surface_painter_tests = executable(
   link_with : [common],
 )
 
+metadata_text_display_tests = executable(
+  'metadata_text_display_tests',
+  ['metadata_text_display_test.cpp', '../examples/common/TextDisplay.cpp'],
+  include_directories : [common_include, include_directories('../examples/common')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('metadata_text_display_tests', metadata_text_display_tests)
+
 gst_meta_wrapper_tests = executable(
   'gst_meta_wrapper_tests',
   ['gst_meta_wrapper_test.cpp'],
@@ -257,6 +266,16 @@ image_geometry_tests = executable(
   link_with : [common],
 )
 test('image_geometry_tests', image_geometry_tests)
+
+classification_results_tests = executable(
+  'classification_results_tests',
+  ['classification_results_test.cpp', '../ops-std/postproc/CameraContactParser.cpp',
+   '../ops-std/postproc/PersonClassificationParser.cpp', '../ops-std/postproc/ImageNetClassificationParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('classification_results_tests', classification_results_tests)
 
 yolo26_instance_segmentation_parser_tests = executable(
   'yolo26_instance_segmentation_parser_tests',
@@ -590,6 +609,15 @@ test(
   depends : logging_environment_probe,
 )
 test('performance_metrics_tests', performance_metrics_tests)
+test(
+  'classification_pipeline_tests',
+  python,
+  args : [files('classification_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+  env : python_guest_script_test_env,
+  depends : [gstopkinfer, opkcomm, onnxops, stdops],
+  timeout : 90,
+  is_parallel : false,
+)
 test(
   'performance_pipeline_tests',
   python,

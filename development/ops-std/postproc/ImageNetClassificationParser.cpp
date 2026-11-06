@@ -31,27 +31,30 @@ using namespace opk;
 using namespace opk::stdop::postproc;
 
 // Softmax helper function
-static void softmax(const std::span<float> input, std::span<float> output) {
+static bool softmax(const std::span<float> input, std::span<float> output) {
 
     if (input.size() != output.size()) {
-        std::fill(output.begin(), output.end(), 0.0f);
-        return;
+        return false;
     }
 
     if (input.empty()) {
-        return;
+        return false;
     }
-
-    auto it = std::max_element(input.begin(), input.end());
-    float max = *it;
+    if (!std::ranges::all_of(input, [](const float value) { return std::isfinite(value); }))
+        return false;
+    const auto it = std::max_element(input.begin(), input.end());
+    const float max = *it;
     auto sum = 0.0f;
     for (auto i = 0U; i < output.size(); ++i) {
         output[i] = std::exp(input[i] - max);
         sum += output[i];
     }
+    if (!std::isfinite(sum) || sum <= 0.0f)
+        return false;
     for (auto i = 0U; i < output.size(); ++i) {
         output[i] /= sum;
     }
+    return true;
 }
 
 opk::Result<void> ImageNetClassificationParser::parse(const opk::TensorParser::Input &input,
@@ -95,7 +98,10 @@ opk::Result<void> ImageNetClassificationParser::parse(const opk::TensorParser::I
         logits[i] = input.tensors[0]->get(i);
     }
 
-    softmax(logits, probabilities);
+    if (!softmax(logits, probabilities))
+        return tl::unexpected(
+            OPK_ERROR(ErrorFlag::InvalidData,
+                      "ImageNetClassificationParser: invalid logits or softmax denominator"));
 
     std::vector<std::pair<float, int>> scoredIndices;
     scoredIndices.reserve(numClasses);
@@ -123,6 +129,10 @@ opk::Result<void> ImageNetClassificationParser::parse(const opk::TensorParser::I
              .producer = &input.producerInfo});
 
         auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+        classification->label_set = "opk:imagenet-1001";
+        classification->kind = open_perception_kit::metadata::ClassificationKind::Categorical;
+        if (input.inferenceInfo.parentId != 0U)
+            classification->subject_id = input.inferenceInfo.parentId;
         classification->object =
             open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
 
@@ -130,17 +140,10 @@ opk::Result<void> ImageNetClassificationParser::parse(const opk::TensorParser::I
         for (int i = 0; i < numResults; ++i) {
             const auto &[confidence, classIdx] = scoredIndices[i];
 
-            // Store classification result as DetectionRect
-            // x,y will be used to position the label in lower-right corner
-            // w,h are not used for classification (no actual bounding box)
             auto candidate =
                 std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
-            candidate->x = 0.0f;                  // Position will be calculated by renderer
-            candidate->y = static_cast<float>(i); // Store index for rendering
-            candidate->w = 0.0f;                  // Not used
-            candidate->h = 0.0f;                  // Not used
             candidate->confidence = confidence;
-            candidate->class_id = classIdx;
+            candidate->class_id = static_cast<std::uint32_t>(classIdx);
             candidate->text =
                 opk::resources::Labels::getLabel(opk::resources::LabelType::ImageNet, classIdx);
 
