@@ -95,6 +95,11 @@ export function loadOverlays(storage) {
         let relabelled = false;
         for (const overlay of overlays) {
             const source = overlay.selection.primary;
+            if (overlay.featureId === 'gaze' && source?.payloadType === 'PoseEstimations'
+                && source.contentType === 'eyeYawPitch') {
+                source.payloadType = 'GazeMeasurements';
+                relabelled = true;
+            }
             // Saved selections follow the typed payload split; no old packets are decoded.
             if (source?.payloadType === 'Classifications'
                 && ['cameraContact', 'personClassification'].includes(source.contentType)) {

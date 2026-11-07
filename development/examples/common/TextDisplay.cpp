@@ -22,6 +22,7 @@
 #include <fmt/core.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -286,23 +287,28 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const open_perception_kit::metadata::PoseEstimationsT &payload) {
-    lines.push_back(fmt::format(
-        "PoseEstimations: {} count={}", layerLabel(payload.layer.get()), payload.poses.size()));
+                              const open_perception_kit::metadata::GazeMeasurementsT &payload) {
+    lines.push_back(fmt::format("GazeMeasurements: {} count={}",
+                                layerLabel(payload.layer.get()),
+                                payload.measurements.size()));
     std::size_t index = 0U;
-    for (const auto &pose : payload.poses) {
+    for (const auto &gaze : payload.measurements) {
         ++index;
-        if (!pose) {
-            lines.push_back(fmt::format("  pose #{}: <null>", index));
+        if (!gaze || !gaze->angles || !std::isfinite(gaze->angles->yaw_degrees) ||
+            !std::isfinite(gaze->angles->pitch_degrees) ||
+            (gaze->confidence && !opk::classification::validProbability(*gaze->confidence))) {
+            lines.push_back(fmt::format("  gaze #{}: unavailable", index));
             continue;
         }
 
-        lines.push_back(fmt::format("  pose #{}: {} conf={:.3f} yaw={:.3f} pitch={:.3f}",
-                                    index,
-                                    objectLabel(pose->object.get()),
-                                    pose->confidence,
-                                    pose->yaw,
-                                    pose->pitch));
+        lines.push_back(
+            fmt::format("  gaze #{}: {} subject={} conf={} yaw_degrees={:.3f} pitch_degrees={:.3f}",
+                        index,
+                        objectLabel(gaze->object.get()),
+                        gaze->subject_id ? std::to_string(*gaze->subject_id) : "unspecified",
+                        gaze->confidence ? fmt::format("{:.3f}", *gaze->confidence) : "unavailable",
+                        gaze->angles->yaw_degrees,
+                        gaze->angles->pitch_degrees));
     }
 }
 

@@ -2203,6 +2203,15 @@ function contactOutcome(data) {
   return result.inContact;
 }
 
+// development/web/src/gaze-results.js
+function validGaze(data) {
+  return Boolean(data?.angles) && Number.isFinite(data.angles.yawDegrees) && Number.isFinite(data.angles.pitchDegrees) && (data.confidence == null || validProbability(data.confidence));
+}
+function wrapDegrees(value) {
+  const angle = value % 360;
+  return angle > 180 ? angle - 360 : angle < -180 ? angle + 360 : angle;
+}
+
 // development/web/src/inference-output.js
 var body2 = document.getElementById("inferenceOutputBody");
 var copyButton2 = document.getElementById("copyInferenceOutputBtn");
@@ -2224,11 +2233,11 @@ function detectionSummary(detection) {
       meta: confidence ? `${confidence}` : ""
     };
   }
-  if (type === "YawPitch") {
+  if (type === "GazeMeasurement") {
     return {
       title: "Yaw / pitch",
-      detail: `yaw ${number(data.yaw)} pitch ${number(data.pitch)}`,
-      meta: number(data.confidence)
+      detail: validGaze(data) ? `yaw ${number(data.angles.yawDegrees)}\xB0 pitch ${number(data.angles.pitchDegrees)}\xB0` : "Gaze unavailable",
+      meta: validGaze(data) ? number(data.confidence) : ""
     };
   }
   if (type === "CameraContact") {
@@ -4893,6 +4902,258 @@ var FrameContextT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-angles.js
+var GazeAngles = class _GazeAngles {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsGazeAngles(bb, obj) {
+    return (obj || new _GazeAngles()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsGazeAngles(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _GazeAngles()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  yawDegrees() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  pitchDegrees() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  static startGazeAngles(builder) {
+    builder.startObject(2);
+  }
+  static addYawDegrees(builder, yawDegrees) {
+    builder.addFieldFloat32(0, yawDegrees, 0);
+  }
+  static addPitchDegrees(builder, pitchDegrees) {
+    builder.addFieldFloat32(1, pitchDegrees, 0);
+  }
+  static endGazeAngles(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createGazeAngles(builder, yawDegrees, pitchDegrees) {
+    _GazeAngles.startGazeAngles(builder);
+    _GazeAngles.addYawDegrees(builder, yawDegrees);
+    _GazeAngles.addPitchDegrees(builder, pitchDegrees);
+    return _GazeAngles.endGazeAngles(builder);
+  }
+  unpack() {
+    return new GazeAnglesT(this.yawDegrees(), this.pitchDegrees());
+  }
+  unpackTo(_o) {
+    _o.yawDegrees = this.yawDegrees();
+    _o.pitchDegrees = this.pitchDegrees();
+  }
+};
+var GazeAnglesT = class {
+  constructor(yawDegrees = 0, pitchDegrees = 0) {
+    this.yawDegrees = yawDegrees;
+    this.pitchDegrees = pitchDegrees;
+  }
+  pack(builder) {
+    return GazeAngles.createGazeAngles(builder, this.yawDegrees, this.pitchDegrees);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurement.js
+var GazeMeasurement = class _GazeMeasurement {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsGazeMeasurement(bb, obj) {
+    return (obj || new _GazeMeasurement()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsGazeMeasurement(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _GazeMeasurement()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  angles(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new GazeAngles()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  confidence() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  static startGazeMeasurement(builder) {
+    builder.startObject(4);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(1, subjectId, null);
+  }
+  static addAngles(builder, anglesOffset) {
+    builder.addFieldOffset(2, anglesOffset, 0);
+  }
+  static addConfidence(builder, confidence) {
+    builder.addFieldFloat32(3, confidence, null);
+  }
+  static endGazeMeasurement(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new GazeMeasurementT(this.object() !== null ? this.object().unpack() : null, this.subjectId(), this.angles() !== null ? this.angles().unpack() : null, this.confidence());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.subjectId = this.subjectId();
+    _o.angles = this.angles() !== null ? this.angles().unpack() : null;
+    _o.confidence = this.confidence();
+  }
+};
+var GazeMeasurementT = class {
+  constructor(object = null, subjectId = null, angles = null, confidence = null) {
+    this.object = object;
+    this.subjectId = subjectId;
+    this.angles = angles;
+    this.confidence = confidence;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    const angles = this.angles !== null ? this.angles.pack(builder) : 0;
+    GazeMeasurement.startGazeMeasurement(builder);
+    GazeMeasurement.addObject(builder, object);
+    if (this.subjectId !== null)
+      GazeMeasurement.addSubjectId(builder, this.subjectId);
+    GazeMeasurement.addAngles(builder, angles);
+    if (this.confidence !== null)
+      GazeMeasurement.addConfidence(builder, this.confidence);
+    return GazeMeasurement.endGazeMeasurement(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.js
+var GazeMeasurements = class _GazeMeasurements {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsGazeMeasurements(bb, obj) {
+    return (obj || new _GazeMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsGazeMeasurements(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _GazeMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("GZMS");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  measurements(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new GazeMeasurement()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  measurementsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startGazeMeasurements(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addMeasurements(builder, measurementsOffset) {
+    builder.addFieldOffset(3, measurementsOffset, 0);
+  }
+  static createMeasurementsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startMeasurementsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endGazeMeasurements(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishGazeMeasurementsBuffer(builder, offset) {
+    builder.finish(offset, "GZMS");
+  }
+  static finishSizePrefixedGazeMeasurementsBuffer(builder, offset) {
+    builder.finish(offset, "GZMS", true);
+  }
+  unpack() {
+    return new GazeMeasurementsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.measurements.bind(this), this.measurementsLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.measurements = this.bb.createObjList(this.measurements.bind(this), this.measurementsLength());
+  }
+};
+var GazeMeasurementsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, measurements = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.measurements = measurements;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const measurements = GazeMeasurements.createMeasurementsVector(builder, builder.createObjectOffsetList(this.measurements));
+    GazeMeasurements.startGazeMeasurements(builder);
+    GazeMeasurements.addSchemaMajor(builder, this.schemaMajor);
+    GazeMeasurements.addSchemaMinor(builder, this.schemaMinor);
+    GazeMeasurements.addLayer(builder, layer2);
+    GazeMeasurements.addMeasurements(builder, measurements);
+    return GazeMeasurements.endGazeMeasurements(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.js
 var BitmapData = class _BitmapData {
   constructor() {
@@ -6143,195 +6404,6 @@ var PersonPresencesT = class {
   }
 };
 
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js
-var PoseEstimation = class _PoseEstimation {
-  constructor() {
-    this.bb = null;
-    this.bb_pos = 0;
-  }
-  __init(i, bb) {
-    this.bb_pos = i;
-    this.bb = bb;
-    return this;
-  }
-  static getRootAsPoseEstimation(bb, obj) {
-    return (obj || new _PoseEstimation()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  static getSizePrefixedRootAsPoseEstimation(bb, obj) {
-    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _PoseEstimation()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  object(obj) {
-    const offset = this.bb.__offset(this.bb_pos, 4);
-    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
-  }
-  confidence() {
-    const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  yaw() {
-    const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  pitch() {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  static startPoseEstimation(builder) {
-    builder.startObject(4);
-  }
-  static addObject(builder, objectOffset) {
-    builder.addFieldOffset(0, objectOffset, 0);
-  }
-  static addConfidence(builder, confidence) {
-    builder.addFieldFloat32(1, confidence, 0);
-  }
-  static addYaw(builder, yaw) {
-    builder.addFieldFloat32(2, yaw, 0);
-  }
-  static addPitch(builder, pitch) {
-    builder.addFieldFloat32(3, pitch, 0);
-  }
-  static endPoseEstimation(builder) {
-    const offset = builder.endObject();
-    return offset;
-  }
-  static createPoseEstimation(builder, objectOffset, confidence, yaw, pitch) {
-    _PoseEstimation.startPoseEstimation(builder);
-    _PoseEstimation.addObject(builder, objectOffset);
-    _PoseEstimation.addConfidence(builder, confidence);
-    _PoseEstimation.addYaw(builder, yaw);
-    _PoseEstimation.addPitch(builder, pitch);
-    return _PoseEstimation.endPoseEstimation(builder);
-  }
-  unpack() {
-    return new PoseEstimationT(this.object() !== null ? this.object().unpack() : null, this.confidence(), this.yaw(), this.pitch());
-  }
-  unpackTo(_o) {
-    _o.object = this.object() !== null ? this.object().unpack() : null;
-    _o.confidence = this.confidence();
-    _o.yaw = this.yaw();
-    _o.pitch = this.pitch();
-  }
-};
-var PoseEstimationT = class {
-  constructor(object = null, confidence = 0, yaw = 0, pitch = 0) {
-    this.object = object;
-    this.confidence = confidence;
-    this.yaw = yaw;
-    this.pitch = pitch;
-  }
-  pack(builder) {
-    const object = this.object !== null ? this.object.pack(builder) : 0;
-    return PoseEstimation.createPoseEstimation(builder, object, this.confidence, this.yaw, this.pitch);
-  }
-};
-
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js
-var PoseEstimations = class _PoseEstimations {
-  constructor() {
-    this.bb = null;
-    this.bb_pos = 0;
-  }
-  __init(i, bb) {
-    this.bb_pos = i;
-    this.bb = bb;
-    return this;
-  }
-  static getRootAsPoseEstimations(bb, obj) {
-    return (obj || new _PoseEstimations()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  static getSizePrefixedRootAsPoseEstimations(bb, obj) {
-    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _PoseEstimations()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  static bufferHasIdentifier(bb) {
-    return bb.__has_identifier("POSE");
-  }
-  schemaMajor() {
-    const offset = this.bb.__offset(this.bb_pos, 4);
-    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
-  }
-  schemaMinor() {
-    const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
-  }
-  layer(obj) {
-    const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
-  }
-  poses(index, obj) {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? (obj || new PoseEstimation()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
-  }
-  posesLength() {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
-  }
-  static startPoseEstimations(builder) {
-    builder.startObject(4);
-  }
-  static addSchemaMajor(builder, schemaMajor) {
-    builder.addFieldInt16(0, schemaMajor, 1);
-  }
-  static addSchemaMinor(builder, schemaMinor) {
-    builder.addFieldInt16(1, schemaMinor, 0);
-  }
-  static addLayer(builder, layerOffset) {
-    builder.addFieldOffset(2, layerOffset, 0);
-  }
-  static addPoses(builder, posesOffset) {
-    builder.addFieldOffset(3, posesOffset, 0);
-  }
-  static createPosesVector(builder, data) {
-    builder.startVector(4, data.length, 4);
-    for (let i = data.length - 1; i >= 0; i--) {
-      builder.addOffset(data[i]);
-    }
-    return builder.endVector();
-  }
-  static startPosesVector(builder, numElems) {
-    builder.startVector(4, numElems, 4);
-  }
-  static endPoseEstimations(builder) {
-    const offset = builder.endObject();
-    return offset;
-  }
-  static finishPoseEstimationsBuffer(builder, offset) {
-    builder.finish(offset, "POSE");
-  }
-  static finishSizePrefixedPoseEstimationsBuffer(builder, offset) {
-    builder.finish(offset, "POSE", true);
-  }
-  unpack() {
-    return new PoseEstimationsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.poses.bind(this), this.posesLength()));
-  }
-  unpackTo(_o) {
-    _o.schemaMajor = this.schemaMajor();
-    _o.schemaMinor = this.schemaMinor();
-    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
-    _o.poses = this.bb.createObjList(this.poses.bind(this), this.posesLength());
-  }
-};
-var PoseEstimationsT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, poses = []) {
-    this.schemaMajor = schemaMajor;
-    this.schemaMinor = schemaMinor;
-    this.layer = layer2;
-    this.poses = poses;
-  }
-  pack(builder) {
-    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
-    const poses = PoseEstimations.createPosesVector(builder, builder.createObjectOffsetList(this.poses));
-    PoseEstimations.startPoseEstimations(builder);
-    PoseEstimations.addSchemaMajor(builder, this.schemaMajor);
-    PoseEstimations.addSchemaMinor(builder, this.schemaMinor);
-    PoseEstimations.addLayer(builder, layer2);
-    PoseEstimations.addPoses(builder, poses);
-    return PoseEstimations.endPoseEstimations(builder);
-  }
-};
-
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js
 var SegmentationMask = class _SegmentationMask {
   constructor() {
@@ -7402,6 +7474,8 @@ var decode_3375056508603945320 = (blob) => Classifications.getRootAsClassificati
 var verify_3375056508603945320 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_5246681475592864076 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
 var verify_5246681475592864076 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_2646100978796938776 = (blob) => GazeMeasurements.getRootAsGazeMeasurements(new ByteBuffer(blob)).unpack();
+var verify_2646100978796938776 = (blob) => GazeMeasurements.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_7634499802271603959 = (blob) => InstanceSegmentationMasks.getRootAsInstanceSegmentationMasks(new ByteBuffer(blob)).unpack();
 var verify_7634499802271603959 = (blob) => InstanceSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_6121378805478677067 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
@@ -7412,8 +7486,6 @@ var decode_2630163151625760217 = (blob) => PerformanceMeasurements.getRootAsPerf
 var verify_2630163151625760217 = (blob) => PerformanceMeasurements.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_7550522492754457054 = (blob) => PersonPresences.getRootAsPersonPresences(new ByteBuffer(blob)).unpack();
 var verify_7550522492754457054 = (blob) => PersonPresences.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_5268014742632501193 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
-var verify_5268014742632501193 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_3128408959875976772 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
 var verify_3128408959875976772 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_133049182594848948 = (blob) => SemanticSegmentationMasks.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
@@ -7457,6 +7529,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_5246681475592864076,
     verify: verify_5246681475592864076
   }],
+  [2646100978796938776n, {
+    name: "open_perception_kit::metadata::GazeMeasurements",
+    root_type: "GazeMeasurements",
+    qualified_root_type: "open_perception_kit.metadata.GazeMeasurements",
+    file_identifier: "GZMS",
+    decode: decode_2646100978796938776,
+    verify: verify_2646100978796938776
+  }],
   [7634499802271603959n, {
     name: "open_perception_kit::metadata::InstanceSegmentationMasks",
     root_type: "InstanceSegmentationMasks",
@@ -7496,14 +7576,6 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     file_identifier: "PPRS",
     decode: decode_7550522492754457054,
     verify: verify_7550522492754457054
-  }],
-  [5268014742632501193n, {
-    name: "open_perception_kit::metadata::PoseEstimations",
-    root_type: "PoseEstimations",
-    qualified_root_type: "open_perception_kit.metadata.PoseEstimations",
-    file_identifier: "POSE",
-    decode: decode_5268014742632501193,
-    verify: verify_5268014742632501193
   }],
   [3128408959875976772n, {
     name: "open_perception_kit::metadata::SegmentationMasks",
@@ -7551,12 +7623,12 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [CameraContactsT, 7630654510173219138n],
   [ClassificationsT, 3375056508603945320n],
   [FrameContextT, 5246681475592864076n],
+  [GazeMeasurementsT, 2646100978796938776n],
   [InstanceSegmentationMasksT, 7634499802271603959n],
   [ObjectEmbeddingsT, 6121378805478677067n],
   [ObjectTracksT, 5316059591418463553n],
   [PerformanceMeasurementsT, 2630163151625760217n],
   [PersonPresencesT, 7550522492754457054n],
-  [PoseEstimationsT, 5268014742632501193n],
   [SegmentationMasksT, 3128408959875976772n],
   [SemanticSegmentationMasksT, 133049182594848948n],
   [TrackTracesT, 7618457940451616939n],
@@ -7579,7 +7651,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "5ac6f6f4fd21ba588e045f9766e0bcd66ce5a077ef86bab7b706962374f5507c";
+var SCHEMA_SET_SHA256 = "18a212000d9a00662a0e6de673716fcb76e44196603e1e5c203117abd22cc2df";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -8102,13 +8174,16 @@ function decodeFrameResultsMessage(message) {
     }
   })), layers);
   addClassificationLayers(packet, layers);
-  addPayloadLayers(envelope, PoseEstimationsT, "PoseEstimations", (payload) => payload.poses.map((item) => ({
-    type: "YawPitch",
+  addPayloadLayers(envelope, GazeMeasurementsT, "GazeMeasurements", (payload) => payload.measurements.map((item) => ({
+    type: "GazeMeasurement",
     data: {
       ...objectData(item.object),
-      confidence: Number(item.confidence || 0),
-      yaw: Number(item.yaw || 0),
-      pitch: Number(item.pitch || 0)
+      subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+      confidence: item.confidence,
+      angles: item.angles ? {
+        yawDegrees: item.angles.yawDegrees,
+        pitchDegrees: item.angles.pitchDegrees
+      } : null
     }
   })), layers);
   addPayloadLayers(envelope, TrackTracesT, "TrackTraces", (payload) => payload.traces.map((item) => ({
@@ -8433,12 +8508,15 @@ function drawTrackTrace(ctx, trace, mapper, color) {
     drawArrow(ctx, from, to, hexToRgba(color, alpha), 4, 0);
   }
 }
-function drawGazeVector(ctx, yp, parent, mapper, color) {
-  if (nearZero(yp.yaw) && nearZero(yp.pitch)) return;
+function drawGazeVector(ctx, gaze, parent, mapper, color) {
+  if (!validGaze(gaze)) return;
+  const yawDegrees = wrapDegrees(gaze.angles.yawDegrees);
+  const pitchDegrees = wrapDegrees(gaze.angles.pitchDegrees);
+  if (nearZero(yawDegrees) && nearZero(pitchDegrees)) return;
   const parentBox = mapper.rect(parent);
   if (!parentBox) return;
   const start = { x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2 };
-  drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
+  drawArrow(ctx, start, gazeEndpoint(start, yawDegrees, pitchDegrees, 120), color, 3, 10);
 }
 function drawCameraContactMarker(ctx, classification, face, mapper, color) {
   const hasContact = contactOutcome(classification);
@@ -8502,8 +8580,8 @@ function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {
   ctx.restore();
 }
 function gazeEndpoint(start, yawDeg, pitchDeg, lengthPx) {
-  const yaw = deg2rad(yawDeg);
-  const pitch = deg2rad(pitchDeg);
+  const yaw = wrapDegrees(yawDeg) * Math.PI / 180;
+  const pitch = wrapDegrees(pitchDeg) * Math.PI / 180;
   return {
     x: start.x - Math.sin(yaw) * Math.cos(pitch) * lengthPx,
     y: start.y - Math.sin(pitch) * lengthPx
@@ -8517,9 +8595,6 @@ function positiveNumber(value) {
 }
 function nearZero(value) {
   return Number(value) < 0.1 && Number(value) > -0.1;
-}
-function deg2rad(value) {
-  return Number(value || 0) * Math.PI / 180;
 }
 function clamp2(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -8691,7 +8766,6 @@ var STYLE_CONTROLS = [
 var CONTENT_COLORS = {
   humanFace: "#2600ff",
   genericObject: "#ff3030",
-  eyeYawPitch: "#fafad2",
   cameraContact: "#66ff00",
   personClassification: "#66ff00",
   trackTrace: "#ffff00"
@@ -8732,21 +8806,6 @@ function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: reso
       return resolve2({ state: "ready", message: "", output, items: output.items }, index, settings);
     }
   };
-}
-function resolveFaceParents(result, index, type) {
-  const items = result.items.filter((item) => item.type === type);
-  const resolved = { ...result, items, attached: [] };
-  let missing = false;
-  let ambiguous = false;
-  for (const item of items) {
-    const candidates = (index.objects.get(objectId(item.data.parentUuid)) || []).filter((candidate) => ["BoxDetections", "ObjectTracks"].includes(candidate.source.payloadType) && candidate.source.contentType === "humanFace" && candidate.type === "Rect" && candidate.data.spatialValid !== false);
-    if (candidates.length > 1) ambiguous = true;
-    else if (candidates.length === 1) resolved.attached.push({ data: item.data, parent: candidates[0].data });
-    else missing = true;
-  }
-  if (ambiguous) return { ...resolved, state: "ambiguous", message: "Multiple parent faces match; ambiguous markers are omitted." };
-  if (missing) return { ...resolved, state: "partial", message: "Waiting for parent face geometry." };
-  return resolved;
 }
 function resolveBoxSubjects(result, index, type, available2) {
   const items = result.items.filter((item) => item.type === type);
@@ -8872,8 +8931,9 @@ var classifications_default = defineFeature({
 var gaze_default = defineFeature({
   id: "gaze",
   label: "Gaze",
-  accepts: (source) => source.payloadType === "PoseEstimations" && source.contentType === "eyeYawPitch",
-  resolve: (result, index) => resolveFaceParents(result, index, "YawPitch"),
+  defaults: { color: "#fafad2" },
+  accepts: (source) => source.payloadType === "GazeMeasurements",
+  resolve: (result, index) => resolveBoxSubjects(result, index, "GazeMeasurement", validGaze),
   render({ ctx, mapper }, resolved, settings) {
     for (const { data, parent } of resolved.attached) drawGazeVector(ctx, data, parent, mapper, settings.color);
   }
@@ -9134,6 +9194,10 @@ function loadOverlays(storage2) {
     let relabelled = false;
     for (const overlay2 of overlays2) {
       const source = overlay2.selection.primary;
+      if (overlay2.featureId === "gaze" && source?.payloadType === "PoseEstimations" && source.contentType === "eyeYawPitch") {
+        source.payloadType = "GazeMeasurements";
+        relabelled = true;
+      }
       if (source?.payloadType === "Classifications" && ["cameraContact", "personClassification"].includes(source.contentType)) {
         source.payloadType = source.contentType === "cameraContact" ? "CameraContacts" : "PersonPresences";
         relabelled = true;

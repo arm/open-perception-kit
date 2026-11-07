@@ -26,7 +26,7 @@ export function fixtureFeatures() {
     return [
         defineFeature({id: 'bounding-boxes', label: 'Bounding boxes', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType) && s.contentType !== 'humanFace', render() {}}),
         defineFeature({id: 'face-circles', label: 'Face circles', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType) && s.contentType === 'humanFace', render() {}}),
-        defineFeature({id: 'gaze', label: 'Gaze', accepts: (s) => s.payloadType === 'PoseEstimations' && s.contentType === 'eyeYawPitch', render() {}}),
+        defineFeature({id: 'gaze', label: 'Gaze', accepts: (s) => s.payloadType === 'GazeMeasurements', render() {}}),
         defineFeature({id: 'camera-contact', label: 'Camera contact', accepts: (s) => s.payloadType === 'CameraContacts', render() {}}),
         defineFeature({id: 'test-unsupported', label: 'Unsupported fixture', accepts: (s) => s.payloadType === 'TestUnsupportedPayload', reason: 'Fixture rendering is not supported.'}),
         defineFeature({id: 'tracked-objects', label: 'Tracked objects', accepts: (s) => s.payloadType === 'ObjectTracks', render() {},

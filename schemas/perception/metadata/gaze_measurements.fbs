@@ -1,0 +1,37 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+// Degrees in OPK's existing, unmirrored image/camera convention. Image x is
+// rightwards and y downwards. The display projection is
+// dx=-sin(yaw)*cos(pitch), dy=-sin(pitch). Near forward gaze, positive yaw
+// points left and positive pitch points up. Zero/zero is straight ahead.
+// Angles must be finite; projection/comparison wrap them modulo 360 degrees.
+table GazeAngles {
+  yaw_degrees:float;
+  pitch_degrees:float;
+}
+
+table GazeMeasurement {
+  object:open_perception_kit.metadata.ObjectMeta;
+  // Subject observation ObjectMeta.id, not a persistent track_id or a
+  // coordinate transform. Absent means no subject. A present zero is invalid.
+  // No parent_id fallback. Arrow consumers resolve a unique BoxDetection or
+  // ObjectTrack in this packet, then validate its explicit image-space geometry.
+  subject_id:ulong = null;
+  // Absent means unavailable; a present zero/zero pair is a measurement.
+  angles:GazeAngles;
+  // Optional score in [0,1]. The built-in parser uses the minimum of the
+  // two maximum softmax-bin probabilities. Zero is valid, not an availability flag.
+  confidence:float = null;
+}
+
+table GazeMeasurements {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:open_perception_kit.metadata.LayerInfo;
+  measurements:[GazeMeasurement];
+}
+
+root_type GazeMeasurements;
+file_identifier "GZMS";

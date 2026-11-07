@@ -17,32 +17,32 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
+import { GazeAngles, GazeAnglesT } from '../../open-perception-kit/metadata/gaze-angles.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
-export declare class PoseEstimation implements flatbuffers.IUnpackableObject<PoseEstimationT> {
+export declare class GazeMeasurement implements flatbuffers.IUnpackableObject<GazeMeasurementT> {
     bb: flatbuffers.ByteBuffer | null;
     bb_pos: number;
-    __init(i: number, bb: flatbuffers.ByteBuffer): PoseEstimation;
-    static getRootAsPoseEstimation(bb: flatbuffers.ByteBuffer, obj?: PoseEstimation): PoseEstimation;
-    static getSizePrefixedRootAsPoseEstimation(bb: flatbuffers.ByteBuffer, obj?: PoseEstimation): PoseEstimation;
+    __init(i: number, bb: flatbuffers.ByteBuffer): GazeMeasurement;
+    static getRootAsGazeMeasurement(bb: flatbuffers.ByteBuffer, obj?: GazeMeasurement): GazeMeasurement;
+    static getSizePrefixedRootAsGazeMeasurement(bb: flatbuffers.ByteBuffer, obj?: GazeMeasurement): GazeMeasurement;
     object(obj?: ObjectMeta): ObjectMeta | null;
-    confidence(): number;
-    yaw(): number;
-    pitch(): number;
-    static startPoseEstimation(builder: flatbuffers.Builder): void;
+    subjectId(): bigint | null;
+    angles(obj?: GazeAngles): GazeAngles | null;
+    confidence(): number | null;
+    static startGazeMeasurement(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
+    static addSubjectId(builder: flatbuffers.Builder, subjectId: bigint): void;
+    static addAngles(builder: flatbuffers.Builder, anglesOffset: flatbuffers.Offset): void;
     static addConfidence(builder: flatbuffers.Builder, confidence: number): void;
-    static addYaw(builder: flatbuffers.Builder, yaw: number): void;
-    static addPitch(builder: flatbuffers.Builder, pitch: number): void;
-    static endPoseEstimation(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createPoseEstimation(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, confidence: number, yaw: number, pitch: number): flatbuffers.Offset;
-    unpack(): PoseEstimationT;
-    unpackTo(_o: PoseEstimationT): void;
+    static endGazeMeasurement(builder: flatbuffers.Builder): flatbuffers.Offset;
+    unpack(): GazeMeasurementT;
+    unpackTo(_o: GazeMeasurementT): void;
 }
-export declare class PoseEstimationT implements flatbuffers.IGeneratedObject {
+export declare class GazeMeasurementT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
-    confidence: number;
-    yaw: number;
-    pitch: number;
-    constructor(object?: ObjectMetaT | null, confidence?: number, yaw?: number, pitch?: number);
+    subjectId: bigint | null;
+    angles: GazeAnglesT | null;
+    confidence: number | null;
+    constructor(object?: ObjectMetaT | null, subjectId?: bigint | null, angles?: GazeAnglesT | null, confidence?: number | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }
