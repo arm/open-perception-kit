@@ -119,6 +119,33 @@ class PaddleOcrRecognitionParserTest : public ::testing::Test {
     const std::filesystem::path dictionaryFile = directory / "characters.txt";
 };
 
+TEST_F(PaddleOcrRecognitionParserTest, BlankTranscriptHasNoInventedConfidence) {
+    opk::AttributeMap attributes;
+    attributes.set("parser", "PaddleOcrRecognitionParser");
+    attributes.set("dictionaryFile", dictionaryFile.string());
+    const std::array<float, 3> probabilities{1, 0, 0};
+    opk::TensorView tensor(probabilities.data(),
+                           sizeof(probabilities),
+                           opk::Shape(1, 1, 3),
+                           opk::Dtype::Float32,
+                           1,
+                           0);
+    opk::TensorParser::Input input(attributes);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.parentId = 42;
+    open_perception_kit::FrameResults results;
+    opk::stdop::postproc::PaddleOcrRecognitionParser parser;
+    ASSERT_TRUE(parser.parse(input, results));
+    results.for_each<open_perception_kit::metadata::ClassificationsT>([](const auto &payload) {
+        ASSERT_EQ(payload.classifications.size(), 1U);
+        const auto &result = *payload.classifications[0];
+        EXPECT_EQ(result.kind, open_perception_kit::metadata::ClassificationKind::RecognizedText);
+        ASSERT_EQ(result.candidates.size(), 1U);
+        EXPECT_TRUE(result.candidates[0]->text.empty());
+        EXPECT_FALSE(result.candidates[0]->confidence.has_value());
+    });
+}
+
 TEST_F(PaddleOcrRecognitionParserTest, CollapsesAdjacentRepeatsBeforeRemovingBlank) {
     opk::AttributeMap attributes;
     attributes.set("parser", "PaddleOcrRecognitionParser");
@@ -162,12 +189,17 @@ TEST_F(PaddleOcrRecognitionParserTest, CollapsesAdjacentRepeatsBeforeRemovingBla
     ASSERT_TRUE(classifications[0]);
     ASSERT_TRUE(classifications[0]->object);
     EXPECT_EQ(classifications[0]->object->parent_id, 42U);
+    EXPECT_EQ(classifications[0]->subject_id, 42U);
+    EXPECT_EQ(classifications[0]->kind,
+              open_perception_kit::metadata::ClassificationKind::RecognizedText);
+    EXPECT_TRUE(classifications[0]->label_set.empty());
     const auto &candidates = classifications[0]->candidates;
     ASSERT_EQ(candidates.size(), 1U);
     ASSERT_TRUE(candidates[0]);
     EXPECT_EQ(candidates[0]->text, "AA");
     // Only retained characters contribute: (0.9 + 0.7) / 2, excluding repeat/blank.
-    EXPECT_FLOAT_EQ(candidates[0]->confidence, 0.8f);
+    EXPECT_FLOAT_EQ(candidates[0]->confidence.value_or(0), 0.8f);
+    EXPECT_FALSE(candidates[0]->class_id.has_value());
 }
 
 } // namespace

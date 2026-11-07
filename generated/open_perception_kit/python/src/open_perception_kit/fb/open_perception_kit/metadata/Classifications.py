@@ -18,7 +18,6 @@
 # namespace: metadata
 
 import open_perception_kit.fb.open_perception_kit.metadata.Classification
-import open_perception_kit.fb.open_perception_kit.metadata.PersonPresence
 import open_perception_kit.fb.open_perception_kit.metadata.LayerInfo
 import flatbuffers
 from flatbuffers.compat import import_numpy
@@ -98,34 +97,9 @@ class Classifications(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
-    # Classifications
-    def PersonPresence(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            x = self._tab.Vector(o)
-            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
-            x = self._tab.Indirect(x)
-            from open_perception_kit.fb.open_perception_kit.metadata.PersonPresence import PersonPresence
-            obj = PersonPresence()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # Classifications
-    def PersonPresenceLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # Classifications
-    def PersonPresenceIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        return o == 0
-
 
 def ClassificationsStart(builder):
-    builder.StartObject(5)
+    builder.StartObject(4)
 
 
 def Start(builder):
@@ -172,22 +146,6 @@ def StartClassificationsVector(builder, numElems):
     return ClassificationsStartClassificationsVector(builder, numElems)
 
 
-def ClassificationsAddPersonPresence(builder, personPresence):
-    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(personPresence), 0)
-
-
-def AddPersonPresence(builder, personPresence):
-    ClassificationsAddPersonPresence(builder, personPresence)
-
-
-def ClassificationsStartPersonPresenceVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-
-def StartPersonPresenceVector(builder, numElems):
-    return ClassificationsStartPersonPresenceVector(builder, numElems)
-
-
 def ClassificationsEnd(builder):
     return builder.EndObject()
 
@@ -211,15 +169,12 @@ class ClassificationsT(object):
         schemaMinor=0,
         layer=None,
         classifications=None,
-        personPresence=None,
     ):
         self.schemaMajor = schemaMajor  # type: int
         self.schemaMinor = schemaMinor  # type: int
         self.layer = layer  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.LayerInfo.LayerInfoT]
         # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.Classification.ClassificationT]]
         self.classifications = classifications
-        # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.PersonPresence.PersonPresenceT]]
-        self.personPresence = personPresence
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -256,15 +211,6 @@ class ClassificationsT(object):
                     classification_ = open_perception_kit.fb.open_perception_kit.metadata.Classification.ClassificationT.InitFromObj(
                         classifications.Classifications(i))
                     self.classifications.append(classification_)
-        if not classifications.PersonPresenceIsNone():
-            self.personPresence = []
-            for i in range(classifications.PersonPresenceLength()):
-                if classifications.PersonPresence(i) is None:
-                    self.personPresence.append(None)
-                else:
-                    personPresence_ = open_perception_kit.fb.open_perception_kit.metadata.PersonPresence.PersonPresenceT.InitFromObj(
-                        classifications.PersonPresence(i))
-                    self.personPresence.append(personPresence_)
 
     # ClassificationsT
     def Pack(self, builder):
@@ -278,14 +224,6 @@ class ClassificationsT(object):
             for i in reversed(range(len(self.classifications))):
                 builder.PrependUOffsetTRelative(classificationslist[i])
             classifications = builder.EndVector()
-        if self.personPresence is not None:
-            personPresencelist = []
-            for i in range(len(self.personPresence)):
-                personPresencelist.append(self.personPresence[i].Pack(builder))
-            ClassificationsStartPersonPresenceVector(builder, len(self.personPresence))
-            for i in reversed(range(len(self.personPresence))):
-                builder.PrependUOffsetTRelative(personPresencelist[i])
-            personPresence = builder.EndVector()
         ClassificationsStart(builder)
         ClassificationsAddSchemaMajor(builder, self.schemaMajor)
         ClassificationsAddSchemaMinor(builder, self.schemaMinor)
@@ -293,7 +231,5 @@ class ClassificationsT(object):
             ClassificationsAddLayer(builder, layer)
         if self.classifications is not None:
             ClassificationsAddClassifications(builder, classifications)
-        if self.personPresence is not None:
-            ClassificationsAddPersonPresence(builder, personPresence)
         classifications = ClassificationsEnd(builder)
         return classifications

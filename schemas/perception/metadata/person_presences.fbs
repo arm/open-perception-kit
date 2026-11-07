@@ -1,0 +1,29 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+table PersonPresenceResult {
+  person_present:bool;
+  // Optional diagnostic model outputs, not probabilities. Both finite or both
+  // absent. Negative and zero scores are valid. Consumers use person_present.
+  yes_score:float = null;
+  no_score:float = null;
+}
+
+table PersonPresence {
+  object:open_perception_kit.metadata.ObjectMeta;
+  // Absent means unavailable, not a negative decision.
+  result:PersonPresenceResult;
+  // Input observation, independent of derivation: video frame, box or track.
+  subject_id:ulong = null;
+}
+
+table PersonPresences {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:open_perception_kit.metadata.LayerInfo;
+  presences:[PersonPresence];
+}
+
+root_type PersonPresences;
+file_identifier "PPRS";

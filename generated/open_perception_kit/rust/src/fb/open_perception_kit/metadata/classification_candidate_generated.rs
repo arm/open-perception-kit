@@ -46,10 +46,6 @@ impl<'a> ClassificationCandidate<'a> {
     pub const VT_CONFIDENCE: flatbuffers::VOffsetT = 4;
     pub const VT_CLASS_ID: flatbuffers::VOffsetT = 6;
     pub const VT_TEXT: flatbuffers::VOffsetT = 8;
-    pub const VT_X: flatbuffers::VOffsetT = 10;
-    pub const VT_Y: flatbuffers::VOffsetT = 12;
-    pub const VT_W: flatbuffers::VOffsetT = 14;
-    pub const VT_H: flatbuffers::VOffsetT = 16;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -61,15 +57,15 @@ impl<'a> ClassificationCandidate<'a> {
         args: &'args ClassificationCandidateArgs<'args>,
     ) -> flatbuffers::WIPOffset<ClassificationCandidate<'bldr>> {
         let mut builder = ClassificationCandidateBuilder::new(_fbb);
-        builder.add_h(args.h);
-        builder.add_w(args.w);
-        builder.add_y(args.y);
-        builder.add_x(args.x);
         if let Some(x) = args.text {
             builder.add_text(x);
         }
-        builder.add_class_id(args.class_id);
-        builder.add_confidence(args.confidence);
+        if let Some(x) = args.class_id {
+            builder.add_class_id(x);
+        }
+        if let Some(x) = args.confidence {
+            builder.add_confidence(x);
+        }
         builder.finish()
     }
 
@@ -77,41 +73,31 @@ impl<'a> ClassificationCandidate<'a> {
         let confidence = self.confidence();
         let class_id = self.class_id();
         let text = self.text().map(|x| x.to_string());
-        let x = self.x();
-        let y = self.y();
-        let w = self.w();
-        let h = self.h();
         ClassificationCandidateT {
             confidence,
             class_id,
             text,
-            x,
-            y,
-            w,
-            h,
         }
     }
 
     #[inline]
-    pub fn confidence(&self) -> f32 {
+    pub fn confidence(&self) -> Option<f32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<f32>(ClassificationCandidate::VT_CONFIDENCE, Some(0.0))
-                .unwrap()
+                .get::<f32>(ClassificationCandidate::VT_CONFIDENCE, None)
         }
     }
     #[inline]
-    pub fn class_id(&self) -> i32 {
+    pub fn class_id(&self) -> Option<u32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<i32>(ClassificationCandidate::VT_CLASS_ID, Some(-1))
-                .unwrap()
+                .get::<u32>(ClassificationCandidate::VT_CLASS_ID, None)
         }
     }
     #[inline]
@@ -122,50 +108,6 @@ impl<'a> ClassificationCandidate<'a> {
         unsafe {
             self._tab
                 .get::<flatbuffers::ForwardsUOffset<&str>>(ClassificationCandidate::VT_TEXT, None)
-        }
-    }
-    #[inline]
-    pub fn x(&self) -> f32 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<f32>(ClassificationCandidate::VT_X, Some(0.0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn y(&self) -> f32 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<f32>(ClassificationCandidate::VT_Y, Some(0.0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn w(&self) -> f32 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<f32>(ClassificationCandidate::VT_W, Some(0.0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn h(&self) -> f32 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<f32>(ClassificationCandidate::VT_H, Some(0.0))
-                .unwrap()
         }
     }
 }
@@ -179,36 +121,24 @@ impl flatbuffers::Verifiable for ClassificationCandidate<'_> {
         use self::flatbuffers::Verifiable;
         v.visit_table(pos)?
             .visit_field::<f32>("confidence", Self::VT_CONFIDENCE, false)?
-            .visit_field::<i32>("class_id", Self::VT_CLASS_ID, false)?
+            .visit_field::<u32>("class_id", Self::VT_CLASS_ID, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<&str>>("text", Self::VT_TEXT, false)?
-            .visit_field::<f32>("x", Self::VT_X, false)?
-            .visit_field::<f32>("y", Self::VT_Y, false)?
-            .visit_field::<f32>("w", Self::VT_W, false)?
-            .visit_field::<f32>("h", Self::VT_H, false)?
             .finish();
         Ok(())
     }
 }
 pub struct ClassificationCandidateArgs<'a> {
-    pub confidence: f32,
-    pub class_id: i32,
+    pub confidence: Option<f32>,
+    pub class_id: Option<u32>,
     pub text: Option<flatbuffers::WIPOffset<&'a str>>,
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
 }
 impl<'a> Default for ClassificationCandidateArgs<'a> {
     #[inline]
     fn default() -> Self {
         ClassificationCandidateArgs {
-            confidence: 0.0,
-            class_id: -1,
+            confidence: None,
+            class_id: None,
             text: None,
-            x: 0.0,
-            y: 0.0,
-            w: 0.0,
-            h: 0.0,
         }
     }
 }
@@ -221,37 +151,17 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ClassificationCandidateBuilder<
     #[inline]
     pub fn add_confidence(&mut self, confidence: f32) {
         self.fbb_
-            .push_slot::<f32>(ClassificationCandidate::VT_CONFIDENCE, confidence, 0.0);
+            .push_slot_always::<f32>(ClassificationCandidate::VT_CONFIDENCE, confidence);
     }
     #[inline]
-    pub fn add_class_id(&mut self, class_id: i32) {
+    pub fn add_class_id(&mut self, class_id: u32) {
         self.fbb_
-            .push_slot::<i32>(ClassificationCandidate::VT_CLASS_ID, class_id, -1);
+            .push_slot_always::<u32>(ClassificationCandidate::VT_CLASS_ID, class_id);
     }
     #[inline]
     pub fn add_text(&mut self, text: flatbuffers::WIPOffset<&'b str>) {
         self.fbb_
             .push_slot_always::<flatbuffers::WIPOffset<_>>(ClassificationCandidate::VT_TEXT, text);
-    }
-    #[inline]
-    pub fn add_x(&mut self, x: f32) {
-        self.fbb_
-            .push_slot::<f32>(ClassificationCandidate::VT_X, x, 0.0);
-    }
-    #[inline]
-    pub fn add_y(&mut self, y: f32) {
-        self.fbb_
-            .push_slot::<f32>(ClassificationCandidate::VT_Y, y, 0.0);
-    }
-    #[inline]
-    pub fn add_w(&mut self, w: f32) {
-        self.fbb_
-            .push_slot::<f32>(ClassificationCandidate::VT_W, w, 0.0);
-    }
-    #[inline]
-    pub fn add_h(&mut self, h: f32) {
-        self.fbb_
-            .push_slot::<f32>(ClassificationCandidate::VT_H, h, 0.0);
     }
     #[inline]
     pub fn new(
@@ -276,34 +186,22 @@ impl core::fmt::Debug for ClassificationCandidate<'_> {
         ds.field("confidence", &self.confidence());
         ds.field("class_id", &self.class_id());
         ds.field("text", &self.text());
-        ds.field("x", &self.x());
-        ds.field("y", &self.y());
-        ds.field("w", &self.w());
-        ds.field("h", &self.h());
         ds.finish()
     }
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassificationCandidateT {
-    pub confidence: f32,
-    pub class_id: i32,
+    pub confidence: Option<f32>,
+    pub class_id: Option<u32>,
     pub text: Option<String>,
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
 }
 impl Default for ClassificationCandidateT {
     fn default() -> Self {
         Self {
-            confidence: 0.0,
-            class_id: -1,
+            confidence: None,
+            class_id: None,
             text: None,
-            x: 0.0,
-            y: 0.0,
-            w: 0.0,
-            h: 0.0,
         }
     }
 }
@@ -315,20 +213,12 @@ impl ClassificationCandidateT {
         let confidence = self.confidence;
         let class_id = self.class_id;
         let text = self.text.as_ref().map(|x| _fbb.create_string(x));
-        let x = self.x;
-        let y = self.y;
-        let w = self.w;
-        let h = self.h;
         ClassificationCandidate::create(
             _fbb,
             &ClassificationCandidateArgs {
                 confidence,
                 class_id,
                 text,
-                x,
-                y,
-                w,
-                h,
             },
         )
     }

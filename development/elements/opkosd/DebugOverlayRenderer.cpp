@@ -22,6 +22,7 @@
 
 #include "DebugOverlayRenderer.h"
 
+#include "opk/ClassificationScores.h"
 #include "opk/Color.h"
 #include "opk/Tools.h"
 #include "raster/BitmapFont.h"
@@ -45,9 +46,6 @@ namespace {
 constexpr const char *GenericObjectContentType = "genericObject";
 constexpr const char *HumanFaceContentType = "humanFace";
 constexpr const char *EyeYawPitchContentType = "eyeYawPitch";
-constexpr const char *CameraContactContentType = "cameraContact";
-constexpr const char *ClassificationContentType = "classification";
-constexpr const char *PersonClassificationContentType = "personClassification";
 constexpr const char *SegmentationContentType = "segmentation";
 constexpr const char *BottomRightCompositingMode = "bottomRight";
 constexpr const char *BackgroundReplacementCompositingMode = "backgroundReplacement";
@@ -59,7 +57,6 @@ constexpr float GazePoseDeadZoneDegrees = 0.1f;
 constexpr int GazeVectorThickness = 2;
 constexpr float GazeArrowHeadLength = 12.0f;
 constexpr float GazeArrowHeadWidth = 8.0f;
-constexpr int CameraContactClassId = 1;
 constexpr float CameraContactRadiusScale = 0.65f;
 constexpr float CameraContactMinRadius = 18.0f;
 constexpr float CameraContactMaxRadius = 80.0f;
@@ -116,18 +113,6 @@ bool isHumanFaceLayer(const open_perception_kit::metadata::LayerInfoT *layer) no
 
 bool isEyeYawPitchLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
     return hasContentType(layer, EyeYawPitchContentType);
-}
-
-bool isCameraContactLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
-    return hasContentType(layer, CameraContactContentType);
-}
-
-bool isClassificationLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
-    return hasContentType(layer, ClassificationContentType);
-}
-
-bool isPersonClassificationLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
-    return hasContentType(layer, PersonClassificationContentType);
 }
 
 bool isSegmentationLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
@@ -462,37 +447,6 @@ bool isTrackedSourceDetection(const open_perception_kit::metadata::BoxDetectionT
 }
 
 const open_perception_kit::metadata::BoxDetectionT *
-findFirstHumanFaceDetection(const open_perception_kit::FrameResults &frameResults,
-                            std::uint64_t id) {
-    if (id == 0U) {
-        return nullptr;
-    }
-
-    const open_perception_kit::metadata::BoxDetectionT *parent = nullptr;
-
-    frameResults.for_each<open_perception_kit::metadata::BoxDetectionsT>(
-        [&parent, id](const auto &payload) {
-            if (parent != nullptr || !isHumanFaceLayer(payload.layer.get())) {
-                return;
-            }
-
-            for (const auto &detection : payload.detections) {
-                if (!detection || !detection->object || !detection->box) {
-                    continue;
-                }
-                if (detection->object->id != id) {
-                    continue;
-                }
-
-                parent = detection.get();
-                return;
-            }
-        });
-
-    return parent;
-}
-
-const open_perception_kit::metadata::BoxDetectionT *
 findOnlyHumanFaceDetection(const open_perception_kit::FrameResults &frameResults,
                            std::uint64_t id) {
     if (id == 0U) {
@@ -707,42 +661,43 @@ void drawGazeVectors(opk::raster::SurfacePainter &painter,
 void drawCameraContactMarker(opk::raster::SurfacePainter &painter,
                              const DebugOverlaySurface &surface,
                              const open_perception_kit::FrameResults &frameResults,
-                             const open_perception_kit::metadata::ClassificationT &classification) {
-    if (!classification.object || classification.candidates.empty() ||
-        !classification.candidates.front()) {
+                             const open_perception_kit::metadata::CameraContactT &classification) {
+    if (!classification.subject_id || !classification.result) {
         return;
     }
 
-    const auto &candidate = *classification.candidates.front();
-    if (candidate.class_id < 0) {
+    const auto &candidate = *classification.result;
+    if (candidate.confidence && !opk::classification::validProbability(*candidate.confidence)) {
         return;
     }
 
-    const auto *parent =
-        findFirstHumanFaceDetection(frameResults, classification.object->parent_id);
-    if (parent == nullptr || !parent->box) {
+    const auto *subject =
+        open_perception_kit::findSubjectBox(frameResults, *classification.subject_id);
+    if (subject == nullptr) {
         return;
     }
 
-    PixelBox faceBox;
-    if (!makePixelBox(surface, *parent->box, faceBox)) {
+    const auto box =
+        open_perception_kit::projectBoundingBox(*subject, surface.width, surface.height);
+    if (!box) {
         return;
     }
 
-    const bool hasCameraContact = candidate.class_id == CameraContactClassId;
+    const bool hasCameraContact = candidate.in_contact;
     const opk::Color color = hasCameraContact ? opk::Colors::lime : opk::Colors::red;
-    const float baseRadius = static_cast<float>(std::min(faceBox.width, faceBox.height)) * 0.5f;
-    const float radius = hasCameraContact ? std::clamp(baseRadius * CameraContactRadiusScale,
-                                                       CameraContactMinRadius,
-                                                       CameraContactMaxRadius)
-                                          : std::clamp(baseRadius * NoCameraContactRadiusScale,
-                                                       NoCameraContactMinRadius,
-                                                       NoCameraContactMaxRadius);
+    const double baseRadius = std::min((*box)[2], (*box)[3]) * 0.5;
+    const double radius = hasCameraContact
+                              ? std::clamp<double>(baseRadius * CameraContactRadiusScale,
+                                                   CameraContactMinRadius,
+                                                   CameraContactMaxRadius)
+                              : std::clamp<double>(baseRadius * NoCameraContactRadiusScale,
+                                                   NoCameraContactMinRadius,
+                                                   NoCameraContactMaxRadius);
     const int thickness =
         hasCameraContact ? CameraContactCircleThickness : NoCameraContactCircleThickness;
     const int pointSize = hasCameraContact ? CameraContactPointSize : NoCameraContactPointSize;
-    const int cx = faceBox.x + faceBox.width / 2;
-    const int cy = faceBox.y + faceBox.height / 2;
+    const int cx = roundToInt((*box)[0] + (*box)[2] * 0.5);
+    const int cy = roundToInt((*box)[1] + (*box)[3] * 0.5);
 
     painter.drawCircle(cx, cy, std::max(1, roundToInt(radius)), color, thickness);
     painter.drawPoint(cx, cy, color, pointSize);
@@ -751,13 +706,9 @@ void drawCameraContactMarker(opk::raster::SurfacePainter &painter,
 void drawCameraContactMarkers(opk::raster::SurfacePainter &painter,
                               const DebugOverlaySurface &surface,
                               const open_perception_kit::FrameResults &frameResults) {
-    frameResults.for_each<open_perception_kit::metadata::ClassificationsT>(
+    frameResults.for_each<open_perception_kit::metadata::CameraContactsT>(
         [&painter, &surface, &frameResults](const auto &payload) {
-            if (!isCameraContactLayer(payload.layer.get())) {
-                return;
-            }
-
-            for (const auto &classification : payload.classifications) {
+            for (const auto &classification : payload.contacts) {
                 if (classification) {
                     drawCameraContactMarker(painter, surface, frameResults, *classification);
                 }
@@ -772,7 +723,9 @@ void drawPersonPresence(opk::raster::SurfacePainter &painter,
         return;
     }
 
-    const bool isPerson = presence.yes_confidence > presence.no_confidence;
+    if (!presence.result || !opk::classification::validPresenceResult(*presence.result))
+        return;
+    const bool isPerson = presence.result->person_present;
     const std::string_view label = isPerson ? "PERSON" : "NON-PERSON";
     const opk::Color color = isPerson ? PersonPresenceColor : NoPersonPresenceColor;
     const int scale = personTextScaleForHeight(surface.height);
@@ -788,13 +741,9 @@ void drawPersonPresence(opk::raster::SurfacePainter &painter,
 void drawPersonClassifications(opk::raster::SurfacePainter &painter,
                                const DebugOverlaySurface &surface,
                                const open_perception_kit::FrameResults &frameResults) {
-    frameResults.for_each<open_perception_kit::metadata::ClassificationsT>(
+    frameResults.for_each<open_perception_kit::metadata::PersonPresencesT>(
         [&painter, &surface](const auto &payload) {
-            if (!isPersonClassificationLayer(payload.layer.get())) {
-                return;
-            }
-
-            for (const auto &presence : payload.person_presence) {
+            for (const auto &presence : payload.presences) {
                 if (presence) {
                     drawPersonPresence(painter, surface, *presence);
                 }
@@ -832,12 +781,23 @@ int drawClassificationList(opk::raster::SurfacePainter &painter,
 
     for (int i = 0; i < numResults; ++i) {
         const auto &candidate = classification.candidates[static_cast<std::size_t>(i)];
-        if (!candidate) {
+        if (!candidate || !opk::classification::validCandidate(classification, *candidate)) {
             continue;
         }
 
-        const auto text = std::format(
-            "#{}: {} ({:.1f}%)", i + 1, candidate->text, candidate->confidence * 100.0f);
+        const auto label = candidate->text.empty() && candidate->class_id
+                               ? std::to_string(*candidate->class_id)
+                               : candidate->text;
+        std::string text;
+        try {
+            text = candidate->confidence
+                       ? std::format(
+                             "#{}: {} ({:.1f}%)", i + 1, label, *candidate->confidence * 100.0f)
+                       : std::format("#{}: {}", i + 1, label);
+        } catch (const std::format_error &) {
+            // A display-formatting failure must not escape the noexcept overlay boundary.
+            continue;
+        }
         painter.drawText(lineX,
                          startY + (i * lineHeight),
                          text,
@@ -858,10 +818,6 @@ void drawImageClassifications(opk::raster::SurfacePainter &painter,
     int rightBottomOffset = 0;
     frameResults.for_each<open_perception_kit::metadata::ClassificationsT>(
         [&painter, &surface, &leftBottomOffset, &rightBottomOffset](const auto &payload) {
-            if (!isClassificationLayer(payload.layer.get())) {
-                return;
-            }
-
             const bool alignRight = isBottomRightLayer(payload.layer.get());
             const std::string_view heading =
                 payload.layer != nullptr && payload.layer->producer != nullptr

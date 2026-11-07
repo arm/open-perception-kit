@@ -47,7 +47,6 @@ impl<'a> Classifications<'a> {
     pub const VT_SCHEMA_MINOR: flatbuffers::VOffsetT = 6;
     pub const VT_LAYER: flatbuffers::VOffsetT = 8;
     pub const VT_CLASSIFICATIONS: flatbuffers::VOffsetT = 10;
-    pub const VT_PERSON_PRESENCE: flatbuffers::VOffsetT = 12;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -59,9 +58,6 @@ impl<'a> Classifications<'a> {
         args: &'args ClassificationsArgs<'args>,
     ) -> flatbuffers::WIPOffset<Classifications<'bldr>> {
         let mut builder = ClassificationsBuilder::new(_fbb);
-        if let Some(x) = args.person_presence {
-            builder.add_person_presence(x);
-        }
         if let Some(x) = args.classifications {
             builder.add_classifications(x);
         }
@@ -80,15 +76,11 @@ impl<'a> Classifications<'a> {
         let classifications = self
             .classifications()
             .map(|x| x.iter().map(|t| t.unpack()).collect());
-        let person_presence = self
-            .person_presence()
-            .map(|x| x.iter().map(|t| t.unpack()).collect());
         ClassificationsT {
             schema_major,
             schema_minor,
             layer,
             classifications,
-            person_presence,
         }
     }
 
@@ -137,19 +129,6 @@ impl<'a> Classifications<'a> {
             >>(Classifications::VT_CLASSIFICATIONS, None)
         }
     }
-    #[inline]
-    pub fn person_presence(
-        &self,
-    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PersonPresence<'a>>>> {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab.get::<flatbuffers::ForwardsUOffset<
-                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PersonPresence>>,
-            >>(Classifications::VT_PERSON_PRESENCE, None)
-        }
-    }
 }
 
 impl flatbuffers::Verifiable for Classifications<'_> {
@@ -166,9 +145,6 @@ impl flatbuffers::Verifiable for Classifications<'_> {
             .visit_field::<flatbuffers::ForwardsUOffset<
                 flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Classification>>,
             >>("classifications", Self::VT_CLASSIFICATIONS, false)?
-            .visit_field::<flatbuffers::ForwardsUOffset<
-                flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<PersonPresence>>,
-            >>("person_presence", Self::VT_PERSON_PRESENCE, false)?
             .finish();
         Ok(())
     }
@@ -182,11 +158,6 @@ pub struct ClassificationsArgs<'a> {
             flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Classification<'a>>>,
         >,
     >,
-    pub person_presence: Option<
-        flatbuffers::WIPOffset<
-            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PersonPresence<'a>>>,
-        >,
-    >,
 }
 impl<'a> Default for ClassificationsArgs<'a> {
     #[inline]
@@ -196,7 +167,6 @@ impl<'a> Default for ClassificationsArgs<'a> {
             schema_minor: 0,
             layer: None,
             classifications: None,
-            person_presence: None,
         }
     }
 }
@@ -237,18 +207,6 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ClassificationsBuilder<'a, 'b, 
         );
     }
     #[inline]
-    pub fn add_person_presence(
-        &mut self,
-        person_presence: flatbuffers::WIPOffset<
-            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<PersonPresence<'b>>>,
-        >,
-    ) {
-        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-            Classifications::VT_PERSON_PRESENCE,
-            person_presence,
-        );
-    }
-    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> ClassificationsBuilder<'a, 'b, A> {
@@ -272,7 +230,6 @@ impl core::fmt::Debug for Classifications<'_> {
         ds.field("schema_minor", &self.schema_minor());
         ds.field("layer", &self.layer());
         ds.field("classifications", &self.classifications());
-        ds.field("person_presence", &self.person_presence());
         ds.finish()
     }
 }
@@ -283,7 +240,6 @@ pub struct ClassificationsT {
     pub schema_minor: u16,
     pub layer: Option<Box<LayerInfoT>>,
     pub classifications: Option<Vec<ClassificationT>>,
-    pub person_presence: Option<Vec<PersonPresenceT>>,
 }
 impl Default for ClassificationsT {
     fn default() -> Self {
@@ -292,7 +248,6 @@ impl Default for ClassificationsT {
             schema_minor: 0,
             layer: None,
             classifications: None,
-            person_presence: None,
         }
     }
 }
@@ -308,10 +263,6 @@ impl ClassificationsT {
             let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
             _fbb.create_vector(&w)
         });
-        let person_presence = self.person_presence.as_ref().map(|x| {
-            let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
-            _fbb.create_vector(&w)
-        });
         Classifications::create(
             _fbb,
             &ClassificationsArgs {
@@ -319,7 +270,6 @@ impl ClassificationsT {
                 schema_minor,
                 layer,
                 classifications,
-                person_presence,
             },
         )
     }

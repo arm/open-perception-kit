@@ -32,6 +32,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.BoxDetection import Box
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements import PerformanceMeasurementsT  # noqa: E402
@@ -41,6 +42,16 @@ from open_perception_kit.fb.open_perception_kit.metadata.CoordinateUnits import 
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.Point2f import Point2fT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.Classification import ClassificationT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ClassificationCandidate import ClassificationCandidateT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ClassificationKind import ClassificationKind  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.CameraContacts import CameraContactsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.CameraContact import CameraContactT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.CameraContactResult import CameraContactResultT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.PersonPresences import PersonPresencesT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.PersonPresence import PersonPresenceT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.PersonPresenceResult import PersonPresenceResultT  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str) -> LayerInfoT:
@@ -100,6 +111,98 @@ class FrameResultsCompareTests(unittest.TestCase):
     def setUp(self) -> None:
         self.args = SimpleNamespace(verbose=False)
 
+    def test_classification_uses_label_set_and_class_id(self):
+        def make(label_set, class_id, text, kind=ClassificationKind.Categorical, confidence=.9):
+            result = frame_results_with_boxes()
+            result.add(ClassificationsT(layer=layer("classification", "infer0"), classifications=[
+                ClassificationT(object=ObjectMetaT(id=10, parentId=999), subjectId=1, labelSet=label_set, kind=kind,
+                                candidates=[ClassificationCandidateT(classId=class_id, text=text, confidence=confidence)])]))
+            return frame_results_frame(FrameResults(result.serialize()))
+
+        expected = make("set-a", 7, "label")
+        for actual, matches in [(make("set-a", 8, "label"), False),
+                                (make("set-b", 7, "label"), False),
+                                (make("set-a", 7, "renamed"), True),
+                                (make("", 7, "label"), False)]:
+            ok, message = compare_frame_results_frame(self.args, expected, actual)
+            self.assertEqual(ok, matches, message)
+        for text, matches in [("Hello\n世界", True), ("different", False)]:
+            ok, message = compare_frame_results_frame(self.args, make("", None, "Hello\n世界", ClassificationKind.RecognizedText),
+                                                      make("", None, text, ClassificationKind.RecognizedText))
+            self.assertEqual(ok, matches, message)
+        for actual, matches in [(make("set-a", 0, "renamed"), True),
+                                (make("set-a", None, "zero"), False),
+                                (make("", None, "zero"), False)]:
+            ok, message = compare_frame_results_frame(self.args, make("set-a", 0, "zero"), actual)
+            self.assertEqual(ok, matches, message)
+        ok, message = compare_frame_results_frame(self.args, make("", 7, "label"), make("", 7, "label"))
+        self.assertFalse(ok, message)
+        for kind in (ClassificationKind.Categorical, ClassificationKind.Unspecified):
+            unknown = make("", None, "same text", kind)
+            self.assertFalse(compare_frame_results_frame(self.args, unknown, unknown)[0])
+        bad = make("set-a", 7, "label", confidence=float("nan"))
+        self.assertFalse(compare_frame_results_frame(self.args, expected, bad)[0])
+
+    def test_contact_outcomes_do_not_depend_on_diagnostic_model_indices(self):
+        def make(outcome, index=None, selected=True, confidence=.5):
+            result = frame_results_with_boxes((2, 10, 10, 20, 20))
+            result.add(CameraContactsT(layer=layer("cameraContact", "infer0"), contacts=[
+                CameraContactT(object=ObjectMetaT(id=10), subjectId=2, result=CameraContactResultT(
+                    inContact=outcome, modelClassIndex=index, confidence=confidence) if selected else None)]))
+            return frame_results_frame(FrameResults(result.serialize()))
+
+        for actual, matches in [(make(True, 0), True), (make(True, 99), True),
+                                (make(False, 1), False), (make(True, selected=False), False),
+                                (make(True, confidence=float("nan")), False)]:
+            ok, message = compare_frame_results_frame(self.args, make(True, 1), actual)
+            self.assertEqual(ok, matches, message)
+
+    def test_presence_compares_decisions_without_guessing_probability_units(self):
+        def make(outcome, yes=None, no=None):
+            result = frame_results_with_boxes()
+            result.add(PersonPresencesT(layer=layer("personClassification", "infer0"), presences=[
+                PersonPresenceT(object=ObjectMetaT(id=10), subjectId=1,
+                                result=PersonPresenceResultT(personPresent=outcome, yesScore=yes, noScore=no))]))
+            return frame_results_frame(FrameResults(result.serialize()))
+
+        for actual, matches in [(make(True, 2, -1), True), (make(False, .2, .8), False),
+                                (make(True), True), (make(True, .8, float("nan")), False),
+                                (make(True, .8, None), False)]:
+            ok, message = compare_frame_results_frame(self.args, make(True, .8, .2), actual)
+            self.assertEqual(ok, matches, message)
+
+    def test_domain_results_cannot_swap_subject_associations(self):
+        def make(kind, assignments, boxes=((2, 10, 10, 20, 20), (3, 60, 10, 20, 20))):
+            result = frame_results_with_boxes(*boxes)
+            objects = [ObjectMetaT(id=100+i, parentId=2) for i in range(len(assignments))]
+            if kind == "classification":
+                result.add(ClassificationsT(layer=layer("custom", "secondary"), classifications=[
+                    ClassificationT(object=obj, subjectId=subject, kind=ClassificationKind.Categorical, labelSet="test:labels",
+                                    candidates=[ClassificationCandidateT(classId=value)])
+                    for obj, (subject, value) in zip(objects, assignments)]))
+            elif kind == "contact":
+                result.add(CameraContactsT(layer=layer("custom", "secondary"), contacts=[
+                    CameraContactT(object=obj, subjectId=subject, result=CameraContactResultT(inContact=bool(value)))
+                    for obj, (subject, value) in zip(objects, assignments)]))
+            else:
+                result.add(PersonPresencesT(layer=layer("custom", "secondary"), presences=[
+                    PersonPresenceT(object=obj, subjectId=subject,
+                                    result=PersonPresenceResultT(personPresent=bool(value)))
+                    for obj, (subject, value) in zip(objects, assignments)]))
+            return frame_results_frame(FrameResults(result.serialize()))
+        for kind in ("classification", "contact", "presence"):
+            expected = make(kind, [(2, 1), (3, 0)])
+            for actual, matches in [(make(kind, [(3, 0), (2, 1)]), True),
+                                    (make(kind, [(2, 0), (3, 1)]), False),
+                                    (make(kind, [(None, 1), (3, 0)]), False),
+                                    (make(kind, [(20, 1), (30, 0)], ((20, 10, 10, 20, 20), (30, 60, 10, 20, 20))), True)]:
+                ok, message = compare_frame_results_frame(self.args, expected, actual)
+                self.assertEqual(ok, matches, f"{kind}: {message}")
+            duplicate = make(kind, [(2, 1)], ((2, 10, 10, 20, 20), (2, 60, 10, 20, 20)))
+            ok, message = compare_frame_results_frame(self.args, duplicate, duplicate)
+            self.assertFalse(ok)
+            self.assertIn("ambiguous", message)
+
     def test_matches_equivalent_frame_results_frames(self) -> None:
         gt_frame = frame_results_frame(frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0)))
         out_frame = frame_results_frame(frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0)))
@@ -107,6 +210,42 @@ class FrameResultsCompareTests(unittest.TestCase):
         ok, msg = compare_frame_results_frame(self.args, gt_frame, out_frame)
 
         self.assertTrue(ok, msg)
+
+    def test_classifications_cannot_swap_producers(self):
+        def make(swapped=False):
+            result = frame_results_with_boxes()
+            for index, instance in enumerate(("a", "b")):
+                source = layer("classification", "infer0")
+                source.producer = ProducerInfoT(component="classifier", instanceId=instance)
+                result.add(ClassificationsT(layer=source, classifications=[ClassificationT(
+                    object=ObjectMetaT(id=10 + index), subjectId=1,
+                    kind=ClassificationKind.Categorical, labelSet="test:labels",
+                    candidates=[ClassificationCandidateT(classId=1-index if swapped else index)])]))
+            return frame_results_frame(FrameResults(result.serialize()))
+        self.assertTrue(compare_frame_results_frame(self.args, make(), make())[0])
+        self.assertFalse(compare_frame_results_frame(self.args, make(), make(True))[0])
+
+    def test_frame_subjects_require_unambiguous_source_correspondence(self):
+        def make(distinct_sources, swapped=False, offset=0):
+            result = FrameResults()
+            for index in range(2):
+                frame = frame_payload()
+                frame.video.object.id = 1 + index + offset
+                frame.video.originalWidth = 100 * (index + 1)
+                if distinct_sources:
+                    frame.layer.producer = ProducerInfoT(component="camera", instanceId=str(index))
+                result.add(frame)
+            result.add(ClassificationsT(layer=layer("classification", "infer0"), classifications=[
+                ClassificationT(object=ObjectMetaT(id=100 + index), subjectId=1 + index + offset,
+                                kind=ClassificationKind.Categorical, labelSet="test:labels",
+                                candidates=[ClassificationCandidateT(classId=1-index if swapped else index)])
+                for index in range(2)]))
+            return frame_results_frame(FrameResults(result.serialize()))
+        for distinct_sources in (False, True):
+            for swapped in (False, True):
+                ok, message = compare_frame_results_frame(self.args, make(distinct_sources),
+                                                          make(distinct_sources, swapped=swapped, offset=10))
+                self.assertEqual(ok, distinct_sources and not swapped, message)
 
     def test_reports_missing_payload(self) -> None:
         gt_frame = frame_results_frame(frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0)))

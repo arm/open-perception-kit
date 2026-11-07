@@ -17,7 +17,9 @@
 
 import {Envelope, ProducerIdentityStatus} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
-import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js';
+import {ByteBuffer} from 'flatbuffers';
+import {WireEnvelope} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
+import {_TYPE_REGISTRY} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/registry.js';
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
 import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
@@ -96,19 +98,56 @@ function boxData(item) {
 
 function candidateData(candidate) {
     return {
-        confidence: Number(candidate.confidence || 0),
-        classId: Number(candidate.classId ?? -1),
+        confidence: candidate.confidence,
+        classId: candidate.classId,
         text: text(candidate.text),
-        x: Number(candidate.x || 0),
-        y: Number(candidate.y || 0),
-        w: Number(candidate.w || 0),
-        h: Number(candidate.h || 0),
     };
 }
 
 function addPayloadLayers(envelope, payloadType, name, mapper, layers) {
     for (const payload of envelope.for_each(payloadType)) {
         layers.push(layer(payload, name, mapper(payload)));
+    }
+}
+
+const classificationMappers = new Map([
+    ['Classifications', payload => payload.classifications.map(item => ({type: 'Classification', data: {
+        ...objectData(item.object), candidates: item.candidates.map(candidateData), labelSet: text(item.labelSet),
+        kind: item.kind, subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+    }}))],
+    ['CameraContacts', payload => payload.contacts.map(item => ({type: 'CameraContact', data: {
+        ...objectData(item.object), subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+        result: item.result ? {inContact: item.result.inContact, modelClassIndex: item.result.modelClassIndex,
+            confidence: item.result.confidence} : null,
+    }}))],
+    ['PersonPresences', payload => payload.presences.map(item => ({type: 'PersonClassification', data: {
+        ...objectData(item.object),
+        result: item.result ? {personPresent: item.result.personPresent,
+            yesScore: item.result.yesScore, noScore: item.result.noScore} : null,
+        subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+    }}))],
+]);
+
+function addClassificationLayers(packet, layers) {
+    // These were one root before the split. Preserve their relative publication
+    // order using generated wire/registry APIs; do not sort by model or timestamp.
+    const wire = WireEnvelope.getRootAsWireEnvelope(new ByteBuffer(packet));
+    for (let index = 0; index < wire.payloadsLength(); index++) {
+        const entry = wire.payloads(index);
+        const info = entry && _TYPE_REGISTRY.get(entry.id());
+        const mapper = classificationMappers.get(info?.root_type);
+        if (!mapper) continue;
+        const blob = entry.blobArray();
+        if (!blob) continue;
+        let payload;
+        try {
+            const copy = new Uint8Array(blob);
+            if (info.verify && !info.verify(copy)) continue;
+            payload = info.decode(copy);
+        } catch {
+            continue; // Same malformed-known-payload policy as Envelope.for_each.
+        }
+        layers.push(layer(payload, info.root_type, mapper(payload)));
     }
 }
 
@@ -135,7 +174,8 @@ export function decodeFrameResultsMessage(message) {
         );
     }
 
-    const envelope = new Envelope(decodeBase64(message.frame_results_packet_b64));
+    const packet = decodeBase64(message.frame_results_packet_b64);
+    const envelope = new Envelope(packet);
     if (!envelope.valid()) {
         throw new FrameResultsDecodeError(
             `invalid frame results packet: ${envelope.error() || 'unknown error'}`,
@@ -182,23 +222,7 @@ export function decodeFrameResultsMessage(message) {
             },
         })), layers);
 
-    addPayloadLayers(envelope, ClassificationsT, 'Classifications', (payload) => [
-        ...payload.classifications.map((item) => ({
-            type: 'Classification',
-            data: {
-                ...objectData(item.object),
-                candidates: item.candidates.map(candidateData),
-            },
-        })),
-        ...payload.personPresence.map((item) => ({
-            type: 'PersonClassification',
-            data: {
-                ...objectData(item.object),
-                yesConfidence: Number(item.yesConfidence || 0),
-                noConfidence: Number(item.noConfidence || 0),
-            },
-        })),
-    ], layers);
+    addClassificationLayers(packet, layers);
 
     addPayloadLayers(envelope, PoseEstimationsT, 'PoseEstimations', (payload) =>
         payload.poses.map((item) => ({

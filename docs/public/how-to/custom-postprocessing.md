@@ -223,7 +223,18 @@ That means the usual flow is:
 4. `FrameResultsMeta` carries that structured data downstream with the buffer
 5. when enabled, `opkosd` reads the resulting payloads and decides what to draw based on payload type and `layer.content_type`
 
-This is how the checked-in camera-contact flow works as well: the parser produces a `cameraContact` result, and `opkosd` can render that as a green or red status dot when enabled.
+The camera-contact parser publishes `CameraContactsT`; `opkosd` renders its
+explicit `in_contact` result as a green or red status dot for its `subject_id`.
+Non-finite contact logits produce an unavailable result rather than a decision.
+Generic classifications declare `kind`, `subject_id` and ordered candidates.
+Categorical results require `label_set` and class IDs; recognized text declares
+`RecognizedText` explicitly. Do not encode rank in coordinates or derive result
+kind or class identity from display text or missing fields.
+
+`PersonClassificationParser` publishes an explicit person/no-person decision and
+raw yes/no model scores. It preserves the ordering decision without guessing
+whether those numbers are logits or probabilities. Non-finite scores make the
+result unavailable. No new input-format configuration is needed.
 
 So when bringing your own model, you should think about two separate questions:
 
