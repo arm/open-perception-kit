@@ -1551,8 +1551,8 @@ function dockColumnAvailableWidth() {
   const handleSpace = visibleDockColumnHandles().length * dockColumnHandleWidth();
   return Math.max(0, dockPanels.getBoundingClientRect().width - handleSpace);
 }
-function dockColumnMinimums(available) {
-  const compact = available < 900;
+function dockColumnMinimums(available2) {
+  const compact = available2 < 900;
   return {
     metrics: compact ? 180 : 220,
     inference: compact ? 220 : 260,
@@ -1560,9 +1560,9 @@ function dockColumnMinimums(available) {
   };
 }
 function defaultDockColumnWidths() {
-  const available = dockColumnAvailableWidth();
+  const available2 = dockColumnAvailableWidth();
   const visibleKeys = visibleDockColumnKeys();
-  const evenWidth = visibleKeys.length ? available / visibleKeys.length : 0;
+  const evenWidth = visibleKeys.length ? available2 / visibleKeys.length : 0;
   return Object.fromEntries(dockColumnKeys.map((key) => [
     key,
     visibleKeys.includes(key) ? evenWidth : 0
@@ -1579,15 +1579,15 @@ function readDockColumnWidths() {
   return defaultDockColumnWidths();
 }
 function normalizeDockColumnWidths(widths) {
-  const available = dockColumnAvailableWidth();
+  const available2 = dockColumnAvailableWidth();
   const visibleKeys = visibleDockColumnKeys();
-  if (!available)
+  if (!available2)
     return widths;
   if (!visibleKeys.length)
     return Object.fromEntries(dockColumnKeys.map((key) => [key, 0]));
-  const minimums = dockColumnMinimums(available);
+  const minimums = dockColumnMinimums(available2);
   const minTotal = visibleKeys.reduce((sum, key) => sum + minimums[key], 0);
-  const usableMinimums = minTotal > available ? Object.fromEntries(visibleKeys.map((key) => [key, minimums[key] * available / minTotal])) : minimums;
+  const usableMinimums = minTotal > available2 ? Object.fromEntries(visibleKeys.map((key) => [key, minimums[key] * available2 / minTotal])) : minimums;
   const next = Object.fromEntries(dockColumnKeys.map((key) => {
     if (!visibleKeys.includes(key)) {
       return [key, 0];
@@ -1596,8 +1596,8 @@ function normalizeDockColumnWidths(widths) {
     return [key, Math.max(usableMinimums[key], requestedWidth)];
   }));
   let total = visibleKeys.reduce((sum, key) => sum + next[key], 0);
-  if (total > available) {
-    let excess = total - available;
+  if (total > available2) {
+    let excess = total - available2;
     for (const key of ["inference", "metrics", "debug"].filter((item) => visibleKeys.includes(item))) {
       const shrinkable = Math.max(0, next[key] - usableMinimums[key]);
       const shrink = Math.min(shrinkable, excess);
@@ -1606,8 +1606,8 @@ function normalizeDockColumnWidths(widths) {
       if (excess <= 0)
         break;
     }
-  } else if (total < available) {
-    const extra = available - total;
+  } else if (total < available2) {
+    const extra = available2 - total;
     const expandableTotal = visibleKeys.reduce((sum, key) => sum + next[key], 0) || 1;
     for (const key of visibleKeys) {
       next[key] += extra * next[key] / expandableTotal;
@@ -1635,9 +1635,9 @@ function setEqualDockColumnWidths(persist2 = false) {
   configureDockColumnHandles();
   if (!dockPanels)
     return;
-  const available = dockColumnAvailableWidth();
+  const available2 = dockColumnAvailableWidth();
   const visibleKeys = visibleDockColumnKeys();
-  const evenWidth = visibleKeys.length ? available / visibleKeys.length : 0;
+  const evenWidth = visibleKeys.length ? available2 / visibleKeys.length : 0;
   const next = Object.fromEntries(dockColumnKeys.map((key) => [
     key,
     visibleKeys.includes(key) ? evenWidth : 0
@@ -2014,25 +2014,18 @@ async function copyTextWithFeedback(button2, text2, emptyText = "Empty") {
     button2.copyFeedbackTimer = null;
   }, 1500);
 }
-function setCopyButtonAvailable(button2, available) {
+function setCopyButtonAvailable(button2, available2) {
   if (!button2) return;
-  button2.disabled = !available;
-  button2.setAttribute("aria-disabled", available ? "false" : "true");
+  button2.disabled = !available2;
+  button2.setAttribute("aria-disabled", available2 ? "false" : "true");
 }
 
 // development/web/src/performance-low-pass.js
 var DISPLAY_INTERVAL_MS = 1e3;
 var SMOOTHING_WEIGHT = 0.5;
-var METRIC_VALUE = /^(\d+(?:\.\d+)?)(ms| FPS)$/;
-function smoothValue(value, previous) {
-  const currentMatch = METRIC_VALUE.exec(value);
-  const previousMatch = METRIC_VALUE.exec(previous || "");
-  if (!currentMatch || !previousMatch || currentMatch[2] !== previousMatch[2]) return value;
-  const current = Number(currentMatch[1]);
-  const old = Number(previousMatch[1]);
-  const decimals = currentMatch[1].split(".")[1]?.length || 0;
-  if (!Number.isFinite(current) || !Number.isFinite(old) || decimals > 10) return value;
-  return `${(old * (1 - SMOOTHING_WEIGHT) + current * SMOOTHING_WEIGHT).toFixed(decimals)}${currentMatch[2]}`;
+function smoothValue(value, previous, digits) {
+  if (value === null || previous === null || !Number.isFinite(value) || !Number.isFinite(previous)) return value;
+  return Number((previous * (1 - SMOOTHING_WEIGHT) + value * SMOOTHING_WEIGHT).toFixed(digits));
 }
 function createPerformanceLowPass() {
   let lastDisplayAt = -Infinity;
@@ -2044,82 +2037,89 @@ function createPerformanceLowPass() {
       return [];
     }
     if (now - lastDisplayAt < DISPLAY_INTERVAL_MS) return null;
+    const counts = /* @__PURE__ */ new Map();
+    for (const row of rows) if (row.key) counts.set(row.key, (counts.get(row.key) || 0) + 1);
+    const identified = (row) => row.key && counts.get(row.key) === 1;
     const filtered = rows.map((row) => {
-      const previous = previousRows.get(row.stage);
+      const previous = identified(row) ? previousRows.get(row.key) : null;
+      if (!previous || previous.unit !== row.unit) return { ...row };
+      const digits = row.unit === "fps" ? 1 : 2;
       return {
         ...row,
-        current: smoothValue(row.current, previous?.current),
-        p95: smoothValue(row.p95, previous?.p95)
+        current: smoothValue(row.current, previous.current, digits),
+        p95: smoothValue(row.p95, previous.p95, digits)
       };
     });
-    previousRows = new Map(filtered.map((row) => [row.stage, row]));
+    previousRows = new Map(filtered.filter(identified).map((row) => [row.key, row]));
     lastDisplayAt = now;
     return filtered;
   };
 }
 
+// development/web/src/performance-data.js
+var available = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
+var scopeLabel = (timing) => typeof timing.name === "string" && timing.name.length ? timing.name : typeof timing.scopeId === "string" && timing.scopeId.length ? timing.scopeId : "Unnamed scope";
+function publishedPrecision(value, digits) {
+  const scale = 10 ** digits;
+  const scaled = value * scale;
+  const lower = Math.floor(scaled);
+  if (Number.isInteger(value * 2 ** (digits + 1)) && scaled - lower === 0.5 && lower % 2 === 0) {
+    return lower / scale;
+  }
+  return Number(value.toFixed(digits));
+}
+function performanceRows(measurements) {
+  const rows = [];
+  for (const measurement of measurements || []) {
+    const producer = measurement.producer;
+    const key = (kind, id) => producer?.component && producer?.instanceId && id ? JSON.stringify([producer.component, producer.instanceId, kind, id]) : null;
+    for (const timing of measurement.timings || []) {
+      if (!timing || !available(timing.meanMs) && !available(timing.p95Ms)) continue;
+      rows.push({
+        key: key("timing", timing.scopeId),
+        stage: scopeLabel(timing),
+        unit: "ms",
+        current: available(timing.meanMs) ? publishedPrecision(timing.meanMs, 2) : null,
+        p95: available(timing.p95Ms) ? publishedPrecision(timing.p95Ms, 2) : null
+      });
+    }
+    if (available(measurement.frameRate?.fps)) {
+      rows.push({
+        key: key("frameRate", "fps"),
+        stage: "Pipeline",
+        unit: "fps",
+        current: publishedPrecision(measurement.frameRate.fps, 1),
+        p95: null
+      });
+    }
+  }
+  return rows;
+}
+function formatMetricValue(value, unit) {
+  if (!available(value)) return "";
+  return unit === "fps" ? `${value.toFixed(1)} FPS` : `${value.toFixed(2)}ms`;
+}
+function formatPerformanceLines(measurement) {
+  const rows = [];
+  if (measurement.pixelFormat) rows.push(["Pixel format", measurement.pixelFormat]);
+  for (const timing of measurement.timings || []) {
+    if (!timing) continue;
+    let value = available(timing.meanMs) ? `${publishedPrecision(timing.meanMs, 2).toFixed(2).padStart(7)}ms` : "  --.--ms";
+    if (available(timing.p95Ms)) value += ` (p95: ${publishedPrecision(timing.p95Ms, 2).toFixed(2)}ms)`;
+    rows.push([scopeLabel(timing), value]);
+  }
+  if (measurement.frameRate) {
+    const fps = measurement.frameRate.fps;
+    rows.push(["Pipeline", available(fps) ? `${publishedPrecision(fps, 1).toFixed(1).padStart(6)} FPS` : "   --.- FPS"]);
+  }
+  return rows.map(([name, value]) => `${name.padEnd(24)}: ${value}`);
+}
+
 // development/web/src/performance-metrics.js
 var body = document.getElementById("performanceMetricsBody");
 var copyButton = document.getElementById("copyPerformanceMetricsBtn");
-var MAX_METRIC_LINE_LENGTH = 240;
 var currentRows = [];
 var filterMetrics = createPerformanceLowPass();
-function decimalText(value) {
-  const parts = String(value || "").split(".");
-  if (parts.length > 2 || parts.some((part) => part.length === 0)) {
-    return false;
-  }
-  return parts.every((part) => [...part].every((char) => char >= "0" && char <= "9"));
-}
-function parseMillisToken(token) {
-  if (!token.endsWith("ms")) {
-    return "";
-  }
-  const value = token.slice(0, -2);
-  return decimalText(value) ? `${value}ms` : "";
-}
-function parsePipelineFps(text2) {
-  if (!text2.startsWith("Pipeline")) {
-    return null;
-  }
-  const rest = text2.slice("Pipeline".length).trim();
-  const valueText = (rest.startsWith(":") ? rest.slice(1) : rest).trim();
-  if (!valueText.endsWith(" FPS")) {
-    return null;
-  }
-  const fps = valueText.slice(0, -" FPS".length).trim();
-  return decimalText(fps) ? { stage: "Pipeline", current: `${fps} FPS`, p95: "" } : null;
-}
-function parseP95Text(text2) {
-  if (!text2) {
-    return "";
-  }
-  if (!text2.startsWith("(p95:") || !text2.endsWith(")")) {
-    return "";
-  }
-  return parseMillisToken(text2.slice(5, -1).trim());
-}
-function parseTimedMetric(text2) {
-  const separator = text2.indexOf(":");
-  if (separator <= 0) {
-    return null;
-  }
-  const stage = text2.slice(0, separator).trim();
-  const rest = text2.slice(separator + 1).trim();
-  const firstSpace = rest.indexOf(" ");
-  const currentToken = firstSpace < 0 ? rest : rest.slice(0, firstSpace);
-  const current = parseMillisToken(currentToken);
-  if (!stage || !current) {
-    return null;
-  }
-  const p95Text = firstSpace < 0 ? "" : rest.slice(firstSpace + 1).trim();
-  return { stage, current, p95: parseP95Text(p95Text) };
-}
-function parseMetricLine(line) {
-  const text2 = String(line || "").slice(0, MAX_METRIC_LINE_LENGTH).replaceAll("\u2550", "").trim();
-  if (!text2) return null;
-  return parsePipelineFps(text2) || parseTimedMetric(text2);
-}
 function createCell(text2, className) {
   const cell = document.createElement("td");
   if (className) {
@@ -2138,8 +2138,8 @@ function renderEmptyRow() {
 function renderMetricRow(metric) {
   const row = document.createElement("tr");
   row.appendChild(createCell(metric.stage));
-  row.appendChild(createCell(metric.current));
-  row.appendChild(createCell(metric.p95));
+  row.appendChild(createCell(formatMetricValue(metric.current, metric.unit)));
+  row.appendChild(createCell(formatMetricValue(metric.p95, metric.unit)));
   return row;
 }
 function renderRows(rows) {
@@ -2149,8 +2149,8 @@ function renderRows(rows) {
   body.replaceChildren(...rows.length ? rows.map(renderMetricRow) : [renderEmptyRow()]);
 }
 function renderPerformanceMetrics(performance2) {
-  const lines = Array.isArray(performance2?.lines) ? performance2.lines : [];
-  const rows = filterMetrics(lines.map(parseMetricLine).filter(Boolean));
+  const measurements = Array.isArray(performance2?.measurements) ? performance2.measurements : [];
+  const rows = filterMetrics(performanceRows(measurements));
   if (rows !== null) renderRows(rows);
 }
 function updateCopyButtonState() {
@@ -2160,7 +2160,7 @@ function getMetricsText() {
   if (!currentRows.length) return "";
   return [
     "Stage	Current	P95",
-    ...currentRows.map((row) => `${row.stage}	${row.current}	${row.p95}`)
+    ...currentRows.map((row) => `${row.stage}	${formatMetricValue(row.current, row.unit)}	${formatMetricValue(row.p95, row.unit)}`)
   ].join("\n");
 }
 copyButton?.addEventListener("click", () => {
@@ -5361,8 +5361,8 @@ var ObjectTracksT = class {
   }
 };
 
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js
-var PerformanceOverlay = class _PerformanceOverlay {
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.js
+var FrameRate = class _FrameRate {
   constructor() {
     this.bb = null;
     this.bb_pos = 0;
@@ -5372,15 +5372,156 @@ var PerformanceOverlay = class _PerformanceOverlay {
     this.bb = bb;
     return this;
   }
-  static getRootAsPerformanceOverlay(bb, obj) {
-    return (obj || new _PerformanceOverlay()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  static getRootAsFrameRate(bb, obj) {
+    return (obj || new _FrameRate()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
-  static getSizePrefixedRootAsPerformanceOverlay(bb, obj) {
+  static getSizePrefixedRootAsFrameRate(bb, obj) {
     bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _PerformanceOverlay()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+    return (obj || new _FrameRate()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  fps() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : null;
+  }
+  static startFrameRate(builder) {
+    builder.startObject(1);
+  }
+  static addFps(builder, fps) {
+    builder.addFieldFloat64(0, fps, null);
+  }
+  static endFrameRate(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createFrameRate(builder, fps) {
+    _FrameRate.startFrameRate(builder);
+    if (fps !== null)
+      _FrameRate.addFps(builder, fps);
+    return _FrameRate.endFrameRate(builder);
+  }
+  unpack() {
+    return new FrameRateT(this.fps());
+  }
+  unpackTo(_o) {
+    _o.fps = this.fps();
+  }
+};
+var FrameRateT = class {
+  constructor(fps = null) {
+    this.fps = fps;
+  }
+  pack(builder) {
+    return FrameRate.createFrameRate(builder, this.fps);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.js
+var ScopeTiming = class _ScopeTiming {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsScopeTiming(bb, obj) {
+    return (obj || new _ScopeTiming()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsScopeTiming(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _ScopeTiming()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  name(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  meanMs() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : null;
+  }
+  p95Ms() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : null;
+  }
+  scopeId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  static startScopeTiming(builder) {
+    builder.startObject(4);
+  }
+  static addName(builder, nameOffset) {
+    builder.addFieldOffset(0, nameOffset, 0);
+  }
+  static addMeanMs(builder, meanMs) {
+    builder.addFieldFloat64(1, meanMs, null);
+  }
+  static addP95Ms(builder, p95Ms) {
+    builder.addFieldFloat64(2, p95Ms, null);
+  }
+  static addScopeId(builder, scopeIdOffset) {
+    builder.addFieldOffset(3, scopeIdOffset, 0);
+  }
+  static endScopeTiming(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createScopeTiming(builder, nameOffset, meanMs, p95Ms, scopeIdOffset) {
+    _ScopeTiming.startScopeTiming(builder);
+    _ScopeTiming.addName(builder, nameOffset);
+    if (meanMs !== null)
+      _ScopeTiming.addMeanMs(builder, meanMs);
+    if (p95Ms !== null)
+      _ScopeTiming.addP95Ms(builder, p95Ms);
+    _ScopeTiming.addScopeId(builder, scopeIdOffset);
+    return _ScopeTiming.endScopeTiming(builder);
+  }
+  unpack() {
+    return new ScopeTimingT(this.name(), this.meanMs(), this.p95Ms(), this.scopeId());
+  }
+  unpackTo(_o) {
+    _o.name = this.name();
+    _o.meanMs = this.meanMs();
+    _o.p95Ms = this.p95Ms();
+    _o.scopeId = this.scopeId();
+  }
+};
+var ScopeTimingT = class {
+  constructor(name = null, meanMs = null, p95Ms = null, scopeId = null) {
+    this.name = name;
+    this.meanMs = meanMs;
+    this.p95Ms = p95Ms;
+    this.scopeId = scopeId;
+  }
+  pack(builder) {
+    const name = this.name !== null ? builder.createString(this.name) : 0;
+    const scopeId = this.scopeId !== null ? builder.createString(this.scopeId) : 0;
+    return ScopeTiming.createScopeTiming(builder, name, this.meanMs, this.p95Ms, scopeId);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js
+var PerformanceMeasurements = class _PerformanceMeasurements {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPerformanceMeasurements(bb, obj) {
+    return (obj || new _PerformanceMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPerformanceMeasurements(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PerformanceMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static bufferHasIdentifier(bb) {
-    return bb.__has_identifier("PERF");
+    return bb.__has_identifier("PMET");
   }
   schemaMajor() {
     const offset = this.bb.__offset(this.bb_pos, 4);
@@ -5390,16 +5531,28 @@ var PerformanceOverlay = class _PerformanceOverlay {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
   }
-  lines(index, optionalEncoding) {
+  pixelFormat(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.__string(this.bb.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  linesLength() {
-    const offset = this.bb.__offset(this.bb_pos, 8);
+  timings(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new ScopeTiming()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  timingsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
-  static startPerformanceOverlay(builder) {
-    builder.startObject(3);
+  frameRate(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? (obj || new FrameRate()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  producer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? (obj || new ProducerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startPerformanceMeasurements(builder) {
+    builder.startObject(6);
   }
   static addSchemaMajor(builder, schemaMajor) {
     builder.addFieldInt16(0, schemaMajor, 1);
@@ -5407,54 +5560,72 @@ var PerformanceOverlay = class _PerformanceOverlay {
   static addSchemaMinor(builder, schemaMinor) {
     builder.addFieldInt16(1, schemaMinor, 0);
   }
-  static addLines(builder, linesOffset) {
-    builder.addFieldOffset(2, linesOffset, 0);
+  static addPixelFormat(builder, pixelFormatOffset) {
+    builder.addFieldOffset(2, pixelFormatOffset, 0);
   }
-  static createLinesVector(builder, data) {
+  static addTimings(builder, timingsOffset) {
+    builder.addFieldOffset(3, timingsOffset, 0);
+  }
+  static createTimingsVector(builder, data) {
     builder.startVector(4, data.length, 4);
     for (let i = data.length - 1; i >= 0; i--) {
       builder.addOffset(data[i]);
     }
     return builder.endVector();
   }
-  static startLinesVector(builder, numElems) {
+  static startTimingsVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
-  static endPerformanceOverlay(builder) {
+  static addFrameRate(builder, frameRateOffset) {
+    builder.addFieldOffset(4, frameRateOffset, 0);
+  }
+  static addProducer(builder, producerOffset) {
+    builder.addFieldOffset(5, producerOffset, 0);
+  }
+  static endPerformanceMeasurements(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static finishPerformanceOverlayBuffer(builder, offset) {
-    builder.finish(offset, "PERF");
+  static finishPerformanceMeasurementsBuffer(builder, offset) {
+    builder.finish(offset, "PMET");
   }
-  static finishSizePrefixedPerformanceOverlayBuffer(builder, offset) {
-    builder.finish(offset, "PERF", true);
-  }
-  static createPerformanceOverlay(builder, schemaMajor, schemaMinor, linesOffset) {
-    _PerformanceOverlay.startPerformanceOverlay(builder);
-    _PerformanceOverlay.addSchemaMajor(builder, schemaMajor);
-    _PerformanceOverlay.addSchemaMinor(builder, schemaMinor);
-    _PerformanceOverlay.addLines(builder, linesOffset);
-    return _PerformanceOverlay.endPerformanceOverlay(builder);
+  static finishSizePrefixedPerformanceMeasurementsBuffer(builder, offset) {
+    builder.finish(offset, "PMET", true);
   }
   unpack() {
-    return new PerformanceOverlayT(this.schemaMajor(), this.schemaMinor(), this.bb.createScalarList(this.lines.bind(this), this.linesLength()));
+    return new PerformanceMeasurementsT(this.schemaMajor(), this.schemaMinor(), this.pixelFormat(), this.bb.createObjList(this.timings.bind(this), this.timingsLength()), this.frameRate() !== null ? this.frameRate().unpack() : null, this.producer() !== null ? this.producer().unpack() : null);
   }
   unpackTo(_o) {
     _o.schemaMajor = this.schemaMajor();
     _o.schemaMinor = this.schemaMinor();
-    _o.lines = this.bb.createScalarList(this.lines.bind(this), this.linesLength());
+    _o.pixelFormat = this.pixelFormat();
+    _o.timings = this.bb.createObjList(this.timings.bind(this), this.timingsLength());
+    _o.frameRate = this.frameRate() !== null ? this.frameRate().unpack() : null;
+    _o.producer = this.producer() !== null ? this.producer().unpack() : null;
   }
 };
-var PerformanceOverlayT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, lines = []) {
+var PerformanceMeasurementsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, pixelFormat = null, timings = [], frameRate = null, producer = null) {
     this.schemaMajor = schemaMajor;
     this.schemaMinor = schemaMinor;
-    this.lines = lines;
+    this.pixelFormat = pixelFormat;
+    this.timings = timings;
+    this.frameRate = frameRate;
+    this.producer = producer;
   }
   pack(builder) {
-    const lines = PerformanceOverlay.createLinesVector(builder, builder.createObjectOffsetList(this.lines));
-    return PerformanceOverlay.createPerformanceOverlay(builder, this.schemaMajor, this.schemaMinor, lines);
+    const pixelFormat = this.pixelFormat !== null ? builder.createString(this.pixelFormat) : 0;
+    const timings = PerformanceMeasurements.createTimingsVector(builder, builder.createObjectOffsetList(this.timings));
+    const frameRate = this.frameRate !== null ? this.frameRate.pack(builder) : 0;
+    const producer = this.producer !== null ? this.producer.pack(builder) : 0;
+    PerformanceMeasurements.startPerformanceMeasurements(builder);
+    PerformanceMeasurements.addSchemaMajor(builder, this.schemaMajor);
+    PerformanceMeasurements.addSchemaMinor(builder, this.schemaMinor);
+    PerformanceMeasurements.addPixelFormat(builder, pixelFormat);
+    PerformanceMeasurements.addTimings(builder, timings);
+    PerformanceMeasurements.addFrameRate(builder, frameRate);
+    PerformanceMeasurements.addProducer(builder, producer);
+    return PerformanceMeasurements.endPerformanceMeasurements(builder);
   }
 };
 
@@ -6713,8 +6884,8 @@ var decode_6121378805478677067 = (blob) => ObjectEmbeddings.getRootAsObjectEmbed
 var verify_6121378805478677067 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_5316059591418463553 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
 var verify_5316059591418463553 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2126073810871404430 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
-var verify_2126073810871404430 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_2630163151625760217 = (blob) => PerformanceMeasurements.getRootAsPerformanceMeasurements(new ByteBuffer(blob)).unpack();
+var verify_2630163151625760217 = (blob) => PerformanceMeasurements.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_5268014742632501193 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
 var verify_5268014742632501193 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_3128408959875976772 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
@@ -6776,13 +6947,13 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_5316059591418463553,
     verify: verify_5316059591418463553
   }],
-  [2126073810871404430n, {
-    name: "open_perception_kit::metadata::PerformanceOverlay",
-    root_type: "PerformanceOverlay",
-    qualified_root_type: "open_perception_kit.metadata.PerformanceOverlay",
-    file_identifier: "PERF",
-    decode: decode_2126073810871404430,
-    verify: verify_2126073810871404430
+  [2630163151625760217n, {
+    name: "open_perception_kit::metadata::PerformanceMeasurements",
+    root_type: "PerformanceMeasurements",
+    qualified_root_type: "open_perception_kit.metadata.PerformanceMeasurements",
+    file_identifier: "PMET",
+    decode: decode_2630163151625760217,
+    verify: verify_2630163151625760217
   }],
   [5268014742632501193n, {
     name: "open_perception_kit::metadata::PoseEstimations",
@@ -6840,7 +7011,7 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [InstanceSegmentationMasksT, 7634499802271603959n],
   [ObjectEmbeddingsT, 6121378805478677067n],
   [ObjectTracksT, 5316059591418463553n],
-  [PerformanceOverlayT, 2126073810871404430n],
+  [PerformanceMeasurementsT, 2630163151625760217n],
   [PoseEstimationsT, 5268014742632501193n],
   [SegmentationMasksT, 3128408959875976772n],
   [SemanticSegmentationMasksT, 133049182594848948n],
@@ -6864,7 +7035,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
+var SCHEMA_SET_SHA256 = "323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -7290,7 +7461,7 @@ function decodeFrameResultsMessage(message) {
     );
   }
   const layers = [];
-  const perfdata = [];
+  const performance2 = [];
   addPayloadLayers(envelope, FrameContextT, "FrameContext", (payload) => {
     const detections = [];
     if (payload.video) {
@@ -7372,16 +7543,24 @@ function decodeFrameResultsMessage(message) {
     type: "ObjectEmbedding",
     data: { ...objectData(item.object), values: [...item.values] }
   })), layers);
-  for (const payload of envelope.for_each(PerformanceOverlayT)) {
-    perfdata.push(...payload.lines.map(text));
-    layers.push(layer(payload, "PerformanceOverlay", payload.lines.map((line) => ({
-      type: "PerformanceLine",
-      data: { text: text(line) }
-    }))));
+  for (const payload of envelope.for_each(PerformanceMeasurementsT)) {
+    const data = {
+      pixelFormat: text(payload.pixelFormat),
+      producer: layerData({ producer: payload.producer }).producer,
+      timings: payload.timings.filter(Boolean).map((timing) => ({
+        scopeId: text(timing.scopeId),
+        name: text(timing.name),
+        meanMs: timing.meanMs,
+        p95Ms: timing.p95Ms
+      })),
+      frameRate: payload.frameRate ? { fps: payload.frameRate.fps } : null
+    };
+    performance2.push(data);
+    layers.push(layer(payload, "PerformanceMeasurements", [{ type: "PerformanceMeasurements", data }]));
   }
   return {
     frame_counter: Number.isInteger(message.frame_counter) ? message.frame_counter : void 0,
-    frame_results: { layers, perfdata }
+    frame_results: { layers, performance: performance2 }
   };
 }
 
@@ -7415,7 +7594,7 @@ function normaliseInferenceOutput(frameResults) {
 }
 function normalisePerformance(frameResults) {
   return {
-    lines: Array.isArray(frameResults?.perfdata) ? frameResults.perfdata : []
+    measurements: Array.isArray(frameResults?.performance) ? frameResults.performance : []
   };
 }
 function publishMetadata(frameCounter, frameResults, decodeError = null) {
@@ -7807,7 +7986,7 @@ function trackKey(source, id) {
   return producer && objectId(id) ? JSON.stringify([producer, objectId(id)]) : null;
 }
 function sourceLabel(source) {
-  if (source.payloadType === "PerformanceOverlay") return "Pipeline performance";
+  if (source.payloadType === "PerformanceMeasurements") return "Pipeline performance";
   return source.model || source.producerImplementation || source.producerInstanceId || source.inferElementId || source.producerComponent || "Unspecified source";
 }
 function sourceDetails(source) {
@@ -8096,12 +8275,14 @@ var camera_contact_default = defineFeature({
 var performance_default = defineFeature({
   id: "performance",
   label: "Performance text",
-  accepts: (source) => source.payloadType === "PerformanceOverlay",
+  accepts: (source) => source.payloadType === "PerformanceMeasurements",
   render({ ctx, layout }, resolved, settings) {
     for (const item of resolved.items) {
-      if (item.type !== "PerformanceLine") continue;
-      drawTextChip(ctx, item.data.text, 10, layout.performanceY, 16, settings.color);
-      layout.performanceY += 20;
+      if (item.type !== "PerformanceMeasurements") continue;
+      for (const line of formatPerformanceLines(item.data)) {
+        drawTextChip(ctx, line, 10, layout.performanceY, 16, settings.color);
+        layout.performanceY += 20;
+      }
     }
   }
 });
@@ -8333,6 +8514,10 @@ function loadOverlays(storage2) {
     let relabelled = false;
     for (const overlay2 of overlays2) {
       const source = overlay2.selection.primary;
+      if (overlay2.featureId === "performance" && source?.payloadType === "PerformanceOverlay") {
+        source.payloadType = "PerformanceMeasurements";
+        relabelled = true;
+      }
       if (overlay2.featureId === "bounding-boxes" && source?.contentType === "humanFace" && ["BoxDetections", "ObjectTracks"].includes(source.payloadType)) {
         overlay2.featureId = "face-circles";
         relabelled = true;
@@ -8643,13 +8828,13 @@ function updateStatuses() {
     const resolved = resolveOverlay(frameIndex, overlay2);
     const state = overlayStatus(frameIndex, overlay2, knownOutputs, resolved);
     if (row.status.textContent !== state) row.status.textContent = state;
-    const available = !["waiting", "unsupported"].includes(resolved.state);
+    const available2 = !["waiting", "unsupported"].includes(resolved.state);
     const color = /^#[0-9a-f]{6}$/i.test(overlay2.settings.color) ? overlay2.settings.color : "transparent";
-    if (row.color !== color || row.available !== available) {
+    if (row.color !== color || row.available !== available2) {
       row.card.style.setProperty("--overlay-color", color);
-      row.card.setAttribute("data-unavailable", String(!available));
+      row.card.setAttribute("data-unavailable", String(!available2));
       row.color = color;
-      row.available = available;
+      row.available = available2;
     }
     const tooltip = `${row.title.textContent}
 ${state}`;

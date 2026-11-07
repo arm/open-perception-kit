@@ -40,7 +40,7 @@ Follow the repository root `AGENTS.md` first.
 - Runtime result metadata is `FrameResultsMeta`.
 - OpChain loops use `loopId`.
 - `opkinfer` executes OpChains and appends generated FrameResults payloads.
-- `opkperformance` appends `PerformanceOverlayT` FrameResults payloads.
+- `opkperformance` appends `PerformanceMeasurementsT` FrameResults payloads.
 - `opkosd` renders supported FrameResults overlays.
 - `opkcomm` publishes serialized FrameResults packets for file/stdout output.
 - `opksink` owns the WebRTC, HTTP, and control WebSocket stack.
