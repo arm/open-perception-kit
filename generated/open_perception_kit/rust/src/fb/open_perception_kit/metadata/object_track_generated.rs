@@ -71,7 +71,9 @@ impl<'a> ObjectTrack<'a> {
         if let Some(x) = args.text {
             builder.add_text(x);
         }
-        builder.add_class_id(args.class_id);
+        if let Some(x) = args.class_id {
+            builder.add_class_id(x);
+        }
         builder.add_confidence(args.confidence);
         if let Some(x) = args.box_ {
             builder.add_box_(x);
@@ -160,15 +162,11 @@ impl<'a> ObjectTrack<'a> {
         }
     }
     #[inline]
-    pub fn class_id(&self) -> i32 {
+    pub fn class_id(&self) -> Option<u32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<i32>(ObjectTrack::VT_CLASS_ID, Some(-1))
-                .unwrap()
-        }
+        unsafe { self._tab.get::<u32>(ObjectTrack::VT_CLASS_ID, None) }
     }
     #[inline]
     pub fn text(&self) -> Option<&'a str> {
@@ -220,7 +218,7 @@ impl flatbuffers::Verifiable for ObjectTrack<'_> {
             .visit_field::<u64>("track_id", Self::VT_TRACK_ID, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<BoundingBox>>("box_", Self::VT_BOX_, false)?
             .visit_field::<f32>("confidence", Self::VT_CONFIDENCE, false)?
-            .visit_field::<i32>("class_id", Self::VT_CLASS_ID, false)?
+            .visit_field::<u32>("class_id", Self::VT_CLASS_ID, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<&str>>("text", Self::VT_TEXT, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
                 "diagnostic",
@@ -238,7 +236,7 @@ pub struct ObjectTrackArgs<'a> {
     pub track_id: u64,
     pub box_: Option<flatbuffers::WIPOffset<BoundingBox<'a>>>,
     pub confidence: f32,
-    pub class_id: i32,
+    pub class_id: Option<u32>,
     pub text: Option<flatbuffers::WIPOffset<&'a str>>,
     pub diagnostic: Option<flatbuffers::WIPOffset<&'a str>>,
     pub predicted_only: bool,
@@ -252,7 +250,7 @@ impl<'a> Default for ObjectTrackArgs<'a> {
             track_id: 0,
             box_: None,
             confidence: 0.0,
-            class_id: -1,
+            class_id: None,
             text: None,
             diagnostic: None,
             predicted_only: false,
@@ -291,9 +289,9 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ObjectTrackBuilder<'a, 'b, A> {
             .push_slot::<f32>(ObjectTrack::VT_CONFIDENCE, confidence, 0.0);
     }
     #[inline]
-    pub fn add_class_id(&mut self, class_id: i32) {
+    pub fn add_class_id(&mut self, class_id: u32) {
         self.fbb_
-            .push_slot::<i32>(ObjectTrack::VT_CLASS_ID, class_id, -1);
+            .push_slot_always::<u32>(ObjectTrack::VT_CLASS_ID, class_id);
     }
     #[inline]
     pub fn add_text(&mut self, text: flatbuffers::WIPOffset<&'b str>) {
@@ -350,7 +348,7 @@ pub struct ObjectTrackT {
     pub track_id: u64,
     pub box_: Option<Box<BoundingBoxT>>,
     pub confidence: f32,
-    pub class_id: i32,
+    pub class_id: Option<u32>,
     pub text: Option<String>,
     pub diagnostic: Option<String>,
     pub predicted_only: bool,
@@ -363,7 +361,7 @@ impl Default for ObjectTrackT {
             track_id: 0,
             box_: None,
             confidence: 0.0,
-            class_id: -1,
+            class_id: None,
             text: None,
             diagnostic: None,
             predicted_only: false,

@@ -78,6 +78,63 @@ std::unique_ptr<metadata::BitmapDataT> makeBitmapData(const opk::Bitmap &bitmap)
     return data;
 }
 
+std::unique_ptr<metadata::ImageSpaceT> makeImageSpace(const opk::ImageInferenceMetadata &image) {
+    auto space = std::make_unique<metadata::ImageSpaceT>();
+    space->frame_id = image.frameId;
+    space->width = image.frameWidth;
+    space->height = image.frameHeight;
+    space->origin_x = static_cast<double>(image.cropX);
+    space->origin_y = static_cast<double>(image.cropY);
+    space->extent_width = static_cast<double>(image.width);
+    space->extent_height = static_cast<double>(image.height);
+    return space;
+}
+
+std::unique_ptr<metadata::BoundingBoxT>
+makeImageBoundingBox(const opk::ImageInferenceMetadata &image,
+                     const float x,
+                     const float y,
+                     const float width,
+                     const float height,
+                     const bool normalized) {
+    auto box = makeBoundingBox(x, y, width, height);
+    box->space = makeImageSpace(image);
+    box->units =
+        normalized ? metadata::CoordinateUnits::Normalized : metadata::CoordinateUnits::Pixels;
+    return box;
+}
+
+bool validImageSpace(const metadata::ImageSpaceT *const space) noexcept {
+    return space && space->frame_id != 0 && space->width > 0 && space->height > 0 &&
+           std::isfinite(space->origin_x) && std::isfinite(space->origin_y) &&
+           std::isfinite(space->extent_width) && std::isfinite(space->extent_height) &&
+           space->origin_x >= 0 && space->origin_y >= 0 && space->extent_width > 0 &&
+           space->extent_height > 0 && space->origin_x + space->extent_width <= space->width &&
+           space->origin_y + space->extent_height <= space->height;
+}
+
+std::optional<std::array<double, 4>> projectBoundingBox(const metadata::BoundingBoxT &box,
+                                                        const uint32_t targetWidth,
+                                                        const uint32_t targetHeight) noexcept {
+    if (!validImageSpace(box.space.get()) || targetWidth == 0 || targetHeight == 0 ||
+        !std::isfinite(box.x) || !std::isfinite(box.y) || !std::isfinite(box.width) ||
+        !std::isfinite(box.height) || box.width <= 0 || box.height <= 0 ||
+        (box.units != metadata::CoordinateUnits::Pixels &&
+         box.units != metadata::CoordinateUnits::Normalized))
+        return std::nullopt;
+    const auto &space = *box.space;
+    const double unitX =
+        box.units == metadata::CoordinateUnits::Normalized ? space.extent_width : 1;
+    const double unitY =
+        box.units == metadata::CoordinateUnits::Normalized ? space.extent_height : 1;
+    const double scaleX = static_cast<double>(targetWidth) / space.width;
+    const double scaleY = static_cast<double>(targetHeight) / space.height;
+    return std::array<double, 4>{(space.origin_x + box.x * unitX) * scaleX,
+                                 (space.origin_y + box.y * unitY) * scaleY,
+                                 box.width * unitX * scaleX,
+                                 box.height * unitY * scaleY};
+}
+
 std::vector<std::pair<std::string, std::string>>
 formatPerformanceRows(const metadata::PerformanceMeasurementsT &measurements) {
     const auto available = [](const double value) { return std::isfinite(value) && value >= 0.0; };

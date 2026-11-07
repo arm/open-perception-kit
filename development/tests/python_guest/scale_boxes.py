@@ -18,6 +18,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.BoxDetection import Box
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
 from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT
+from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT
 from open_perception_kit.guest import Envelope
 
 
@@ -28,6 +29,7 @@ def process(env: Envelope) -> None:
 
     transformed = []
     for detection in source.detections:
+        space = detection.box.space
         transformed.append(
             BoxDetectionT(
                 object=ObjectMetaT(
@@ -40,6 +42,11 @@ def process(env: Envelope) -> None:
                     y=detection.box.y * 2.0,
                     width=detection.box.width * 2.0,
                     height=detection.box.height * 2.0,
+                    space=None if space is None else ImageSpaceT(
+                        frameId=space.frameId, width=space.width, height=space.height,
+                        originX=space.originX, originY=space.originY,
+                        extentWidth=space.extentWidth, extentHeight=space.extentHeight),
+                    units=detection.box.units,
                 ),
                 confidence=min(1.0, detection.confidence + 0.1),
                 classId=detection.classId,

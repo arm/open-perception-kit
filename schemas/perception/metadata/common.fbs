@@ -1,8 +1,11 @@
 namespace open_perception_kit.metadata;
 
 table ObjectMeta {
+  // Observation identity. References are not coordinate transforms.
   id:ulong;
+  // Derivation/subject relationship, never an implicit spatial reference.
   parent_id:ulong;
+  // Producer creation time in Unix-epoch nanoseconds, not media PTS.
   creation_ts_ns:ulong;
 }
 
@@ -23,11 +26,29 @@ table LayerInfo {
   producer:ProducerInfo;
 }
 
+enum CoordinateUnits:ubyte { Pixels, Normalized }
+
+// Self-contained image basis. Origin and extent are source-frame pixels.
+// frame_id identifies the FrameContext that established the basis; cached
+// results can retain this description without retaining that observation.
+table ImageSpace {
+  frame_id:ulong;
+  width:uint;
+  height:uint;
+  origin_x:double;
+  origin_y:double;
+  extent_width:double;
+  extent_height:double;
+}
+
 table BoundingBox {
+  // Top-left and size in space-local pixels or fractions of its extent.
   x:float;
   y:float;
   width:float;
   height:float;
+  space:ImageSpace;
+  units:CoordinateUnits = Pixels;
 }
 
 table Point2f {

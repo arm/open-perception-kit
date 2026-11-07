@@ -275,6 +275,14 @@ GenericImagePreprocessOp::process(opk::op::OpChainContext &opChainContext) {
 
     opChainContext.inferenceInfo.image =
         imageMetadata(cropRect, destinationRect, letterboxInnerRect);
+    auto &image = opChainContext.inferenceInfo.image;
+    const auto producer = producerInfo(
+        opChainContext.inferenceInfo.inferElementId, opName, "opk-std-ops/GenericImagePreprocess");
+    image.frameId = opChainContext.videoFrameId(inputImageSourceName, producer);
+    image.frameWidth = pipelineVideoFrame->width();
+    image.frameHeight = pipelineVideoFrame->height();
+    image.cropX = cropRect.x;
+    image.cropY = cropRect.y;
     opChainContext.inferenceInfo.modelName = upcomingInferenceModel.name;
     opChainContext.inferenceInfo.contentType = upcomingInferenceModel.contentType;
     opChainContext.inferenceInfo.parentId = sourceId;

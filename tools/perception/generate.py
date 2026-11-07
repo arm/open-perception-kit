@@ -459,7 +459,7 @@ fn decodes_python_produced_box_detections_packet() {{
         let detections = boxes.detections.as_ref().expect("detections");
         assert_eq!(detections.len(), 1);
         let detection = &detections[0];
-        assert_eq!(detection.class_id, 3);
+        assert_eq!(detection.class_id, Some(3));
         assert_eq!(detection.text.as_deref(), Some("car"));
         assert_eq!(detection.confidence, 0.875);
         let object = detection.object.as_ref().expect("object");

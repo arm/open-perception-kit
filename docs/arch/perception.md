@@ -93,7 +93,7 @@ hand-written variant container.
 
 The currently generated payload roots are:
 
-- `FrameContext` for video or audio frame geometry and crop/letterbox context
+- `FrameContext` for source-frame dimensions and timing
 - `BoxDetections` for localized detections
 - `Classifications` for classification candidates and person-presence output
 - `PoseEstimations` for yaw and pitch estimates
@@ -130,12 +130,59 @@ used as a replacement for payload-type or content-type routing.
 Result items use `ObjectMeta` where identity or parent relationships are needed:
 
 - `id` identifies an item within the producer's result model
-- `parent_id` links derived output to its source item
-- `creation_ts_ns` records the producer-provided creation timestamp
+- `parent_id` links derived output to its source item; it is not a coordinate transform
+- `creation_ts_ns` records producer creation time in Unix-epoch nanoseconds, not media PTS
 
-Frame geometry is represented by the `FrameContext` payload. Its video and audio
-tables contain the original dimensions and the crop, letterbox, or sample-range
-context needed to interpret downstream results.
+### Image geometry
+
+Box detections and tracks carry optional unsigned category IDs. Absence means no
+category identity; zero is a valid category and is preserved through tracking,
+SDKs and consumers. The browser preserves non-finite confidence values for
+validation instead of turning them into a zero score.
+
+`FrameContext.video` records the full source image dimensions and optional
+`presentation_ts_ns` from the media backend. An unavailable presentation time is
+absent; zero is valid. The runtime registers a source image once per OpChain
+execution. Its object ID identifies that frame context, not a persistent track
+or a globally unique identity across producers.
+
+Each `BoundingBox` carries an `ImageSpace` and `CoordinateUnits`. The space embeds
+the source frame ID, full width/height, and crop origin/extent in source-frame
+pixels. Coordinates are top-left and size, expressed either in crop-local pixels
+or fractions of that crop's extent. For normalized coordinates:
+
+```text
+frame_x = origin_x + x * extent_width
+frame_y = origin_y + y * extent_height
+frame_width = width * extent_width
+frame_height = height * extent_height
+```
+
+Pixel coordinates use the same translation without the extent multiplication.
+Consumers scale these source-frame pixels to the target surface dimensions.
+The description is self-contained: cached tracker predictions can retain their
+coordinate basis without retaining the original frame observation. Parent IDs
+continue to express derivation, independently of this spatial reference.
+
+Parsers undo model resizing/letterboxing before publishing crop-local boxes.
+CPU and Vulkan preprocessing supply the actual crop geometry. The former unused
+crop/letterbox fields on `VideoFrameContext` are removed; preprocessing padding
+is not a property of the full source frame.
+
+Missing spaces, zero-sized or out-of-frame extents, unknown units, and non-finite
+coordinates are not guessed from a parent or the first frame in a packet. Native
+and browser renderers omit unplaceable geometry, the browser reports it as
+unavailable, and Plumber reports an invalid spatial reference. Tracking operates
+on owned pixel copies in the full-frame basis established by its first valid
+detection, until reset. Incoming resolution changes are projected into that
+basis without changing Kalman units or mixing trace coordinates. The detector's
+original output is preserved; trace points carry their own image basis.
+Plumber normalizes geometry using that
+basis rather than the derivation parent's dimensions.
+
+SDK 1.0 intentionally changes the interpretation of previously misrendered
+normalized/crop-local boxes and comparisons. Correct full-frame pixel pipelines
+retain their placement; the same generated snapshot is required throughout.
 
 ## Runtime Transport
 

@@ -100,6 +100,19 @@ The shortest practical path is:
 
 This keeps the change local to the inference chain and avoids touching `opkinfer` or the outer GStreamer pipeline.
 
+For box results, preserve the spatial information supplied by preprocessing:
+
+```cpp
+detection->box = open_perception_kit::makeImageBoundingBox(
+    input.inferenceInfo.image, x, y, width, height, normalizedOutputCoordinates);
+```
+
+First undo the model's padding and resize. Pass crop-local pixels, or crop-local
+fractions when the final argument is `true`. The helper attaches the actual
+source image and crop basis. `ObjectMeta.parent_id` records derivation and must
+not be used to imply coordinate units or crop offsets. A box without a valid
+image basis can be transported but cannot be placed by the renderers.
+
 That local change is usually a good sign that you are still within the intended extension surface.
 When the work can stay inside parser code, build wiring, and `opchain.json`, you usually do not need a new Op.
 For normal model onboarding, adding a parser is the intended path; changing inference Ops or deeper runtime code is outside the common user extension surface.
