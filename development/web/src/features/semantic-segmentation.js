@@ -16,51 +16,56 @@
  */
 
 import {defineFeature} from '../overlay-feature.js';
-import {CLASS_CONTROLS, MASK_CONTROLS, classStyle, classLegend, classRenderSignature, withClassSettings, maskGeometryError} from './segmentation.js';
+import {CLASS_CONTROLS, MASK_CONTROLS, MAX_CLASSES, classStyle, classLegend, classRenderSignature, withClassSettings, maskGeometryError, maskValueReader, maskPlacement} from './segmentation.js';
 const presentClasses = new WeakMap();
 const surfaces = new WeakMap();
 
 function classesIn(mask) {
-    if (!mask) return new Uint8Array(256);
-    if (!presentClasses.has(mask.pixels)) {
+    if (!mask) return new Set();
+    if (!presentClasses.has(mask)) {
         // Hidden overlays still need presence, without allocating a raster.
-        const seen = new Uint8Array(256);
-        for (let i = 0; i < mask.pixels.length; i++) seen[mask.pixels[i]] = 1;
-        presentClasses.set(mask.pixels, seen);
+        const seen = new Set();
+        const sample = maskValueReader(mask);
+        for (let i = 0; i < mask.width * mask.height; i++) {
+            const id = sample(i);
+            if (id !== mask.voidValue) seen.add(id);
+            if (seen.size > MAX_CLASSES) break;
+        }
+        presentClasses.set(mask, seen);
     }
-    return presentClasses.get(mask.pixels);
+    return presentClasses.get(mask);
 }
 
 function colorize(mask, settings) {
-    const colors = Array.from({length: 256}, (_, id) => {
+    const colors = new Map([...classesIn(mask)].map(id => {
         const style = classStyle(id, settings);
         const rgb = style.color.slice(1).match(/../g).map(hex => parseInt(hex, 16));
-        return [...rgb, style.enabled ? Math.round(style.opacity * 255) : 0];
-    });
-    const rgba = new Uint8ClampedArray(mask.pixels.length * 4);
-    const seen = presentClasses.get(mask.pixels) || new Uint8Array(256);
-    for (let i = 0; i < mask.pixels.length; i++) {
-        const id = mask.pixels[i];
-        const color = colors[id];
+        return [id, [...rgb, style.enabled ? Math.round(style.opacity * 255) : 0]];
+    }));
+    const rgba = new Uint8ClampedArray(mask.width * mask.height * 4);
+    const sample = maskValueReader(mask);
+    for (let i = 0; i < mask.width * mask.height; i++) {
+        const id = sample(i);
+        if (id === mask.voidValue) continue;
+        const color = colors.get(id);
         const offset = i * 4;
         rgba[offset] = color[0];
         rgba[offset + 1] = color[1];
         rgba[offset + 2] = color[2];
         rgba[offset + 3] = color[3];
-        seen[id] = 1;
     }
-    presentClasses.set(mask.pixels, seen);
     return rgba;
 }
 
-function resolve(result, index) {
+function resolve(result) {
     const items = result.items.filter(item => item.type === 'SemanticSegmentationMask');
     const invalid = (state, message) => ({...result, items: [], state, message});
-    if (items.length > 1) return invalid('ambiguous', 'Expected one full-frame class map for this source.');
-    if (!items.length) return invalid('partial', 'No class map in the displayed frame.');
+    if (items.length > 1) return invalid('ambiguous', 'Expected one class map for this source.');
+    if (!items.length) return {...result, items: []};
     const mask = items[0].data;
-    const error = maskGeometryError(mask, index);
+    const error = maskGeometryError(mask, 'SemanticSegmentationMask');
     if (error) return invalid(error.state, error.message);
+    if (classesIn(mask).size > MAX_CLASSES) return invalid('unsupported', `Too many classes (maximum ${MAX_CLASSES}).`);
     return {...result, items, mask};
 }
 
@@ -73,29 +78,28 @@ function render({ctx, mapper, overlay}, resolved, settings = resolved.settings) 
         surface = {canvas: document.createElement('canvas')};
         surfaces.set(overlay, surface);
     }
-    if (surface.pixels !== mask.pixels || surface.signature !== signature
+    if (surface.mask !== mask || surface.signature !== signature
         || surface.canvas.width !== mask.width || surface.canvas.height !== mask.height) {
         if (surface.canvas.width !== mask.width) surface.canvas.width = mask.width;
         if (surface.canvas.height !== mask.height) surface.canvas.height = mask.height;
         surface.canvas.getContext('2d').putImageData(new ImageData(colorize(mask, settings), mask.width, mask.height), 0, 0);
-        surface.pixels = mask.pixels;
+        surface.mask = mask;
         surface.signature = signature;
     }
-    const {x, y, width, height} = mapper.display;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(surface.canvas, x, y, width, height);
+    ctx.drawImage(surface.canvas, ...maskPlacement(mask.space, mapper.display));
 }
 
 export default withClassSettings(defineFeature({
     id: 'semantic-segmentation', label: 'Semantic segmentation', renderOrder: -1,
-    accepts: source => source.payloadType === 'SemanticSegmentationMasks' && source.contentType === 'semanticSegmentation',
+    accepts: source => source.payloadType === 'SemanticSegmentationMasks',
     controls: MASK_CONTROLS,
     defaults: () => ({classes: {}}),
     classControls: CLASS_CONTROLS,
     resolve, render,
     legend(resolved, settings = resolved.settings) {
         const present = new Set();
-        classesIn(resolved.mask).forEach((seen, id) => { if (seen) present.add(id); });
+        classesIn(resolved.mask).forEach(id => present.add(id));
         const message = !resolved.mask ? resolved.message || 'No class map in the displayed frame.' : '';
         return classLegend(present, settings, message);
     },

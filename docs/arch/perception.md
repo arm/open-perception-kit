@@ -186,6 +186,59 @@ SDK 1.0 intentionally changes the interpretation of previously misrendered
 normalized/crop-local boxes and comparisons. Correct full-frame pixel pipelines
 retain their placement; the same generated snapshot is required throughout.
 
+## Mask representation
+
+The existing mask roots declare separate data contracts. Rendering settings,
+`content_type`, `label_family`, and derivation parents do not select their meaning.
+
+| Root | Samples and meaning |
+| --- | --- |
+| `SegmentationMasks` | `Uint8` opacity with explicit `BackgroundOpacity` or `RegionOpacity`. Zero is no coverage, 255 full coverage, and intermediate values partial coverage. `Unspecified` is not interpretable. |
+| `SemanticSegmentationMasks` | `Uint8` or `Uint32LE` category IDs in a non-empty `label_set`. Zero is a valid class. Only a present `void_value` reserves an unclassified value; it must fit the encoding. |
+| `InstanceSegmentationMasks` | `Uint8` membership: 0 outside and 1 inside one observation. Other values are invalid. Instances may overlap. Optional unsigned `class_id` requires a label set when present; optional confidence must be finite in [0,1]. |
+
+`BitmapData.encoding` replaces the free-form value-type string. Samples are
+tightly packed row-major values, with no stride, color packing or compression;
+multi-byte values are explicitly little-endian. Dimensions must be positive and
+the byte length must equal width × height × bytes per sample exactly. Empty
+results use an empty mask list, not a zero-sized bitmap. An all-zero bitmap is
+valid and retains its family's meaning.
+
+Every bitmap carries its own `ImageSpace`. The entire grid spans that region:
+sample `(x,y)` covers `[x/width,(x+1)/width)` and `[y/height,(y+1)/height)` of its
+extent. Grid resolution is independent of source-frame resolution. Consumers
+project that region into the target surface and leave the surrounding image alone;
+they do not stretch an ROI over the frame or find placement through `parent_id`.
+An instance's optional box is separate detection geometry and must refer to the
+same source basis as its bitmap.
+
+MODNet and RVM publish background opacity; the older OCR mask parser publishes
+region opacity after its threshold/gamma transform, not calibrated probabilities.
+Their model-grid letterbox is removed before publication, retaining its sampling
+density and mapping the active grid to the declared image region. YOLO semantic
+and instance parsers already restore their grids to source pixels; they declare
+`opk:cityscapes-19` and `opk:coco-80` respectively. Their full-frame-only inference
+restriction remains, but validity no longer depends on a derivation-parent lookup.
+
+The native opacity compositor retains its existing tint and binary background
+threshold of 150; the browser background feature retains graded alpha and its
+existing style controls. These are visualization policies, not transport meanings.
+The browser decoder and terminal inspection support all mask roots. Semantic and
+instance overlay controls are separate feature work, not introduced by this slice.
+
+Plumber validates and compares all mask families, including malformed-reference
+failures. It checks normalized image regions at the existing geometry tolerance,
+explicit meanings and category namespaces, then compares opacity by mean absolute
+error / 255, class maps by unequal-sample fraction, and instances by IoU distance.
+The pixel-distance tolerance is 0.1. Different grid resolutions use nearest
+samples on the larger existing grid; category IDs are never interpolated.
+Multiple source-frame IDs in one mask producer group are ambiguous for cross-packet
+comparison and fail rather than guessing correspondence from local IDs.
+
+This is an intentional breaking API/wire change within the unreleased SDK 1.0
+refactor. All participants use the same generated snapshot; no old bitmap adapter
+is supplied. Root identities remain stable while the shared schema digest changes.
+
 ## Classification representation
 
 `Classification.label_set` names the vocabulary in which candidate `class_id`

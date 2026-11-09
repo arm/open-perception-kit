@@ -44,8 +44,16 @@ export class SemanticSegmentationMask {
         const offset = this.bb.__offset(this.bb_pos, 6);
         return offset ? (obj || new BitmapData()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
     }
+    labelSet(optionalEncoding) {
+        const offset = this.bb.__offset(this.bb_pos, 8);
+        return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+    }
+    voidValue() {
+        const offset = this.bb.__offset(this.bb_pos, 10);
+        return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
+    }
     static startSemanticSegmentationMask(builder) {
-        builder.startObject(2);
+        builder.startObject(4);
     }
     static addObject(builder, objectOffset) {
         builder.addFieldOffset(0, objectOffset, 0);
@@ -53,29 +61,43 @@ export class SemanticSegmentationMask {
     static addBitmap(builder, bitmapOffset) {
         builder.addFieldOffset(1, bitmapOffset, 0);
     }
+    static addLabelSet(builder, labelSetOffset) {
+        builder.addFieldOffset(2, labelSetOffset, 0);
+    }
+    static addVoidValue(builder, voidValue) {
+        builder.addFieldInt32(3, voidValue, null);
+    }
     static endSemanticSegmentationMask(builder) {
         const offset = builder.endObject();
         return offset;
     }
     unpack() {
-        return new SemanticSegmentationMaskT((this.object() !== null ? this.object().unpack() : null), (this.bitmap() !== null ? this.bitmap().unpack() : null));
+        return new SemanticSegmentationMaskT((this.object() !== null ? this.object().unpack() : null), (this.bitmap() !== null ? this.bitmap().unpack() : null), this.labelSet(), this.voidValue());
     }
     unpackTo(_o) {
         _o.object = (this.object() !== null ? this.object().unpack() : null);
         _o.bitmap = (this.bitmap() !== null ? this.bitmap().unpack() : null);
+        _o.labelSet = this.labelSet();
+        _o.voidValue = this.voidValue();
     }
 }
 export class SemanticSegmentationMaskT {
-    constructor(object = null, bitmap = null) {
+    constructor(object = null, bitmap = null, labelSet = null, voidValue = null) {
         this.object = object;
         this.bitmap = bitmap;
+        this.labelSet = labelSet;
+        this.voidValue = voidValue;
     }
     pack(builder) {
         const object = (this.object !== null ? this.object.pack(builder) : 0);
         const bitmap = (this.bitmap !== null ? this.bitmap.pack(builder) : 0);
+        const labelSet = (this.labelSet !== null ? builder.createString(this.labelSet) : 0);
         SemanticSegmentationMask.startSemanticSegmentationMask(builder);
         SemanticSegmentationMask.addObject(builder, object);
         SemanticSegmentationMask.addBitmap(builder, bitmap);
+        SemanticSegmentationMask.addLabelSet(builder, labelSet);
+        if (this.voidValue !== null)
+            SemanticSegmentationMask.addVoidValue(builder, this.voidValue);
         return SemanticSegmentationMask.endSemanticSegmentationMask(builder);
     }
 }

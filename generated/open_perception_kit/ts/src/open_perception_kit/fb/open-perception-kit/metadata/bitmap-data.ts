@@ -20,6 +20,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { BitmapEncoding } from '../../open-perception-kit/metadata/bitmap-encoding.js';
+import { ImageSpace, ImageSpaceT } from '../../open-perception-kit/metadata/image-space.js';
 
 
 export class BitmapData implements flatbuffers.IUnpackableObject<BitmapDataT> {
@@ -50,11 +52,9 @@ height():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
-valueType():string|null
-valueType(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-valueType(optionalEncoding?:any):string|Uint8Array|null {
+encoding():BitmapEncoding {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : BitmapEncoding.Unspecified;
 }
 
 pixels(index: number):number|null {
@@ -72,8 +72,13 @@ pixelsArray():Uint8Array|null {
   return offset ? new Uint8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
+space(obj?:ImageSpace):ImageSpace|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? (obj || new ImageSpace()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
 static startBitmapData(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addWidth(builder:flatbuffers.Builder, width:number) {
@@ -84,8 +89,8 @@ static addHeight(builder:flatbuffers.Builder, height:number) {
   builder.addFieldInt32(1, height, 0);
 }
 
-static addValueType(builder:flatbuffers.Builder, valueTypeOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(2, valueTypeOffset, 0);
+static addEncoding(builder:flatbuffers.Builder, encoding:BitmapEncoding) {
+  builder.addFieldInt8(2, encoding, BitmapEncoding.Unspecified);
 }
 
 static addPixels(builder:flatbuffers.Builder, pixelsOffset:flatbuffers.Offset) {
@@ -104,26 +109,23 @@ static startPixelsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(1, numElems, 1);
 }
 
+static addSpace(builder:flatbuffers.Builder, spaceOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, spaceOffset, 0);
+}
+
 static endBitmapData(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createBitmapData(builder:flatbuffers.Builder, width:number, height:number, valueTypeOffset:flatbuffers.Offset, pixelsOffset:flatbuffers.Offset):flatbuffers.Offset {
-  BitmapData.startBitmapData(builder);
-  BitmapData.addWidth(builder, width);
-  BitmapData.addHeight(builder, height);
-  BitmapData.addValueType(builder, valueTypeOffset);
-  BitmapData.addPixels(builder, pixelsOffset);
-  return BitmapData.endBitmapData(builder);
-}
 
 unpack(): BitmapDataT {
   return new BitmapDataT(
     this.width(),
     this.height(),
-    this.valueType(),
-    this.bb!.createScalarList<number>(this.pixels.bind(this), this.pixelsLength())
+    this.encoding(),
+    this.bb!.createScalarList<number>(this.pixels.bind(this), this.pixelsLength()),
+    (this.space() !== null ? this.space()!.unpack() : null)
   );
 }
 
@@ -131,8 +133,9 @@ unpack(): BitmapDataT {
 unpackTo(_o: BitmapDataT): void {
   _o.width = this.width();
   _o.height = this.height();
-  _o.valueType = this.valueType();
+  _o.encoding = this.encoding();
   _o.pixels = this.bb!.createScalarList<number>(this.pixels.bind(this), this.pixelsLength());
+  _o.space = (this.space() !== null ? this.space()!.unpack() : null);
 }
 }
 
@@ -140,20 +143,23 @@ export class BitmapDataT implements flatbuffers.IGeneratedObject {
 constructor(
   public width: number = 0,
   public height: number = 0,
-  public valueType: string|Uint8Array|null = null,
-  public pixels: (number)[] = []
+  public encoding: BitmapEncoding = BitmapEncoding.Unspecified,
+  public pixels: (number)[] = [],
+  public space: ImageSpaceT|null = null
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
-  const valueType = (this.valueType !== null ? builder.createString(this.valueType!) : 0);
   const pixels = BitmapData.createPixelsVector(builder, this.pixels);
+  const space = (this.space !== null ? this.space!.pack(builder) : 0);
 
-  return BitmapData.createBitmapData(builder,
-    this.width,
-    this.height,
-    valueType,
-    pixels
-  );
+  BitmapData.startBitmapData(builder);
+  BitmapData.addWidth(builder, this.width);
+  BitmapData.addHeight(builder, this.height);
+  BitmapData.addEncoding(builder, this.encoding);
+  BitmapData.addPixels(builder, pixels);
+  BitmapData.addSpace(builder, space);
+
+  return BitmapData.endBitmapData(builder);
 }
 }

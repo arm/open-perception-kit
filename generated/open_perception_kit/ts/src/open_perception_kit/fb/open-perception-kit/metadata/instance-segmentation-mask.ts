@@ -53,14 +53,14 @@ bitmap(obj?:BitmapData):BitmapData|null {
   return offset ? (obj || new BitmapData()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-classId():number {
+classId():number|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? this.bb!.readInt32(this.bb_pos + offset) : -1;
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : null;
 }
 
-confidence():number {
+confidence():number|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : null;
 }
 
 box(obj?:BoundingBox):BoundingBox|null {
@@ -68,8 +68,15 @@ box(obj?:BoundingBox):BoundingBox|null {
   return offset ? (obj || new BoundingBox()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
+labelSet():string|null
+labelSet(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+labelSet(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startInstanceSegmentationMask(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(6);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -81,15 +88,19 @@ static addBitmap(builder:flatbuffers.Builder, bitmapOffset:flatbuffers.Offset) {
 }
 
 static addClassId(builder:flatbuffers.Builder, classId:number) {
-  builder.addFieldInt32(2, classId, -1);
+  builder.addFieldInt32(2, classId, null);
 }
 
 static addConfidence(builder:flatbuffers.Builder, confidence:number) {
-  builder.addFieldFloat32(3, confidence, 0.0);
+  builder.addFieldFloat32(3, confidence, null);
 }
 
 static addBox(builder:flatbuffers.Builder, boxOffset:flatbuffers.Offset) {
   builder.addFieldOffset(4, boxOffset, 0);
+}
+
+static addLabelSet(builder:flatbuffers.Builder, labelSetOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, labelSetOffset, 0);
 }
 
 static endInstanceSegmentationMask(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -104,7 +115,8 @@ unpack(): InstanceSegmentationMaskT {
     (this.bitmap() !== null ? this.bitmap()!.unpack() : null),
     this.classId(),
     this.confidence(),
-    (this.box() !== null ? this.box()!.unpack() : null)
+    (this.box() !== null ? this.box()!.unpack() : null),
+    this.labelSet()
   );
 }
 
@@ -115,6 +127,7 @@ unpackTo(_o: InstanceSegmentationMaskT): void {
   _o.classId = this.classId();
   _o.confidence = this.confidence();
   _o.box = (this.box() !== null ? this.box()!.unpack() : null);
+  _o.labelSet = this.labelSet();
 }
 }
 
@@ -122,9 +135,10 @@ export class InstanceSegmentationMaskT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
   public bitmap: BitmapDataT|null = null,
-  public classId: number = -1,
-  public confidence: number = 0.0,
-  public box: BoundingBoxT|null = null
+  public classId: number|null = null,
+  public confidence: number|null = null,
+  public box: BoundingBoxT|null = null,
+  public labelSet: string|Uint8Array|null = null
 ){}
 
 
@@ -132,13 +146,17 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
   const bitmap = (this.bitmap !== null ? this.bitmap!.pack(builder) : 0);
   const box = (this.box !== null ? this.box!.pack(builder) : 0);
+  const labelSet = (this.labelSet !== null ? builder.createString(this.labelSet!) : 0);
 
   InstanceSegmentationMask.startInstanceSegmentationMask(builder);
   InstanceSegmentationMask.addObject(builder, object);
   InstanceSegmentationMask.addBitmap(builder, bitmap);
-  InstanceSegmentationMask.addClassId(builder, this.classId);
-  InstanceSegmentationMask.addConfidence(builder, this.confidence);
+  if (this.classId !== null)
+    InstanceSegmentationMask.addClassId(builder, this.classId);
+  if (this.confidence !== null)
+    InstanceSegmentationMask.addConfidence(builder, this.confidence);
   InstanceSegmentationMask.addBox(builder, box);
+  InstanceSegmentationMask.addLabelSet(builder, labelSet);
 
   return InstanceSegmentationMask.endInstanceSegmentationMask(builder);
 }

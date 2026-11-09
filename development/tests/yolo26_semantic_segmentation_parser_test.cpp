@@ -52,8 +52,13 @@ class Yolo26SemanticSegmentationParserTest : public ::testing::Test {
         input.inferenceInfo.modelName = "yolo26n-sem";
         input.inferenceInfo.inferElementId = "infer-sem";
         input.inferenceInfo.parentId = SourceId;
-        input.inferenceInfo.image = {
-            .width = 3U, .height = 2U, .modelWidth = ModelSize, .modelHeight = ModelSize};
+        input.inferenceInfo.image = {.width = 3U,
+                                     .height = 2U,
+                                     .modelWidth = ModelSize,
+                                     .modelHeight = ModelSize,
+                                     .frameId = SourceId,
+                                     .frameWidth = 3,
+                                     .frameHeight = 2};
         input.producerInfo.instance_id = "infer-sem/postprocessor";
         input.producerInfo.component = "opk-std-ops/GenericPostprocess";
         input.producerInfo.implementation = "Yolo26SemanticSegmentationParser";
@@ -122,7 +127,10 @@ TEST_F(Yolo26SemanticSegmentationParserTest, PreservesBoundaryClassesAndSerializ
     EXPECT_EQ(payload.masks[0]->object->parent_id, SourceId);
     ASSERT_NE(payload.masks[0]->bitmap, nullptr);
     const auto &bitmap = *payload.masks[0]->bitmap;
-    EXPECT_EQ(bitmap.value_type, "Uint8");
+    EXPECT_EQ(bitmap.encoding, open_perception_kit::metadata::BitmapEncoding::Uint8);
+    EXPECT_TRUE(open_perception_kit::validMask(*payload.masks[0]));
+    EXPECT_EQ(payload.masks[0]->label_set, "opk:cityscapes-19");
+    EXPECT_FALSE(payload.masks[0]->void_value);
     EXPECT_EQ(bitmap.width, 3U);
     EXPECT_EQ(bitmap.height, 2U);
     EXPECT_EQ(bitmap.pixels, expected);
@@ -141,6 +149,20 @@ TEST_F(Yolo26SemanticSegmentationParserTest, RejectsClass19WithoutChangingFrameR
         EXPECT_EQ(open_perception_kit::serialize(output), before);
         classes[position] = 0U;
     }
+}
+
+TEST_F(Yolo26SemanticSegmentationParserTest, ImageSpaceDoesNotDependOnDerivationParent) {
+    input.inferenceInfo.parentId = 999;
+    open_perception_kit::FrameResults independent;
+    ASSERT_TRUE(parser.parse(input, independent));
+    ASSERT_EQ(independent.count<SemanticSegmentationMasksT>(), 1U);
+    independent.for_each<SemanticSegmentationMasksT>([](const auto &payload) {
+        ASSERT_EQ(payload.masks.size(), 1U);
+        EXPECT_EQ(payload.masks[0]->object->parent_id, 999U);
+        EXPECT_EQ(payload.masks[0]->bitmap->space->frame_id, SourceId);
+    });
+    input.inferenceInfo.image.frameId = 0;
+    EXPECT_FALSE(parser.parse(input, independent));
 }
 
 } // namespace

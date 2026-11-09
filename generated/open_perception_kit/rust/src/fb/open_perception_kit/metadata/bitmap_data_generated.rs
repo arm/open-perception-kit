@@ -45,8 +45,9 @@ impl<'a> flatbuffers::Follow<'a> for BitmapData<'a> {
 impl<'a> BitmapData<'a> {
     pub const VT_WIDTH: flatbuffers::VOffsetT = 4;
     pub const VT_HEIGHT: flatbuffers::VOffsetT = 6;
-    pub const VT_VALUE_TYPE: flatbuffers::VOffsetT = 8;
+    pub const VT_ENCODING: flatbuffers::VOffsetT = 8;
     pub const VT_PIXELS: flatbuffers::VOffsetT = 10;
+    pub const VT_SPACE: flatbuffers::VOffsetT = 12;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -58,27 +59,30 @@ impl<'a> BitmapData<'a> {
         args: &'args BitmapDataArgs<'args>,
     ) -> flatbuffers::WIPOffset<BitmapData<'bldr>> {
         let mut builder = BitmapDataBuilder::new(_fbb);
+        if let Some(x) = args.space {
+            builder.add_space(x);
+        }
         if let Some(x) = args.pixels {
             builder.add_pixels(x);
         }
-        if let Some(x) = args.value_type {
-            builder.add_value_type(x);
-        }
         builder.add_height(args.height);
         builder.add_width(args.width);
+        builder.add_encoding(args.encoding);
         builder.finish()
     }
 
     pub fn unpack(&self) -> BitmapDataT {
         let width = self.width();
         let height = self.height();
-        let value_type = self.value_type().map(|x| x.to_string());
+        let encoding = self.encoding();
         let pixels = self.pixels().map(|x| x.into_iter().collect());
+        let space = self.space().map(|x| Box::new(x.unpack()));
         BitmapDataT {
             width,
             height,
-            value_type,
+            encoding,
             pixels,
+            space,
         }
     }
 
@@ -101,13 +105,14 @@ impl<'a> BitmapData<'a> {
         }
     }
     #[inline]
-    pub fn value_type(&self) -> Option<&'a str> {
+    pub fn encoding(&self) -> BitmapEncoding {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<flatbuffers::ForwardsUOffset<&str>>(BitmapData::VT_VALUE_TYPE, None)
+                .get::<BitmapEncoding>(BitmapData::VT_ENCODING, Some(BitmapEncoding::Unspecified))
+                .unwrap()
         }
     }
     #[inline]
@@ -123,6 +128,16 @@ impl<'a> BitmapData<'a> {
                 )
         }
     }
+    #[inline]
+    pub fn space(&self) -> Option<ImageSpace<'a>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<flatbuffers::ForwardsUOffset<ImageSpace>>(BitmapData::VT_SPACE, None)
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for BitmapData<'_> {
@@ -135,14 +150,15 @@ impl flatbuffers::Verifiable for BitmapData<'_> {
         v.visit_table(pos)?
             .visit_field::<u32>("width", Self::VT_WIDTH, false)?
             .visit_field::<u32>("height", Self::VT_HEIGHT, false)?
-            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
-                "value_type",
-                Self::VT_VALUE_TYPE,
-                false,
-            )?
+            .visit_field::<BitmapEncoding>("encoding", Self::VT_ENCODING, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>(
                 "pixels",
                 Self::VT_PIXELS,
+                false,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<ImageSpace>>(
+                "space",
+                Self::VT_SPACE,
                 false,
             )?
             .finish();
@@ -152,8 +168,9 @@ impl flatbuffers::Verifiable for BitmapData<'_> {
 pub struct BitmapDataArgs<'a> {
     pub width: u32,
     pub height: u32,
-    pub value_type: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub encoding: BitmapEncoding,
     pub pixels: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+    pub space: Option<flatbuffers::WIPOffset<ImageSpace<'a>>>,
 }
 impl<'a> Default for BitmapDataArgs<'a> {
     #[inline]
@@ -161,8 +178,9 @@ impl<'a> Default for BitmapDataArgs<'a> {
         BitmapDataArgs {
             width: 0,
             height: 0,
-            value_type: None,
+            encoding: BitmapEncoding::Unspecified,
             pixels: None,
+            space: None,
         }
     }
 }
@@ -181,14 +199,22 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> BitmapDataBuilder<'a, 'b, A> {
         self.fbb_.push_slot::<u32>(BitmapData::VT_HEIGHT, height, 0);
     }
     #[inline]
-    pub fn add_value_type(&mut self, value_type: flatbuffers::WIPOffset<&'b str>) {
-        self.fbb_
-            .push_slot_always::<flatbuffers::WIPOffset<_>>(BitmapData::VT_VALUE_TYPE, value_type);
+    pub fn add_encoding(&mut self, encoding: BitmapEncoding) {
+        self.fbb_.push_slot::<BitmapEncoding>(
+            BitmapData::VT_ENCODING,
+            encoding,
+            BitmapEncoding::Unspecified,
+        );
     }
     #[inline]
     pub fn add_pixels(&mut self, pixels: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u8>>) {
         self.fbb_
             .push_slot_always::<flatbuffers::WIPOffset<_>>(BitmapData::VT_PIXELS, pixels);
+    }
+    #[inline]
+    pub fn add_space(&mut self, space: flatbuffers::WIPOffset<ImageSpace<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<ImageSpace>>(BitmapData::VT_SPACE, space);
     }
     #[inline]
     pub fn new(
@@ -212,8 +238,9 @@ impl core::fmt::Debug for BitmapData<'_> {
         let mut ds = f.debug_struct("BitmapData");
         ds.field("width", &self.width());
         ds.field("height", &self.height());
-        ds.field("value_type", &self.value_type());
+        ds.field("encoding", &self.encoding());
         ds.field("pixels", &self.pixels());
+        ds.field("space", &self.space());
         ds.finish()
     }
 }
@@ -222,16 +249,18 @@ impl core::fmt::Debug for BitmapData<'_> {
 pub struct BitmapDataT {
     pub width: u32,
     pub height: u32,
-    pub value_type: Option<String>,
+    pub encoding: BitmapEncoding,
     pub pixels: Option<Vec<u8>>,
+    pub space: Option<Box<ImageSpaceT>>,
 }
 impl Default for BitmapDataT {
     fn default() -> Self {
         Self {
             width: 0,
             height: 0,
-            value_type: None,
+            encoding: BitmapEncoding::Unspecified,
             pixels: None,
+            space: None,
         }
     }
 }
@@ -242,15 +271,17 @@ impl BitmapDataT {
     ) -> flatbuffers::WIPOffset<BitmapData<'b>> {
         let width = self.width;
         let height = self.height;
-        let value_type = self.value_type.as_ref().map(|x| _fbb.create_string(x));
+        let encoding = self.encoding;
         let pixels = self.pixels.as_ref().map(|x| _fbb.create_vector(x));
+        let space = self.space.as_ref().map(|x| x.pack(_fbb));
         BitmapData::create(
             _fbb,
             &BitmapDataArgs {
                 width,
                 height,
-                value_type,
+                encoding,
                 pixels,
+                space,
             },
         )
     }

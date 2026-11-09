@@ -5120,7 +5120,7 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617
 }
 
 PyObject *
-get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_n76616c75655f74797065(
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_n656e636f64696e67(
     PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::BitmapDataT> *>(
@@ -5130,7 +5130,7 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    return py_string_from_std(value->value_type);
+    return py_long_from_enum(value->encoding);
 }
 
 PyObject *
@@ -5150,6 +5150,25 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617
         proxy_anchor<open_perception_kit::metadata::BitmapDataT>(self));
 }
 
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_n7370616365(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::BitmapDataT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->space.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496d6167655370616365_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::BitmapDataT>(self));
+}
+
 PyGetSetDef *
 getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461() {
     static PyGetSetDef definitions[] = {
@@ -5165,17 +5184,23 @@ getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d61704
          nullptr,
          "read-only height",
          nullptr},
-        {"valueType",
+        {"encoding",
          reinterpret_cast<getter>(
-             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_n76616c75655f74797065),
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_n656e636f64696e67),
          nullptr,
-         "read-only value_type",
+         "read-only encoding",
          nullptr},
         {"pixels",
          reinterpret_cast<getter>(
              get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_n706978656c73),
          nullptr,
          "read-only pixels",
+         nullptr},
+        {"space",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_n7370616365),
+         nullptr,
+         "read-only space",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };
@@ -6057,7 +6082,10 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    return py_long_from_signed(value->class_id);
+    if (!value->class_id) {
+        Py_RETURN_NONE;
+    }
+    return py_long_from_unsigned(*(value->class_id));
 }
 
 PyObject *
@@ -6071,7 +6099,10 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    return PyFloat_FromDouble(static_cast<double>(value->confidence));
+    if (!value->confidence) {
+        Py_RETURN_NONE;
+    }
+    return PyFloat_FromDouble(static_cast<double>(*(value->confidence)));
 }
 
 PyObject *
@@ -6091,6 +6122,20 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655
     }
     return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f756e64696e67426f78_proxy(
         nested, proxy_anchor<open_perception_kit::metadata::InstanceSegmentationMaskT>(self));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_n6c6162656c5f736574(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->label_set);
 }
 
 PyGetSetDef *
@@ -6125,6 +6170,12 @@ getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e6
              get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_n626f78),
          nullptr,
          "read-only box",
+         nullptr},
+        {"labelSet",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_n6c6162656c5f736574),
+         nullptr,
+         "read-only label_set",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };
@@ -7639,6 +7690,19 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e74617
         nested, proxy_anchor<open_perception_kit::metadata::SegmentationMaskT>(self));
 }
 
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b_n6d65616e696e67(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SegmentationMaskT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_enum(value->meaning);
+}
+
 PyGetSetDef *
 getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b() {
     static PyGetSetDef definitions[] = {
@@ -7653,6 +7717,12 @@ getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e7
              get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b_n6269746d6170),
          nullptr,
          "read-only bitmap",
+         nullptr},
+        {"meaning",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b_n6d65616e696e67),
+         nullptr,
+         "read-only meaning",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };
@@ -7860,6 +7930,37 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635
         nested, proxy_anchor<open_perception_kit::metadata::SemanticSegmentationMaskT>(self));
 }
 
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_n6c6162656c5f736574(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->label_set);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_n766f69645f76616c7565(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (!value->void_value) {
+        Py_RETURN_NONE;
+    }
+    return py_long_from_unsigned(*(value->void_value));
+}
+
 PyGetSetDef *
 getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b() {
     static PyGetSetDef definitions[] = {
@@ -7874,6 +7975,18 @@ getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e746
              get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_n6269746d6170),
          nullptr,
          "read-only bitmap",
+         nullptr},
+        {"labelSet",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_n6c6162656c5f736574),
+         nullptr,
+         "read-only label_set",
+         nullptr},
+        {"voidValue",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_n766f69645f76616c7565),
+         nullptr,
+         "read-only void_value",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };

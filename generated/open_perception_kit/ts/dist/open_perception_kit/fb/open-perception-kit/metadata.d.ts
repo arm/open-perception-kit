@@ -17,6 +17,7 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 export { BitmapData, BitmapDataT } from './metadata/bitmap-data.js';
+export { BitmapEncoding } from './metadata/bitmap-encoding.js';
 export { BoundingBox, BoundingBoxT } from './metadata/bounding-box.js';
 export { CoordinateUnits } from './metadata/coordinate-units.js';
 export { ImageSpace, ImageSpaceT } from './metadata/image-space.js';

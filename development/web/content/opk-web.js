@@ -5157,6 +5157,14 @@ var GazeMeasurementsT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-encoding.js
+var BitmapEncoding;
+(function(BitmapEncoding2) {
+  BitmapEncoding2[BitmapEncoding2["Unspecified"] = 0] = "Unspecified";
+  BitmapEncoding2[BitmapEncoding2["Uint8"] = 1] = "Uint8";
+  BitmapEncoding2[BitmapEncoding2["Uint32LE"] = 2] = "Uint32LE";
+})(BitmapEncoding || (BitmapEncoding = {}));
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.js
 var BitmapData = class _BitmapData {
   constructor() {
@@ -5183,9 +5191,9 @@ var BitmapData = class _BitmapData {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
   }
-  valueType(optionalEncoding) {
+  encoding() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : BitmapEncoding.Unspecified;
   }
   pixels(index) {
     const offset = this.bb.__offset(this.bb_pos, 10);
@@ -5199,8 +5207,12 @@ var BitmapData = class _BitmapData {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? new Uint8Array(this.bb.bytes().buffer, this.bb.bytes().byteOffset + this.bb.__vector(this.bb_pos + offset), this.bb.__vector_len(this.bb_pos + offset)) : null;
   }
+  space(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? (obj || new ImageSpace()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
   static startBitmapData(builder) {
-    builder.startObject(4);
+    builder.startObject(5);
   }
   static addWidth(builder, width) {
     builder.addFieldInt32(0, width, 0);
@@ -5208,8 +5220,8 @@ var BitmapData = class _BitmapData {
   static addHeight(builder, height) {
     builder.addFieldInt32(1, height, 0);
   }
-  static addValueType(builder, valueTypeOffset) {
-    builder.addFieldOffset(2, valueTypeOffset, 0);
+  static addEncoding(builder, encoding) {
+    builder.addFieldInt8(2, encoding, BitmapEncoding.Unspecified);
   }
   static addPixels(builder, pixelsOffset) {
     builder.addFieldOffset(3, pixelsOffset, 0);
@@ -5224,39 +5236,42 @@ var BitmapData = class _BitmapData {
   static startPixelsVector(builder, numElems) {
     builder.startVector(1, numElems, 1);
   }
+  static addSpace(builder, spaceOffset) {
+    builder.addFieldOffset(4, spaceOffset, 0);
+  }
   static endBitmapData(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createBitmapData(builder, width, height, valueTypeOffset, pixelsOffset) {
-    _BitmapData.startBitmapData(builder);
-    _BitmapData.addWidth(builder, width);
-    _BitmapData.addHeight(builder, height);
-    _BitmapData.addValueType(builder, valueTypeOffset);
-    _BitmapData.addPixels(builder, pixelsOffset);
-    return _BitmapData.endBitmapData(builder);
-  }
   unpack() {
-    return new BitmapDataT(this.width(), this.height(), this.valueType(), this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength()));
+    return new BitmapDataT(this.width(), this.height(), this.encoding(), this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength()), this.space() !== null ? this.space().unpack() : null);
   }
   unpackTo(_o) {
     _o.width = this.width();
     _o.height = this.height();
-    _o.valueType = this.valueType();
+    _o.encoding = this.encoding();
     _o.pixels = this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength());
+    _o.space = this.space() !== null ? this.space().unpack() : null;
   }
 };
 var BitmapDataT = class {
-  constructor(width = 0, height = 0, valueType = null, pixels = []) {
+  constructor(width = 0, height = 0, encoding = BitmapEncoding.Unspecified, pixels = [], space = null) {
     this.width = width;
     this.height = height;
-    this.valueType = valueType;
+    this.encoding = encoding;
     this.pixels = pixels;
+    this.space = space;
   }
   pack(builder) {
-    const valueType = this.valueType !== null ? builder.createString(this.valueType) : 0;
     const pixels = BitmapData.createPixelsVector(builder, this.pixels);
-    return BitmapData.createBitmapData(builder, this.width, this.height, valueType, pixels);
+    const space = this.space !== null ? this.space.pack(builder) : 0;
+    BitmapData.startBitmapData(builder);
+    BitmapData.addWidth(builder, this.width);
+    BitmapData.addHeight(builder, this.height);
+    BitmapData.addEncoding(builder, this.encoding);
+    BitmapData.addPixels(builder, pixels);
+    BitmapData.addSpace(builder, space);
+    return BitmapData.endBitmapData(builder);
   }
 };
 
@@ -5288,18 +5303,22 @@ var InstanceSegmentationMask = class _InstanceSegmentationMask {
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
   }
   confidence() {
     const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   box(obj) {
     const offset = this.bb.__offset(this.bb_pos, 12);
     return offset ? (obj || new BoundingBox()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
+  labelSet(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
   static startInstanceSegmentationMask(builder) {
-    builder.startObject(5);
+    builder.startObject(6);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -5308,20 +5327,23 @@ var InstanceSegmentationMask = class _InstanceSegmentationMask {
     builder.addFieldOffset(1, bitmapOffset, 0);
   }
   static addClassId(builder, classId) {
-    builder.addFieldInt32(2, classId, -1);
+    builder.addFieldInt32(2, classId, null);
   }
   static addConfidence(builder, confidence) {
-    builder.addFieldFloat32(3, confidence, 0);
+    builder.addFieldFloat32(3, confidence, null);
   }
   static addBox(builder, boxOffset) {
     builder.addFieldOffset(4, boxOffset, 0);
+  }
+  static addLabelSet(builder, labelSetOffset) {
+    builder.addFieldOffset(5, labelSetOffset, 0);
   }
   static endInstanceSegmentationMask(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new InstanceSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.classId(), this.confidence(), this.box() !== null ? this.box().unpack() : null);
+    return new InstanceSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.classId(), this.confidence(), this.box() !== null ? this.box().unpack() : null, this.labelSet());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
@@ -5329,26 +5351,32 @@ var InstanceSegmentationMask = class _InstanceSegmentationMask {
     _o.classId = this.classId();
     _o.confidence = this.confidence();
     _o.box = this.box() !== null ? this.box().unpack() : null;
+    _o.labelSet = this.labelSet();
   }
 };
 var InstanceSegmentationMaskT = class {
-  constructor(object = null, bitmap = null, classId = -1, confidence = 0, box = null) {
+  constructor(object = null, bitmap = null, classId = null, confidence = null, box = null, labelSet = null) {
     this.object = object;
     this.bitmap = bitmap;
     this.classId = classId;
     this.confidence = confidence;
     this.box = box;
+    this.labelSet = labelSet;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const bitmap = this.bitmap !== null ? this.bitmap.pack(builder) : 0;
     const box = this.box !== null ? this.box.pack(builder) : 0;
+    const labelSet = this.labelSet !== null ? builder.createString(this.labelSet) : 0;
     InstanceSegmentationMask.startInstanceSegmentationMask(builder);
     InstanceSegmentationMask.addObject(builder, object);
     InstanceSegmentationMask.addBitmap(builder, bitmap);
-    InstanceSegmentationMask.addClassId(builder, this.classId);
-    InstanceSegmentationMask.addConfidence(builder, this.confidence);
+    if (this.classId !== null)
+      InstanceSegmentationMask.addClassId(builder, this.classId);
+    if (this.confidence !== null)
+      InstanceSegmentationMask.addConfidence(builder, this.confidence);
     InstanceSegmentationMask.addBox(builder, box);
+    InstanceSegmentationMask.addLabelSet(builder, labelSet);
     return InstanceSegmentationMask.endInstanceSegmentationMask(builder);
   }
 };
@@ -6407,6 +6435,14 @@ var PersonPresencesT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/opacity-meaning.js
+var OpacityMeaning;
+(function(OpacityMeaning2) {
+  OpacityMeaning2[OpacityMeaning2["Unspecified"] = 0] = "Unspecified";
+  OpacityMeaning2[OpacityMeaning2["BackgroundOpacity"] = 1] = "BackgroundOpacity";
+  OpacityMeaning2[OpacityMeaning2["RegionOpacity"] = 2] = "RegionOpacity";
+})(OpacityMeaning || (OpacityMeaning = {}));
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js
 var SegmentationMask = class _SegmentationMask {
   constructor() {
@@ -6433,8 +6469,12 @@ var SegmentationMask = class _SegmentationMask {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? (obj || new BitmapData()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
+  meaning() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : OpacityMeaning.Unspecified;
+  }
   static startSegmentationMask(builder) {
-    builder.startObject(2);
+    builder.startObject(3);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -6442,22 +6482,27 @@ var SegmentationMask = class _SegmentationMask {
   static addBitmap(builder, bitmapOffset) {
     builder.addFieldOffset(1, bitmapOffset, 0);
   }
+  static addMeaning(builder, meaning) {
+    builder.addFieldInt8(2, meaning, OpacityMeaning.Unspecified);
+  }
   static endSegmentationMask(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new SegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null);
+    return new SegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.meaning());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.bitmap = this.bitmap() !== null ? this.bitmap().unpack() : null;
+    _o.meaning = this.meaning();
   }
 };
 var SegmentationMaskT = class {
-  constructor(object = null, bitmap = null) {
+  constructor(object = null, bitmap = null, meaning = OpacityMeaning.Unspecified) {
     this.object = object;
     this.bitmap = bitmap;
+    this.meaning = meaning;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
@@ -6465,6 +6510,7 @@ var SegmentationMaskT = class {
     SegmentationMask.startSegmentationMask(builder);
     SegmentationMask.addObject(builder, object);
     SegmentationMask.addBitmap(builder, bitmap);
+    SegmentationMask.addMeaning(builder, this.meaning);
     return SegmentationMask.endSegmentationMask(builder);
   }
 };
@@ -6600,8 +6646,16 @@ var SemanticSegmentationMask = class _SemanticSegmentationMask {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? (obj || new BitmapData()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
+  labelSet(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  voidValue() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
+  }
   static startSemanticSegmentationMask(builder) {
-    builder.startObject(2);
+    builder.startObject(4);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -6609,29 +6663,43 @@ var SemanticSegmentationMask = class _SemanticSegmentationMask {
   static addBitmap(builder, bitmapOffset) {
     builder.addFieldOffset(1, bitmapOffset, 0);
   }
+  static addLabelSet(builder, labelSetOffset) {
+    builder.addFieldOffset(2, labelSetOffset, 0);
+  }
+  static addVoidValue(builder, voidValue) {
+    builder.addFieldInt32(3, voidValue, null);
+  }
   static endSemanticSegmentationMask(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new SemanticSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null);
+    return new SemanticSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.labelSet(), this.voidValue());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.bitmap = this.bitmap() !== null ? this.bitmap().unpack() : null;
+    _o.labelSet = this.labelSet();
+    _o.voidValue = this.voidValue();
   }
 };
 var SemanticSegmentationMaskT = class {
-  constructor(object = null, bitmap = null) {
+  constructor(object = null, bitmap = null, labelSet = null, voidValue = null) {
     this.object = object;
     this.bitmap = bitmap;
+    this.labelSet = labelSet;
+    this.voidValue = voidValue;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const bitmap = this.bitmap !== null ? this.bitmap.pack(builder) : 0;
+    const labelSet = this.labelSet !== null ? builder.createString(this.labelSet) : 0;
     SemanticSegmentationMask.startSemanticSegmentationMask(builder);
     SemanticSegmentationMask.addObject(builder, object);
     SemanticSegmentationMask.addBitmap(builder, bitmap);
+    SemanticSegmentationMask.addLabelSet(builder, labelSet);
+    if (this.voidValue !== null)
+      SemanticSegmentationMask.addVoidValue(builder, this.voidValue);
     return SemanticSegmentationMask.endSemanticSegmentationMask(builder);
   }
 };
@@ -7654,7 +7722,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "18a212000d9a00662a0e6de673716fcb76e44196603e1e5c203117abd22cc2df";
+var SCHEMA_SET_SHA256 = "b500edeafa21c9cc735b38a334cf85ebebf123e913b9c02c41f544c25c3a539c";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -7995,6 +8063,39 @@ function imageBox(box) {
   };
 }
 
+// development/web/src/mask-data.js
+function validBitmap(data) {
+  const bytes = data?.encoding === BitmapEncoding.Uint8 ? 1 : data?.encoding === BitmapEncoding.Uint32LE ? 4 : 0;
+  return bytes > 0 && validImageSpace(data.space) && Number.isInteger(data.width) && data.width > 0 && data.width <= 4294967295 && Number.isInteger(data.height) && data.height > 0 && data.height <= 4294967295 && Number.isSafeInteger(data.width * data.height * bytes) && data.pixels instanceof Uint8Array && data.pixels.length === data.width * data.height * bytes;
+}
+function validMask(data, type) {
+  if (!validBitmap(data)) return false;
+  if (type === "SegmentationMask") return data.encoding === BitmapEncoding.Uint8 && [OpacityMeaning.BackgroundOpacity, OpacityMeaning.RegionOpacity].includes(data.meaning);
+  const identified = typeof data.labelSet === "string" && data.labelSet.length > 0;
+  if (type === "SemanticSegmentationMask") return identified && (data.voidValue == null || Number.isInteger(data.voidValue) && data.voidValue >= 0 && data.voidValue <= (data.encoding === BitmapEncoding.Uint8 ? 255 : 4294967295));
+  if (type !== "InstanceSegmentationMask" || data.encoding !== BitmapEncoding.Uint8) return false;
+  if (data.classId != null && (!identified || !Number.isInteger(data.classId) || data.classId < 0 || data.classId > 4294967295)) return false;
+  if (data.confidence != null && (!Number.isFinite(data.confidence) || data.confidence < 0 || data.confidence > 1)) return false;
+  if (data.box && (!imageBox(data.box) || String(data.box.space.frameId) !== String(data.space.frameId) || data.box.space.width !== data.space.width || data.box.space.height !== data.space.height)) return false;
+  return data.pixels.every((value) => value <= 1);
+}
+function maskData(item) {
+  const bitmap = item?.bitmap;
+  return {
+    width: bitmap?.width,
+    height: bitmap?.height,
+    encoding: bitmap?.encoding,
+    pixels: bitmap?.pixels != null ? Uint8Array.from(bitmap.pixels) : void 0,
+    space: bitmap?.space,
+    meaning: item?.meaning,
+    labelSet: item?.labelSet,
+    voidValue: item?.voidValue,
+    classId: item?.classId,
+    confidence: item?.confidence,
+    box: item?.box
+  };
+}
+
 // development/web/src/frame-results.js
 var FRAME_RESULTS_ENCODING = "perception-frame-results+base64";
 var FrameResultsDecodeError = class extends Error {
@@ -8202,44 +8303,16 @@ function decodeFrameResultsMessage(message) {
       points: validImageSpace(item.space) ? item.points.map((point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) ? imagePoint(point.x, point.y, item.space) : null) : []
     }
   })), layers);
-  addPayloadLayers(envelope, SegmentationMasksT, "SegmentationMasks", (payload) => payload.masks.map((item) => ({
-    type: "SegmentationMask",
-    data: {
-      ...objectData(item.object),
-      width: Number(item.bitmap?.width || 0),
-      height: Number(item.bitmap?.height || 0),
-      valueType: text(item.bitmap?.valueType),
-      pixels: item.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0
-    }
-  })), layers);
-  addPayloadLayers(envelope, SemanticSegmentationMasksT, "SemanticSegmentationMasks", (payload) => payload.masks.map((item) => ({
-    type: "SemanticSegmentationMask",
-    data: {
-      ...objectData(item?.object),
-      width: Number(item?.bitmap?.width || 0),
-      height: Number(item?.bitmap?.height || 0),
-      valueType: text(item?.bitmap?.valueType),
-      pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0
-    }
-  })), layers);
-  addPayloadLayers(envelope, InstanceSegmentationMasksT, "InstanceSegmentationMasks", (payload) => payload.masks.map((item) => ({
-    type: "InstanceSegmentationMask",
-    data: {
-      ...objectData(item?.object),
-      width: Number(item?.bitmap?.width || 0),
-      height: Number(item?.bitmap?.height || 0),
-      valueType: text(item?.bitmap?.valueType),
-      pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0,
-      classId: Number(item?.classId ?? -1),
-      confidence: Number(item?.confidence),
-      box: item?.box ? {
-        x: Number(item.box.x),
-        y: Number(item.box.y),
-        width: Number(item.box.width),
-        height: Number(item.box.height)
-      } : null
-    }
-  })), layers);
+  for (const [root2, type] of [
+    [SegmentationMasksT, "SegmentationMask"],
+    [SemanticSegmentationMasksT, "SemanticSegmentationMask"],
+    [InstanceSegmentationMasksT, "InstanceSegmentationMask"]
+  ]) {
+    addPayloadLayers(envelope, root2, type + "s", (payload) => payload.masks.map((item) => ({
+      type,
+      data: { ...objectData(item?.object), ...maskData(item) }
+    })), layers);
+  }
   addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => ({
     type: "ObjectEmbedding",
     data: { ...objectData(item.object), values: [...item.values] }
@@ -9005,22 +9078,14 @@ var performance_default = defineFeature({
 
 // development/web/src/features/background-replacement.js
 var resources = /* @__PURE__ */ new WeakMap();
-function resolve(result, index) {
+function resolve(result) {
   const masks = result.items.filter((item) => item.type === "SegmentationMask");
-  if (result.output.layers.some((layer2) => layer2.compositingMode !== "backgroundReplacement")) {
-    return { ...result, state: "unsupported", message: "Requires a background-opacity mask." };
-  }
-  if (masks.length > 1) return { ...result, items: [], state: "ambiguous", message: "Expected one full-frame mask." };
+  if (masks.length > 1) return { ...result, items: [], state: "ambiguous", message: "Expected one opacity mask." };
   if (!masks.length) return { ...result, items: [] };
-  const { width, height, valueType, pixels, parentUuid } = masks[0].data;
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > 16777216 || valueType !== "Uint8" || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
-    return { ...result, items: [], state: "unsupported", message: "Invalid or oversized Uint8 mask." };
-  }
-  if (objectId(parentUuid)) {
-    const parents = index.frame.layers.flatMap((layer2) => layer2.detections || []).filter((item) => objectId(item.data?.uuid) === objectId(parentUuid));
-    if (parents.length !== 1 || parents[0].type !== "VideoFrame") {
-      return { ...result, items: [], state: "partial", message: "Waiting for unambiguous full-frame mask geometry." };
-    }
+  const data = masks[0].data;
+  const { width, height } = data;
+  if (!validMask(data, "SegmentationMask") || data.meaning !== OpacityMeaning.BackgroundOpacity || width > 8192 || height > 8192 || width * height > 16777216) {
+    return { ...result, items: [], state: "unsupported", message: "Requires a valid, bounded background-opacity mask with image space." };
   }
   return { ...result, items: masks };
 }
@@ -9032,7 +9097,7 @@ function render({ ctx, canvas: canvas2, mapper, overlay: overlay2 }, resolved, s
     cache = { mask: document.createElement("canvas"), composite: document.createElement("canvas") };
     resources.set(overlay2, cache);
   }
-  if (cache.pixels !== mask.pixels) {
+  if (cache.pixels !== mask.pixels || cache.mask.width !== mask.width || cache.mask.height !== mask.height) {
     cache.mask.width = mask.width;
     cache.mask.height = mask.height;
     const maskContext = cache.mask.getContext("2d");
@@ -9067,14 +9132,21 @@ function render({ ctx, canvas: canvas2, mapper, overlay: overlay2 }, resolved, s
     composite.drawImage(cache.image, (w - iw) / 2, (h - ih) / 2, iw, ih);
   }
   composite.globalCompositeOperation = "destination-in";
-  composite.drawImage(cache.mask, 0, 0, w, h);
+  const space = mask.space;
+  composite.drawImage(
+    cache.mask,
+    space.originX * w / space.width,
+    space.originY * h / space.height,
+    space.extentWidth * w / space.width,
+    space.extentHeight * h / space.height
+  );
   ctx.drawImage(cache.composite, x, y, width, height);
 }
 var background_replacement_default = defineFeature({
   id: "background-replacement",
   label: "Background replacement",
   renderOrder: -1,
-  accepts: (source) => source.payloadType === "SegmentationMasks" && source.contentType === "segmentation",
+  accepts: (source) => source.payloadType === "SegmentationMasks",
   controls: [
     { key: "background", label: "Background", type: "select", value: "color", options: [
       { value: "color", label: "Solid color" },
@@ -9090,9 +9162,12 @@ var background_replacement_default = defineFeature({
 
 // development/web/src/features/segmentation.js
 var MAX_MASK_PIXELS = 16777216;
+var MAX_CLASSES = 4096;
+var classKey = (id) => id ?? -1;
 var CLASS_CONTROLS = [{ key: "enabled", label: "Visible", type: "checkbox", switch: true, value: true }, ...STYLE_CONTROLS];
 var MASK_CONTROLS = [{ key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.01, value: 0.5 }];
 function classStyle(id, settings) {
+  id = classKey(id);
   const key = (id ^ id >>> 8 ^ id >>> 16 ^ id >>> 24) & 255;
   const rgb = [64 + (key & 7) * 24, 64 + (key >> 3 & 7) * 24, 64 + (key >> 6) * 48];
   const style = settings?.classes?.[id];
@@ -9101,7 +9176,7 @@ function classStyle(id, settings) {
     opacity: 1,
     color: "#" + rgb.map((value) => value.toString(16).padStart(2, "0")).join(""),
     ...style,
-    label: style?.label?.trim() || `Class ${id}`
+    label: style?.label?.trim() || (id === -1 ? "Unclassified" : `Class ${id}`)
   };
 }
 function classLegend(present, settings, message = "") {
@@ -9111,12 +9186,12 @@ function classLegend(present, settings, message = "") {
 function classRenderSignature(settings) {
   return JSON.stringify(Object.entries(settings.classes).map(([id, style]) => [id, style.enabled, style.color, style.opacity]));
 }
-function withClassSettings(feature2, minId = 0, maxId = 255) {
+function withClassSettings(feature2, minId = 0, maxId = 4294967295) {
   return { ...feature2, validateSettings(settings) {
     const result = feature2.validateSettings(settings);
     if (!result) return null;
     const classes = settings.classes === void 0 ? {} : settings.classes;
-    if (!classes || typeof classes !== "object" || Array.isArray(classes)) return null;
+    if (!classes || typeof classes !== "object" || Array.isArray(classes) || Object.keys(classes).length > MAX_CLASSES) return null;
     result.classes = {};
     for (const [id, style] of Object.entries(classes)) {
       const value = Number(id);
@@ -9127,64 +9202,73 @@ function withClassSettings(feature2, minId = 0, maxId = 255) {
     return result;
   } };
 }
-function maskGeometryError(mask, index) {
-  const { width, height, valueType, pixels, parentUuid } = mask;
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS || valueType !== "Uint8" || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
-    return { state: "unsupported", message: "Invalid or oversized Uint8 mask." };
-  }
-  const parentId = objectId(parentUuid);
-  const parents = parentId ? index.frame.layers.flatMap((layer2) => (layer2.detections || []).filter((item) => objectId(item.data?.uuid) === parentId).map((item) => ({ ...item, payloadType: layer2.payloadType }))) : [];
-  if (parents.length !== 1 || parents[0].payloadType !== "FrameContext" || parents[0].type !== "VideoFrame") {
-    return { state: "partial", message: "Waiting for an unambiguous VideoFrame parent." };
-  }
-  const video5 = parents[0].data;
-  if (video5.originalWidth !== width || video5.originalHeight !== height || ["sourceCropLeft", "sourceCropRight", "sourceCropTop", "sourceCropBottom"].some((key) => video5[key])) {
-    return { state: "unsupported", message: "Requires a source-sized mask for an uncropped video frame." };
+function maskGeometryError(mask, type) {
+  const { width, height } = mask;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS || !validMask(mask, type)) {
+    return { state: "unsupported", message: "Invalid or oversized mask, encoding, identity or image space." };
   }
   return null;
+}
+function maskValueReader(mask) {
+  if (mask.encoding === BitmapEncoding.Uint8) return (index) => mask.pixels[index];
+  const view = new DataView(mask.pixels.buffer, mask.pixels.byteOffset, mask.pixels.byteLength);
+  return (index) => view.getUint32(index * 4, true);
+}
+function maskPlacement(space, display) {
+  return [
+    display.x + space.originX * display.width / space.width,
+    display.y + space.originY * display.height / space.height,
+    space.extentWidth * display.width / space.width,
+    space.extentHeight * display.height / space.height
+  ];
 }
 
 // development/web/src/features/semantic-segmentation.js
 var presentClasses = /* @__PURE__ */ new WeakMap();
 var surfaces = /* @__PURE__ */ new WeakMap();
 function classesIn(mask) {
-  if (!mask) return new Uint8Array(256);
-  if (!presentClasses.has(mask.pixels)) {
-    const seen = new Uint8Array(256);
-    for (let i = 0; i < mask.pixels.length; i++) seen[mask.pixels[i]] = 1;
-    presentClasses.set(mask.pixels, seen);
+  if (!mask) return /* @__PURE__ */ new Set();
+  if (!presentClasses.has(mask)) {
+    const seen = /* @__PURE__ */ new Set();
+    const sample = maskValueReader(mask);
+    for (let i = 0; i < mask.width * mask.height; i++) {
+      const id = sample(i);
+      if (id !== mask.voidValue) seen.add(id);
+      if (seen.size > MAX_CLASSES) break;
+    }
+    presentClasses.set(mask, seen);
   }
-  return presentClasses.get(mask.pixels);
+  return presentClasses.get(mask);
 }
 function colorize(mask, settings) {
-  const colors = Array.from({ length: 256 }, (_, id) => {
+  const colors = new Map([...classesIn(mask)].map((id) => {
     const style = classStyle(id, settings);
     const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
-    return [...rgb, style.enabled ? Math.round(style.opacity * 255) : 0];
-  });
-  const rgba = new Uint8ClampedArray(mask.pixels.length * 4);
-  const seen = presentClasses.get(mask.pixels) || new Uint8Array(256);
-  for (let i = 0; i < mask.pixels.length; i++) {
-    const id = mask.pixels[i];
-    const color = colors[id];
+    return [id, [...rgb, style.enabled ? Math.round(style.opacity * 255) : 0]];
+  }));
+  const rgba = new Uint8ClampedArray(mask.width * mask.height * 4);
+  const sample = maskValueReader(mask);
+  for (let i = 0; i < mask.width * mask.height; i++) {
+    const id = sample(i);
+    if (id === mask.voidValue) continue;
+    const color = colors.get(id);
     const offset = i * 4;
     rgba[offset] = color[0];
     rgba[offset + 1] = color[1];
     rgba[offset + 2] = color[2];
     rgba[offset + 3] = color[3];
-    seen[id] = 1;
   }
-  presentClasses.set(mask.pixels, seen);
   return rgba;
 }
-function resolve2(result, index) {
+function resolve2(result) {
   const items = result.items.filter((item) => item.type === "SemanticSegmentationMask");
   const invalid = (state, message) => ({ ...result, items: [], state, message });
-  if (items.length > 1) return invalid("ambiguous", "Expected one full-frame class map for this source.");
-  if (!items.length) return invalid("partial", "No class map in the displayed frame.");
+  if (items.length > 1) return invalid("ambiguous", "Expected one class map for this source.");
+  if (!items.length) return { ...result, items: [] };
   const mask = items[0].data;
-  const error = maskGeometryError(mask, index);
+  const error = maskGeometryError(mask, "SemanticSegmentationMask");
   if (error) return invalid(error.state, error.message);
+  if (classesIn(mask).size > MAX_CLASSES) return invalid("unsupported", `Too many classes (maximum ${MAX_CLASSES}).`);
   return { ...result, items, mask };
 }
 function render2({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolved.settings) {
@@ -9196,22 +9280,21 @@ function render2({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolv
     surface = { canvas: document.createElement("canvas") };
     surfaces.set(overlay2, surface);
   }
-  if (surface.pixels !== mask.pixels || surface.signature !== signature || surface.canvas.width !== mask.width || surface.canvas.height !== mask.height) {
+  if (surface.mask !== mask || surface.signature !== signature || surface.canvas.width !== mask.width || surface.canvas.height !== mask.height) {
     if (surface.canvas.width !== mask.width) surface.canvas.width = mask.width;
     if (surface.canvas.height !== mask.height) surface.canvas.height = mask.height;
     surface.canvas.getContext("2d").putImageData(new ImageData(colorize(mask, settings), mask.width, mask.height), 0, 0);
-    surface.pixels = mask.pixels;
+    surface.mask = mask;
     surface.signature = signature;
   }
-  const { x, y, width, height } = mapper.display;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(surface.canvas, x, y, width, height);
+  ctx.drawImage(surface.canvas, ...maskPlacement(mask.space, mapper.display));
 }
 var semantic_segmentation_default = withClassSettings(defineFeature({
   id: "semantic-segmentation",
   label: "Semantic segmentation",
   renderOrder: -1,
-  accepts: (source) => source.payloadType === "SemanticSegmentationMasks" && source.contentType === "semanticSegmentation",
+  accepts: (source) => source.payloadType === "SemanticSegmentationMasks",
   controls: MASK_CONTROLS,
   defaults: () => ({ classes: {} }),
   classControls: CLASS_CONTROLS,
@@ -9219,9 +9302,7 @@ var semantic_segmentation_default = withClassSettings(defineFeature({
   render: render2,
   legend(resolved, settings = resolved.settings) {
     const present = /* @__PURE__ */ new Set();
-    classesIn(resolved.mask).forEach((seen, id) => {
-      if (seen) present.add(id);
-    });
+    classesIn(resolved.mask).forEach((id) => present.add(id));
     const message = !resolved.mask ? resolved.message || "No class map in the displayed frame." : "";
     return classLegend(present, settings, message);
   }
@@ -9231,7 +9312,7 @@ var semantic_segmentation_default = withClassSettings(defineFeature({
 var resolvedFrames = /* @__PURE__ */ new WeakMap();
 var surfaces2 = /* @__PURE__ */ new WeakMap();
 var MAX_TOTAL_MASK_PIXELS = 64 * 1024 * 1024;
-function resolve3(result, index) {
+function resolve3(result) {
   if (resolvedFrames.has(result.output)) return resolvedFrames.get(result.output);
   const finish = (value) => {
     resolvedFrames.set(result.output, value);
@@ -9243,17 +9324,18 @@ function resolve3(result, index) {
   const totalPixels = items.reduce((total, { data }) => total + (data.pixels instanceof Uint8Array ? data.pixels.length : 0), 0);
   if (totalPixels > MAX_TOTAL_MASK_PIXELS) return invalid("unsupported", `Instance masks exceed the total pixel budget (${MAX_TOTAL_MASK_PIXELS}).`);
   const validated = [];
-  let parent;
+  let frame, labelSet;
   for (const [position, item] of items.entries()) {
     const mask = item.data;
-    const error = maskGeometryError(mask, index);
+    const error = maskGeometryError(mask, "InstanceSegmentationMask");
     if (error) return invalid(error.state, error.message);
-    const parentId = objectId(mask.parentUuid);
-    if (parent && parent !== parentId) return invalid("ambiguous", "Instance masks must share one VideoFrame parent.");
-    parent = parentId;
-    const { box, classId, confidence, width, height } = mask;
-    if (!Number.isInteger(classId) || classId < -1 || classId > 2147483647 || !Number.isFinite(confidence) || confidence < 0 || confidence > 1 || !box || ![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0 || box.x >= width || box.y >= height || box.x + box.width > width + 1e-3 || box.y + box.height > height + 1e-3) {
-      return invalid("unsupported", "Invalid instance class, confidence, or source-image box.");
+    const { space, width, height } = mask;
+    if (frame && (String(frame.frameId) !== String(space.frameId) || frame.width !== space.width || frame.height !== space.height))
+      return invalid("ambiguous", "Instance masks must share one declared source frame.");
+    frame = space;
+    if (mask.classId != null) {
+      if (labelSet && labelSet !== mask.labelSet) return invalid("ambiguous", "Instance class namespaces differ.");
+      labelSet = mask.labelSet;
     }
     let left = width, right = -1, top = height, bottom = -1;
     for (let y = 0, pixelIndex = 0; y < height; y++) {
@@ -9269,54 +9351,81 @@ function resolve3(result, index) {
     }
     if (right >= 0) validated.push({ ...item, number: position + 1, bounds: { left, right, top, bottom } });
   }
-  return finish({ ...result, items: validated });
+  return finish({ ...result, items: validated, frame });
 }
-function colorize2(masks, settings) {
-  const { width, height } = masks[0].data;
+function colorize2({ data, bounds }, style) {
+  const { width, height } = data;
   const rgba = new Uint8ClampedArray(width * height * 4);
-  for (const { data, bounds } of masks) {
-    const style = classStyle(data.classId, settings);
-    if (!style.enabled || style.opacity <= 0) continue;
-    const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
-    const alpha = Math.round(style.opacity * 255);
-    const edge = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 >= 128 ? 0 : 255;
-    const fill = [...rgb, alpha];
-    const outline = [edge, edge, edge, alpha];
-    const pixels = data.pixels;
-    for (let y = bounds.top; y <= bounds.bottom; y++) {
-      const row = y * width;
-      for (let x = bounds.left; x <= bounds.right; x++) {
-        const i = row + x;
-        if (!pixels[i]) continue;
-        const boundary = x === 0 || x === width - 1 || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
-        const color = boundary ? outline : fill;
-        const offset = i * 4;
-        rgba[offset] = color[0];
-        rgba[offset + 1] = color[1];
-        rgba[offset + 2] = color[2];
-        rgba[offset + 3] = color[3];
-      }
+  const coverage = new Uint8ClampedArray(rgba.length);
+  const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
+  const alpha = Math.round(style.opacity * 255);
+  const edge = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 >= 128 ? 0 : 255;
+  const fill = [...rgb, alpha];
+  const outline = [edge, edge, edge, alpha];
+  const pixels = data.pixels;
+  for (let y = bounds.top; y <= bounds.bottom; y++) {
+    const row = y * width;
+    for (let x = bounds.left; x <= bounds.right; x++) {
+      const i = row + x;
+      if (!pixels[i]) continue;
+      const boundary = x === 0 || x === width - 1 || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
+      const color = boundary ? outline : fill;
+      const offset = i * 4;
+      rgba[offset] = color[0];
+      rgba[offset + 1] = color[1];
+      rgba[offset + 2] = color[2];
+      rgba[offset + 3] = color[3];
+      coverage[offset + 3] = 255;
     }
   }
-  return rgba;
+  return { rgba, coverage };
 }
 function render3({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolved.settings) {
   if (!resolved.items?.length) return;
-  const { width, height } = resolved.items[0].data;
+  const display = mapper.display;
+  const dpr = ctx.getTransform().a;
+  const pixelWidth = display.width * dpr, pixelHeight = display.height * dpr;
+  if (![pixelWidth, pixelHeight].every((value) => Number.isFinite(value) && value > 0)) return;
+  const requestedWidth = Math.max(1, Math.round(pixelWidth));
+  const requestedHeight = Math.max(1, Math.round(pixelHeight));
+  const scale = Math.min(
+    1,
+    8192 / requestedWidth,
+    8192 / requestedHeight,
+    Math.sqrt(MAX_MASK_PIXELS / requestedWidth / requestedHeight)
+  );
+  const width = Math.max(1, Math.floor(requestedWidth * scale));
+  const height = Math.max(1, Math.min(Math.floor(requestedHeight * scale), Math.floor(MAX_MASK_PIXELS / width)));
   const signature = classRenderSignature(settings);
   let surface = surfaces2.get(overlay2);
   if (!surface) {
-    surface = { canvas: document.createElement("canvas") };
+    surface = { canvas: document.createElement("canvas"), raster: document.createElement("canvas") };
     surfaces2.set(overlay2, surface);
   }
-  if (surface.output !== resolved.output || surface.signature !== signature) {
+  if (surface.output !== resolved.output || surface.signature !== signature || surface.canvas.width !== width || surface.canvas.height !== height) {
     if (surface.canvas.width !== width) surface.canvas.width = width;
     if (surface.canvas.height !== height) surface.canvas.height = height;
-    surface.canvas.getContext("2d").putImageData(new ImageData(colorize2(resolved.items, settings), width, height), 0, 0);
+    const composite = surface.canvas.getContext("2d");
+    composite.clearRect(0, 0, width, height);
+    composite.imageSmoothingEnabled = false;
+    for (const item of resolved.items) {
+      const style = classStyle(item.data.classId, settings);
+      if (!style.enabled || style.opacity <= 0) continue;
+      const pixels = colorize2(item, style);
+      surface.raster.width = item.data.width;
+      surface.raster.height = item.data.height;
+      const raster = surface.raster.getContext("2d");
+      const placement = maskPlacement(item.data.space, { x: 0, y: 0, width, height });
+      raster.putImageData(new ImageData(pixels.coverage, item.data.width, item.data.height), 0, 0);
+      composite.globalCompositeOperation = "destination-out";
+      composite.drawImage(surface.raster, ...placement);
+      raster.putImageData(new ImageData(pixels.rgba, item.data.width, item.data.height), 0, 0);
+      composite.globalCompositeOperation = "source-over";
+      composite.drawImage(surface.raster, ...placement);
+    }
     surface.output = resolved.output;
     surface.signature = signature;
   }
-  const display = mapper.display;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(surface.canvas, display.x, display.y, display.width, display.height);
 }
@@ -9325,13 +9434,21 @@ function renderAnnotations({ ctx, mapper }, resolved, settings = resolved.settin
     for (const { data, number: number2 } of resolved.items || []) {
       const style = classStyle(data.classId, settings);
       if (!style.enabled || style.opacity <= 0) continue;
+      const box = data.box && imageBox(data.box);
+      if (!box) continue;
+      const x = Math.max(0, box.x), y = Math.max(0, box.y);
+      const width = Math.min(box.frameWidth, box.x + box.width) - x;
+      const height = Math.min(box.frameHeight, box.y + box.height) - y;
+      if (width <= 0 || height <= 0) continue;
       ctx.save();
       ctx.globalAlpha *= style.opacity;
       drawObjectBox(ctx, {
-        ...data.box,
-        width: Math.min(data.box.width, data.width - data.box.x),
-        height: Math.min(data.box.height, data.height - data.box.y),
-        label: `#${number2} \xB7 ${style.label} \xB7 ${Math.round(data.confidence * 100)}%`
+        ...box,
+        x,
+        y,
+        width,
+        height,
+        label: `#${number2} \xB7 ${style.label}${data.confidence == null ? "" : ` \xB7 ${Math.round(data.confidence * 100)}%`}`
       }, mapper, "#ffffff");
       ctx.restore();
     }
@@ -9341,7 +9458,7 @@ var instance_segmentation_default = withClassSettings(defineFeature({
   id: "instance-segmentation",
   label: "Instance segmentation",
   renderOrder: -1,
-  accepts: (source) => source.payloadType === "InstanceSegmentationMasks" && source.contentType === "instanceSegmentation",
+  accepts: (source) => source.payloadType === "InstanceSegmentationMasks",
   controls: [...MASK_CONTROLS, { key: "boxes", label: "Boxes and labels", type: "checkbox", value: true }],
   defaults: () => ({ classes: {} }),
   classControls: CLASS_CONTROLS,
@@ -9349,10 +9466,10 @@ var instance_segmentation_default = withClassSettings(defineFeature({
   render: render3,
   renderAnnotations,
   legend(resolved, settings = resolved.settings) {
-    const present = new Set((resolved.items || []).map((item) => item.data.classId));
+    const present = new Set((resolved.items || []).map((item) => classKey(item.data.classId)));
     return classLegend(present, settings, resolved.message || (!present.size ? "No instances in the displayed frame." : ""));
   }
-}), -1, 2147483647);
+}), -1, 4294967295);
 
 // development/web/src/features/ocr.js
 var resolvedFrames2 = /* @__PURE__ */ new WeakMap();
