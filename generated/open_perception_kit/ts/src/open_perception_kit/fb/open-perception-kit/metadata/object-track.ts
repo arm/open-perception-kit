@@ -22,6 +22,9 @@ import * as flatbuffers from 'flatbuffers';
 
 import { BoundingBox, BoundingBoxT } from '../../open-perception-kit/metadata/bounding-box.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
+import { TrackAssociation, TrackAssociationT } from '../../open-perception-kit/metadata/track-association.js';
+import { TrackIdentity, TrackIdentityT } from '../../open-perception-kit/metadata/track-identity.js';
+import { TrackingSample, TrackingSampleT } from '../../open-perception-kit/metadata/tracking-sample.js';
 
 
 export class ObjectTrack implements flatbuffers.IUnpackableObject<ObjectTrackT> {
@@ -47,14 +50,14 @@ object(obj?:ObjectMeta):ObjectMeta|null {
   return offset ? (obj || new ObjectMeta()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-sourceId():bigint {
+sourceId():bigint|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : null;
 }
 
-trackId():bigint {
+identity(obj?:TrackIdentity):TrackIdentity|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+  return offset ? (obj || new TrackIdentity()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
 box(obj?:BoundingBox):BoundingBox|null {
@@ -62,9 +65,9 @@ box(obj?:BoundingBox):BoundingBox|null {
   return offset ? (obj || new BoundingBox()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-confidence():number {
+sourceConfidence():number|null {
   const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : null;
 }
 
 classId():number|null {
@@ -79,20 +82,23 @@ text(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-diagnostic():string|null
-diagnostic(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-diagnostic(optionalEncoding?:any):string|Uint8Array|null {
+association(obj?:TrackAssociation):TrackAssociation|null {
   const offset = this.bb!.__offset(this.bb_pos, 18);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+  return offset ? (obj || new TrackAssociation()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-predictedOnly():boolean {
+sample(obj?:TrackingSample):TrackingSample|null {
   const offset = this.bb!.__offset(this.bb_pos, 20);
-  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+  return offset ? (obj || new TrackingSample()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
+sourceFrameIndex():bigint|null {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : null;
 }
 
 static startObjectTrack(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(10);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -100,19 +106,19 @@ static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
 }
 
 static addSourceId(builder:flatbuffers.Builder, sourceId:bigint) {
-  builder.addFieldInt64(1, sourceId, BigInt('0'));
+  builder.addFieldInt64(1, sourceId, null);
 }
 
-static addTrackId(builder:flatbuffers.Builder, trackId:bigint) {
-  builder.addFieldInt64(2, trackId, BigInt('0'));
+static addIdentity(builder:flatbuffers.Builder, identityOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, identityOffset, 0);
 }
 
 static addBox(builder:flatbuffers.Builder, boxOffset:flatbuffers.Offset) {
   builder.addFieldOffset(3, boxOffset, 0);
 }
 
-static addConfidence(builder:flatbuffers.Builder, confidence:number) {
-  builder.addFieldFloat32(4, confidence, 0.0);
+static addSourceConfidence(builder:flatbuffers.Builder, sourceConfidence:number) {
+  builder.addFieldFloat32(4, sourceConfidence, null);
 }
 
 static addClassId(builder:flatbuffers.Builder, classId:number) {
@@ -123,12 +129,16 @@ static addText(builder:flatbuffers.Builder, textOffset:flatbuffers.Offset) {
   builder.addFieldOffset(6, textOffset, 0);
 }
 
-static addDiagnostic(builder:flatbuffers.Builder, diagnosticOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(7, diagnosticOffset, 0);
+static addAssociation(builder:flatbuffers.Builder, associationOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(7, associationOffset, 0);
 }
 
-static addPredictedOnly(builder:flatbuffers.Builder, predictedOnly:boolean) {
-  builder.addFieldInt8(8, +predictedOnly, +false);
+static addSample(builder:flatbuffers.Builder, sampleOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(8, sampleOffset, 0);
+}
+
+static addSourceFrameIndex(builder:flatbuffers.Builder, sourceFrameIndex:bigint) {
+  builder.addFieldInt64(9, sourceFrameIndex, null);
 }
 
 static endObjectTrack(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -141,13 +151,14 @@ unpack(): ObjectTrackT {
   return new ObjectTrackT(
     (this.object() !== null ? this.object()!.unpack() : null),
     this.sourceId(),
-    this.trackId(),
+    (this.identity() !== null ? this.identity()!.unpack() : null),
     (this.box() !== null ? this.box()!.unpack() : null),
-    this.confidence(),
+    this.sourceConfidence(),
     this.classId(),
     this.text(),
-    this.diagnostic(),
-    this.predictedOnly()
+    (this.association() !== null ? this.association()!.unpack() : null),
+    (this.sample() !== null ? this.sample()!.unpack() : null),
+    this.sourceFrameIndex()
   );
 }
 
@@ -155,47 +166,55 @@ unpack(): ObjectTrackT {
 unpackTo(_o: ObjectTrackT): void {
   _o.object = (this.object() !== null ? this.object()!.unpack() : null);
   _o.sourceId = this.sourceId();
-  _o.trackId = this.trackId();
+  _o.identity = (this.identity() !== null ? this.identity()!.unpack() : null);
   _o.box = (this.box() !== null ? this.box()!.unpack() : null);
-  _o.confidence = this.confidence();
+  _o.sourceConfidence = this.sourceConfidence();
   _o.classId = this.classId();
   _o.text = this.text();
-  _o.diagnostic = this.diagnostic();
-  _o.predictedOnly = this.predictedOnly();
+  _o.association = (this.association() !== null ? this.association()!.unpack() : null);
+  _o.sample = (this.sample() !== null ? this.sample()!.unpack() : null);
+  _o.sourceFrameIndex = this.sourceFrameIndex();
 }
 }
 
 export class ObjectTrackT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public sourceId: bigint = BigInt('0'),
-  public trackId: bigint = BigInt('0'),
+  public sourceId: bigint|null = null,
+  public identity: TrackIdentityT|null = null,
   public box: BoundingBoxT|null = null,
-  public confidence: number = 0.0,
+  public sourceConfidence: number|null = null,
   public classId: number|null = null,
   public text: string|Uint8Array|null = null,
-  public diagnostic: string|Uint8Array|null = null,
-  public predictedOnly: boolean = false
+  public association: TrackAssociationT|null = null,
+  public sample: TrackingSampleT|null = null,
+  public sourceFrameIndex: bigint|null = null
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
+  const identity = (this.identity !== null ? this.identity!.pack(builder) : 0);
   const box = (this.box !== null ? this.box!.pack(builder) : 0);
   const text = (this.text !== null ? builder.createString(this.text!) : 0);
-  const diagnostic = (this.diagnostic !== null ? builder.createString(this.diagnostic!) : 0);
+  const association = (this.association !== null ? this.association!.pack(builder) : 0);
+  const sample = (this.sample !== null ? this.sample!.pack(builder) : 0);
 
   ObjectTrack.startObjectTrack(builder);
   ObjectTrack.addObject(builder, object);
-  ObjectTrack.addSourceId(builder, this.sourceId);
-  ObjectTrack.addTrackId(builder, this.trackId);
+  if (this.sourceId !== null)
+    ObjectTrack.addSourceId(builder, this.sourceId);
+  ObjectTrack.addIdentity(builder, identity);
   ObjectTrack.addBox(builder, box);
-  ObjectTrack.addConfidence(builder, this.confidence);
+  if (this.sourceConfidence !== null)
+    ObjectTrack.addSourceConfidence(builder, this.sourceConfidence);
   if (this.classId !== null)
     ObjectTrack.addClassId(builder, this.classId);
   ObjectTrack.addText(builder, text);
-  ObjectTrack.addDiagnostic(builder, diagnostic);
-  ObjectTrack.addPredictedOnly(builder, this.predictedOnly);
+  ObjectTrack.addAssociation(builder, association);
+  ObjectTrack.addSample(builder, sample);
+  if (this.sourceFrameIndex !== null)
+    ObjectTrack.addSourceFrameIndex(builder, this.sourceFrameIndex);
 
   return ObjectTrack.endObjectTrack(builder);
 }

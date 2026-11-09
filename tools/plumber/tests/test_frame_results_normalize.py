@@ -38,12 +38,14 @@ from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerI
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbedding import ObjectEmbeddingT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.Point2f import Point2fT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.GazeAngles import GazeAnglesT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement import GazeMeasurementT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity import TrackIdentityT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackingSample import TrackingSampleT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTracePoint import TrackTracePointT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT  # noqa: E402
@@ -254,8 +256,9 @@ class FrameResultsNormalizeTests(unittest.TestCase):
                 traces=[
                     TrackTraceT(
                         object=ObjectMetaT(id=6),
-                        trackId=77,
-                        points=[Point2fT(x=1.0, y=2.0), Point2fT(x=3.0, y=4.0)],
+                        identity=TrackIdentityT(trackerId="tracker", sessionId="session", trackId=77),
+                        points=[TrackTracePointT(x=1, y=2, sample=TrackingSampleT(frameIndex=1, elapsedMs=10, state=1, timeSource=1)),
+                                TrackTracePointT(x=3, y=4, sample=TrackingSampleT(frameIndex=2, elapsedMs=20, state=1, timeSource=1))],
                         space=ImageSpaceT(frameId=1, width=640, height=480, extentWidth=640, extentHeight=480),
                     )
                 ],

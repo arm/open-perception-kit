@@ -39,8 +39,9 @@ struct TrackState { // NOSONAR: std::deque move construction is not noexcept.
     using Kalman = opk::KalmanFilter<4, 2, float>;
     uint64_t trackId = 0;
     open_perception_kit::metadata::BoxDetectionT lastDetection;
-    std::string lastMatchDiagnostic = "NEW";
-    std::deque<open_perception_kit::metadata::Point2fT> traceHistoryPoints;
+    open_perception_kit::metadata::TrackAssociationT lastAssociation;
+    uint64_t lastObservationFrameIndex = 0;
+    std::deque<open_perception_kit::metadata::TrackTracePointT> traceHistoryPoints;
     bool kalmanInitialized = false;
     bool predictedThisFrame = false;
     Kalman kalman;
@@ -97,7 +98,7 @@ Point2f correctCenterWithMeasurement(TrackState &track,
  */
 void appendTracePoint(TrackState &track,
                       const Point2f &point,
-                      float kalmanDt,
+                      const open_perception_kit::metadata::TrackingSampleT &sample,
                       const Config &config);
 
 } // namespace opk::tracker::trackstate

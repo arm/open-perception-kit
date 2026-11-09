@@ -28,7 +28,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 
                   FLATBUFFERS_VERSION_REVISION == 23,
               "Non-compatible flatbuffers version included");
 
-#include "common_generated.h"
+#include "tracking_generated.h"
 
 namespace open_perception_kit {
 namespace metadata {
@@ -44,14 +44,15 @@ struct ObjectTracksT;
 struct ObjectTrackT : public ::flatbuffers::NativeTable {
     typedef ObjectTrack TableType;
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
-    uint64_t source_id = 0;
-    uint64_t track_id = 0;
+    ::flatbuffers::Optional<uint64_t> source_id = ::flatbuffers::nullopt;
+    std::unique_ptr<open_perception_kit::metadata::TrackIdentityT> identity{};
     std::unique_ptr<open_perception_kit::metadata::BoundingBoxT> box{};
-    float confidence = 0.0f;
+    ::flatbuffers::Optional<float> source_confidence = ::flatbuffers::nullopt;
     ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt;
     std::string text{};
-    std::string diagnostic{};
-    bool predicted_only = false;
+    std::unique_ptr<open_perception_kit::metadata::TrackAssociationT> association{};
+    std::unique_ptr<open_perception_kit::metadata::TrackingSampleT> sample{};
+    ::flatbuffers::Optional<uint64_t> source_frame_index = ::flatbuffers::nullopt;
     ObjectTrackT() = default;
     ObjectTrackT(const ObjectTrackT &o);
     ObjectTrackT(ObjectTrackT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -64,28 +65,29 @@ struct ObjectTrack FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
         VT_OBJECT = 4,
         VT_SOURCE_ID = 6,
-        VT_TRACK_ID = 8,
+        VT_IDENTITY = 8,
         VT_BOX = 10,
-        VT_CONFIDENCE = 12,
+        VT_SOURCE_CONFIDENCE = 12,
         VT_CLASS_ID = 14,
         VT_TEXT = 16,
-        VT_DIAGNOSTIC = 18,
-        VT_PREDICTED_ONLY = 20
+        VT_ASSOCIATION = 18,
+        VT_SAMPLE = 20,
+        VT_SOURCE_FRAME_INDEX = 22
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
     }
-    uint64_t source_id() const {
-        return GetField<uint64_t>(VT_SOURCE_ID, 0);
+    ::flatbuffers::Optional<uint64_t> source_id() const {
+        return GetOptional<uint64_t, uint64_t>(VT_SOURCE_ID);
     }
-    uint64_t track_id() const {
-        return GetField<uint64_t>(VT_TRACK_ID, 0);
+    const open_perception_kit::metadata::TrackIdentity *identity() const {
+        return GetPointer<const open_perception_kit::metadata::TrackIdentity *>(VT_IDENTITY);
     }
     const open_perception_kit::metadata::BoundingBox *box() const {
         return GetPointer<const open_perception_kit::metadata::BoundingBox *>(VT_BOX);
     }
-    float confidence() const {
-        return GetField<float>(VT_CONFIDENCE, 0.0f);
+    ::flatbuffers::Optional<float> source_confidence() const {
+        return GetOptional<float, float>(VT_SOURCE_CONFIDENCE);
     }
     ::flatbuffers::Optional<uint32_t> class_id() const {
         return GetOptional<uint32_t, uint32_t>(VT_CLASS_ID);
@@ -93,21 +95,26 @@ struct ObjectTrack FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     const ::flatbuffers::String *text() const {
         return GetPointer<const ::flatbuffers::String *>(VT_TEXT);
     }
-    const ::flatbuffers::String *diagnostic() const {
-        return GetPointer<const ::flatbuffers::String *>(VT_DIAGNOSTIC);
+    const open_perception_kit::metadata::TrackAssociation *association() const {
+        return GetPointer<const open_perception_kit::metadata::TrackAssociation *>(VT_ASSOCIATION);
     }
-    bool predicted_only() const {
-        return GetField<uint8_t>(VT_PREDICTED_ONLY, 0) != 0;
+    const open_perception_kit::metadata::TrackingSample *sample() const {
+        return GetPointer<const open_perception_kit::metadata::TrackingSample *>(VT_SAMPLE);
+    }
+    ::flatbuffers::Optional<uint64_t> source_frame_index() const {
+        return GetOptional<uint64_t, uint64_t>(VT_SOURCE_FRAME_INDEX);
     }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) && VerifyField<uint64_t>(verifier, VT_SOURCE_ID, 8) &&
-               VerifyField<uint64_t>(verifier, VT_TRACK_ID, 8) && VerifyOffset(verifier, VT_BOX) &&
-               verifier.VerifyTable(box()) && VerifyField<float>(verifier, VT_CONFIDENCE, 4) &&
+               VerifyOffset(verifier, VT_IDENTITY) && verifier.VerifyTable(identity()) &&
+               VerifyOffset(verifier, VT_BOX) && verifier.VerifyTable(box()) &&
+               VerifyField<float>(verifier, VT_SOURCE_CONFIDENCE, 4) &&
                VerifyField<uint32_t>(verifier, VT_CLASS_ID, 4) && VerifyOffset(verifier, VT_TEXT) &&
-               verifier.VerifyString(text()) && VerifyOffset(verifier, VT_DIAGNOSTIC) &&
-               verifier.VerifyString(diagnostic()) &&
-               VerifyField<uint8_t>(verifier, VT_PREDICTED_ONLY, 1) && verifier.EndTable();
+               verifier.VerifyString(text()) && VerifyOffset(verifier, VT_ASSOCIATION) &&
+               verifier.VerifyTable(association()) && VerifyOffset(verifier, VT_SAMPLE) &&
+               verifier.VerifyTable(sample()) &&
+               VerifyField<uint64_t>(verifier, VT_SOURCE_FRAME_INDEX, 8) && verifier.EndTable();
     }
     ObjectTrackT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(ObjectTrackT *_o,
@@ -126,16 +133,17 @@ struct ObjectTrackBuilder {
         fbb_.AddOffset(ObjectTrack::VT_OBJECT, object);
     }
     void add_source_id(uint64_t source_id) {
-        fbb_.AddElement<uint64_t>(ObjectTrack::VT_SOURCE_ID, source_id, 0);
+        fbb_.AddElement<uint64_t>(ObjectTrack::VT_SOURCE_ID, source_id);
     }
-    void add_track_id(uint64_t track_id) {
-        fbb_.AddElement<uint64_t>(ObjectTrack::VT_TRACK_ID, track_id, 0);
+    void
+    add_identity(::flatbuffers::Offset<open_perception_kit::metadata::TrackIdentity> identity) {
+        fbb_.AddOffset(ObjectTrack::VT_IDENTITY, identity);
     }
     void add_box(::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box) {
         fbb_.AddOffset(ObjectTrack::VT_BOX, box);
     }
-    void add_confidence(float confidence) {
-        fbb_.AddElement<float>(ObjectTrack::VT_CONFIDENCE, confidence, 0.0f);
+    void add_source_confidence(float source_confidence) {
+        fbb_.AddElement<float>(ObjectTrack::VT_SOURCE_CONFIDENCE, source_confidence);
     }
     void add_class_id(uint32_t class_id) {
         fbb_.AddElement<uint32_t>(ObjectTrack::VT_CLASS_ID, class_id);
@@ -143,12 +151,15 @@ struct ObjectTrackBuilder {
     void add_text(::flatbuffers::Offset<::flatbuffers::String> text) {
         fbb_.AddOffset(ObjectTrack::VT_TEXT, text);
     }
-    void add_diagnostic(::flatbuffers::Offset<::flatbuffers::String> diagnostic) {
-        fbb_.AddOffset(ObjectTrack::VT_DIAGNOSTIC, diagnostic);
+    void add_association(
+        ::flatbuffers::Offset<open_perception_kit::metadata::TrackAssociation> association) {
+        fbb_.AddOffset(ObjectTrack::VT_ASSOCIATION, association);
     }
-    void add_predicted_only(bool predicted_only) {
-        fbb_.AddElement<uint8_t>(
-            ObjectTrack::VT_PREDICTED_ONLY, static_cast<uint8_t>(predicted_only), 0);
+    void add_sample(::flatbuffers::Offset<open_perception_kit::metadata::TrackingSample> sample) {
+        fbb_.AddOffset(ObjectTrack::VT_SAMPLE, sample);
+    }
+    void add_source_frame_index(uint64_t source_frame_index) {
+        fbb_.AddElement<uint64_t>(ObjectTrack::VT_SOURCE_FRAME_INDEX, source_frame_index);
     }
     explicit ObjectTrackBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
@@ -160,55 +171,64 @@ struct ObjectTrackBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<ObjectTrack>
-CreateObjectTrack(::flatbuffers::FlatBufferBuilder &_fbb,
-                  ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                  uint64_t source_id = 0,
-                  uint64_t track_id = 0,
-                  ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
-                  float confidence = 0.0f,
-                  ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
-                  ::flatbuffers::Offset<::flatbuffers::String> text = 0,
-                  ::flatbuffers::Offset<::flatbuffers::String> diagnostic = 0,
-                  bool predicted_only = false) {
+inline ::flatbuffers::Offset<ObjectTrack> CreateObjectTrack(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    ::flatbuffers::Optional<uint64_t> source_id = ::flatbuffers::nullopt,
+    ::flatbuffers::Offset<open_perception_kit::metadata::TrackIdentity> identity = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
+    ::flatbuffers::Optional<float> source_confidence = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
+    ::flatbuffers::Offset<::flatbuffers::String> text = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::TrackAssociation> association = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::TrackingSample> sample = 0,
+    ::flatbuffers::Optional<uint64_t> source_frame_index = ::flatbuffers::nullopt) {
     ObjectTrackBuilder builder_(_fbb);
-    builder_.add_track_id(track_id);
-    builder_.add_source_id(source_id);
-    builder_.add_diagnostic(diagnostic);
+    if (source_frame_index) {
+        builder_.add_source_frame_index(*source_frame_index);
+    }
+    if (source_id) {
+        builder_.add_source_id(*source_id);
+    }
+    builder_.add_sample(sample);
+    builder_.add_association(association);
     builder_.add_text(text);
     if (class_id) {
         builder_.add_class_id(*class_id);
     }
-    builder_.add_confidence(confidence);
+    if (source_confidence) {
+        builder_.add_source_confidence(*source_confidence);
+    }
     builder_.add_box(box);
+    builder_.add_identity(identity);
     builder_.add_object(object);
-    builder_.add_predicted_only(predicted_only);
     return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<ObjectTrack>
-CreateObjectTrackDirect(::flatbuffers::FlatBufferBuilder &_fbb,
-                        ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                        uint64_t source_id = 0,
-                        uint64_t track_id = 0,
-                        ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
-                        float confidence = 0.0f,
-                        ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
-                        const char *text = nullptr,
-                        const char *diagnostic = nullptr,
-                        bool predicted_only = false) {
+inline ::flatbuffers::Offset<ObjectTrack> CreateObjectTrackDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    ::flatbuffers::Optional<uint64_t> source_id = ::flatbuffers::nullopt,
+    ::flatbuffers::Offset<open_perception_kit::metadata::TrackIdentity> identity = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
+    ::flatbuffers::Optional<float> source_confidence = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
+    const char *text = nullptr,
+    ::flatbuffers::Offset<open_perception_kit::metadata::TrackAssociation> association = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::TrackingSample> sample = 0,
+    ::flatbuffers::Optional<uint64_t> source_frame_index = ::flatbuffers::nullopt) {
     auto text__ = text ? _fbb.CreateString(text) : 0;
-    auto diagnostic__ = diagnostic ? _fbb.CreateString(diagnostic) : 0;
     return open_perception_kit::metadata::CreateObjectTrack(_fbb,
                                                             object,
                                                             source_id,
-                                                            track_id,
+                                                            identity,
                                                             box,
-                                                            confidence,
+                                                            source_confidence,
                                                             class_id,
                                                             text__,
-                                                            diagnostic__,
-                                                            predicted_only);
+                                                            association,
+                                                            sample,
+                                                            source_frame_index);
 }
 
 ::flatbuffers::Offset<ObjectTrack>
@@ -222,6 +242,7 @@ struct ObjectTracksT : public ::flatbuffers::NativeTable {
     uint16_t schema_minor = 0;
     std::unique_ptr<open_perception_kit::metadata::LayerInfoT> layer{};
     std::vector<std::unique_ptr<open_perception_kit::metadata::ObjectTrackT>> tracks{};
+    bool display_identity = true;
     ObjectTracksT() = default;
     ObjectTracksT(const ObjectTracksT &o);
     ObjectTracksT(ObjectTracksT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -235,7 +256,8 @@ struct ObjectTracks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         VT_SCHEMA_MAJOR = 4,
         VT_SCHEMA_MINOR = 6,
         VT_LAYER = 8,
-        VT_TRACKS = 10
+        VT_TRACKS = 10,
+        VT_DISPLAY_IDENTITY = 12
     };
     uint16_t schema_major() const {
         return GetField<uint16_t>(VT_SCHEMA_MAJOR, 1);
@@ -251,12 +273,16 @@ struct ObjectTracks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         return GetPointer<const ::flatbuffers::Vector<
             ::flatbuffers::Offset<open_perception_kit::metadata::ObjectTrack>> *>(VT_TRACKS);
     }
+    bool display_identity() const {
+        return GetField<uint8_t>(VT_DISPLAY_IDENTITY, 1) != 0;
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyField<uint16_t>(verifier, VT_SCHEMA_MAJOR, 2) &&
                VerifyField<uint16_t>(verifier, VT_SCHEMA_MINOR, 2) &&
                VerifyOffset(verifier, VT_LAYER) && verifier.VerifyTable(layer()) &&
                VerifyOffset(verifier, VT_TRACKS) && verifier.VerifyVector(tracks()) &&
-               verifier.VerifyVectorOfTables(tracks()) && verifier.EndTable();
+               verifier.VerifyVectorOfTables(tracks()) &&
+               VerifyField<uint8_t>(verifier, VT_DISPLAY_IDENTITY, 1) && verifier.EndTable();
     }
     ObjectTracksT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(ObjectTracksT *_o,
@@ -285,6 +311,10 @@ struct ObjectTracksBuilder {
                    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectTrack>>> tracks) {
         fbb_.AddOffset(ObjectTracks::VT_TRACKS, tracks);
     }
+    void add_display_identity(bool display_identity) {
+        fbb_.AddElement<uint8_t>(
+            ObjectTracks::VT_DISPLAY_IDENTITY, static_cast<uint8_t>(display_identity), 1);
+    }
     explicit ObjectTracksBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -301,12 +331,14 @@ inline ::flatbuffers::Offset<ObjectTracks> CreateObjectTracks(
     uint16_t schema_minor = 0,
     ::flatbuffers::Offset<open_perception_kit::metadata::LayerInfo> layer = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<
-        ::flatbuffers::Offset<open_perception_kit::metadata::ObjectTrack>>> tracks = 0) {
+        ::flatbuffers::Offset<open_perception_kit::metadata::ObjectTrack>>> tracks = 0,
+    bool display_identity = true) {
     ObjectTracksBuilder builder_(_fbb);
     builder_.add_tracks(tracks);
     builder_.add_layer(layer);
     builder_.add_schema_minor(schema_minor);
     builder_.add_schema_major(schema_major);
+    builder_.add_display_identity(display_identity);
     return builder_.Finish();
 }
 
@@ -316,14 +348,15 @@ inline ::flatbuffers::Offset<ObjectTracks> CreateObjectTracksDirect(
     uint16_t schema_minor = 0,
     ::flatbuffers::Offset<open_perception_kit::metadata::LayerInfo> layer = 0,
     const std::vector<::flatbuffers::Offset<open_perception_kit::metadata::ObjectTrack>> *tracks =
-        nullptr) {
+        nullptr,
+    bool display_identity = true) {
     auto tracks__ =
         tracks
             ? _fbb.CreateVector<::flatbuffers::Offset<open_perception_kit::metadata::ObjectTrack>>(
                   *tracks)
             : 0;
     return open_perception_kit::metadata::CreateObjectTracks(
-        _fbb, schema_major, schema_minor, layer, tracks__);
+        _fbb, schema_major, schema_minor, layer, tracks__, display_identity);
 }
 
 ::flatbuffers::Offset<ObjectTracks>
@@ -333,21 +366,28 @@ CreateObjectTracks(::flatbuffers::FlatBufferBuilder &_fbb,
 
 inline ObjectTrackT::ObjectTrackT(const ObjectTrackT &o)
     : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
-      source_id(o.source_id), track_id(o.track_id),
+      source_id(o.source_id),
+      identity((o.identity) ? new open_perception_kit::metadata::TrackIdentityT(*o.identity)
+                            : nullptr),
       box((o.box) ? new open_perception_kit::metadata::BoundingBoxT(*o.box) : nullptr),
-      confidence(o.confidence), class_id(o.class_id), text(o.text), diagnostic(o.diagnostic),
-      predicted_only(o.predicted_only) {}
+      source_confidence(o.source_confidence), class_id(o.class_id), text(o.text),
+      association((o.association)
+                      ? new open_perception_kit::metadata::TrackAssociationT(*o.association)
+                      : nullptr),
+      sample((o.sample) ? new open_perception_kit::metadata::TrackingSampleT(*o.sample) : nullptr),
+      source_frame_index(o.source_frame_index) {}
 
 inline ObjectTrackT &ObjectTrackT::operator=(ObjectTrackT o) FLATBUFFERS_NOEXCEPT {
     std::swap(object, o.object);
     std::swap(source_id, o.source_id);
-    std::swap(track_id, o.track_id);
+    std::swap(identity, o.identity);
     std::swap(box, o.box);
-    std::swap(confidence, o.confidence);
+    std::swap(source_confidence, o.source_confidence);
     std::swap(class_id, o.class_id);
     std::swap(text, o.text);
-    std::swap(diagnostic, o.diagnostic);
-    std::swap(predicted_only, o.predicted_only);
+    std::swap(association, o.association);
+    std::swap(sample, o.sample);
+    std::swap(source_frame_index, o.source_frame_index);
     return *this;
 }
 
@@ -380,8 +420,17 @@ inline void ObjectTrack::UnPackTo(ObjectTrackT *_o,
         _o->source_id = _e;
     }
     {
-        auto _e = track_id();
-        _o->track_id = _e;
+        auto _e = identity();
+        if (_e) {
+            if (_o->identity) {
+                _e->UnPackTo(_o->identity.get(), _resolver);
+            } else {
+                _o->identity = std::unique_ptr<open_perception_kit::metadata::TrackIdentityT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->identity) {
+            _o->identity.reset();
+        }
     }
     {
         auto _e = box();
@@ -397,8 +446,8 @@ inline void ObjectTrack::UnPackTo(ObjectTrackT *_o,
         }
     }
     {
-        auto _e = confidence();
-        _o->confidence = _e;
+        auto _e = source_confidence();
+        _o->source_confidence = _e;
     }
     {
         auto _e = class_id();
@@ -410,13 +459,34 @@ inline void ObjectTrack::UnPackTo(ObjectTrackT *_o,
             _o->text = _e->str();
     }
     {
-        auto _e = diagnostic();
-        if (_e)
-            _o->diagnostic = _e->str();
+        auto _e = association();
+        if (_e) {
+            if (_o->association) {
+                _e->UnPackTo(_o->association.get(), _resolver);
+            } else {
+                _o->association = std::unique_ptr<open_perception_kit::metadata::TrackAssociationT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->association) {
+            _o->association.reset();
+        }
     }
     {
-        auto _e = predicted_only();
-        _o->predicted_only = _e;
+        auto _e = sample();
+        if (_e) {
+            if (_o->sample) {
+                _e->UnPackTo(_o->sample.get(), _resolver);
+            } else {
+                _o->sample = std::unique_ptr<open_perception_kit::metadata::TrackingSampleT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->sample) {
+            _o->sample.reset();
+        }
+    }
+    {
+        auto _e = source_frame_index();
+        _o->source_frame_index = _e;
     }
 }
 
@@ -441,28 +511,32 @@ CreateObjectTrack(::flatbuffers::FlatBufferBuilder &_fbb,
     (void)_va;
     auto _object = _o->object ? CreateObjectMeta(_fbb, _o->object.get(), _rehasher) : 0;
     auto _source_id = _o->source_id;
-    auto _track_id = _o->track_id;
+    auto _identity = _o->identity ? CreateTrackIdentity(_fbb, _o->identity.get(), _rehasher) : 0;
     auto _box = _o->box ? CreateBoundingBox(_fbb, _o->box.get(), _rehasher) : 0;
-    auto _confidence = _o->confidence;
+    auto _source_confidence = _o->source_confidence;
     auto _class_id = _o->class_id;
     auto _text = _o->text.empty() ? 0 : _fbb.CreateString(_o->text);
-    auto _diagnostic = _o->diagnostic.empty() ? 0 : _fbb.CreateString(_o->diagnostic);
-    auto _predicted_only = _o->predicted_only;
+    auto _association =
+        _o->association ? CreateTrackAssociation(_fbb, _o->association.get(), _rehasher) : 0;
+    auto _sample = _o->sample ? CreateTrackingSample(_fbb, _o->sample.get(), _rehasher) : 0;
+    auto _source_frame_index = _o->source_frame_index;
     return open_perception_kit::metadata::CreateObjectTrack(_fbb,
                                                             _object,
                                                             _source_id,
-                                                            _track_id,
+                                                            _identity,
                                                             _box,
-                                                            _confidence,
+                                                            _source_confidence,
                                                             _class_id,
                                                             _text,
-                                                            _diagnostic,
-                                                            _predicted_only);
+                                                            _association,
+                                                            _sample,
+                                                            _source_frame_index);
 }
 
 inline ObjectTracksT::ObjectTracksT(const ObjectTracksT &o)
     : schema_major(o.schema_major), schema_minor(o.schema_minor),
-      layer((o.layer) ? new open_perception_kit::metadata::LayerInfoT(*o.layer) : nullptr) {
+      layer((o.layer) ? new open_perception_kit::metadata::LayerInfoT(*o.layer) : nullptr),
+      display_identity(o.display_identity) {
     tracks.reserve(o.tracks.size());
     for (const auto &tracks_ : o.tracks) {
         tracks.emplace_back((tracks_) ? new open_perception_kit::metadata::ObjectTrackT(*tracks_)
@@ -475,6 +549,7 @@ inline ObjectTracksT &ObjectTracksT::operator=(ObjectTracksT o) FLATBUFFERS_NOEX
     std::swap(schema_minor, o.schema_minor);
     std::swap(layer, o.layer);
     std::swap(tracks, o.tracks);
+    std::swap(display_identity, o.display_identity);
     return *this;
 }
 
@@ -526,6 +601,10 @@ inline void ObjectTracks::UnPackTo(ObjectTracksT *_o,
             _o->tracks.resize(0);
         }
     }
+    {
+        auto _e = display_identity();
+        _o->display_identity = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<ObjectTracks>
@@ -560,8 +639,9 @@ CreateObjectTracks(::flatbuffers::FlatBufferBuilder &_fbb,
                   },
                   &_va)
             : 0;
+    auto _display_identity = _o->display_identity;
     return open_perception_kit::metadata::CreateObjectTracks(
-        _fbb, _schema_major, _schema_minor, _layer, _tracks);
+        _fbb, _schema_major, _schema_minor, _layer, _tracks, _display_identity);
 }
 
 inline const open_perception_kit::metadata::ObjectTracks *GetObjectTracks(const void *buf) {

@@ -1,11 +1,13 @@
-include "common.fbs";
+include "tracking.fbs";
 
 namespace open_perception_kit.metadata;
 
 table TrackTrace {
   object:open_perception_kit.metadata.ObjectMeta;
-  track_id:ulong;
-  points:[open_perception_kit.metadata.Point2f];
+  identity:TrackIdentity;
+  // Complete current segment, oldest to newest, with strictly increasing frame
+  // indices and elapsed times. Reacquisition begins a new segment of the same track.
+  points:[TrackTracePoint];
   // Trace points are pixels in this image basis, independent of object.parent_id.
   space:open_perception_kit.metadata.ImageSpace;
 }

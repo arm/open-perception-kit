@@ -218,6 +218,20 @@ remain; zero/non-finite vectors and unknown spaces fail comparison even when
 present on both sides. All output observations are retained and compared, including
 multiple spaces or producers; no per-object last-writer selection is performed.
 
+Track comparisons validate persistent tracker/session/local identity, explicit
+observed/predicted state and sample timing. Current source observations must resolve;
+historical prediction sources may be absent. Independent runs have different UUID
+sessions: a single session per tracker in each packet supplies an unambiguous
+cross-run scope, while local track numbers and tracker IDs must match. Derived
+results with track subjects use that same identity rule as well as geometry:
+coincident boxes cannot make outcomes belonging to different tracks equivalent.
+Observation IDs and session UUIDs may change between runs without changing the
+tracked subject. Trace
+comparison requires equal lengths and matching ordered samples, not just a shared
+prefix. Missing/invalid timing, duplicate identities and contradictory track/trail
+associations fail comparison. Display text and diagnostic score formatting are not
+used as identity. See [tracking semantics](../../docs/arch/perception.md#tracking-observations-and-timed-history).
+
 External opaque payloads, when present in the packet, are decoded by the generated SDK as
 external byte payloads. Plumber's current regression comparison intentionally normalizes
 only known generated schema payloads.

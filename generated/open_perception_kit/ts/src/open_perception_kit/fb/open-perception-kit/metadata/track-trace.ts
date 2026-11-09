@@ -22,7 +22,8 @@ import * as flatbuffers from 'flatbuffers';
 
 import { ImageSpace, ImageSpaceT } from '../../open-perception-kit/metadata/image-space.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
-import { Point2f, Point2fT } from '../../open-perception-kit/metadata/point2f.js';
+import { TrackIdentity, TrackIdentityT } from '../../open-perception-kit/metadata/track-identity.js';
+import { TrackTracePoint, TrackTracePointT } from '../../open-perception-kit/metadata/track-trace-point.js';
 
 
 export class TrackTrace implements flatbuffers.IUnpackableObject<TrackTraceT> {
@@ -48,14 +49,14 @@ object(obj?:ObjectMeta):ObjectMeta|null {
   return offset ? (obj || new ObjectMeta()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-trackId():bigint {
+identity(obj?:TrackIdentity):TrackIdentity|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+  return offset ? (obj || new TrackIdentity()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-points(index: number, obj?:Point2f):Point2f|null {
+points(index: number, obj?:TrackTracePoint):TrackTracePoint|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? (obj || new Point2f()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+  return offset ? (obj || new TrackTracePoint()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
 }
 
 pointsLength():number {
@@ -76,8 +77,8 @@ static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
   builder.addFieldOffset(0, objectOffset, 0);
 }
 
-static addTrackId(builder:flatbuffers.Builder, trackId:bigint) {
-  builder.addFieldInt64(1, trackId, BigInt('0'));
+static addIdentity(builder:flatbuffers.Builder, identityOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, identityOffset, 0);
 }
 
 static addPoints(builder:flatbuffers.Builder, pointsOffset:flatbuffers.Offset) {
@@ -109,8 +110,8 @@ static endTrackTrace(builder:flatbuffers.Builder):flatbuffers.Offset {
 unpack(): TrackTraceT {
   return new TrackTraceT(
     (this.object() !== null ? this.object()!.unpack() : null),
-    this.trackId(),
-    this.bb!.createObjList<Point2f, Point2fT>(this.points.bind(this), this.pointsLength()),
+    (this.identity() !== null ? this.identity()!.unpack() : null),
+    this.bb!.createObjList<TrackTracePoint, TrackTracePointT>(this.points.bind(this), this.pointsLength()),
     (this.space() !== null ? this.space()!.unpack() : null)
   );
 }
@@ -118,8 +119,8 @@ unpack(): TrackTraceT {
 
 unpackTo(_o: TrackTraceT): void {
   _o.object = (this.object() !== null ? this.object()!.unpack() : null);
-  _o.trackId = this.trackId();
-  _o.points = this.bb!.createObjList<Point2f, Point2fT>(this.points.bind(this), this.pointsLength());
+  _o.identity = (this.identity() !== null ? this.identity()!.unpack() : null);
+  _o.points = this.bb!.createObjList<TrackTracePoint, TrackTracePointT>(this.points.bind(this), this.pointsLength());
   _o.space = (this.space() !== null ? this.space()!.unpack() : null);
 }
 }
@@ -127,20 +128,21 @@ unpackTo(_o: TrackTraceT): void {
 export class TrackTraceT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public trackId: bigint = BigInt('0'),
-  public points: (Point2fT)[] = [],
+  public identity: TrackIdentityT|null = null,
+  public points: (TrackTracePointT)[] = [],
   public space: ImageSpaceT|null = null
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
+  const identity = (this.identity !== null ? this.identity!.pack(builder) : 0);
   const points = TrackTrace.createPointsVector(builder, builder.createObjectOffsetList(this.points));
   const space = (this.space !== null ? this.space!.pack(builder) : 0);
 
   TrackTrace.startTrackTrace(builder);
   TrackTrace.addObject(builder, object);
-  TrackTrace.addTrackId(builder, this.trackId);
+  TrackTrace.addIdentity(builder, identity);
   TrackTrace.addPoints(builder, points);
   TrackTrace.addSpace(builder, space);
 

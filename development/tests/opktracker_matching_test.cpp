@@ -137,6 +137,25 @@ TEST(OpkTrackerMatching, EmbeddingModeAcceptsNonOverlappingEmbeddingAssignment) 
     EXPECT_TRUE(result.unmatchedDetections.empty());
 }
 
+TEST(OpkTrackerMatching, DiagnosticKindDoesNotClaimTheConfiguredMatchingStrategy) {
+    const auto embedding = makeEmbedding();
+    const auto before = makeDetection(1, 0, 0, 10, 10);
+    const auto after = makeDetection(2, 1, 1, 10, 10);
+    opk::tracker::ActiveTrackMap tracks;
+    tracks.emplace(42, makeTrack(42, before, embedding));
+    const opk::tracker::DetectionBatch detections{&after};
+    const opk::tracker::EmbeddingBatch embeddings{{2, &embedding}};
+    const auto result = opk::tracker::matching::associateDetectionsToActiveTracks(
+        detections,
+        embeddings,
+        tracks,
+        1.0f / 30.0f,
+        matchingConfig(opk::tracker::AssociationMode::Iou));
+    ASSERT_EQ(result.matches.size(), 1U);
+    EXPECT_EQ(result.associationsByDetection.at(0).kind,
+              open_perception_kit::metadata::TrackAssociationKind::CosineScore);
+}
+
 TEST(OpkTrackerTiming, KalmanDtUsesRunningTimeDeltaUnlessFallbackIsForced) {
     opk::tracker::Config config;
     opk::tracker::KalmanDeltaTimeTracking timing;

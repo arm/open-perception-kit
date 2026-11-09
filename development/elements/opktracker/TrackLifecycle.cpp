@@ -23,7 +23,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <fmt/core.h>
 #include <memory>
 
 namespace opk::tracker::tracklifecycle {
@@ -61,6 +60,17 @@ struct LifecycleResult {
     TrackIdList predictedOnlyTrackIds;
     TrackIdList tracksToRemove;
 };
+
+open_perception_kit::metadata::TrackingSampleT makeSample(const FrameTrackingContext &context,
+                                                          const bool predicted) {
+    open_perception_kit::metadata::TrackingSampleT sample;
+    sample.frame_index = context.currentFrameIndex;
+    sample.elapsed_ms = context.trackerTimeMs;
+    sample.time_source = context.timeSource;
+    sample.state = predicted ? open_perception_kit::metadata::TrackObservationState::Predicted
+                             : open_perception_kit::metadata::TrackObservationState::Observed;
+    return sample;
+}
 
 open_perception_kit::metadata::BoundingBoxT &
 ensureBox(open_perception_kit::metadata::BoxDetectionT &detection) {
@@ -106,6 +116,7 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
     track.missedFrames = 0;
     track.hitStreak++;
     track.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
+    track.lastObservationFrameIndex = frameTrackingContext.currentFrameIndex;
 
     Point2f resolvedPoint;
     if (frameTrackingContext.config.useKalman) {
@@ -118,14 +129,14 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
         track.predictedThisFrame = false;
     }
     trackstate::appendTracePoint(
-        track, resolvedPoint, frameTrackingContext.kalmanDt, frameTrackingContext.config);
+        track, resolvedPoint, makeSample(frameTrackingContext, false), frameTrackingContext.config);
 
     const auto diagnosticIt =
-        frameTrackingContext.association.diagnosticsByDetection.find(detectionIndex);
-    track.lastMatchDiagnostic =
-        (diagnosticIt != frameTrackingContext.association.diagnosticsByDetection.end())
+        frameTrackingContext.association.associationsByDetection.find(detectionIndex);
+    track.lastAssociation =
+        (diagnosticIt != frameTrackingContext.association.associationsByDetection.end())
             ? diagnosticIt->second
-            : "IOU:N/A";
+            : open_perception_kit::metadata::TrackAssociationT{};
 
     if (const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
         embedding != nullptr && opk::embedding::valid(*embedding)) {
@@ -176,7 +187,10 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
     TrackState restoredTrack;
     restoredTrack.trackId = bestDormantTrackId;
     restoredTrack.lastDetection = detectionAt(frameTrackingContext.detections, detectionIndex);
-    restoredTrack.lastMatchDiagnostic = fmt::format("REID-R:{:.2f}", bestSimilarity);
+    restoredTrack.lastAssociation.kind =
+        open_perception_kit::metadata::TrackAssociationKind::Reacquired;
+    restoredTrack.lastAssociation.score = bestSimilarity;
+    restoredTrack.lastObservationFrameIndex = frameTrackingContext.currentFrameIndex;
     restoredTrack.lastEmbedding = *embedding;
     restoredTrack.missedFrames = 0;
     restoredTrack.hitStreak = std::max(1, frameTrackingContext.config.minHitsToConfirm);
@@ -193,8 +207,10 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
                               restoredBox.y + (restoredBox.height * 0.5f));
         restoredTrack.predictedThisFrame = false;
     }
-    trackstate::appendTracePoint(
-        restoredTrack, initPoint, frameTrackingContext.kalmanDt, frameTrackingContext.config);
+    trackstate::appendTracePoint(restoredTrack,
+                                 initPoint,
+                                 makeSample(frameTrackingContext, false),
+                                 frameTrackingContext.config);
     auto &restoredBox = ensureBox(restoredTrack.lastDetection);
     restoredBox.x = initPoint.x - (restoredBox.width * 0.5f);
     restoredBox.y = initPoint.y - (restoredBox.height * 0.5f);
@@ -213,7 +229,8 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
     TrackState newTrack;
     newTrack.trackId = mutableTrackState.nextTrackId++;
     newTrack.lastDetection = detectionAt(frameTrackingContext.detections, detectionIndex);
-    newTrack.lastMatchDiagnostic = "NEW";
+    newTrack.lastAssociation.kind = open_perception_kit::metadata::TrackAssociationKind::New;
+    newTrack.lastObservationFrameIndex = frameTrackingContext.currentFrameIndex;
     newTrack.missedFrames = 0;
     newTrack.hitStreak = 1;
     newTrack.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
@@ -234,7 +251,7 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
         newTrack.predictedThisFrame = false;
     }
     trackstate::appendTracePoint(
-        newTrack, initPoint, frameTrackingContext.kalmanDt, frameTrackingContext.config);
+        newTrack, initPoint, makeSample(frameTrackingContext, false), frameTrackingContext.config);
 
     auto &newBox = ensureBox(newTrack.lastDetection);
     newBox.x = initPoint.x - (newBox.width * 0.5f);
@@ -287,13 +304,14 @@ void updatePredictedOnlyTracks(const FrameTrackingContext &frameTrackingContext,
 
         lastBox.x = predictedPoint.x - (lastBox.width * 0.5f);
         lastBox.y = predictedPoint.y - (lastBox.height * 0.5f);
-        trackstate::appendTracePoint(
-            track, predictedPoint, frameTrackingContext.kalmanDt, frameTrackingContext.config);
+        trackstate::appendTracePoint(track,
+                                     predictedPoint,
+                                     makeSample(frameTrackingContext, true),
+                                     frameTrackingContext.config);
 
         track.missedFrames++;
         if (track.missedFrames <= frameTrackingContext.config.maxMissedFrames &&
             frameTrackingContext.config.emitPredictedDetections) {
-            track.lastMatchDiagnostic = "PRED";
             result.predictedOnlyTrackIds.push_back(trackId);
         } else {
             if (track.missedFrames > frameTrackingContext.config.maxMissedFrames) {

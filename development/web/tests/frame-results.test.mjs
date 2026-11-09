@@ -21,7 +21,7 @@ import test from 'node:test';
 import {Builder, ByteBuffer} from 'flatbuffers';
 import {Envelope, OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {WireEnvelope, WireEnvelopeT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
-import {BitmapDataT, BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
+import {BitmapDataT, BoundingBoxT, LayerInfoT, ObjectMetaT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
 import {BoxDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.js';
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
 import {ClassificationCandidateT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.js';
@@ -38,6 +38,11 @@ import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open
 import {InstanceSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.js';
 import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {ObjectTrackT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js';
+import {TrackIdentityT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-identity.js';
+import {TrackingSampleT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/tracking-sample.js';
+import {TrackTracePointT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace-point.js';
+import {TrackAssociationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-association.js';
+import {State, Clock, Kind, trackLabel} from '../src/tracking-data.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
 import {PerformanceMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js';
 import {FrameRateT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.js';
@@ -145,7 +150,9 @@ function encodedFixture() {
         1,
         0,
         layer('trackTrace'),
-        [new TrackTraceT(new ObjectMetaT(50n), 7n, [new Point2fT(1, 2), new Point2fT(3, 4)],
+        [new TrackTraceT(new ObjectMetaT(50n), new TrackIdentityT('tracker', 'session', 7n),
+            [new TrackTracePointT(1, 2, new TrackingSampleT(1n, 10, Clock.MediaDelta, State.Observed)),
+             new TrackTracePointT(3, 4, new TrackingSampleT(2n, 20, Clock.MediaDelta, State.Predicted))],
             new ImageSpaceT(10n, 640, 480, 0, 0, 640, 480))],
     ));
     envelope.add(new PerformanceMeasurementsT(1, 0, null, [], new FrameRateT(30)));
@@ -182,11 +189,14 @@ function trackedFixture() {
         [new ObjectTrackT(
             new ObjectMetaT(30n),
             20n,
-            7n,
+            new TrackIdentityT('tracker', 'session', 7n),
             new BoundingBoxT(12, 22, 30, 40, new ImageSpaceT(10n, 640, 480, 0, 0, 640, 480)),
             0.95,
             1,
             'tracked',
+            null,
+            new TrackingSampleT(1n, 10, Clock.MediaDelta, State.Observed),
+            1n,
         )],
     ));
     return Buffer.from(envelope.serialize()).toString('base64');
@@ -348,7 +358,7 @@ test('retains detector and tracker outputs for independent overlay selection', (
     assert.deepEqual(rects.map((item) => item.uuid), ['20', '21', '30']);
     assert.equal(rects[1].text, 'untracked');
     assert.equal(rects[2].sourceId, '20');
-    assert.equal(rects[2].trackId, '7');
+    assert.equal(rects[2].identity.trackId, '7');
     assert.deepEqual(decoded.frame_results.layers.map((item) => item.payloadType), ['BoxDetections', 'ObjectTracks']);
 });
 
@@ -550,7 +560,7 @@ test('box and track category IDs preserve absence and zero, and confidence is no
         new BoxDetectionT(new ObjectMetaT(2n), null, 0, 0, 'zero'),
     ]));
     const track = new ObjectTrackT();
-    track.confidence = NaN;
+    track.sourceConfidence = NaN;
     envelope.add(new ObjectTracksT(1, 0, layer('genericObject'), [track]));
     const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
@@ -585,6 +595,22 @@ test('embeddings preserve space, subject, multiple outputs and unusable values',
     assert.equal(values[2].subjectUuid, null);
     assert.equal(values[1].space.id, 'test:b');
     assert.deepEqual(values[0].values, [3, 4]);
+});
+
+test('track labels are presentation only and preserve native score rounding', () => {
+    const track = new ObjectTrackT();
+    track.identity = new TrackIdentityT('tracker', 'session', 7n);
+    track.text = 'person';
+    track.sample = new TrackingSampleT(2n, 20, Clock.MediaDelta, State.Observed);
+    for (const [score, expected] of [[.125, '0.12'], [-.125, '-0.12'], [-.0001, '-0.00']]) {
+        track.association = new TrackAssociationT(Kind.CosineScore, score);
+        assert.equal(trackLabel(track, true), `person [ID:7 REID:${expected}]`);
+        assert.equal(trackLabel(track, false), 'person');
+        assert.equal(track.text, 'person');
+    }
+    track.sample.state = State.Predicted;
+    track.association = null;
+    assert.equal(trackLabel(track, true), 'person [ID:7 PRED]');
 });
 
 test('rejects a packet from an incompatible producer identity', () => {
