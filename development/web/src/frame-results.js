@@ -30,6 +30,7 @@ import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {maskData} from './mask-data.js';
 import {usableEmbedding} from './embedding-data.js';
+import {identityData, sampleData, validTrack, validTrace, trackLabel} from './tracking-data.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 
 export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
@@ -218,16 +219,23 @@ export function decodeFrameResultsMessage(message) {
         payload.detections.map((item) => ({type: 'Rect', data: boxData(item)})), layers);
 
     addPayloadLayers(envelope, ObjectTracksT, 'ObjectTracks', (payload) =>
-        payload.tracks.map((item) => ({
-            type: 'Rect',
-            data: {
-                ...boxData(item),
-                sourceId: identifier(item.sourceId),
-                trackId: identifier(item.trackId),
-                diagnostic: text(item.diagnostic),
-                predictedOnly: Boolean(item.predictedOnly),
-            },
-        })), layers);
+        payload.tracks.map((item) => {
+            const trackingValid = validTrack(item);
+            return {
+                type: 'Rect',
+                data: {
+                    ...boxData(item),
+                    sourceId: item.sourceId == null ? null : identifier(item.sourceId),
+                    sourceFrameIndex: item.sourceFrameIndex == null ? null : identifier(item.sourceFrameIndex),
+                    identity: identityData(item.identity),
+                    sample: sampleData(item.sample), association: item.association,
+                    sourceConfidence: item.sourceConfidence,
+                    confidence: item.sourceConfidence,
+                    displayText: trackLabel(item, payload.displayIdentity),
+                    trackingValid, spatialValid: trackingValid,
+                },
+            };
+        }), layers);
 
     addClassificationLayers(packet, layers);
 
@@ -248,13 +256,14 @@ export function decodeFrameResultsMessage(message) {
             type: 'TrackTrace',
             data: {
                 ...objectData(item.object),
-                trackId: identifier(item.trackId),
+                identity: identityData(item.identity),
+                trackingValid: validTrace(item),
                 spatialValid: validImageSpace(item.space),
                 frameWidth: item.space?.width,
                 frameHeight: item.space?.height,
                 points: validImageSpace(item.space) ? item.points.map(point =>
                     point && Number.isFinite(point.x) && Number.isFinite(point.y)
-                        ? imagePoint(point.x, point.y, item.space) : null) : [],
+                        ? {...imagePoint(point.x, point.y, item.space), sample: sampleData(point.sample)} : null) : [],
             },
         })), layers);
 

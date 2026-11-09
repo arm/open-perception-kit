@@ -51,11 +51,6 @@ table BoundingBox {
   units:CoordinateUnits = Pixels;
 }
 
-table Point2f {
-  x:float;
-  y:float;
-}
-
 // Tightly packed, row-major unsigned samples; no stride, compression or color packing.
 // Unspecified/unknown encodings are not interpretable. Multi-byte samples are little-endian.
 enum BitmapEncoding:ubyte { Unspecified, Uint8, Uint32LE }

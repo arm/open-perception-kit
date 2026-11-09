@@ -17,10 +17,20 @@
 
 import {defineFeature} from '../overlay-feature.js';
 import {drawTrackTrace} from '../overlay-drawing.js';
+import {trackKey, traceMatchesCurrentTrack} from '../tracking-data.js';
 
 export default defineFeature({
     id: 'movement-trails', label: 'Movement trails',
     accepts: (source) => source.payloadType === 'TrackTraces',
+    resolve(result, index) {
+        const items = result.items.filter(item => {
+            const entries = index.byTrack.get(trackKey(item.data.identity)) || [];
+            return item.type === 'TrackTrace' && item.data.trackingValid === true
+                && entries.filter(entry => entry.type === 'TrackTrace').length === 1
+                && traceMatchesCurrentTrack(item.data, entries.filter(entry => entry.source.payloadType === 'ObjectTracks'));
+        });
+        return items.length === result.items.length ? {...result, items} : {...result, items, state: 'partial', message: 'Invalid or ambiguous trace omitted.'};
+    },
     render({ctx, mapper}, resolved, settings) {
         for (const item of resolved.items) {
             if (item.type === 'TrackTrace') drawTrackTrace(ctx, item.data, mapper, settings.color);

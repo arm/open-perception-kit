@@ -128,19 +128,15 @@ Point2f correctCenterWithMeasurement(TrackState &track,
 
 void appendTracePoint(TrackState &track,
                       const Point2f &point,
-                      float kalmanDt,
+                      const open_perception_kit::metadata::TrackingSampleT &sample,
                       const Config &config) {
     auto &tracePoint = track.traceHistoryPoints.emplace_back();
     tracePoint.x = point.x;
     tracePoint.y = point.y;
-
-    int historyPoints = 1;
-    if (config.traceHistorySeconds > 0.0f && kalmanDt > 0.0f) {
-        historyPoints = static_cast<int>(std::ceil(config.traceHistorySeconds / kalmanDt));
-    }
-
-    const auto maxHistorySize = static_cast<size_t>(std::max(1, historyPoints));
-    while (track.traceHistoryPoints.size() > maxHistorySize) {
+    tracePoint.sample = std::make_unique<open_perception_kit::metadata::TrackingSampleT>(sample);
+    const double historyMs = static_cast<double>(std::max(0.0f, config.traceHistorySeconds)) * 1000;
+    while (track.traceHistoryPoints.size() > 1 &&
+           sample.elapsed_ms - track.traceHistoryPoints.front().sample->elapsed_ms >= historyMs) {
         track.traceHistoryPoints.pop_front();
     }
 }

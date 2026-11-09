@@ -661,7 +661,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
         PROP_APPEND_TRACK_ID_TO_TEXT,
         g_param_spec_boolean("append-track-id-to-text",
                              "Append track ID",
-                             "Append [ID:n] to detection text"
+                             "Append identity and association details to rendered track labels"
                              "; Changeable while playing; applied to subsequent frames",
                              opk::tracker::Defaults::appendIdentityIdToText,
                              static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
@@ -670,16 +670,16 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
     g_object_class_install_property(
         objectClass,
         PROP_TRACE_HISTORY_SECONDS,
-        g_param_spec_float(
-            "trace-history-seconds",
-            "Trace history seconds",
-            "Time-window for trace history (stored points use the current Kalman time step)"
-            "; Changeable while playing; applied to subsequent frames",
-            0.0f,
-            G_MAXFLOAT,
-            opk::tracker::Defaults::traceHistorySeconds,
-            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
-                                     GST_PARAM_MUTABLE_PLAYING)));
+        g_param_spec_float("trace-history-seconds",
+                           "Trace history seconds",
+                           "Time-window for trace history, measured in elapsed tracker time "
+                           "independently of forced Kalman fallback"
+                           "; Changeable while playing; applied to subsequent frames",
+                           0.0f,
+                           G_MAXFLOAT,
+                           opk::tracker::Defaults::traceHistorySeconds,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                    GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         objectClass,

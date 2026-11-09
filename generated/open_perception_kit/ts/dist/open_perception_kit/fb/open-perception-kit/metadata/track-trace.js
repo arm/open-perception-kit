@@ -19,7 +19,8 @@
 import * as flatbuffers from 'flatbuffers';
 import { ImageSpace } from '../../open-perception-kit/metadata/image-space.js';
 import { ObjectMeta } from '../../open-perception-kit/metadata/object-meta.js';
-import { Point2f } from '../../open-perception-kit/metadata/point2f.js';
+import { TrackIdentity } from '../../open-perception-kit/metadata/track-identity.js';
+import { TrackTracePoint } from '../../open-perception-kit/metadata/track-trace-point.js';
 export class TrackTrace {
     constructor() {
         this.bb = null;
@@ -41,13 +42,13 @@ export class TrackTrace {
         const offset = this.bb.__offset(this.bb_pos, 4);
         return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
     }
-    trackId() {
+    identity(obj) {
         const offset = this.bb.__offset(this.bb_pos, 6);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
+        return offset ? (obj || new TrackIdentity()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
     }
     points(index, obj) {
         const offset = this.bb.__offset(this.bb_pos, 8);
-        return offset ? (obj || new Point2f()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+        return offset ? (obj || new TrackTracePoint()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
     }
     pointsLength() {
         const offset = this.bb.__offset(this.bb_pos, 8);
@@ -63,8 +64,8 @@ export class TrackTrace {
     static addObject(builder, objectOffset) {
         builder.addFieldOffset(0, objectOffset, 0);
     }
-    static addTrackId(builder, trackId) {
-        builder.addFieldInt64(1, trackId, BigInt('0'));
+    static addIdentity(builder, identityOffset) {
+        builder.addFieldOffset(1, identityOffset, 0);
     }
     static addPoints(builder, pointsOffset) {
         builder.addFieldOffset(2, pointsOffset, 0);
@@ -87,29 +88,30 @@ export class TrackTrace {
         return offset;
     }
     unpack() {
-        return new TrackTraceT((this.object() !== null ? this.object().unpack() : null), this.trackId(), this.bb.createObjList(this.points.bind(this), this.pointsLength()), (this.space() !== null ? this.space().unpack() : null));
+        return new TrackTraceT((this.object() !== null ? this.object().unpack() : null), (this.identity() !== null ? this.identity().unpack() : null), this.bb.createObjList(this.points.bind(this), this.pointsLength()), (this.space() !== null ? this.space().unpack() : null));
     }
     unpackTo(_o) {
         _o.object = (this.object() !== null ? this.object().unpack() : null);
-        _o.trackId = this.trackId();
+        _o.identity = (this.identity() !== null ? this.identity().unpack() : null);
         _o.points = this.bb.createObjList(this.points.bind(this), this.pointsLength());
         _o.space = (this.space() !== null ? this.space().unpack() : null);
     }
 }
 export class TrackTraceT {
-    constructor(object = null, trackId = BigInt('0'), points = [], space = null) {
+    constructor(object = null, identity = null, points = [], space = null) {
         this.object = object;
-        this.trackId = trackId;
+        this.identity = identity;
         this.points = points;
         this.space = space;
     }
     pack(builder) {
         const object = (this.object !== null ? this.object.pack(builder) : 0);
+        const identity = (this.identity !== null ? this.identity.pack(builder) : 0);
         const points = TrackTrace.createPointsVector(builder, builder.createObjectOffsetList(this.points));
         const space = (this.space !== null ? this.space.pack(builder) : 0);
         TrackTrace.startTrackTrace(builder);
         TrackTrace.addObject(builder, object);
-        TrackTrace.addTrackId(builder, this.trackId);
+        TrackTrace.addIdentity(builder, identity);
         TrackTrace.addPoints(builder, points);
         TrackTrace.addSpace(builder, space);
         return TrackTrace.endTrackTrace(builder);

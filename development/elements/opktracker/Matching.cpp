@@ -26,7 +26,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <fmt/core.h>
 #include <optional>
 
 namespace opk::tracker::matching {
@@ -155,11 +154,13 @@ float computeAssociationCost(float iou,
     return ((1.0f - weight) * iouCost) + (weight * embeddingCost);
 }
 
-std::string buildMatchDiagnostic(float iou, const std::optional<float> &similarity) {
-    if (similarity.has_value()) {
-        return fmt::format("REID:{:.2f}", *similarity);
-    }
-    return fmt::format("IOU:{:.2f}", iou);
+open_perception_kit::metadata::TrackAssociationT
+makeAssociation(const float iou, const std::optional<float> &similarity) {
+    open_perception_kit::metadata::TrackAssociationT result;
+    result.kind = similarity ? open_perception_kit::metadata::TrackAssociationKind::CosineScore
+                             : open_perception_kit::metadata::TrackAssociationKind::IoUScore;
+    result.score = similarity.value_or(iou);
+    return result;
 }
 
 bool isAssignmentAccepted(float iou, const std::optional<float> &similarity, const Config &config) {
@@ -228,7 +229,7 @@ void collectMatchesFromAssignment(const DetectionBatch &detections,
 
         const TrackId matchedTrackId = trackIds[static_cast<size_t>(trackIdx)];
         result.matches.emplace_back(detIdx, matchedTrackId);
-        result.diagnosticsByDetection[detIdx] = buildMatchDiagnostic(iou, similarity);
+        result.associationsByDetection[detIdx] = makeAssociation(iou, similarity);
         matchedDetection[detIdx] = true;
     }
 

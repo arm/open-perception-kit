@@ -45,13 +45,14 @@ impl<'a> flatbuffers::Follow<'a> for ObjectTrack<'a> {
 impl<'a> ObjectTrack<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
     pub const VT_SOURCE_ID: flatbuffers::VOffsetT = 6;
-    pub const VT_TRACK_ID: flatbuffers::VOffsetT = 8;
+    pub const VT_IDENTITY: flatbuffers::VOffsetT = 8;
     pub const VT_BOX_: flatbuffers::VOffsetT = 10;
-    pub const VT_CONFIDENCE: flatbuffers::VOffsetT = 12;
+    pub const VT_SOURCE_CONFIDENCE: flatbuffers::VOffsetT = 12;
     pub const VT_CLASS_ID: flatbuffers::VOffsetT = 14;
     pub const VT_TEXT: flatbuffers::VOffsetT = 16;
-    pub const VT_DIAGNOSTIC: flatbuffers::VOffsetT = 18;
-    pub const VT_PREDICTED_ONLY: flatbuffers::VOffsetT = 20;
+    pub const VT_ASSOCIATION: flatbuffers::VOffsetT = 18;
+    pub const VT_SAMPLE: flatbuffers::VOffsetT = 20;
+    pub const VT_SOURCE_FRAME_INDEX: flatbuffers::VOffsetT = 22;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -63,10 +64,17 @@ impl<'a> ObjectTrack<'a> {
         args: &'args ObjectTrackArgs<'args>,
     ) -> flatbuffers::WIPOffset<ObjectTrack<'bldr>> {
         let mut builder = ObjectTrackBuilder::new(_fbb);
-        builder.add_track_id(args.track_id);
-        builder.add_source_id(args.source_id);
-        if let Some(x) = args.diagnostic {
-            builder.add_diagnostic(x);
+        if let Some(x) = args.source_frame_index {
+            builder.add_source_frame_index(x);
+        }
+        if let Some(x) = args.source_id {
+            builder.add_source_id(x);
+        }
+        if let Some(x) = args.sample {
+            builder.add_sample(x);
+        }
+        if let Some(x) = args.association {
+            builder.add_association(x);
         }
         if let Some(x) = args.text {
             builder.add_text(x);
@@ -74,37 +82,43 @@ impl<'a> ObjectTrack<'a> {
         if let Some(x) = args.class_id {
             builder.add_class_id(x);
         }
-        builder.add_confidence(args.confidence);
+        if let Some(x) = args.source_confidence {
+            builder.add_source_confidence(x);
+        }
         if let Some(x) = args.box_ {
             builder.add_box_(x);
+        }
+        if let Some(x) = args.identity {
+            builder.add_identity(x);
         }
         if let Some(x) = args.object {
             builder.add_object(x);
         }
-        builder.add_predicted_only(args.predicted_only);
         builder.finish()
     }
 
     pub fn unpack(&self) -> ObjectTrackT {
         let object = self.object().map(|x| Box::new(x.unpack()));
         let source_id = self.source_id();
-        let track_id = self.track_id();
+        let identity = self.identity().map(|x| Box::new(x.unpack()));
         let box_ = self.box_().map(|x| Box::new(x.unpack()));
-        let confidence = self.confidence();
+        let source_confidence = self.source_confidence();
         let class_id = self.class_id();
         let text = self.text().map(|x| x.to_string());
-        let diagnostic = self.diagnostic().map(|x| x.to_string());
-        let predicted_only = self.predicted_only();
+        let association = self.association().map(|x| Box::new(x.unpack()));
+        let sample = self.sample().map(|x| Box::new(x.unpack()));
+        let source_frame_index = self.source_frame_index();
         ObjectTrackT {
             object,
             source_id,
-            track_id,
+            identity,
             box_,
-            confidence,
+            source_confidence,
             class_id,
             text,
-            diagnostic,
-            predicted_only,
+            association,
+            sample,
+            source_frame_index,
         }
     }
 
@@ -119,25 +133,20 @@ impl<'a> ObjectTrack<'a> {
         }
     }
     #[inline]
-    pub fn source_id(&self) -> u64 {
+    pub fn source_id(&self) -> Option<u64> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<u64>(ObjectTrack::VT_SOURCE_ID, Some(0))
-                .unwrap()
-        }
+        unsafe { self._tab.get::<u64>(ObjectTrack::VT_SOURCE_ID, None) }
     }
     #[inline]
-    pub fn track_id(&self) -> u64 {
+    pub fn identity(&self) -> Option<TrackIdentity<'a>> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<u64>(ObjectTrack::VT_TRACK_ID, Some(0))
-                .unwrap()
+                .get::<flatbuffers::ForwardsUOffset<TrackIdentity>>(ObjectTrack::VT_IDENTITY, None)
         }
     }
     #[inline]
@@ -151,14 +160,13 @@ impl<'a> ObjectTrack<'a> {
         }
     }
     #[inline]
-    pub fn confidence(&self) -> f32 {
+    pub fn source_confidence(&self) -> Option<f32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<f32>(ObjectTrack::VT_CONFIDENCE, Some(0.0))
-                .unwrap()
+                .get::<f32>(ObjectTrack::VT_SOURCE_CONFIDENCE, None)
         }
     }
     #[inline]
@@ -179,24 +187,36 @@ impl<'a> ObjectTrack<'a> {
         }
     }
     #[inline]
-    pub fn diagnostic(&self) -> Option<&'a str> {
+    pub fn association(&self) -> Option<TrackAssociation<'a>> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<flatbuffers::ForwardsUOffset<&str>>(ObjectTrack::VT_DIAGNOSTIC, None)
+                .get::<flatbuffers::ForwardsUOffset<TrackAssociation>>(
+                    ObjectTrack::VT_ASSOCIATION,
+                    None,
+                )
         }
     }
     #[inline]
-    pub fn predicted_only(&self) -> bool {
+    pub fn sample(&self) -> Option<TrackingSample<'a>> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<bool>(ObjectTrack::VT_PREDICTED_ONLY, Some(false))
-                .unwrap()
+                .get::<flatbuffers::ForwardsUOffset<TrackingSample>>(ObjectTrack::VT_SAMPLE, None)
+        }
+    }
+    #[inline]
+    pub fn source_frame_index(&self) -> Option<u64> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<u64>(ObjectTrack::VT_SOURCE_FRAME_INDEX, None)
         }
     }
 }
@@ -215,45 +235,56 @@ impl flatbuffers::Verifiable for ObjectTrack<'_> {
                 false,
             )?
             .visit_field::<u64>("source_id", Self::VT_SOURCE_ID, false)?
-            .visit_field::<u64>("track_id", Self::VT_TRACK_ID, false)?
-            .visit_field::<flatbuffers::ForwardsUOffset<BoundingBox>>("box_", Self::VT_BOX_, false)?
-            .visit_field::<f32>("confidence", Self::VT_CONFIDENCE, false)?
-            .visit_field::<u32>("class_id", Self::VT_CLASS_ID, false)?
-            .visit_field::<flatbuffers::ForwardsUOffset<&str>>("text", Self::VT_TEXT, false)?
-            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
-                "diagnostic",
-                Self::VT_DIAGNOSTIC,
+            .visit_field::<flatbuffers::ForwardsUOffset<TrackIdentity>>(
+                "identity",
+                Self::VT_IDENTITY,
                 false,
             )?
-            .visit_field::<bool>("predicted_only", Self::VT_PREDICTED_ONLY, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<BoundingBox>>("box_", Self::VT_BOX_, false)?
+            .visit_field::<f32>("source_confidence", Self::VT_SOURCE_CONFIDENCE, false)?
+            .visit_field::<u32>("class_id", Self::VT_CLASS_ID, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<&str>>("text", Self::VT_TEXT, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<TrackAssociation>>(
+                "association",
+                Self::VT_ASSOCIATION,
+                false,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<TrackingSample>>(
+                "sample",
+                Self::VT_SAMPLE,
+                false,
+            )?
+            .visit_field::<u64>("source_frame_index", Self::VT_SOURCE_FRAME_INDEX, false)?
             .finish();
         Ok(())
     }
 }
 pub struct ObjectTrackArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
-    pub source_id: u64,
-    pub track_id: u64,
+    pub source_id: Option<u64>,
+    pub identity: Option<flatbuffers::WIPOffset<TrackIdentity<'a>>>,
     pub box_: Option<flatbuffers::WIPOffset<BoundingBox<'a>>>,
-    pub confidence: f32,
+    pub source_confidence: Option<f32>,
     pub class_id: Option<u32>,
     pub text: Option<flatbuffers::WIPOffset<&'a str>>,
-    pub diagnostic: Option<flatbuffers::WIPOffset<&'a str>>,
-    pub predicted_only: bool,
+    pub association: Option<flatbuffers::WIPOffset<TrackAssociation<'a>>>,
+    pub sample: Option<flatbuffers::WIPOffset<TrackingSample<'a>>>,
+    pub source_frame_index: Option<u64>,
 }
 impl<'a> Default for ObjectTrackArgs<'a> {
     #[inline]
     fn default() -> Self {
         ObjectTrackArgs {
             object: None,
-            source_id: 0,
-            track_id: 0,
+            source_id: None,
+            identity: None,
             box_: None,
-            confidence: 0.0,
+            source_confidence: None,
             class_id: None,
             text: None,
-            diagnostic: None,
-            predicted_only: false,
+            association: None,
+            sample: None,
+            source_frame_index: None,
         }
     }
 }
@@ -271,12 +302,15 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ObjectTrackBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_source_id(&mut self, source_id: u64) {
         self.fbb_
-            .push_slot::<u64>(ObjectTrack::VT_SOURCE_ID, source_id, 0);
+            .push_slot_always::<u64>(ObjectTrack::VT_SOURCE_ID, source_id);
     }
     #[inline]
-    pub fn add_track_id(&mut self, track_id: u64) {
+    pub fn add_identity(&mut self, identity: flatbuffers::WIPOffset<TrackIdentity<'b>>) {
         self.fbb_
-            .push_slot::<u64>(ObjectTrack::VT_TRACK_ID, track_id, 0);
+            .push_slot_always::<flatbuffers::WIPOffset<TrackIdentity>>(
+                ObjectTrack::VT_IDENTITY,
+                identity,
+            );
     }
     #[inline]
     pub fn add_box_(&mut self, box_: flatbuffers::WIPOffset<BoundingBox<'b>>) {
@@ -284,9 +318,9 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ObjectTrackBuilder<'a, 'b, A> {
             .push_slot_always::<flatbuffers::WIPOffset<BoundingBox>>(ObjectTrack::VT_BOX_, box_);
     }
     #[inline]
-    pub fn add_confidence(&mut self, confidence: f32) {
+    pub fn add_source_confidence(&mut self, source_confidence: f32) {
         self.fbb_
-            .push_slot::<f32>(ObjectTrack::VT_CONFIDENCE, confidence, 0.0);
+            .push_slot_always::<f32>(ObjectTrack::VT_SOURCE_CONFIDENCE, source_confidence);
     }
     #[inline]
     pub fn add_class_id(&mut self, class_id: u32) {
@@ -299,14 +333,25 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ObjectTrackBuilder<'a, 'b, A> {
             .push_slot_always::<flatbuffers::WIPOffset<_>>(ObjectTrack::VT_TEXT, text);
     }
     #[inline]
-    pub fn add_diagnostic(&mut self, diagnostic: flatbuffers::WIPOffset<&'b str>) {
+    pub fn add_association(&mut self, association: flatbuffers::WIPOffset<TrackAssociation<'b>>) {
         self.fbb_
-            .push_slot_always::<flatbuffers::WIPOffset<_>>(ObjectTrack::VT_DIAGNOSTIC, diagnostic);
+            .push_slot_always::<flatbuffers::WIPOffset<TrackAssociation>>(
+                ObjectTrack::VT_ASSOCIATION,
+                association,
+            );
     }
     #[inline]
-    pub fn add_predicted_only(&mut self, predicted_only: bool) {
+    pub fn add_sample(&mut self, sample: flatbuffers::WIPOffset<TrackingSample<'b>>) {
         self.fbb_
-            .push_slot::<bool>(ObjectTrack::VT_PREDICTED_ONLY, predicted_only, false);
+            .push_slot_always::<flatbuffers::WIPOffset<TrackingSample>>(
+                ObjectTrack::VT_SAMPLE,
+                sample,
+            );
+    }
+    #[inline]
+    pub fn add_source_frame_index(&mut self, source_frame_index: u64) {
+        self.fbb_
+            .push_slot_always::<u64>(ObjectTrack::VT_SOURCE_FRAME_INDEX, source_frame_index);
     }
     #[inline]
     pub fn new(
@@ -330,13 +375,14 @@ impl core::fmt::Debug for ObjectTrack<'_> {
         let mut ds = f.debug_struct("ObjectTrack");
         ds.field("object", &self.object());
         ds.field("source_id", &self.source_id());
-        ds.field("track_id", &self.track_id());
+        ds.field("identity", &self.identity());
         ds.field("box_", &self.box_());
-        ds.field("confidence", &self.confidence());
+        ds.field("source_confidence", &self.source_confidence());
         ds.field("class_id", &self.class_id());
         ds.field("text", &self.text());
-        ds.field("diagnostic", &self.diagnostic());
-        ds.field("predicted_only", &self.predicted_only());
+        ds.field("association", &self.association());
+        ds.field("sample", &self.sample());
+        ds.field("source_frame_index", &self.source_frame_index());
         ds.finish()
     }
 }
@@ -344,27 +390,29 @@ impl core::fmt::Debug for ObjectTrack<'_> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectTrackT {
     pub object: Option<Box<ObjectMetaT>>,
-    pub source_id: u64,
-    pub track_id: u64,
+    pub source_id: Option<u64>,
+    pub identity: Option<Box<TrackIdentityT>>,
     pub box_: Option<Box<BoundingBoxT>>,
-    pub confidence: f32,
+    pub source_confidence: Option<f32>,
     pub class_id: Option<u32>,
     pub text: Option<String>,
-    pub diagnostic: Option<String>,
-    pub predicted_only: bool,
+    pub association: Option<Box<TrackAssociationT>>,
+    pub sample: Option<Box<TrackingSampleT>>,
+    pub source_frame_index: Option<u64>,
 }
 impl Default for ObjectTrackT {
     fn default() -> Self {
         Self {
             object: None,
-            source_id: 0,
-            track_id: 0,
+            source_id: None,
+            identity: None,
             box_: None,
-            confidence: 0.0,
+            source_confidence: None,
             class_id: None,
             text: None,
-            diagnostic: None,
-            predicted_only: false,
+            association: None,
+            sample: None,
+            source_frame_index: None,
         }
     }
 }
@@ -375,25 +423,27 @@ impl ObjectTrackT {
     ) -> flatbuffers::WIPOffset<ObjectTrack<'b>> {
         let object = self.object.as_ref().map(|x| x.pack(_fbb));
         let source_id = self.source_id;
-        let track_id = self.track_id;
+        let identity = self.identity.as_ref().map(|x| x.pack(_fbb));
         let box_ = self.box_.as_ref().map(|x| x.pack(_fbb));
-        let confidence = self.confidence;
+        let source_confidence = self.source_confidence;
         let class_id = self.class_id;
         let text = self.text.as_ref().map(|x| _fbb.create_string(x));
-        let diagnostic = self.diagnostic.as_ref().map(|x| _fbb.create_string(x));
-        let predicted_only = self.predicted_only;
+        let association = self.association.as_ref().map(|x| x.pack(_fbb));
+        let sample = self.sample.as_ref().map(|x| x.pack(_fbb));
+        let source_frame_index = self.source_frame_index;
         ObjectTrack::create(
             _fbb,
             &ObjectTrackArgs {
                 object,
                 source_id,
-                track_id,
+                identity,
                 box_,
-                confidence,
+                source_confidence,
                 class_id,
                 text,
-                diagnostic,
-                predicted_only,
+                association,
+                sample,
+                source_frame_index,
             },
         )
     }

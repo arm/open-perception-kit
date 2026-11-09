@@ -33,6 +33,7 @@
 #include <utility>
 #include <vector>
 
+#include "tracking_test_helpers.h"
 #include <gtest/gtest.h>
 
 namespace {
@@ -267,21 +268,24 @@ open_perception_kit::FrameResults makeTrackTraceFrameResults() {
     open_perception_kit::metadata::TrackTracesT payload;
 
     auto trace = std::make_unique<open_perception_kit::metadata::TrackTraceT>();
-    trace->track_id = 3U;
+    trace->identity = testTrackIdentity(3);
     trace->space = open_perception_kit::makeImageSpace(
         {.width = 80, .height = 48, .frameId = 1, .frameWidth = 80, .frameHeight = 48});
 
-    auto first = std::make_unique<open_perception_kit::metadata::Point2fT>();
+    auto first = std::make_unique<open_perception_kit::metadata::TrackTracePointT>();
+    first->sample = testTrackingSample(1);
     first->x = 4.0f;
     first->y = 5.0f;
     trace->points.push_back(std::move(first));
 
-    auto second = std::make_unique<open_perception_kit::metadata::Point2fT>();
+    auto second = std::make_unique<open_perception_kit::metadata::TrackTracePointT>();
+    second->sample = testTrackingSample(2);
     second->x = 36.0f;
     second->y = 18.0f;
     trace->points.push_back(std::move(second));
 
-    auto third = std::make_unique<open_perception_kit::metadata::Point2fT>();
+    auto third = std::make_unique<open_perception_kit::metadata::TrackTracePointT>();
+    third->sample = testTrackingSample(3);
     third->x = 60.0f;
     third->y = 30.0f;
     trace->points.push_back(std::move(third));
@@ -935,7 +939,8 @@ TEST(DebugOverlayRendererTest, GazeUsesUniqueBoxOrTrackSubjectsAndRejectsUnavail
             auto track = std::make_unique<open_perception_kit::metadata::ObjectTrackT>();
             track->object = std::move(boxes.detections[0]->object);
             track->box = std::move(boxes.detections[0]->box);
-            track->track_id = 999U;
+            track->identity = testTrackIdentity(999);
+            track->sample = testTrackingSample(1);
             tracks.tracks.push_back(std::move(track));
             results.add(std::move(tracks));
         } else {
@@ -1253,6 +1258,55 @@ TEST(DebugOverlayRendererTest, StructuredPerformancePreservesExistingPixels) {
     painter.drawText(
         10, 10 + lineHeight, "Pipeline:   60.0 FPS", opk::Colors::lime, opk::Colors::black, 1);
     EXPECT_EQ(actual.storage[0].bytes, expected.storage[0].bytes);
+}
+
+TEST(DebugOverlayRendererTest, StructuredTrackLabelPreservesExistingPixelsAndSkipsAmbiguousTrails) {
+    open_perception_kit::metadata::ObjectTracksT tracks;
+    tracks.layer = open_perception_kit::makeLayerInfo({.contentType = "genericObject"});
+    auto track = std::make_unique<open_perception_kit::metadata::ObjectTrackT>();
+    track->identity = testTrackIdentity(1);
+    track->sample = testTrackingSample(1);
+    track->association = std::make_unique<open_perception_kit::metadata::TrackAssociationT>();
+    track->association->kind = open_perception_kit::metadata::TrackAssociationKind::New;
+    track->text = "person";
+    track->box = open_perception_kit::makeImageBoundingBox(
+        {.width = 240, .height = 80, .frameId = 1, .frameWidth = 240, .frameHeight = 80},
+        10,
+        10,
+        40,
+        40);
+    open_perception_kit::metadata::BoxDetectionsT oldDisplay;
+    oldDisplay.layer = std::make_unique<open_perception_kit::metadata::LayerInfoT>(*tracks.layer);
+    auto box = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
+    box->box = std::make_unique<open_perception_kit::metadata::BoundingBoxT>(*track->box);
+    box->text = "person [ID:1 NEW]";
+    oldDisplay.detections.push_back(std::move(box));
+    tracks.tracks.push_back(std::move(track));
+    open_perception_kit::FrameResults actualFrame, expectedFrame;
+    actualFrame.add(std::move(tracks));
+    expectedFrame.add(std::move(oldDisplay));
+    auto actual = makeSurface(RawImagePixelFormat::Bgra, 240, 80);
+    auto expected = makeSurface(RawImagePixelFormat::Bgra, 240, 80);
+    const auto render = [](SurfaceStorage &surface,
+                           const open_perception_kit::FrameResults &frame) {
+        opk::osd::DebugOverlayRequest request;
+        request.surface.format = surface.format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frame;
+        EXPECT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
+    };
+    render(actual, actualFrame);
+    render(expected, expectedFrame);
+    EXPECT_EQ(actual.storage[0].bytes, expected.storage[0].bytes);
+    auto duplicate = makeTrackTraceFrameResults();
+    const auto original = makeTrackTraceFrameResults();
+    original.for_each<open_perception_kit::metadata::TrackTracesT>(
+        [&](const auto &payload) { duplicate.add(payload); });
+    auto untouched = makeSurface(RawImagePixelFormat::Bgra, 240, 80);
+    render(untouched, duplicate);
+    EXPECT_FALSE(activeAreaChanged(untouched));
 }
 
 TEST(DebugOverlayRendererTest, PerformancePreservesMissingAndZeroMeasurements) {
