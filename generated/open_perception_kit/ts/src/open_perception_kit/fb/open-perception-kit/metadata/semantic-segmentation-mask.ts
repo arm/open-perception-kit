@@ -52,8 +52,20 @@ bitmap(obj?:BitmapData):BitmapData|null {
   return offset ? (obj || new BitmapData()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
+labelSet():string|null
+labelSet(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+labelSet(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+voidValue():number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : null;
+}
+
 static startSemanticSegmentationMask(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(4);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -62,6 +74,14 @@ static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
 
 static addBitmap(builder:flatbuffers.Builder, bitmapOffset:flatbuffers.Offset) {
   builder.addFieldOffset(1, bitmapOffset, 0);
+}
+
+static addLabelSet(builder:flatbuffers.Builder, labelSetOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, labelSetOffset, 0);
+}
+
+static addVoidValue(builder:flatbuffers.Builder, voidValue:number) {
+  builder.addFieldInt32(3, voidValue, null);
 }
 
 static endSemanticSegmentationMask(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -73,7 +93,9 @@ static endSemanticSegmentationMask(builder:flatbuffers.Builder):flatbuffers.Offs
 unpack(): SemanticSegmentationMaskT {
   return new SemanticSegmentationMaskT(
     (this.object() !== null ? this.object()!.unpack() : null),
-    (this.bitmap() !== null ? this.bitmap()!.unpack() : null)
+    (this.bitmap() !== null ? this.bitmap()!.unpack() : null),
+    this.labelSet(),
+    this.voidValue()
   );
 }
 
@@ -81,23 +103,31 @@ unpack(): SemanticSegmentationMaskT {
 unpackTo(_o: SemanticSegmentationMaskT): void {
   _o.object = (this.object() !== null ? this.object()!.unpack() : null);
   _o.bitmap = (this.bitmap() !== null ? this.bitmap()!.unpack() : null);
+  _o.labelSet = this.labelSet();
+  _o.voidValue = this.voidValue();
 }
 }
 
 export class SemanticSegmentationMaskT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public bitmap: BitmapDataT|null = null
+  public bitmap: BitmapDataT|null = null,
+  public labelSet: string|Uint8Array|null = null,
+  public voidValue: number|null = null
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
   const bitmap = (this.bitmap !== null ? this.bitmap!.pack(builder) : 0);
+  const labelSet = (this.labelSet !== null ? builder.createString(this.labelSet!) : 0);
 
   SemanticSegmentationMask.startSemanticSegmentationMask(builder);
   SemanticSegmentationMask.addObject(builder, object);
   SemanticSegmentationMask.addBitmap(builder, bitmap);
+  SemanticSegmentationMask.addLabelSet(builder, labelSet);
+  if (this.voidValue !== null)
+    SemanticSegmentationMask.addVoidValue(builder, this.voidValue);
 
   return SemanticSegmentationMask.endSemanticSegmentationMask(builder);
 }

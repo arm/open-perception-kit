@@ -45,9 +45,10 @@ struct InstanceSegmentationMaskT : public ::flatbuffers::NativeTable {
     typedef InstanceSegmentationMask TableType;
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
     std::unique_ptr<open_perception_kit::metadata::BitmapDataT> bitmap{};
-    int32_t class_id = -1;
-    float confidence = 0.0f;
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt;
+    ::flatbuffers::Optional<float> confidence = ::flatbuffers::nullopt;
     std::unique_ptr<open_perception_kit::metadata::BoundingBoxT> box{};
+    std::string label_set{};
     InstanceSegmentationMaskT() = default;
     InstanceSegmentationMaskT(const InstanceSegmentationMaskT &o);
     InstanceSegmentationMaskT(InstanceSegmentationMaskT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -62,7 +63,8 @@ struct InstanceSegmentationMask FLATBUFFERS_FINAL_CLASS : private ::flatbuffers:
         VT_BITMAP = 6,
         VT_CLASS_ID = 8,
         VT_CONFIDENCE = 10,
-        VT_BOX = 12
+        VT_BOX = 12,
+        VT_LABEL_SET = 14
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -70,21 +72,25 @@ struct InstanceSegmentationMask FLATBUFFERS_FINAL_CLASS : private ::flatbuffers:
     const open_perception_kit::metadata::BitmapData *bitmap() const {
         return GetPointer<const open_perception_kit::metadata::BitmapData *>(VT_BITMAP);
     }
-    int32_t class_id() const {
-        return GetField<int32_t>(VT_CLASS_ID, -1);
+    ::flatbuffers::Optional<uint32_t> class_id() const {
+        return GetOptional<uint32_t, uint32_t>(VT_CLASS_ID);
     }
-    float confidence() const {
-        return GetField<float>(VT_CONFIDENCE, 0.0f);
+    ::flatbuffers::Optional<float> confidence() const {
+        return GetOptional<float, float>(VT_CONFIDENCE);
     }
     const open_perception_kit::metadata::BoundingBox *box() const {
         return GetPointer<const open_perception_kit::metadata::BoundingBox *>(VT_BOX);
     }
+    const ::flatbuffers::String *label_set() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_LABEL_SET);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) && VerifyOffset(verifier, VT_BITMAP) &&
-               verifier.VerifyTable(bitmap()) && VerifyField<int32_t>(verifier, VT_CLASS_ID, 4) &&
+               verifier.VerifyTable(bitmap()) && VerifyField<uint32_t>(verifier, VT_CLASS_ID, 4) &&
                VerifyField<float>(verifier, VT_CONFIDENCE, 4) && VerifyOffset(verifier, VT_BOX) &&
-               verifier.VerifyTable(box()) && verifier.EndTable();
+               verifier.VerifyTable(box()) && VerifyOffset(verifier, VT_LABEL_SET) &&
+               verifier.VerifyString(label_set()) && verifier.EndTable();
     }
     InstanceSegmentationMaskT *
     UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -106,14 +112,17 @@ struct InstanceSegmentationMaskBuilder {
     void add_bitmap(::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap) {
         fbb_.AddOffset(InstanceSegmentationMask::VT_BITMAP, bitmap);
     }
-    void add_class_id(int32_t class_id) {
-        fbb_.AddElement<int32_t>(InstanceSegmentationMask::VT_CLASS_ID, class_id, -1);
+    void add_class_id(uint32_t class_id) {
+        fbb_.AddElement<uint32_t>(InstanceSegmentationMask::VT_CLASS_ID, class_id);
     }
     void add_confidence(float confidence) {
-        fbb_.AddElement<float>(InstanceSegmentationMask::VT_CONFIDENCE, confidence, 0.0f);
+        fbb_.AddElement<float>(InstanceSegmentationMask::VT_CONFIDENCE, confidence);
     }
     void add_box(::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box) {
         fbb_.AddOffset(InstanceSegmentationMask::VT_BOX, box);
+    }
+    void add_label_set(::flatbuffers::Offset<::flatbuffers::String> label_set) {
+        fbb_.AddOffset(InstanceSegmentationMask::VT_LABEL_SET, label_set);
     }
     explicit InstanceSegmentationMaskBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
@@ -129,16 +138,35 @@ inline ::flatbuffers::Offset<InstanceSegmentationMask> CreateInstanceSegmentatio
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
     ::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap = 0,
-    int32_t class_id = -1,
-    float confidence = 0.0f,
-    ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0) {
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<float> confidence = ::flatbuffers::nullopt,
+    ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> label_set = 0) {
     InstanceSegmentationMaskBuilder builder_(_fbb);
+    builder_.add_label_set(label_set);
     builder_.add_box(box);
-    builder_.add_confidence(confidence);
-    builder_.add_class_id(class_id);
+    if (confidence) {
+        builder_.add_confidence(*confidence);
+    }
+    if (class_id) {
+        builder_.add_class_id(*class_id);
+    }
     builder_.add_bitmap(bitmap);
     builder_.add_object(object);
     return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<InstanceSegmentationMask> CreateInstanceSegmentationMaskDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap = 0,
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<float> confidence = ::flatbuffers::nullopt,
+    ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
+    const char *label_set = nullptr) {
+    auto label_set__ = label_set ? _fbb.CreateString(label_set) : 0;
+    return open_perception_kit::metadata::CreateInstanceSegmentationMask(
+        _fbb, object, bitmap, class_id, confidence, box, label_set__);
 }
 
 ::flatbuffers::Offset<InstanceSegmentationMask>
@@ -269,7 +297,8 @@ inline InstanceSegmentationMaskT::InstanceSegmentationMaskT(const InstanceSegmen
     : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
       bitmap((o.bitmap) ? new open_perception_kit::metadata::BitmapDataT(*o.bitmap) : nullptr),
       class_id(o.class_id), confidence(o.confidence),
-      box((o.box) ? new open_perception_kit::metadata::BoundingBoxT(*o.box) : nullptr) {}
+      box((o.box) ? new open_perception_kit::metadata::BoundingBoxT(*o.box) : nullptr),
+      label_set(o.label_set) {}
 
 inline InstanceSegmentationMaskT &
 InstanceSegmentationMaskT::operator=(InstanceSegmentationMaskT o) FLATBUFFERS_NOEXCEPT {
@@ -278,6 +307,7 @@ InstanceSegmentationMaskT::operator=(InstanceSegmentationMaskT o) FLATBUFFERS_NO
     std::swap(class_id, o.class_id);
     std::swap(confidence, o.confidence);
     std::swap(box, o.box);
+    std::swap(label_set, o.label_set);
     return *this;
 }
 
@@ -340,6 +370,11 @@ InstanceSegmentationMask::UnPackTo(InstanceSegmentationMaskT *_o,
             _o->box.reset();
         }
     }
+    {
+        auto _e = label_set();
+        if (_e)
+            _o->label_set = _e->str();
+    }
 }
 
 inline ::flatbuffers::Offset<InstanceSegmentationMask>
@@ -366,8 +401,9 @@ CreateInstanceSegmentationMask(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _class_id = _o->class_id;
     auto _confidence = _o->confidence;
     auto _box = _o->box ? CreateBoundingBox(_fbb, _o->box.get(), _rehasher) : 0;
+    auto _label_set = _o->label_set.empty() ? 0 : _fbb.CreateString(_o->label_set);
     return open_perception_kit::metadata::CreateInstanceSegmentationMask(
-        _fbb, _object, _bitmap, _class_id, _confidence, _box);
+        _fbb, _object, _bitmap, _class_id, _confidence, _box, _label_set);
 }
 
 inline InstanceSegmentationMasksT::InstanceSegmentationMasksT(const InstanceSegmentationMasksT &o)

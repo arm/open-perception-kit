@@ -146,10 +146,9 @@ payload snapshots built from generated schema types such as:
 
 Plumber uses the owning endpoint API from `open_perception_kit.packet`; the mutually
 exclusive `open_perception_kit.guest` API is reserved for scripts attached to a live
-C++ envelope. It requires the packet producer SDK name, semantic version, and
-schema-set SHA-256 to exactly match the generated Open Perception Kit SDK used by
-Plumber. Legacy packets without producer metadata and packets produced by a
-different SDK revision are rejected before payload comparison.
+C++ envelope. It requires a matching producer SDK name and a compatible SDK
+major version. The schema digest is diagnostic, not an acceptance gate. Legacy
+packets without compatible producer metadata are rejected before comparison.
 
 ```text
 FrameContextT
@@ -159,6 +158,8 @@ CameraContactsT
 PersonPresencesT
 GazeMeasurementsT
 SegmentationMasksT
+SemanticSegmentationMasksT
+InstanceSegmentationMasksT
 ObjectEmbeddingsT
 ObjectTracksT
 TrackTracesT
@@ -166,6 +167,17 @@ TrackTracesT
 
 `PerformanceMeasurementsT` is ignored by comparison because it is diagnostic runtime
 measurements rather than stable model output.
+
+Mask comparison is enabled for all mask families. It requires explicit encoding,
+exact byte length, image space and family-specific semantics; malformed masks
+fail even when both sides contain the same malformed data. Derivation parents
+and visualization settings do not determine meaning or placement. Opacity uses
+mean absolute error / 255, class maps use unequal-sample fraction, and instance
+membership uses IoU distance, each with tolerance 0.1. Regions and optional
+instance boxes must correspond at geometry tolerance 0.01; label sets, class IDs,
+opacity meanings and optional void values must agree. Nearest sampling supports
+different grid resolutions without interpolating category IDs. Multiple frame
+bases in a single mask source group fail as ambiguous.
 
 Categorical classifications compare top-1 `(labelSet, classId)` identity, not
 display wording. A class ID without a label set cannot establish a match.

@@ -34,8 +34,7 @@ constexpr std::uint8_t ClassCount = 19U;
 // FlatBuffers uses signed 32-bit offsets; reserve space for tables and layer metadata.
 constexpr std::size_t MaxMaskBytes = std::numeric_limits<std::int32_t>::max() - 65536U;
 
-opk::Result<void> validateGeometry(const opk::TensorParser::Input &input,
-                                   const open_perception_kit::FrameResults &results) {
+opk::Result<void> validateGeometry(const opk::TensorParser::Input &input) {
     const auto &image = input.inferenceInfo.image;
     if (image.modelWidth != ModelSize || image.modelHeight != ModelSize) {
         return tl::unexpected(OPK_ERROR(
@@ -59,21 +58,12 @@ opk::Result<void> validateGeometry(const opk::TensorParser::Input &input,
                       "Yolo26SemanticSegmentationParser: invalid letterbox padding"));
     }
 
-    bool fullFrame = false;
-    results.for_each<open_perception_kit::metadata::FrameContextT>([&](const auto &context) {
-        if (!context.video || !context.video->object ||
-            context.video->object->id != input.inferenceInfo.parentId) {
-            return;
-        }
-        const auto &video = *context.video;
-        fullFrame = video.original_width == image.width && video.original_height == image.height &&
-                    image.cropX == 0U && image.cropY == 0U;
-    });
-    if (!fullFrame || input.inferenceInfo.parentId == 0U) {
-        return tl::unexpected(OPK_ERROR(
-            opk::ErrorFlag::InvalidData,
-            "Yolo26SemanticSegmentationParser: requires an uncropped full-frame FrameContext "
-            "parent; ROI inference is unsupported"));
+    const auto space = open_perception_kit::makeImageSpace(image);
+    if (!open_perception_kit::validImageSpace(space.get()) || image.cropX != 0 ||
+        image.cropY != 0 || image.width != image.frameWidth || image.height != image.frameHeight) {
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                        "Yolo26SemanticSegmentationParser: requires an explicit "
+                                        "full-frame image space; ROI inference is unsupported"));
     }
     return {};
 }
@@ -111,7 +101,7 @@ Yolo26SemanticSegmentationParser::parse(const Input &input,
             OPK_ERROR(opk::ErrorFlag::InvalidData,
                       "Yolo26SemanticSegmentationParser: invalid tensor backing"));
     }
-    if (const auto geometry = validateGeometry(input, results); !geometry) {
+    if (const auto geometry = validateGeometry(input); !geometry) {
         return tl::unexpected(geometry.error());
     }
 
@@ -142,7 +132,11 @@ Yolo26SemanticSegmentationParser::parse(const Input &input,
 
     auto mask = std::make_unique<open_perception_kit::metadata::SemanticSegmentationMaskT>();
     mask->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-    mask->bitmap = open_perception_kit::makeBitmapData(bitmap);
+    mask->bitmap = open_perception_kit::makeBitmapData(bitmap, image);
+    mask->label_set = "opk:cityscapes-19";
+    if (!mask->bitmap)
+        return tl::unexpected(OPK_ERROR(
+            ErrorFlag::InvalidData, "Yolo26SemanticSegmentationParser: invalid mask image space"));
 
     open_perception_kit::metadata::SemanticSegmentationMasksT payload;
     payload.layer =

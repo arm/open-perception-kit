@@ -28,15 +28,18 @@ export declare class InstanceSegmentationMask implements flatbuffers.IUnpackable
     static getSizePrefixedRootAsInstanceSegmentationMask(bb: flatbuffers.ByteBuffer, obj?: InstanceSegmentationMask): InstanceSegmentationMask;
     object(obj?: ObjectMeta): ObjectMeta | null;
     bitmap(obj?: BitmapData): BitmapData | null;
-    classId(): number;
-    confidence(): number;
+    classId(): number | null;
+    confidence(): number | null;
     box(obj?: BoundingBox): BoundingBox | null;
+    labelSet(): string | null;
+    labelSet(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     static startInstanceSegmentationMask(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
     static addBitmap(builder: flatbuffers.Builder, bitmapOffset: flatbuffers.Offset): void;
     static addClassId(builder: flatbuffers.Builder, classId: number): void;
     static addConfidence(builder: flatbuffers.Builder, confidence: number): void;
     static addBox(builder: flatbuffers.Builder, boxOffset: flatbuffers.Offset): void;
+    static addLabelSet(builder: flatbuffers.Builder, labelSetOffset: flatbuffers.Offset): void;
     static endInstanceSegmentationMask(builder: flatbuffers.Builder): flatbuffers.Offset;
     unpack(): InstanceSegmentationMaskT;
     unpackTo(_o: InstanceSegmentationMaskT): void;
@@ -44,9 +47,10 @@ export declare class InstanceSegmentationMask implements flatbuffers.IUnpackable
 export declare class InstanceSegmentationMaskT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
     bitmap: BitmapDataT | null;
-    classId: number;
-    confidence: number;
+    classId: number | null;
+    confidence: number | null;
     box: BoundingBoxT | null;
-    constructor(object?: ObjectMetaT | null, bitmap?: BitmapDataT | null, classId?: number, confidence?: number, box?: BoundingBoxT | null);
+    labelSet: string | Uint8Array | null;
+    constructor(object?: ObjectMetaT | null, bitmap?: BitmapDataT | null, classId?: number | null, confidence?: number | null, box?: BoundingBoxT | null, labelSet?: string | Uint8Array | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

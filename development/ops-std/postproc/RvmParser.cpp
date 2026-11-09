@@ -79,14 +79,16 @@ opk::Result<void> RvmParser::parse(const opk::TensorParser::Input &input,
 
     auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
     mask->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-    mask->bitmap = open_perception_kit::makeBitmapData(bitmap);
+    mask->bitmap = open_perception_kit::makeModelMaskBitmapData(bitmap, input.inferenceInfo.image);
+    mask->meaning = open_perception_kit::metadata::OpacityMeaning::BackgroundOpacity;
+    if (!mask->bitmap)
+        return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData, "RVM: invalid mask image space"));
 
     open_perception_kit::metadata::SegmentationMasksT payload;
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
                                             .contentType = k_content_type,
-                                            .compositingMode = "backgroundReplacement",
                                             .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));

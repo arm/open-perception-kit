@@ -74,15 +74,15 @@ class InstanceSegmentationMask(object):
     def ClassId(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return -1
+            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+        return None
 
     # InstanceSegmentationMask
     def Confidence(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+        return None
 
     # InstanceSegmentationMask
     def Box(self):
@@ -95,9 +95,16 @@ class InstanceSegmentationMask(object):
             return obj
         return None
 
+    # InstanceSegmentationMask
+    def LabelSet(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 
 def InstanceSegmentationMaskStart(builder):
-    builder.StartObject(5)
+    builder.StartObject(6)
 
 
 def Start(builder):
@@ -121,7 +128,7 @@ def AddBitmap(builder, bitmap):
 
 
 def InstanceSegmentationMaskAddClassId(builder, classId):
-    builder.PrependInt32Slot(2, classId, -1)
+    builder.PrependUint32Slot(2, classId, None)
 
 
 def AddClassId(builder, classId):
@@ -129,7 +136,7 @@ def AddClassId(builder, classId):
 
 
 def InstanceSegmentationMaskAddConfidence(builder, confidence):
-    builder.PrependFloat32Slot(3, confidence, 0.0)
+    builder.PrependFloat32Slot(3, confidence, None)
 
 
 def AddConfidence(builder, confidence):
@@ -142,6 +149,14 @@ def InstanceSegmentationMaskAddBox(builder, box):
 
 def AddBox(builder, box):
     InstanceSegmentationMaskAddBox(builder, box)
+
+
+def InstanceSegmentationMaskAddLabelSet(builder, labelSet):
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(labelSet), 0)
+
+
+def AddLabelSet(builder, labelSet):
+    InstanceSegmentationMaskAddLabelSet(builder, labelSet)
 
 
 def InstanceSegmentationMaskEnd(builder):
@@ -165,17 +180,19 @@ class InstanceSegmentationMaskT(object):
         self,
         object=None,
         bitmap=None,
-        classId=-1,
-        confidence=0.0,
+        classId=None,
+        confidence=None,
         box=None,
+        labelSet=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.BitmapData.BitmapDataT]
         self.bitmap = bitmap
-        self.classId = classId  # type: int
-        self.confidence = confidence  # type: float
+        self.classId = classId  # type: Optional[int]
+        self.confidence = confidence  # type: Optional[float]
         self.box = box  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.BoundingBox.BoundingBoxT]
+        self.labelSet = labelSet  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -209,6 +226,7 @@ class InstanceSegmentationMaskT(object):
         if instanceSegmentationMask.Box() is not None:
             self.box = open_perception_kit.fb.open_perception_kit.metadata.BoundingBox.BoundingBoxT.InitFromObj(
                 instanceSegmentationMask.Box())
+        self.labelSet = instanceSegmentationMask.LabelSet()
 
     # InstanceSegmentationMaskT
     def Pack(self, builder):
@@ -218,6 +236,8 @@ class InstanceSegmentationMaskT(object):
             bitmap = self.bitmap.Pack(builder)
         if self.box is not None:
             box = self.box.Pack(builder)
+        if self.labelSet is not None:
+            labelSet = builder.CreateString(self.labelSet)
         InstanceSegmentationMaskStart(builder)
         if self.object is not None:
             InstanceSegmentationMaskAddObject(builder, object)
@@ -227,5 +247,7 @@ class InstanceSegmentationMaskT(object):
         InstanceSegmentationMaskAddConfidence(builder, self.confidence)
         if self.box is not None:
             InstanceSegmentationMaskAddBox(builder, box)
+        if self.labelSet is not None:
+            InstanceSegmentationMaskAddLabelSet(builder, labelSet)
         instanceSegmentationMask = InstanceSegmentationMaskEnd(builder)
         return instanceSegmentationMask

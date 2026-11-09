@@ -22,11 +22,11 @@ TEST(MetadataTextDisplay, UnknownBitmapTypesAreNotReinterpretedAsBytes) {
     open_perception_kit::metadata::SegmentationMasksT payload;
     auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
     mask->bitmap = std::make_unique<open_perception_kit::metadata::BitmapDataT>();
-    mask->bitmap->value_type = "Float32";
+    mask->bitmap->encoding = static_cast<open_perception_kit::metadata::BitmapEncoding>(99);
     mask->bitmap->pixels = {1, 2, 3, 4};
     payload.masks.push_back(std::move(mask));
     const auto text = TextDisplay::formatText(payload);
-    EXPECT_NE(text.find("unsupported-type(Float32)"), std::string::npos);
+    EXPECT_NE(text.find("invalid-bitmap"), std::string::npos);
     EXPECT_EQ(text.find("min="), std::string::npos);
 }
 

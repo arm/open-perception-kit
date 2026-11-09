@@ -17,6 +17,8 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
+import { BitmapEncoding } from '../../open-perception-kit/metadata/bitmap-encoding.js';
+import { ImageSpace, ImageSpaceT } from '../../open-perception-kit/metadata/image-space.js';
 export declare class BitmapData implements flatbuffers.IUnpackableObject<BitmapDataT> {
     bb: flatbuffers.ByteBuffer | null;
     bb_pos: number;
@@ -25,28 +27,29 @@ export declare class BitmapData implements flatbuffers.IUnpackableObject<BitmapD
     static getSizePrefixedRootAsBitmapData(bb: flatbuffers.ByteBuffer, obj?: BitmapData): BitmapData;
     width(): number;
     height(): number;
-    valueType(): string | null;
-    valueType(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
+    encoding(): BitmapEncoding;
     pixels(index: number): number | null;
     pixelsLength(): number;
     pixelsArray(): Uint8Array | null;
+    space(obj?: ImageSpace): ImageSpace | null;
     static startBitmapData(builder: flatbuffers.Builder): void;
     static addWidth(builder: flatbuffers.Builder, width: number): void;
     static addHeight(builder: flatbuffers.Builder, height: number): void;
-    static addValueType(builder: flatbuffers.Builder, valueTypeOffset: flatbuffers.Offset): void;
+    static addEncoding(builder: flatbuffers.Builder, encoding: BitmapEncoding): void;
     static addPixels(builder: flatbuffers.Builder, pixelsOffset: flatbuffers.Offset): void;
     static createPixelsVector(builder: flatbuffers.Builder, data: number[] | Uint8Array): flatbuffers.Offset;
     static startPixelsVector(builder: flatbuffers.Builder, numElems: number): void;
+    static addSpace(builder: flatbuffers.Builder, spaceOffset: flatbuffers.Offset): void;
     static endBitmapData(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createBitmapData(builder: flatbuffers.Builder, width: number, height: number, valueTypeOffset: flatbuffers.Offset, pixelsOffset: flatbuffers.Offset): flatbuffers.Offset;
     unpack(): BitmapDataT;
     unpackTo(_o: BitmapDataT): void;
 }
 export declare class BitmapDataT implements flatbuffers.IGeneratedObject {
     width: number;
     height: number;
-    valueType: string | Uint8Array | null;
+    encoding: BitmapEncoding;
     pixels: (number)[];
-    constructor(width?: number, height?: number, valueType?: string | Uint8Array | null, pixels?: (number)[]);
+    space: ImageSpaceT | null;
+    constructor(width?: number, height?: number, encoding?: BitmapEncoding, pixels?: (number)[], space?: ImageSpaceT | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }
