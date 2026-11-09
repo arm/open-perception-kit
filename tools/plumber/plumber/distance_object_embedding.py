@@ -14,48 +14,28 @@
 # limitations under the License.
 
 import math
+from open_perception_kit.fb.open_perception_kit.metadata.EmbeddingMetric import EmbeddingMetric
+from .distance_subject import distance_subject
+from .distance_rect import GEOMETRY_THRESHOLD
 
 
-def is_near_zero(x: float, abs_tol: float = 1e-9) -> bool:
-    return math.isclose(x, 0.0, abs_tol=abs_tol)
+def usable(data):
+    space, values = data.get("space"), data.get("values", [])
+    return (space is not None and bool(space["id"]) and space["metric"] == EmbeddingMetric.Cosine
+            and space["dimensions"] == len(values) and bool(values)
+            and all(math.isfinite(value) for value in values)
+            and any(value != 0 for value in values))
 
 
 def distance_object_embedding(gt_item: dict, out_item: dict, gt_parent_item: dict, out_parent_item: dict) -> float:
-    """
-    Cosine distance between embedding vectors.
-    Returns value in [0,1].
-    """
-
-    del gt_parent_item
-    del out_parent_item
-
-    v1 = gt_item.get("data", {}).get("values", [])
-    v2 = out_item.get("data", {}).get("values", [])
-
-    if not v1 or not v2:
+    """Existing clipped cosine distance, only for declared spaces and corresponding subjects."""
+    a, b = gt_item["data"], out_item["data"]
+    if not usable(a) or not usable(b) or a["space"] != b["space"]:
         return 1.0
-
-    if len(v1) != len(v2):
+    if distance_subject(gt_item, out_item, gt_parent_item, out_parent_item) > GEOMETRY_THRESHOLD:
         return 1.0
-
-    dot = 0.0
-    norm1 = 0.0
-    norm2 = 0.0
-
-    for a, b in zip(v1, v2):
-        dot += a * b
-        norm1 += a * a
-        norm2 += b * b
-
-    if is_near_zero(norm1) or is_near_zero(norm2):
-        return 1.0
-
-    cos_sim = dot / (math.sqrt(norm1) * math.sqrt(norm2))
-
-    # numerical safety
-    cos_sim = max(-1.0, min(1.0, cos_sim))
-
-    # convert to [0,1]
-    distance = 1.0 - cos_sim
-
-    return max(0.0, min(1.0, distance))
+    v1, v2 = a["values"], b["values"]
+    dot = math.fsum(x * y for x, y in zip(v1, v2))
+    norm1 = math.sqrt(math.fsum(x * x for x in v1))
+    norm2 = math.sqrt(math.fsum(x * x for x in v2))
+    return max(0.0, min(1.0, 1.0 - dot / (norm1 * norm2)))

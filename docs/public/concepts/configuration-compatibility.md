@@ -213,6 +213,20 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+OpChain reader schema `1.9.0` adds optional `embeddingSpaceId` to
+`ObjectEmbeddingParser`. This is an author-declared, versioned comparison-space
+identity, not a display name. Omitting it still permits transport, but matching
+consumers treat unidentified vectors as unavailable. Upgrade native readers before
+using the new attribute; older schemas reject unknown parser attributes. Existing
+descriptors adopting it should advance their own minor version and reset patch,
+following the per-file version policy. No checked-in embedding-model OpChain
+currently requires migration.
+
+SDK 1.0 replaces the tracker's `embedding-content-type` property with optional
+`embedding-space-id` and `embedding-producer-id` selectors. Do not copy the old
+content-type string as a space ID: declare the actual model/output comparison
+contract. See [embedding spaces](../../arch/perception.md#embedding-spaces-and-selection).
+
 Model reader schema `1.2.0` adds Float32 `ImageBgrChw` inputs with
 `[1,3,H,W]` shapes. Declare normalization `mean` and `std` in B, G, R
 tensor-channel order. OpChain reader schema `1.7.0` adds

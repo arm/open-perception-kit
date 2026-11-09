@@ -33,6 +33,10 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 
 namespace open_perception_kit {
 namespace metadata {
 
+struct EmbeddingSpace;
+struct EmbeddingSpaceBuilder;
+struct EmbeddingSpaceT;
+
 struct ObjectEmbedding;
 struct ObjectEmbeddingBuilder;
 struct ObjectEmbeddingT;
@@ -41,10 +45,127 @@ struct ObjectEmbeddings;
 struct ObjectEmbeddingsBuilder;
 struct ObjectEmbeddingsT;
 
+enum class EmbeddingMetric : uint8_t {
+    Unspecified = 0,
+    Cosine = 1,
+    MIN = Unspecified,
+    MAX = Cosine
+};
+
+inline const EmbeddingMetric (&EnumValuesEmbeddingMetric())[2] {
+    static const EmbeddingMetric values[] = {EmbeddingMetric::Unspecified, EmbeddingMetric::Cosine};
+    return values;
+}
+
+inline const char *const *EnumNamesEmbeddingMetric() {
+    static const char *const names[3] = {"Unspecified", "Cosine", nullptr};
+    return names;
+}
+
+inline const char *EnumNameEmbeddingMetric(EmbeddingMetric e) {
+    if (::flatbuffers::IsOutRange(e, EmbeddingMetric::Unspecified, EmbeddingMetric::Cosine))
+        return "";
+    const size_t index = static_cast<size_t>(e);
+    return EnumNamesEmbeddingMetric()[index];
+}
+
+struct EmbeddingSpaceT : public ::flatbuffers::NativeTable {
+    typedef EmbeddingSpace TableType;
+    std::string id{};
+    uint32_t dimensions = 0;
+    open_perception_kit::metadata::EmbeddingMetric metric =
+        open_perception_kit::metadata::EmbeddingMetric::Unspecified;
+};
+
+struct EmbeddingSpace FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+    typedef EmbeddingSpaceT NativeTableType;
+    typedef EmbeddingSpaceBuilder Builder;
+    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+        VT_ID = 4,
+        VT_DIMENSIONS = 6,
+        VT_METRIC = 8
+    };
+    const ::flatbuffers::String *id() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_ID);
+    }
+    uint32_t dimensions() const {
+        return GetField<uint32_t>(VT_DIMENSIONS, 0);
+    }
+    open_perception_kit::metadata::EmbeddingMetric metric() const {
+        return static_cast<open_perception_kit::metadata::EmbeddingMetric>(
+            GetField<uint8_t>(VT_METRIC, 0));
+    }
+    bool Verify(::flatbuffers::Verifier &verifier) const {
+        return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_ID) &&
+               verifier.VerifyString(id()) && VerifyField<uint32_t>(verifier, VT_DIMENSIONS, 4) &&
+               VerifyField<uint8_t>(verifier, VT_METRIC, 1) && verifier.EndTable();
+    }
+    EmbeddingSpaceT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    void UnPackTo(EmbeddingSpaceT *_o,
+                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    static ::flatbuffers::Offset<EmbeddingSpace>
+    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+         const EmbeddingSpaceT *_o,
+         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct EmbeddingSpaceBuilder {
+    typedef EmbeddingSpace Table;
+    ::flatbuffers::FlatBufferBuilder &fbb_;
+    ::flatbuffers::uoffset_t start_;
+    void add_id(::flatbuffers::Offset<::flatbuffers::String> id) {
+        fbb_.AddOffset(EmbeddingSpace::VT_ID, id);
+    }
+    void add_dimensions(uint32_t dimensions) {
+        fbb_.AddElement<uint32_t>(EmbeddingSpace::VT_DIMENSIONS, dimensions, 0);
+    }
+    void add_metric(open_perception_kit::metadata::EmbeddingMetric metric) {
+        fbb_.AddElement<uint8_t>(EmbeddingSpace::VT_METRIC, static_cast<uint8_t>(metric), 0);
+    }
+    explicit EmbeddingSpaceBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+        start_ = fbb_.StartTable();
+    }
+    ::flatbuffers::Offset<EmbeddingSpace> Finish() {
+        const auto end = fbb_.EndTable(start_);
+        auto o = ::flatbuffers::Offset<EmbeddingSpace>(end);
+        return o;
+    }
+};
+
+inline ::flatbuffers::Offset<EmbeddingSpace>
+CreateEmbeddingSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                     ::flatbuffers::Offset<::flatbuffers::String> id = 0,
+                     uint32_t dimensions = 0,
+                     open_perception_kit::metadata::EmbeddingMetric metric =
+                         open_perception_kit::metadata::EmbeddingMetric::Unspecified) {
+    EmbeddingSpaceBuilder builder_(_fbb);
+    builder_.add_dimensions(dimensions);
+    builder_.add_id(id);
+    builder_.add_metric(metric);
+    return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<EmbeddingSpace>
+CreateEmbeddingSpaceDirect(::flatbuffers::FlatBufferBuilder &_fbb,
+                           const char *id = nullptr,
+                           uint32_t dimensions = 0,
+                           open_perception_kit::metadata::EmbeddingMetric metric =
+                               open_perception_kit::metadata::EmbeddingMetric::Unspecified) {
+    auto id__ = id ? _fbb.CreateString(id) : 0;
+    return open_perception_kit::metadata::CreateEmbeddingSpace(_fbb, id__, dimensions, metric);
+}
+
+::flatbuffers::Offset<EmbeddingSpace>
+CreateEmbeddingSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                     const EmbeddingSpaceT *_o,
+                     const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct ObjectEmbeddingT : public ::flatbuffers::NativeTable {
     typedef ObjectEmbedding TableType;
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
     std::vector<float> values{};
+    std::unique_ptr<open_perception_kit::metadata::EmbeddingSpaceT> space{};
+    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt;
     ObjectEmbeddingT() = default;
     ObjectEmbeddingT(const ObjectEmbeddingT &o);
     ObjectEmbeddingT(ObjectEmbeddingT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -56,7 +177,9 @@ struct ObjectEmbedding FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     typedef ObjectEmbeddingBuilder Builder;
     enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
         VT_OBJECT = 4,
-        VT_VALUES = 6
+        VT_VALUES = 6,
+        VT_SPACE = 8,
+        VT_SUBJECT_ID = 10
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -64,10 +187,18 @@ struct ObjectEmbedding FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     const ::flatbuffers::Vector<float> *values() const {
         return GetPointer<const ::flatbuffers::Vector<float> *>(VT_VALUES);
     }
+    const open_perception_kit::metadata::EmbeddingSpace *space() const {
+        return GetPointer<const open_perception_kit::metadata::EmbeddingSpace *>(VT_SPACE);
+    }
+    ::flatbuffers::Optional<uint64_t> subject_id() const {
+        return GetOptional<uint64_t, uint64_t>(VT_SUBJECT_ID);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) && VerifyOffset(verifier, VT_VALUES) &&
-               verifier.VerifyVector(values()) && verifier.EndTable();
+               verifier.VerifyVector(values()) && VerifyOffset(verifier, VT_SPACE) &&
+               verifier.VerifyTable(space()) && VerifyField<uint64_t>(verifier, VT_SUBJECT_ID, 8) &&
+               verifier.EndTable();
     }
     ObjectEmbeddingT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(ObjectEmbeddingT *_o,
@@ -88,6 +219,12 @@ struct ObjectEmbeddingBuilder {
     void add_values(::flatbuffers::Offset<::flatbuffers::Vector<float>> values) {
         fbb_.AddOffset(ObjectEmbedding::VT_VALUES, values);
     }
+    void add_space(::flatbuffers::Offset<open_perception_kit::metadata::EmbeddingSpace> space) {
+        fbb_.AddOffset(ObjectEmbedding::VT_SPACE, space);
+    }
+    void add_subject_id(uint64_t subject_id) {
+        fbb_.AddElement<uint64_t>(ObjectEmbedding::VT_SUBJECT_ID, subject_id);
+    }
     explicit ObjectEmbeddingBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -98,11 +235,17 @@ struct ObjectEmbeddingBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<ObjectEmbedding>
-CreateObjectEmbedding(::flatbuffers::FlatBufferBuilder &_fbb,
-                      ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                      ::flatbuffers::Offset<::flatbuffers::Vector<float>> values = 0) {
+inline ::flatbuffers::Offset<ObjectEmbedding> CreateObjectEmbedding(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> values = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::EmbeddingSpace> space = 0,
+    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt) {
     ObjectEmbeddingBuilder builder_(_fbb);
+    if (subject_id) {
+        builder_.add_subject_id(*subject_id);
+    }
+    builder_.add_space(space);
     builder_.add_values(values);
     builder_.add_object(object);
     return builder_.Finish();
@@ -111,9 +254,12 @@ CreateObjectEmbedding(::flatbuffers::FlatBufferBuilder &_fbb,
 inline ::flatbuffers::Offset<ObjectEmbedding> CreateObjectEmbeddingDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-    const std::vector<float> *values = nullptr) {
+    const std::vector<float> *values = nullptr,
+    ::flatbuffers::Offset<open_perception_kit::metadata::EmbeddingSpace> space = 0,
+    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt) {
     auto values__ = values ? _fbb.CreateVector<float>(*values) : 0;
-    return open_perception_kit::metadata::CreateObjectEmbedding(_fbb, object, values__);
+    return open_perception_kit::metadata::CreateObjectEmbedding(
+        _fbb, object, values__, space, subject_id);
 }
 
 ::flatbuffers::Offset<ObjectEmbedding>
@@ -238,13 +384,68 @@ CreateObjectEmbeddings(::flatbuffers::FlatBufferBuilder &_fbb,
                        const ObjectEmbeddingsT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+inline EmbeddingSpaceT *
+EmbeddingSpace::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+    auto _o = std::unique_ptr<EmbeddingSpaceT>(new EmbeddingSpaceT());
+    UnPackTo(_o.get(), _resolver);
+    return _o.release();
+}
+
+inline void EmbeddingSpace::UnPackTo(EmbeddingSpaceT *_o,
+                                     const ::flatbuffers::resolver_function_t *_resolver) const {
+    (void)_o;
+    (void)_resolver;
+    {
+        auto _e = id();
+        if (_e)
+            _o->id = _e->str();
+    }
+    {
+        auto _e = dimensions();
+        _o->dimensions = _e;
+    }
+    {
+        auto _e = metric();
+        _o->metric = _e;
+    }
+}
+
+inline ::flatbuffers::Offset<EmbeddingSpace>
+EmbeddingSpace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+                     const EmbeddingSpaceT *_o,
+                     const ::flatbuffers::rehasher_function_t *_rehasher) {
+    return CreateEmbeddingSpace(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<EmbeddingSpace>
+CreateEmbeddingSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                     const EmbeddingSpaceT *_o,
+                     const ::flatbuffers::rehasher_function_t *_rehasher) {
+    (void)_rehasher;
+    (void)_o;
+    struct _VectorArgs {
+        ::flatbuffers::FlatBufferBuilder *__fbb;
+        const EmbeddingSpaceT *__o;
+        const ::flatbuffers::rehasher_function_t *__rehasher;
+    } _va = {&_fbb, _o, _rehasher};
+    (void)_va;
+    auto _id = _o->id.empty() ? 0 : _fbb.CreateString(_o->id);
+    auto _dimensions = _o->dimensions;
+    auto _metric = _o->metric;
+    return open_perception_kit::metadata::CreateEmbeddingSpace(_fbb, _id, _dimensions, _metric);
+}
+
 inline ObjectEmbeddingT::ObjectEmbeddingT(const ObjectEmbeddingT &o)
     : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
-      values(o.values) {}
+      values(o.values),
+      space((o.space) ? new open_perception_kit::metadata::EmbeddingSpaceT(*o.space) : nullptr),
+      subject_id(o.subject_id) {}
 
 inline ObjectEmbeddingT &ObjectEmbeddingT::operator=(ObjectEmbeddingT o) FLATBUFFERS_NOEXCEPT {
     std::swap(object, o.object);
     std::swap(values, o.values);
+    std::swap(space, o.space);
+    std::swap(subject_id, o.subject_id);
     return *this;
 }
 
@@ -283,6 +484,23 @@ inline void ObjectEmbedding::UnPackTo(ObjectEmbeddingT *_o,
             _o->values.resize(0);
         }
     }
+    {
+        auto _e = space();
+        if (_e) {
+            if (_o->space) {
+                _e->UnPackTo(_o->space.get(), _resolver);
+            } else {
+                _o->space = std::unique_ptr<open_perception_kit::metadata::EmbeddingSpaceT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->space) {
+            _o->space.reset();
+        }
+    }
+    {
+        auto _e = subject_id();
+        _o->subject_id = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<ObjectEmbedding>
@@ -306,7 +524,10 @@ CreateObjectEmbedding(::flatbuffers::FlatBufferBuilder &_fbb,
     (void)_va;
     auto _object = _o->object ? CreateObjectMeta(_fbb, _o->object.get(), _rehasher) : 0;
     auto _values = _o->values.size() ? _fbb.CreateVector(_o->values) : 0;
-    return open_perception_kit::metadata::CreateObjectEmbedding(_fbb, _object, _values);
+    auto _space = _o->space ? CreateEmbeddingSpace(_fbb, _o->space.get(), _rehasher) : 0;
+    auto _subject_id = _o->subject_id;
+    return open_perception_kit::metadata::CreateObjectEmbedding(
+        _fbb, _object, _values, _space, _subject_id);
 }
 
 inline ObjectEmbeddingsT::ObjectEmbeddingsT(const ObjectEmbeddingsT &o)

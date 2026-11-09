@@ -5486,6 +5486,87 @@ var InstanceSegmentationMasksT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-metric.js
+var EmbeddingMetric;
+(function(EmbeddingMetric2) {
+  EmbeddingMetric2[EmbeddingMetric2["Unspecified"] = 0] = "Unspecified";
+  EmbeddingMetric2[EmbeddingMetric2["Cosine"] = 1] = "Cosine";
+})(EmbeddingMetric || (EmbeddingMetric = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-space.js
+var EmbeddingSpace = class _EmbeddingSpace {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsEmbeddingSpace(bb, obj) {
+    return (obj || new _EmbeddingSpace()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsEmbeddingSpace(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _EmbeddingSpace()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  id(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  dimensions() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  metric() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : EmbeddingMetric.Unspecified;
+  }
+  static startEmbeddingSpace(builder) {
+    builder.startObject(3);
+  }
+  static addId(builder, idOffset) {
+    builder.addFieldOffset(0, idOffset, 0);
+  }
+  static addDimensions(builder, dimensions) {
+    builder.addFieldInt32(1, dimensions, 0);
+  }
+  static addMetric(builder, metric) {
+    builder.addFieldInt8(2, metric, EmbeddingMetric.Unspecified);
+  }
+  static endEmbeddingSpace(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createEmbeddingSpace(builder, idOffset, dimensions, metric) {
+    _EmbeddingSpace.startEmbeddingSpace(builder);
+    _EmbeddingSpace.addId(builder, idOffset);
+    _EmbeddingSpace.addDimensions(builder, dimensions);
+    _EmbeddingSpace.addMetric(builder, metric);
+    return _EmbeddingSpace.endEmbeddingSpace(builder);
+  }
+  unpack() {
+    return new EmbeddingSpaceT(this.id(), this.dimensions(), this.metric());
+  }
+  unpackTo(_o) {
+    _o.id = this.id();
+    _o.dimensions = this.dimensions();
+    _o.metric = this.metric();
+  }
+};
+var EmbeddingSpaceT = class {
+  constructor(id = null, dimensions = 0, metric = EmbeddingMetric.Unspecified) {
+    this.id = id;
+    this.dimensions = dimensions;
+    this.metric = metric;
+  }
+  pack(builder) {
+    const id = this.id !== null ? builder.createString(this.id) : 0;
+    return EmbeddingSpace.createEmbeddingSpace(builder, id, this.dimensions, this.metric);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.js
 var ObjectEmbedding = class _ObjectEmbedding {
   constructor() {
@@ -5520,8 +5601,16 @@ var ObjectEmbedding = class _ObjectEmbedding {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? new Float32Array(this.bb.bytes().buffer, this.bb.bytes().byteOffset + this.bb.__vector(this.bb_pos + offset), this.bb.__vector_len(this.bb_pos + offset)) : null;
   }
+  space(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new EmbeddingSpace()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
   static startObjectEmbedding(builder) {
-    builder.startObject(2);
+    builder.startObject(4);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -5539,33 +5628,44 @@ var ObjectEmbedding = class _ObjectEmbedding {
   static startValuesVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addSpace(builder, spaceOffset) {
+    builder.addFieldOffset(2, spaceOffset, 0);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(3, subjectId, null);
+  }
   static endObjectEmbedding(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createObjectEmbedding(builder, objectOffset, valuesOffset) {
-    _ObjectEmbedding.startObjectEmbedding(builder);
-    _ObjectEmbedding.addObject(builder, objectOffset);
-    _ObjectEmbedding.addValues(builder, valuesOffset);
-    return _ObjectEmbedding.endObjectEmbedding(builder);
-  }
   unpack() {
-    return new ObjectEmbeddingT(this.object() !== null ? this.object().unpack() : null, this.bb.createScalarList(this.values.bind(this), this.valuesLength()));
+    return new ObjectEmbeddingT(this.object() !== null ? this.object().unpack() : null, this.bb.createScalarList(this.values.bind(this), this.valuesLength()), this.space() !== null ? this.space().unpack() : null, this.subjectId());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.values = this.bb.createScalarList(this.values.bind(this), this.valuesLength());
+    _o.space = this.space() !== null ? this.space().unpack() : null;
+    _o.subjectId = this.subjectId();
   }
 };
 var ObjectEmbeddingT = class {
-  constructor(object = null, values = []) {
+  constructor(object = null, values = [], space = null, subjectId = null) {
     this.object = object;
     this.values = values;
+    this.space = space;
+    this.subjectId = subjectId;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const values = ObjectEmbedding.createValuesVector(builder, this.values);
-    return ObjectEmbedding.createObjectEmbedding(builder, object, values);
+    const space = this.space !== null ? this.space.pack(builder) : 0;
+    ObjectEmbedding.startObjectEmbedding(builder);
+    ObjectEmbedding.addObject(builder, object);
+    ObjectEmbedding.addValues(builder, values);
+    ObjectEmbedding.addSpace(builder, space);
+    if (this.subjectId !== null)
+      ObjectEmbedding.addSubjectId(builder, this.subjectId);
+    return ObjectEmbedding.endObjectEmbedding(builder);
   }
 };
 
@@ -7722,7 +7822,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "b500edeafa21c9cc735b38a334cf85ebebf123e913b9c02c41f544c25c3a539c";
+var SCHEMA_SET_SHA256 = "ed154bd2324b48248518cda981de1cd8e8c0b99429de5334eef94a1e0f6c0735";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -8097,6 +8197,11 @@ function maskData(item, type) {
   return { ...data, valid: validMask(data, type) };
 }
 
+// development/web/src/embedding-data.js
+function usableEmbedding({ space, values }) {
+  return typeof space?.id === "string" && space.id.length > 0 && space.metric === EmbeddingMetric.Cosine && Array.isArray(values) && space.dimensions === values.length && values.length > 0 && values.every(Number.isFinite) && values.some((value) => value !== 0);
+}
+
 // development/web/src/frame-results.js
 var FRAME_RESULTS_ENCODING = "perception-frame-results+base64";
 var FrameResultsDecodeError = class extends Error {
@@ -8314,10 +8419,15 @@ function decodeFrameResultsMessage(message) {
       data: { ...objectData(item?.object), ...maskData(item, type) }
     })), layers);
   }
-  addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => ({
-    type: "ObjectEmbedding",
-    data: { ...objectData(item.object), values: [...item.values] }
-  })), layers);
+  addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => {
+    const data = {
+      ...objectData(item?.object),
+      values: [...item?.values || []],
+      space: item?.space ? { id: text(item.space.id), dimensions: item.space.dimensions, metric: item.space.metric } : null,
+      subjectUuid: item?.subjectId == null ? null : identifier(item.subjectId)
+    };
+    return { type: "ObjectEmbedding", data: { ...data, usable: usableEmbedding(data) } };
+  }), layers);
   for (const payload of envelope.for_each(PerformanceMeasurementsT)) {
     const data = {
       pixelFormat: text(payload.pixelFormat),

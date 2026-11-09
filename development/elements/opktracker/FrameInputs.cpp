@@ -17,7 +17,7 @@
 
 #include "FrameInputs.h"
 
-#include "Utils.h"
+#include "opk/Embedding.h"
 
 namespace opk::tracker::frameinputs {
 
@@ -31,20 +31,33 @@ EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameR
 
     frameResults.for_each<open_perception_kit::metadata::ObjectEmbeddingsT>(
         [&embeddings, &config](const auto &payload) {
-            if (!payload.layer || payload.layer->content_type != config.embeddingContentType) {
+            if (!config.embeddingProducerId.empty() &&
+                (!payload.layer || !payload.layer->producer ||
+                 payload.layer->producer->instance_id != config.embeddingProducerId)) {
                 return;
             }
 
             for (const auto &embedding : payload.embeddings) {
-                if (!embedding || !embedding->object) {
+                if (!embedding || !embedding->subject_id || *embedding->subject_id == 0) {
                     continue;
                 }
-                if (isValidEmbedding(embedding->values)) {
-                    embeddings.insert_or_assign(embedding->object->parent_id, &embedding->values);
-                }
+                if (!config.embeddingSpaceId.empty() &&
+                    (!embedding->space || embedding->space->id != config.embeddingSpaceId))
+                    continue;
+                // Count before vector validation: a duplicate invalid candidate is still ambiguous.
+                const auto [entry, inserted] =
+                    embeddings.emplace(*embedding->subject_id, embedding.get());
+                if (!inserted)
+                    entry->second = nullptr;
             }
         });
 
+    for (auto &[subject, embedding] : embeddings) {
+        const auto *box = open_perception_kit::findSubjectBox(frameResults, subject);
+        if (!embedding || !opk::embedding::valid(*embedding) || !box || !box->space ||
+            !open_perception_kit::projectBoundingBox(*box, box->space->width, box->space->height))
+            embedding = nullptr;
+    }
     return embeddings;
 }
 

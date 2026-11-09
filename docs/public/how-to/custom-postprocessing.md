@@ -114,6 +114,14 @@ not be used to imply coordinate units or crop offsets. A box without a valid
 image basis can be transported but cannot be placed by the renderers.
 
 That local change is usually a good sign that you are still within the intended extension surface.
+For embedding output, declare a versioned comparison-space identity. The generic
+parser can be configured with `{"parser":"ObjectEmbeddingParser",
+"embeddingSpaceId":"example:person-reid:weights-v1-preprocess-v1"}` using an
+OpChain v1 reader supporting `1.9.0`. It publishes the actual dimension and cosine
+metric, normalizes valid nonzero values and sets the explicit subject from the
+inference source. Omitting the declaration preserves transport, but not matching.
+Custom SDK producers must supply `space` and `subject_id` themselves; equal vector
+length and producer names are insufficient. See [embedding semantics](../../arch/perception.md#embedding-spaces-and-selection).
 When the work can stay inside parser code, build wiring, and `opchain.json`, you usually do not need a new Op.
 For normal model onboarding, adding a parser is the intended path; changing inference Ops or deeper runtime code is outside the common user extension surface.
 

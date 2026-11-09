@@ -39,7 +39,8 @@ inline constexpr int maxMissedFrames = 5;
 inline constexpr int minHitsToConfirm = 5;
 inline constexpr bool appendIdentityIdToText = true;
 inline constexpr bool useEmbeddings = true;
-inline constexpr const char *embeddingContentType = "objectEmbedding";
+inline constexpr const char *embeddingSpaceId = "";
+inline constexpr const char *embeddingProducerId = "";
 inline constexpr float embeddingWeight = 0.5f;
 inline constexpr float minCosineSimilarity = 0.0f;
 inline constexpr float reidReassociateThreshold = 0.65f;
@@ -66,7 +67,8 @@ struct Config {
     int minHitsToConfirm = Defaults::minHitsToConfirm;
     bool appendIdentityIdToText = Defaults::appendIdentityIdToText;
     bool useEmbeddings = Defaults::useEmbeddings;
-    std::string embeddingContentType = Defaults::embeddingContentType;
+    std::string embeddingSpaceId = Defaults::embeddingSpaceId;
+    std::string embeddingProducerId = Defaults::embeddingProducerId;
     float embeddingWeight = Defaults::embeddingWeight;
     float minCosineSimilarity = Defaults::minCosineSimilarity;
     float reidReassociateThreshold = Defaults::reidReassociateThreshold;
@@ -151,7 +153,7 @@ using TrackIdList = std::vector<TrackId>;
 using ActiveTrackMap = std::map<TrackId, TrackState>;
 using DormantTrackMap = std::map<TrackId, DormantTrackState>;
 
-using EmbeddingBatch = std::map<uint64_t, const std::vector<float> *>;
+using EmbeddingBatch = std::map<uint64_t, const open_perception_kit::metadata::ObjectEmbeddingT *>;
 using DetectionBatch = std::vector<const open_perception_kit::metadata::BoxDetectionT *>;
 using TrackMatch = std::pair<DetectionIndex, TrackId>;
 

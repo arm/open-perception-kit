@@ -17,6 +17,7 @@
 
 # namespace: metadata
 
+import open_perception_kit.fb.open_perception_kit.metadata.EmbeddingSpace
 import open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta
 import flatbuffers
 from flatbuffers.compat import import_numpy
@@ -84,9 +85,27 @@ class ObjectEmbedding(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         return o == 0
 
+    # ObjectEmbedding
+    def Space(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.EmbeddingSpace import EmbeddingSpace
+            obj = EmbeddingSpace()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # ObjectEmbedding
+    def SubjectId(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return None
+
 
 def ObjectEmbeddingStart(builder):
-    builder.StartObject(2)
+    builder.StartObject(4)
 
 
 def Start(builder):
@@ -117,6 +136,22 @@ def StartValuesVector(builder, numElems):
     return ObjectEmbeddingStartValuesVector(builder, numElems)
 
 
+def ObjectEmbeddingAddSpace(builder, space):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(space), 0)
+
+
+def AddSpace(builder, space):
+    ObjectEmbeddingAddSpace(builder, space)
+
+
+def ObjectEmbeddingAddSubjectId(builder, subjectId):
+    builder.PrependUint64Slot(3, subjectId, None)
+
+
+def AddSubjectId(builder, subjectId):
+    ObjectEmbeddingAddSubjectId(builder, subjectId)
+
+
 def ObjectEmbeddingEnd(builder):
     return builder.EndObject()
 
@@ -138,10 +173,15 @@ class ObjectEmbeddingT(object):
         self,
         object=None,
         values=None,
+        space=None,
+        subjectId=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
         self.values = values  # type: Optional[List[float]]
+        # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.EmbeddingSpace.EmbeddingSpaceT]
+        self.space = space
+        self.subjectId = subjectId  # type: Optional[int]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -174,6 +214,10 @@ class ObjectEmbeddingT(object):
                     self.values.append(objectEmbedding.Values(i))
             else:
                 self.values = objectEmbedding.ValuesAsNumpy()
+        if objectEmbedding.Space() is not None:
+            self.space = open_perception_kit.fb.open_perception_kit.metadata.EmbeddingSpace.EmbeddingSpaceT.InitFromObj(
+                objectEmbedding.Space())
+        self.subjectId = objectEmbedding.SubjectId()
 
     # ObjectEmbeddingT
     def Pack(self, builder):
@@ -187,10 +231,15 @@ class ObjectEmbeddingT(object):
                 for i in reversed(range(len(self.values))):
                     builder.PrependFloat32(self.values[i])
                 values = builder.EndVector()
+        if self.space is not None:
+            space = self.space.Pack(builder)
         ObjectEmbeddingStart(builder)
         if self.object is not None:
             ObjectEmbeddingAddObject(builder, object)
         if self.values is not None:
             ObjectEmbeddingAddValues(builder, values)
+        if self.space is not None:
+            ObjectEmbeddingAddSpace(builder, space)
+        ObjectEmbeddingAddSubjectId(builder, self.subjectId)
         objectEmbedding = ObjectEmbeddingEnd(builder)
         return objectEmbedding
