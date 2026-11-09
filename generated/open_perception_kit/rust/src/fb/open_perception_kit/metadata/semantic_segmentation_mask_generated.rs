@@ -45,6 +45,8 @@ impl<'a> flatbuffers::Follow<'a> for SemanticSegmentationMask<'a> {
 impl<'a> SemanticSegmentationMask<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
     pub const VT_BITMAP: flatbuffers::VOffsetT = 6;
+    pub const VT_LABEL_SET: flatbuffers::VOffsetT = 8;
+    pub const VT_VOID_VALUE: flatbuffers::VOffsetT = 10;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -56,6 +58,12 @@ impl<'a> SemanticSegmentationMask<'a> {
         args: &'args SemanticSegmentationMaskArgs<'args>,
     ) -> flatbuffers::WIPOffset<SemanticSegmentationMask<'bldr>> {
         let mut builder = SemanticSegmentationMaskBuilder::new(_fbb);
+        if let Some(x) = args.void_value {
+            builder.add_void_value(x);
+        }
+        if let Some(x) = args.label_set {
+            builder.add_label_set(x);
+        }
         if let Some(x) = args.bitmap {
             builder.add_bitmap(x);
         }
@@ -68,7 +76,14 @@ impl<'a> SemanticSegmentationMask<'a> {
     pub fn unpack(&self) -> SemanticSegmentationMaskT {
         let object = self.object().map(|x| Box::new(x.unpack()));
         let bitmap = self.bitmap().map(|x| Box::new(x.unpack()));
-        SemanticSegmentationMaskT { object, bitmap }
+        let label_set = self.label_set().map(|x| x.to_string());
+        let void_value = self.void_value();
+        SemanticSegmentationMaskT {
+            object,
+            bitmap,
+            label_set,
+            void_value,
+        }
     }
 
     #[inline]
@@ -95,6 +110,28 @@ impl<'a> SemanticSegmentationMask<'a> {
             )
         }
     }
+    #[inline]
+    pub fn label_set(&self) -> Option<&'a str> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                SemanticSegmentationMask::VT_LABEL_SET,
+                None,
+            )
+        }
+    }
+    #[inline]
+    pub fn void_value(&self) -> Option<u32> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<u32>(SemanticSegmentationMask::VT_VOID_VALUE, None)
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for SemanticSegmentationMask<'_> {
@@ -115,6 +152,12 @@ impl flatbuffers::Verifiable for SemanticSegmentationMask<'_> {
                 Self::VT_BITMAP,
                 false,
             )?
+            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                "label_set",
+                Self::VT_LABEL_SET,
+                false,
+            )?
+            .visit_field::<u32>("void_value", Self::VT_VOID_VALUE, false)?
             .finish();
         Ok(())
     }
@@ -122,6 +165,8 @@ impl flatbuffers::Verifiable for SemanticSegmentationMask<'_> {
 pub struct SemanticSegmentationMaskArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
     pub bitmap: Option<flatbuffers::WIPOffset<BitmapData<'a>>>,
+    pub label_set: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub void_value: Option<u32>,
 }
 impl<'a> Default for SemanticSegmentationMaskArgs<'a> {
     #[inline]
@@ -129,6 +174,8 @@ impl<'a> Default for SemanticSegmentationMaskArgs<'a> {
         SemanticSegmentationMaskArgs {
             object: None,
             bitmap: None,
+            label_set: None,
+            void_value: None,
         }
     }
 }
@@ -155,6 +202,18 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SemanticSegmentationMaskBuilder
             );
     }
     #[inline]
+    pub fn add_label_set(&mut self, label_set: flatbuffers::WIPOffset<&'b str>) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            SemanticSegmentationMask::VT_LABEL_SET,
+            label_set,
+        );
+    }
+    #[inline]
+    pub fn add_void_value(&mut self, void_value: u32) {
+        self.fbb_
+            .push_slot_always::<u32>(SemanticSegmentationMask::VT_VOID_VALUE, void_value);
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> SemanticSegmentationMaskBuilder<'a, 'b, A> {
@@ -176,6 +235,8 @@ impl core::fmt::Debug for SemanticSegmentationMask<'_> {
         let mut ds = f.debug_struct("SemanticSegmentationMask");
         ds.field("object", &self.object());
         ds.field("bitmap", &self.bitmap());
+        ds.field("label_set", &self.label_set());
+        ds.field("void_value", &self.void_value());
         ds.finish()
     }
 }
@@ -184,12 +245,16 @@ impl core::fmt::Debug for SemanticSegmentationMask<'_> {
 pub struct SemanticSegmentationMaskT {
     pub object: Option<Box<ObjectMetaT>>,
     pub bitmap: Option<Box<BitmapDataT>>,
+    pub label_set: Option<String>,
+    pub void_value: Option<u32>,
 }
 impl Default for SemanticSegmentationMaskT {
     fn default() -> Self {
         Self {
             object: None,
             bitmap: None,
+            label_set: None,
+            void_value: None,
         }
     }
 }
@@ -200,6 +265,16 @@ impl SemanticSegmentationMaskT {
     ) -> flatbuffers::WIPOffset<SemanticSegmentationMask<'b>> {
         let object = self.object.as_ref().map(|x| x.pack(_fbb));
         let bitmap = self.bitmap.as_ref().map(|x| x.pack(_fbb));
-        SemanticSegmentationMask::create(_fbb, &SemanticSegmentationMaskArgs { object, bitmap })
+        let label_set = self.label_set.as_ref().map(|x| _fbb.create_string(x));
+        let void_value = self.void_value;
+        SemanticSegmentationMask::create(
+            _fbb,
+            &SemanticSegmentationMaskArgs {
+                object,
+                bitmap,
+                label_set,
+                void_value,
+            },
+        )
     }
 }

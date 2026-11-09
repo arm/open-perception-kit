@@ -33,6 +33,13 @@ TEST(RvmParser, PreservesGradedBackgroundOpacityAndProvenance) {
     input.tensors[0] = &alpha; // Foreground RGB is deliberately unused by this parser.
     input.tensors[1] = &alpha;
     input.inferenceInfo.parentId = 42;
+    input.inferenceInfo.image = {.width = 4,
+                                 .height = 2,
+                                 .modelWidth = 4,
+                                 .modelHeight = 2,
+                                 .frameId = 99,
+                                 .frameWidth = 4,
+                                 .frameHeight = 2};
     input.inferenceInfo.modelName = "rvm-test";
     input.producerInfo.instance_id = "rvm-parser";
     open_perception_kit::FrameResults output;
@@ -44,7 +51,10 @@ TEST(RvmParser, PreservesGradedBackgroundOpacityAndProvenance) {
     }
     const auto &masks = payload.value().value();
     ASSERT_EQ(masks.masks.size(), 1U);
-    EXPECT_EQ(masks.layer->compositing_mode, "backgroundReplacement");
+    EXPECT_EQ(masks.masks[0]->meaning,
+              open_perception_kit::metadata::OpacityMeaning::BackgroundOpacity);
+    EXPECT_TRUE(open_perception_kit::validMask(*masks.masks[0]));
+    EXPECT_EQ(masks.masks[0]->bitmap->space->frame_id, 99U);
     EXPECT_EQ(masks.layer->model, "rvm-test");
     EXPECT_EQ(masks.layer->producer->instance_id, "rvm-parser");
     EXPECT_EQ(masks.masks[0]->object->parent_id, 42U);
@@ -57,6 +67,13 @@ TEST(RvmParser, PreservesGradedBackgroundOpacityAndProvenance) {
 TEST(RvmParser, RejectsInvalidAlphaWithoutPublishingAPartialMask) {
     const opk::AttributeMap attributes;
     opk::TensorParser::Input input(attributes);
+    input.inferenceInfo.image = {.width = 1,
+                                 .height = 1,
+                                 .modelWidth = 1,
+                                 .modelHeight = 1,
+                                 .frameId = 99,
+                                 .frameWidth = 1,
+                                 .frameHeight = 1};
     open_perception_kit::FrameResults output;
     opk::stdop::postproc::RvmParser parser;
     EXPECT_FALSE(parser.parse(input, output));

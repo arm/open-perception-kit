@@ -100,6 +100,48 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
             self.assertIn("must define callable process(env)", result.stderr)
             self.assertFalse(output.exists())
 
+    def test_mask_encoding_meaning_and_optional_ids_cross_the_live_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            imports = """
+                from open_perception_kit.fb.open_perception_kit.metadata.BitmapData import BitmapDataT
+                from open_perception_kit.fb.open_perception_kit.metadata.BitmapEncoding import BitmapEncoding
+                from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT
+                from open_perception_kit.fb.open_perception_kit.metadata.OpacityMeaning import OpacityMeaning
+                from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMask import SegmentationMaskT
+                from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT
+                from open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMask import SemanticSegmentationMaskT
+                from open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMasks import SemanticSegmentationMasksT
+                from open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMask import InstanceSegmentationMaskT
+                from open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks import InstanceSegmentationMasksT
+            """
+            seed = self.write_script(directory, "seed_masks.py", textwrap.dedent(imports) + """
+def process(env):
+    bitmap = BitmapDataT(width=2, height=1, encoding=BitmapEncoding.Uint8, pixels=bytes([0, 1]),
+        space=ImageSpaceT(frameId=7, width=100, height=80, originX=10, originY=20, extentWidth=30, extentHeight=40))
+    env.add(SegmentationMasksT(masks=[SegmentationMaskT(bitmap=bitmap, meaning=OpacityMeaning.RegionOpacity)]))
+    env.add(SemanticSegmentationMasksT(masks=[SemanticSegmentationMaskT(bitmap=bitmap, labelSet='test:labels', voidValue=0)]))
+    env.add(InstanceSegmentationMasksT(masks=[InstanceSegmentationMaskT(bitmap=bitmap, labelSet='test:labels', classId=0, confidence=0),
+        InstanceSegmentationMaskT(bitmap=bitmap)]))
+""")
+            inspect = self.write_script(directory, "inspect_masks.py", textwrap.dedent(imports) + """
+def process(env):
+    alpha = env.get(SegmentationMasksT).masks[0]
+    assert alpha.meaning == OpacityMeaning.RegionOpacity
+    assert alpha.bitmap.encoding == BitmapEncoding.Uint8
+    assert list(alpha.bitmap.pixels) == [0, 1]
+    assert alpha.bitmap.space.frameId == 7 and alpha.bitmap.space.originX == 10
+    semantic = env.get(SemanticSegmentationMasksT).masks[0]
+    assert semantic.labelSet == 'test:labels' and semantic.voidValue == 0
+    instances = env.get(InstanceSegmentationMasksT).masks
+    assert instances[0].classId == 0 and instances[0].confidence == 0
+    assert instances[1].classId is None and instances[1].confidence is None
+""")
+            output = directory / OUTPUT_FILENAME
+            result = self.run_executor(output, seed, inspect)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(decode(output.read_bytes()).valid())
+
     def test_classification_roots_and_label_sets_cross_the_live_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)

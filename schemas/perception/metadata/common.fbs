@@ -56,9 +56,17 @@ table Point2f {
   y:float;
 }
 
+// Tightly packed, row-major unsigned samples; no stride, compression or color packing.
+// Unspecified/unknown encodings are not interpretable. Multi-byte samples are little-endian.
+enum BitmapEncoding:ubyte { Unspecified, Uint8, Uint32LE }
+
 table BitmapData {
   width:uint;
   height:uint;
-  value_type:string;
+  encoding:BitmapEncoding = Unspecified;
   pixels:[ubyte];
+  // The complete grid spans this source-image region, independently of parent_id.
+  // Sample (x,y) covers [x/width,(x+1)/width) x [y/height,(y+1)/height) of the extent.
+  // Both dimensions must be positive and pixels must contain exactly width*height*sample_size bytes.
+  space:ImageSpace;
 }

@@ -45,6 +45,8 @@ struct SemanticSegmentationMaskT : public ::flatbuffers::NativeTable {
     typedef SemanticSegmentationMask TableType;
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
     std::unique_ptr<open_perception_kit::metadata::BitmapDataT> bitmap{};
+    std::string label_set{};
+    ::flatbuffers::Optional<uint32_t> void_value = ::flatbuffers::nullopt;
     SemanticSegmentationMaskT() = default;
     SemanticSegmentationMaskT(const SemanticSegmentationMaskT &o);
     SemanticSegmentationMaskT(SemanticSegmentationMaskT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -56,7 +58,9 @@ struct SemanticSegmentationMask FLATBUFFERS_FINAL_CLASS : private ::flatbuffers:
     typedef SemanticSegmentationMaskBuilder Builder;
     enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
         VT_OBJECT = 4,
-        VT_BITMAP = 6
+        VT_BITMAP = 6,
+        VT_LABEL_SET = 8,
+        VT_VOID_VALUE = 10
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -64,10 +68,18 @@ struct SemanticSegmentationMask FLATBUFFERS_FINAL_CLASS : private ::flatbuffers:
     const open_perception_kit::metadata::BitmapData *bitmap() const {
         return GetPointer<const open_perception_kit::metadata::BitmapData *>(VT_BITMAP);
     }
+    const ::flatbuffers::String *label_set() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_LABEL_SET);
+    }
+    ::flatbuffers::Optional<uint32_t> void_value() const {
+        return GetOptional<uint32_t, uint32_t>(VT_VOID_VALUE);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) && VerifyOffset(verifier, VT_BITMAP) &&
-               verifier.VerifyTable(bitmap()) && verifier.EndTable();
+               verifier.VerifyTable(bitmap()) && VerifyOffset(verifier, VT_LABEL_SET) &&
+               verifier.VerifyString(label_set()) &&
+               VerifyField<uint32_t>(verifier, VT_VOID_VALUE, 4) && verifier.EndTable();
     }
     SemanticSegmentationMaskT *
     UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -89,6 +101,12 @@ struct SemanticSegmentationMaskBuilder {
     void add_bitmap(::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap) {
         fbb_.AddOffset(SemanticSegmentationMask::VT_BITMAP, bitmap);
     }
+    void add_label_set(::flatbuffers::Offset<::flatbuffers::String> label_set) {
+        fbb_.AddOffset(SemanticSegmentationMask::VT_LABEL_SET, label_set);
+    }
+    void add_void_value(uint32_t void_value) {
+        fbb_.AddElement<uint32_t>(SemanticSegmentationMask::VT_VOID_VALUE, void_value);
+    }
     explicit SemanticSegmentationMaskBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -102,11 +120,28 @@ struct SemanticSegmentationMaskBuilder {
 inline ::flatbuffers::Offset<SemanticSegmentationMask> CreateSemanticSegmentationMask(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-    ::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap = 0) {
+    ::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> label_set = 0,
+    ::flatbuffers::Optional<uint32_t> void_value = ::flatbuffers::nullopt) {
     SemanticSegmentationMaskBuilder builder_(_fbb);
+    if (void_value) {
+        builder_.add_void_value(*void_value);
+    }
+    builder_.add_label_set(label_set);
     builder_.add_bitmap(bitmap);
     builder_.add_object(object);
     return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<SemanticSegmentationMask> CreateSemanticSegmentationMaskDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap = 0,
+    const char *label_set = nullptr,
+    ::flatbuffers::Optional<uint32_t> void_value = ::flatbuffers::nullopt) {
+    auto label_set__ = label_set ? _fbb.CreateString(label_set) : 0;
+    return open_perception_kit::metadata::CreateSemanticSegmentationMask(
+        _fbb, object, bitmap, label_set__, void_value);
 }
 
 ::flatbuffers::Offset<SemanticSegmentationMask>
@@ -235,12 +270,15 @@ CreateSemanticSegmentationMasks(::flatbuffers::FlatBufferBuilder &_fbb,
 
 inline SemanticSegmentationMaskT::SemanticSegmentationMaskT(const SemanticSegmentationMaskT &o)
     : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
-      bitmap((o.bitmap) ? new open_perception_kit::metadata::BitmapDataT(*o.bitmap) : nullptr) {}
+      bitmap((o.bitmap) ? new open_perception_kit::metadata::BitmapDataT(*o.bitmap) : nullptr),
+      label_set(o.label_set), void_value(o.void_value) {}
 
 inline SemanticSegmentationMaskT &
 SemanticSegmentationMaskT::operator=(SemanticSegmentationMaskT o) FLATBUFFERS_NOEXCEPT {
     std::swap(object, o.object);
     std::swap(bitmap, o.bitmap);
+    std::swap(label_set, o.label_set);
+    std::swap(void_value, o.void_value);
     return *this;
 }
 
@@ -282,6 +320,15 @@ SemanticSegmentationMask::UnPackTo(SemanticSegmentationMaskT *_o,
             _o->bitmap.reset();
         }
     }
+    {
+        auto _e = label_set();
+        if (_e)
+            _o->label_set = _e->str();
+    }
+    {
+        auto _e = void_value();
+        _o->void_value = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<SemanticSegmentationMask>
@@ -305,7 +352,10 @@ CreateSemanticSegmentationMask(::flatbuffers::FlatBufferBuilder &_fbb,
     (void)_va;
     auto _object = _o->object ? CreateObjectMeta(_fbb, _o->object.get(), _rehasher) : 0;
     auto _bitmap = _o->bitmap ? CreateBitmapData(_fbb, _o->bitmap.get(), _rehasher) : 0;
-    return open_perception_kit::metadata::CreateSemanticSegmentationMask(_fbb, _object, _bitmap);
+    auto _label_set = _o->label_set.empty() ? 0 : _fbb.CreateString(_o->label_set);
+    auto _void_value = _o->void_value;
+    return open_perception_kit::metadata::CreateSemanticSegmentationMask(
+        _fbb, _object, _bitmap, _label_set, _void_value);
 }
 
 inline SemanticSegmentationMasksT::SemanticSegmentationMasksT(const SemanticSegmentationMasksT &o)

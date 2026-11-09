@@ -340,6 +340,16 @@ bgr_image_preprocess_tests = executable(
 test('retinaface_parser_tests', retinaface_parser_tests)
 test('bgr_image_preprocess_tests', bgr_image_preprocess_tests)
 
+mask_metadata_tests = executable(
+  'mask_metadata_tests',
+  ['mask_metadata_test.cpp', '../ops-std/postproc/ModNetSegmentationParser.cpp', '../ops-std/postproc/PaddleocrParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args : ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('mask_metadata_tests', mask_metadata_tests)
+
 gaze_detection_parser_tests = executable(
   'gaze_detection_parser_tests',
   ['gaze_detection_parser_test.cpp', '../ops-std/postproc/GazeDetectionParser.cpp'],
@@ -640,6 +650,15 @@ test(
   depends : logging_environment_probe,
 )
 test('performance_metrics_tests', performance_metrics_tests)
+test(
+  'mask_pipeline_tests',
+  python,
+  args : [files('mask_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+  env : python_guest_script_test_env,
+  depends : [gstopkinfer, gstopkosd, opkcomm, onnxops, stdops],
+  timeout : 180,
+  is_parallel : false,
+)
 test(
   'classification_pipeline_tests',
   python,

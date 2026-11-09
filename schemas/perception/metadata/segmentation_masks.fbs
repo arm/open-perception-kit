@@ -2,9 +2,16 @@ include "common.fbs";
 
 namespace open_perception_kit.metadata;
 
+// Uint8 opacity, not class IDs or probabilities. Zero means no coverage and
+// 255 full coverage; intermediate values retain partial coverage.
+// BackgroundOpacity describes the background (foreground is its complement).
+// RegionOpacity describes the detected region, e.g. a text-region visualization.
+enum OpacityMeaning:ubyte { Unspecified, BackgroundOpacity, RegionOpacity }
+
 table SegmentationMask {
   object:open_perception_kit.metadata.ObjectMeta;
   bitmap:open_perception_kit.metadata.BitmapData;
+  meaning:OpacityMeaning = Unspecified;
 }
 
 table SegmentationMasks {

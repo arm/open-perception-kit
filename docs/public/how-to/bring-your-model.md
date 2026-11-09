@@ -287,10 +287,13 @@ The easiest models to integrate without code changes are models that fit one of 
 - `GazeMeasurementsT` for gaze angles in degrees and explicit subject references
 - `SemanticSegmentationMasksT` for per-pixel class IDs, including valid class `0`
 - `InstanceSegmentationMasksT` for binary object masks with class, confidence, and box
-- `SegmentationMasksT` for compositing masks and alpha mattes with values `0` through `255`
+- `SegmentationMasksT` for explicitly declared background/region opacity with values `0` through `255`
 - `ObjectEmbeddingsT` for ReID / embedding outputs
 
 If your output shape and meaning already match one of the existing parsers, integration is usually straightforward.
+All mask grids carry typed encoding and `ImageSpace`. Semantic class IDs use an
+explicit label set; rendering settings do not select mask meaning. See
+[mask representation](../../arch/perception.md#mask-representation).
 
 If they do not, the model can still be integrated, but you should expect to add a postprocessor.
 

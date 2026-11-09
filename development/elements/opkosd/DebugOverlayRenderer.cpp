@@ -45,9 +45,7 @@ namespace {
 
 constexpr const char *GenericObjectContentType = "genericObject";
 constexpr const char *HumanFaceContentType = "humanFace";
-constexpr const char *SegmentationContentType = "segmentation";
 constexpr const char *BottomRightCompositingMode = "bottomRight";
-constexpr const char *BackgroundReplacementCompositingMode = "backgroundReplacement";
 constexpr int ObjectBoxThickness = 2;
 constexpr int HumanFaceCircleThickness = 2;
 constexpr opk::Color HumanFaceCircleColor = opk::colorFromRgbBytes(38, 0, 255);
@@ -110,16 +108,8 @@ bool isHumanFaceLayer(const open_perception_kit::metadata::LayerInfoT *layer) no
     return hasContentType(layer, HumanFaceContentType);
 }
 
-bool isSegmentationLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
-    return hasContentType(layer, SegmentationContentType);
-}
-
 bool isBottomRightLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
     return layer != nullptr && layer->compositing_mode == BottomRightCompositingMode;
-}
-
-bool usesBackgroundReplacement(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
-    return layer != nullptr && layer->compositing_mode == BackgroundReplacementCompositingMode;
 }
 
 int textScaleForHeight(std::uint32_t height) noexcept {
@@ -341,18 +331,48 @@ void drawSegmentationMasks(const opk::raster::ImageSurfaceView &surface,
                            const DebugOverlayOptions &options) {
     frameResults.for_each<open_perception_kit::metadata::SegmentationMasksT>(
         [&](const auto &payload) { // NOSONAR: payload handling stays local to traversal.
-            if (!isSegmentationLayer(payload.layer.get())) {
-                return;
-            }
-
-            const bool replaceBackground = usesBackgroundReplacement(payload.layer.get());
             for (const auto &mask : payload.masks) {
-                if (!mask || !mask->bitmap) {
+                if (!mask || !open_perception_kit::validMask(*mask)) {
                     continue;
                 }
-
-                const auto maskView = makeMaskView(*mask->bitmap);
-                if (replaceBackground) {
+                const auto region = open_perception_kit::projectBitmap(
+                    *mask->bitmap, surface.width, surface.height);
+                if (!region)
+                    continue;
+                auto maskView = makeMaskView(*mask->bitmap);
+                std::vector<uint8_t> projected;
+                const auto &[left, top, width, height] = *region;
+                const auto &space = *mask->bitmap->space;
+                if (space.origin_x != 0 || space.origin_y != 0 ||
+                    space.extent_width != space.width || space.extent_height != space.height) {
+                    // The existing raster operations consume a full-surface opacity plane.
+                    // Outside this mask's declared extent opacity is zero, never stretched.
+                    // ponytail: one surface-sized scratch plane for crops; use ROI sampling if
+                    // profiling warrants it.
+                    projected.resize(static_cast<size_t>(surface.width) * surface.height, 0);
+                    for (uint32_t y = 0; y < surface.height; ++y) {
+                        const double v = (y + .5 - top) / height;
+                        if (v < 0 || v >= 1)
+                            continue;
+                        const auto sy =
+                            std::min(static_cast<size_t>(v * maskView.height), maskView.height - 1);
+                        for (uint32_t x = 0; x < surface.width; ++x) {
+                            const double u = (x + .5 - left) / width;
+                            if (u < 0 || u >= 1)
+                                continue;
+                            const auto sx = std::min(static_cast<size_t>(u * maskView.width),
+                                                     maskView.width - 1);
+                            projected[static_cast<size_t>(y) * surface.width + x] =
+                                maskView.data[sy * maskView.width + sx];
+                        }
+                    }
+                    maskView = {.data = projected.data(),
+                                .size = projected.size(),
+                                .width = surface.width,
+                                .height = surface.height};
+                }
+                if (mask->meaning ==
+                    open_perception_kit::metadata::OpacityMeaning::BackgroundOpacity) {
                     (void)opk::raster::replaceBackgroundFromMask(
                         surface,
                         maskView,

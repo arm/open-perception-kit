@@ -31,6 +31,8 @@ from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT
 from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT
 from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT
+from open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMasks import SemanticSegmentationMasksT
+from open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks import InstanceSegmentationMasksT
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
 from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
 from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
@@ -198,17 +200,18 @@ def _candidate_data(candidate: Any) -> dict[str, Any]:
 
 def _bitmap_data(bitmap: Any) -> dict[str, Any]:
     if bitmap is None:
-        return {
-            "width": 0,
-            "height": 0,
-            "valueType": "",
-            "pixels": [],
-        }
+        return {"width": 0, "height": 0, "encoding": 0, "pixels": b"", "region": {"spatialValid": False}}
+    region = _image_space_data(bitmap.space)
+    if region["spatialValid"]:
+        region.update(x=bitmap.space.originX, y=bitmap.space.originY,
+                      width=bitmap.space.extentWidth, height=bitmap.space.extentHeight)
     return {
         "width": int(bitmap.width),
         "height": int(bitmap.height),
-        "valueType": _text(bitmap.valueType),
-        "pixels": [int(pixel) for pixel in _sequence(bitmap.pixels)],
+        "encoding": bitmap.encoding,
+        "pixels": bytes(bitmap.pixels) if bitmap.pixels is not None else b"",
+        "region": region,
+        "frameId": bitmap.space.frameId if bitmap.space else None,
     }
 
 
@@ -336,11 +339,17 @@ def _normalize_gaze(gaze: Any) -> dict[str, Any]:
     }
 
 
-def _normalize_segmentation_mask(mask: Any) -> dict[str, Any]:
-    data = _object_data(mask.object)
-    data["bitmap"] = _bitmap_data(mask.bitmap)
+def _normalize_segmentation_mask(mask: Any, item_type="SegmentationMask") -> dict[str, Any]:
+    data = _object_data(getattr(mask, "object", None))
+    data["bitmap"] = _bitmap_data(getattr(mask, "bitmap", None))
+    data.update(meaning=getattr(mask, "meaning", None), labelSet=_text(getattr(mask, "labelSet", None)),
+                voidValue=getattr(mask, "voidValue", None), classId=getattr(mask, "classId", None),
+                confidence=getattr(mask, "confidence", None))
+    box = getattr(mask, "box", None)
+    data["box"] = _box_data(box) if box else None
+    data["boxFrameId"] = box.space.frameId if box and box.space else None
     return {
-        "item_type": "SegmentationMask",
+        "item_type": item_type,
         "data": data,
     }
 
@@ -533,10 +542,12 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         frame_results, snapshot, GazeMeasurementsT,
         "open_perception_kit.metadata.GazeMeasurements", "measurements", _normalize_gaze,
     )
-    _normalize_payload_collection(
-        frame_results, snapshot, SegmentationMasksT,
-        "open_perception_kit.metadata.SegmentationMasks", "masks", _normalize_segmentation_mask,
-    )
+    for root, name in ((SegmentationMasksT, "SegmentationMask"),
+                       (SemanticSegmentationMasksT, "SemanticSegmentationMask"),
+                       (InstanceSegmentationMasksT, "InstanceSegmentationMask")):
+        for payload in frame_results.for_each(root):
+            _add_payload_items(snapshot, _payload_key("open_perception_kit.metadata." + name + "s", payload.layer),
+                               payload.layer, [_normalize_segmentation_mask(item, name) for item in payload.masks or []])
     _normalize_payload_collection(
         frame_results, snapshot, ObjectEmbeddingsT,
         "open_perception_kit.metadata.ObjectEmbeddings", "embeddings", _normalize_object_embedding,
@@ -550,4 +561,9 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         "open_perception_kit.metadata.TrackTraces", "traces", _normalize_track_trace,
     )
     _resolve_subjects(snapshot)
+    for payload in snapshot.payloads.values():
+        masks = [item for item in payload.items if "bitmap" in item["data"]]
+        if len({item["data"]["bitmap"].get("frameId") for item in masks}) > 1:
+            for item in masks:
+                item["data"]["ambiguousFrame"] = True
     return snapshot

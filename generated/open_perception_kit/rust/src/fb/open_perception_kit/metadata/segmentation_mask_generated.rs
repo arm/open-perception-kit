@@ -45,6 +45,7 @@ impl<'a> flatbuffers::Follow<'a> for SegmentationMask<'a> {
 impl<'a> SegmentationMask<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
     pub const VT_BITMAP: flatbuffers::VOffsetT = 6;
+    pub const VT_MEANING: flatbuffers::VOffsetT = 8;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -62,13 +63,19 @@ impl<'a> SegmentationMask<'a> {
         if let Some(x) = args.object {
             builder.add_object(x);
         }
+        builder.add_meaning(args.meaning);
         builder.finish()
     }
 
     pub fn unpack(&self) -> SegmentationMaskT {
         let object = self.object().map(|x| Box::new(x.unpack()));
         let bitmap = self.bitmap().map(|x| Box::new(x.unpack()));
-        SegmentationMaskT { object, bitmap }
+        let meaning = self.meaning();
+        SegmentationMaskT {
+            object,
+            bitmap,
+            meaning,
+        }
     }
 
     #[inline]
@@ -91,6 +98,20 @@ impl<'a> SegmentationMask<'a> {
                 .get::<flatbuffers::ForwardsUOffset<BitmapData>>(SegmentationMask::VT_BITMAP, None)
         }
     }
+    #[inline]
+    pub fn meaning(&self) -> OpacityMeaning {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<OpacityMeaning>(
+                    SegmentationMask::VT_MEANING,
+                    Some(OpacityMeaning::Unspecified),
+                )
+                .unwrap()
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for SegmentationMask<'_> {
@@ -111,6 +132,7 @@ impl flatbuffers::Verifiable for SegmentationMask<'_> {
                 Self::VT_BITMAP,
                 false,
             )?
+            .visit_field::<OpacityMeaning>("meaning", Self::VT_MEANING, false)?
             .finish();
         Ok(())
     }
@@ -118,6 +140,7 @@ impl flatbuffers::Verifiable for SegmentationMask<'_> {
 pub struct SegmentationMaskArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
     pub bitmap: Option<flatbuffers::WIPOffset<BitmapData<'a>>>,
+    pub meaning: OpacityMeaning,
 }
 impl<'a> Default for SegmentationMaskArgs<'a> {
     #[inline]
@@ -125,6 +148,7 @@ impl<'a> Default for SegmentationMaskArgs<'a> {
         SegmentationMaskArgs {
             object: None,
             bitmap: None,
+            meaning: OpacityMeaning::Unspecified,
         }
     }
 }
@@ -151,6 +175,14 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SegmentationMaskBuilder<'a, 'b,
             );
     }
     #[inline]
+    pub fn add_meaning(&mut self, meaning: OpacityMeaning) {
+        self.fbb_.push_slot::<OpacityMeaning>(
+            SegmentationMask::VT_MEANING,
+            meaning,
+            OpacityMeaning::Unspecified,
+        );
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> SegmentationMaskBuilder<'a, 'b, A> {
@@ -172,6 +204,7 @@ impl core::fmt::Debug for SegmentationMask<'_> {
         let mut ds = f.debug_struct("SegmentationMask");
         ds.field("object", &self.object());
         ds.field("bitmap", &self.bitmap());
+        ds.field("meaning", &self.meaning());
         ds.finish()
     }
 }
@@ -180,12 +213,14 @@ impl core::fmt::Debug for SegmentationMask<'_> {
 pub struct SegmentationMaskT {
     pub object: Option<Box<ObjectMetaT>>,
     pub bitmap: Option<Box<BitmapDataT>>,
+    pub meaning: OpacityMeaning,
 }
 impl Default for SegmentationMaskT {
     fn default() -> Self {
         Self {
             object: None,
             bitmap: None,
+            meaning: OpacityMeaning::Unspecified,
         }
     }
 }
@@ -196,6 +231,14 @@ impl SegmentationMaskT {
     ) -> flatbuffers::WIPOffset<SegmentationMask<'b>> {
         let object = self.object.as_ref().map(|x| x.pack(_fbb));
         let bitmap = self.bitmap.as_ref().map(|x| x.pack(_fbb));
-        SegmentationMask::create(_fbb, &SegmentationMaskArgs { object, bitmap })
+        let meaning = self.meaning;
+        SegmentationMask::create(
+            _fbb,
+            &SegmentationMaskArgs {
+                object,
+                bitmap,
+                meaning,
+            },
+        )
     }
 }

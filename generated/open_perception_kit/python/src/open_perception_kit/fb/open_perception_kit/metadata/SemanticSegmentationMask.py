@@ -69,9 +69,23 @@ class SemanticSegmentationMask(object):
             return obj
         return None
 
+    # SemanticSegmentationMask
+    def LabelSet(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # SemanticSegmentationMask
+    def VoidValue(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+        return None
+
 
 def SemanticSegmentationMaskStart(builder):
-    builder.StartObject(2)
+    builder.StartObject(4)
 
 
 def Start(builder):
@@ -92,6 +106,22 @@ def SemanticSegmentationMaskAddBitmap(builder, bitmap):
 
 def AddBitmap(builder, bitmap):
     SemanticSegmentationMaskAddBitmap(builder, bitmap)
+
+
+def SemanticSegmentationMaskAddLabelSet(builder, labelSet):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(labelSet), 0)
+
+
+def AddLabelSet(builder, labelSet):
+    SemanticSegmentationMaskAddLabelSet(builder, labelSet)
+
+
+def SemanticSegmentationMaskAddVoidValue(builder, voidValue):
+    builder.PrependUint32Slot(3, voidValue, None)
+
+
+def AddVoidValue(builder, voidValue):
+    SemanticSegmentationMaskAddVoidValue(builder, voidValue)
 
 
 def SemanticSegmentationMaskEnd(builder):
@@ -115,11 +145,15 @@ class SemanticSegmentationMaskT(object):
         self,
         object=None,
         bitmap=None,
+        labelSet=None,
+        voidValue=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.BitmapData.BitmapDataT]
         self.bitmap = bitmap
+        self.labelSet = labelSet  # type: Optional[str]
+        self.voidValue = voidValue  # type: Optional[int]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -148,6 +182,8 @@ class SemanticSegmentationMaskT(object):
         if semanticSegmentationMask.Bitmap() is not None:
             self.bitmap = open_perception_kit.fb.open_perception_kit.metadata.BitmapData.BitmapDataT.InitFromObj(
                 semanticSegmentationMask.Bitmap())
+        self.labelSet = semanticSegmentationMask.LabelSet()
+        self.voidValue = semanticSegmentationMask.VoidValue()
 
     # SemanticSegmentationMaskT
     def Pack(self, builder):
@@ -155,10 +191,15 @@ class SemanticSegmentationMaskT(object):
             object = self.object.Pack(builder)
         if self.bitmap is not None:
             bitmap = self.bitmap.Pack(builder)
+        if self.labelSet is not None:
+            labelSet = builder.CreateString(self.labelSet)
         SemanticSegmentationMaskStart(builder)
         if self.object is not None:
             SemanticSegmentationMaskAddObject(builder, object)
         if self.bitmap is not None:
             SemanticSegmentationMaskAddBitmap(builder, bitmap)
+        if self.labelSet is not None:
+            SemanticSegmentationMaskAddLabelSet(builder, labelSet)
+        SemanticSegmentationMaskAddVoidValue(builder, self.voidValue)
         semanticSegmentationMask = SemanticSegmentationMaskEnd(builder)
         return semanticSegmentationMask

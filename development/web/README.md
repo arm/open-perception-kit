@@ -135,10 +135,10 @@ multiple related payloads, and one payload can support multiple features.
 | Gaze | `GazeMeasurements` with finite degree-angle pairs and an explicit subject observation ID. Exactly one spatially valid `BoxDetection` or `ObjectTrack` supplies the arrow's center. |
 | Camera contact | `CameraContacts` plus the uniquely referenced box/track subject. Explicit outcomes determine style: dashed for no contact, solid for contact. Unavailable results have no marker. |
 | Performance text | `PerformanceMeasurements`: numeric timings and FPS formatted as combined pipeline text; producer and scope IDs keep metric histories independent of labels and order. |
-| Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
-| Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with current-frame presence indicators. |
-| Instance segmentation | `InstanceSegmentationMasks` with `instanceSegmentation` semantics: separate binary object masks, contrasting outlines, and optional numbered boxes/class/confidence labels. |
-| OCR | Explicitly selected `Classifications` with parent `BoxDetections`, or a `BoxDetections` source directly: region outlines and spatially attached text, without content-type routing. |
+| Background replacement | `SegmentationMasks` declaring `BackgroundOpacity` and an explicit image region: graded background opacity over the original video. |
+| Semantic segmentation | `SemanticSegmentationMasks` with declared label namespace, encoding, image region and optional void value; per-class controls and current-frame presence. |
+| Instance segmentation | `InstanceSegmentationMasks` with binary membership and declared image regions; contrasting outlines and optional boxes/class/confidence labels. |
+| OCR | Explicitly selected recognized-text `Classifications` with `BoxDetections` subjects, or a `BoxDetections` source directly; explicit geometry and independent text/region controls. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
@@ -324,28 +324,27 @@ immediately. Incoming frames update presence without rebuilding the controls or
 interrupting keyboard focus. Preferences are independent for each overlay.
 
 The renderer has no dataset-specific class names or palettes. Metadata contains
-class IDs and a label-family identifier, but no class-name dictionary or colors.
+class IDs and an explicit label-set namespace, but no class-name dictionary or colors.
 Default colors are generated deterministically from the numeric IDs; they convey
 neither class meaning nor confidence. `labelFamily` remains part of source
 identity but does not select a browser-side lookup table. Class names in ONNX
 model metadata are not currently carried in FrameResults. Previously saved
 per-class colors, visibility, and opacity still apply to their IDs.
 
-The payload defines no ignore/void sentinel: neither
-`0` nor `255` is implicitly transparent. This is a class map, not an RVM alpha mask.
+Only the payload's optional `voidValue` is transparent and excluded from observed
+classes. Neither `0` nor `255` is implicitly void. This is a class map, not an opacity mask.
 
-Rendering requires one tightly packed `Uint8` bitmap per selected source, with a
-nonzero parent ID resolving uniquely to a `FrameContext` video. Its dimensions
-must equal that uncropped video's original dimensions. Dimensions are bounded
-to 8192 per side and 16,777,216 pixels total. Missing parents, duplicate maps,
-unsupported types, invalid byte lengths, and oversized maps draw nothing and
-show a status. The native parser already removes model-input letterboxing;
-the browser scales with nearest-neighbor sampling into the contained video
-rectangle without applying that transform again.
+Rendering requires one tightly packed `Uint8` or little-endian `Uint32LE` class map
+per selected source and a valid `ImageSpace`. The grid spans the declared region;
+its resolution need not equal the source dimensions. No derivation parent selects
+placement. Grid dimensions are bounded to 8192 per side and 16,777,216 pixels,
+with at most 4096 distinct non-void classes/preferences. Invalid data and duplicate
+maps draw nothing and show a status. Nearest-neighbor placement respects crop
+origins and extents without reapplying model-input letterboxing.
 
 The mask and presence indicators use only metadata matched to the displayed video
-frame. Unmatched frames and empty semantic payloads clear the mask and mark class
-presence unavailable; independent live
+frame. Unmatched frames clear the mask; explicit empty payloads are successful
+empty results. Independent live
 metadata only discovers sources. Colorized pixels are cached per overlay and
 invalidated when its mask or class styles change. Source, visibility, order,
 master opacity, and per-class names/visibility/color/opacity are saved; class maps and
@@ -359,16 +358,18 @@ Choose **Instance segmentation** to show separate objects from an
 `InstanceSegmentationMasks` source. It reuses the semantic feature's compact
 class switches, colors, opacity, editable names, and **Reset labels**. Preferences
 remain independent per overlay and source. No dataset-specific labels are built
-in; signed class IDs from `-1` (the schema's unspecified default) through
-`2147483647` are accepted, independently of the binary bitmap's Uint8 storage.
+in. Class IDs are optional unsigned values through `4294967295`. Absence displays
+as **Unclassified**, not class zero. The saved UI key `-1` retains unclassified
+style preferences; it is not written back as a metadata class ID.
 
-Each instance requires a source-sized `Uint8` bitmap containing only `0` and `1`:
+Each instance requires a `Uint8` bitmap containing only `0` and `1`:
 `0` is outside the object, and `1` is foreground at the configured class opacity.
 It is neither a per-pixel class ID nor an alpha byte. Empty all-zero masks do not
-draw or mark their class present. Each nonempty mask has a contrasting one-source-
+draw or mark their class present. Each nonempty mask has a contrasting one-grid-
 pixel outline, so touching objects of the same class are distinguishable.
 **Boxes and labels** (enabled by default) adds each object's white bounding box, class
-name, confidence, and frame-local number (`#1`, `#2`, ...). Numbers follow payload
+name, available confidence, and frame-local number (`#1`, `#2`, ...), when a box is
+provided. Missing boxes do not suppress masks. Numbers follow payload
 order and may change every frame; they are not tracking identities.
 
 The class's selected color fills its masks. Black or white outlines are chosen
@@ -378,17 +379,17 @@ per overlapping mask. Hiding a class reveals any visible instance underneath.
 The final raster is blended using the master opacity. Class opacity also applies
 to its boxes and labels, and label changes do not invalidate cached mask pixels.
 
-All masks for a source must refer unambiguously to the same uncropped VideoFrame
-and match its original dimensions. The bitmap is authoritative for placement;
-boxes are source-image annotations, not an instruction to stretch a mask into an
-ROI. Boxes must be finite, positive-sized, and within the source frame (subpixel
-Float32 rounding at the edge is tolerated and clipped for drawing); confidence
-must be finite and within `[0,1]`. The renderer rejects the selected source's
+All masks for a source must declare the same source-frame identity/dimensions and
+compatible class namespaces. Their grids and crop regions may differ. Bitmap
+`ImageSpace` is authoritative for placement; optional boxes are annotations with
+their own declared units/space, not mask placement transforms. Boxes are projected
+and clipped for drawing. Optional confidence must be finite and within `[0,1]`.
+The renderer rejects the selected source's
 entire mask set when an item is malformed, rather than displaying a misleading
 partial result. It supports at most 512 masks and 67,108,864 total mask pixels per
 source/frame, checked before scanning pixel values. This aggregate budget is
 separate from the unchanged per-bitmap limits (8192 per side, 16,777,216 pixels)
-and permits 32 full-HD or eight UHD full-frame masks. Binary validation and
+and applies the same per-image bound to the display-pixel composition surface. Binary validation and
 compositing remain bounded even when many large masks are supplied.
 The entire bitmap is validated; actual foreground bounds then limit compositing
 work, independently of the supplied annotation box.
@@ -396,15 +397,25 @@ work, independently of the supplied annotation box.
 Drawing uses only displayed-frame-matched metadata and nearest-neighbor scaling
 inside the contained video rectangle. Missing/unmatched frames clear both raster
 and annotations. Mask validation is cached per indexed output, and one composite
-canvas is cached per overlay rather than allocating a canvas per object.
+canvas and reusable scratch raster are cached per overlay. Native canvas
+destination-out/source-over composition makes later membership replace earlier
+pixels without accumulating opacity, including for differently sized crop grids.
+Composition uses the displayed video dimensions and device-pixel ratio rather
+than source-image resolution, so fine crop grids are not prematurely downsampled.
+Resize and DPR changes invalidate the raster cache even on a paused frame.
+Displays exceeding 8192 pixels per side or 16,777,216 composition pixels use a
+proportionally reduced intermediate surface; pixel-exact rendering above that
+budget would require tiled composition. Source-frame dimensions describe a
+coordinate basis and do not determine the intermediate allocation.
 
 ## OCR
 
 Choose **OCR**, then explicitly select **From**:
 
-- A `Classifications` source supplies recognized text. Each classification's
-  `parent_id` must uniquely identify a current-frame `BoxDetections` object.
-  Geometry comes from that parent box, not candidate coordinates or array order.
+- A `Classifications` source supplies `RecognizedText` records with no categorical
+  namespace/ID. Each `subject_id` must uniquely identify a current-frame
+  `BoxDetections` object. Geometry comes from that subject's declared image space,
+  not derivation parents, candidate coordinates or array order.
   Only the selected recognition source contributes text.
 - A `BoxDetections` source supplies regions directly. Its optional `text` field
   is displayed when populated; otherwise the view is region-only. This mode
@@ -443,11 +454,11 @@ settings enable both controls, unless a new explicit choice is already saved.
 In EXPKITS-1443, the text score is the mean retained-character probability after
 CTC decoding, not a calibrated probability that the entire string is correct.
 
-The supported geometry is a finite, positive axis-aligned box in an uncropped
-parent `FrameContext` video's original coordinates. Model-input letterboxing has
-already been removed by the producer. The current OCR integration exports
+The supported geometry is a finite, positive axis-aligned box with explicit image
+space and units. Crop-local and normalized boxes are projected before rendering;
+no `FrameContext` parent lookup or dimension heuristic is used. The OCR parser exports
 axis-aligned envelopes, not its internal rotated quads; rotated/perspective
-regions and nested ROI transforms are not inferred. Missing or duplicate parent
+regions are not inferred from axis-aligned boxes. Missing or duplicate subject
 objects omit the affected regions. Multiple recognition records/candidates for
 one region retain an unlabelled outline and report ambiguity rather than choosing
 arbitrary text. Malformed geometry/text/scores are omitted with status feedback;
@@ -459,6 +470,8 @@ persist per selected source/overlay; recognized strings and frame relationships
 are not saved. For detector regions that remain visible while recognition is
 disabled, add a separate detector-bound OCR overlay and disable **Regions** on
 the recognition overlay to avoid duplicate outlines.
+See [mask representation](../../docs/arch/perception.md#mask-representation) for
+the shared SDK contract used by the overlay validators.
 
 ## Background replacement
 
@@ -471,11 +484,13 @@ resized to a maximum side of 1920 pixels and encoded locally, capped at 2 MB of
 saved data. Nothing is uploaded. Browser storage quotas can still prevent saving;
 the normal save-failure notice then applies and the image works for this session.
 
-The renderer requires one tightly packed `Uint8` mask for the full source frame,
-without model-input letterboxing. A nonzero parent ID must resolve unambiguously
-to the current `VideoFrame`; cropped-object masks are not stretched across the
-frame. The mask is scaled into the contained video rectangle, leaving display
-letterboxing untouched. Missing, ambiguous, invalid or oversized masks draw nothing.
+The renderer requires one tightly packed `Uint8` mask explicitly declaring
+`BackgroundOpacity`, without model-input letterboxing. Its `ImageSpace` determines
+placement independently of parent IDs and compositing strings. Cropped masks
+cover only their declared region within the contained video rectangle, leaving
+the surrounding video and display letterboxing untouched. Missing, ambiguous,
+invalid or oversized masks draw nothing. The existing browser resource limit is
+8192 per dimension and 16,777,216 samples; it is not a wire-format limit.
 
 Mask bytes are **background opacity**: `0` keeps the video, `255` replaces it,
 and intermediate values blend continuously. `RvmParser` converts foreground alpha

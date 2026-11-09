@@ -51,6 +51,7 @@ import {SegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {SemanticSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.js';
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
+import {BitmapEncoding, OpacityMeaning, validMask, maskData} from '../src/mask-data.js';
 import {TrackTraceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
@@ -373,7 +374,8 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
     const maskLayer = layer('segmentation');
     maskLayer.compositingMode = 'backgroundReplacement';
     envelope.add(new SegmentationMasksT(1, 0, maskLayer, [
-        new SegmentationMaskT(new ObjectMetaT(1n), new BitmapDataT(2, 2, 'Uint8', [0, 64, 128, 255])),
+        new SegmentationMaskT(new ObjectMetaT(1n), new BitmapDataT(2, 2, BitmapEncoding.Uint8, [0, 64, 128, 255],
+            new ImageSpaceT(9n, 2, 2, 0, 0, 2, 2)), OpacityMeaning.BackgroundOpacity),
     ]));
     envelope.add(new PerformanceMeasurementsT(1, 0, 'BGRA', [new ScopeTimingT('Inference', 0, 2.5, 'infer')],
         new FrameRateT(null), new ProducerInfoT('metrics', 'opkperformance', '')));
@@ -386,6 +388,7 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
     const mask = frame.layers.find((item) => item.payloadType === 'SegmentationMasks');
     assert.deepEqual([...mask.detections[0].data.pixels], [0, 64, 128, 255]);
     assert.ok(mask.detections[0].data.pixels instanceof Uint8Array);
+    assert.equal(mask.detections[0].data.valid, true);
     assert.deepEqual([...mask.detections[0].data.pixels], mask.payload.masks[0].bitmap.pixels);
     assert.equal(resolveOverlay(indexFrame(frame), createOverlay('background-replacement', outputSource(mask))).state, 'ready');
     const performance = frame.layers.find((item) => item.payloadType === 'PerformanceMeasurements');
@@ -403,10 +406,10 @@ test('decodes semantic class maps separately from alpha masks, preserving zero a
     envelope.add(new FrameContextT(1, 0, layer('videoFrame'),
         new VideoFrameContextT(new ObjectMetaT(42n), 3n, 1n)));
     envelope.add(new SemanticSegmentationMasksT(1, 0, info, [
-        new SemanticSegmentationMaskT(new ObjectMetaT(7n, 42n), new BitmapDataT(3, 1, 'Uint8', [0, 18, 255])),
+        new SemanticSegmentationMaskT(new ObjectMetaT(7n, 99n), new BitmapDataT(3, 1, BitmapEncoding.Uint8, [0, 18, 255], new ImageSpaceT(42n, 3, 1, 0, 0, 3, 1)), 'test:classes'),
     ]));
     envelope.add(new SegmentationMasksT(1, 0, layer('segmentation'), [
-        new SegmentationMaskT(new ObjectMetaT(8n, 42n), new BitmapDataT(3, 1, 'Uint8', [0, 128, 255])),
+        new SegmentationMaskT(new ObjectMetaT(8n, 42n), new BitmapDataT(3, 1, BitmapEncoding.Uint8, [0, 128, 255], new ImageSpaceT(42n, 3, 1, 0, 0, 3, 1)), OpacityMeaning.BackgroundOpacity),
     ]));
     const {frame_results: frame} = decodeFrameResultsMessage({
         frame_results_encoding: FRAME_RESULTS_ENCODING,
@@ -416,7 +419,7 @@ test('decodes semantic class maps separately from alpha masks, preserving zero a
     assert.equal(semantic.labelFamily, 'cityscapes');
     assert.equal(semantic.producer.instanceId, 'infer/parser');
     assert.equal(semantic.detections[0].type, 'SemanticSegmentationMask');
-    assert.equal(semantic.detections[0].data.parentUuid, '42');
+    assert.equal(semantic.detections[0].data.parentUuid, '99');
     assert.ok(semantic.detections[0].data.pixels instanceof Uint8Array);
     assert.deepEqual([...semantic.detections[0].data.pixels], [0, 18, 255]);
     assert.equal(frame.layers.find(item => item.payloadType === 'SegmentationMasks').detections[0].type, 'SegmentationMask');
@@ -430,15 +433,15 @@ test('decodes semantic class maps separately from alpha masks, preserving zero a
     const decoded = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(empty.serialize()).toString('base64')});
     assert.equal(decoded.frame_results.layers[0].count, 0);
-    assert.equal(resolveOverlay(indexFrame(decoded.frame_results), overlay).state, 'partial');
+    assert.equal(resolveOverlay(indexFrame(decoded.frame_results), overlay).state, 'ready');
 });
 
 test('decodes instance masks with separate binary pixels, wide class IDs, confidence and boxes', () => {
     const envelope = new Envelope();
     envelope.add(new FrameContextT(1, 0, layer('videoFrame'), new VideoFrameContextT(new ObjectMetaT(42n), 3n, 1n)));
     envelope.add(new InstanceSegmentationMasksT(1, 0, layer('instanceSegmentation'), [
-        new InstanceSegmentationMaskT(new ObjectMetaT(7n, 42n), new BitmapDataT(3, 1, 'Uint8', [0, 1, 0]),
-            500, 0.75, new BoundingBoxT(1, 0, 1, 1)),
+        new InstanceSegmentationMaskT(new ObjectMetaT(7n, 99n), new BitmapDataT(3, 1, BitmapEncoding.Uint8, [0, 1, 0], new ImageSpaceT(42n, 3, 1, 0, 0, 3, 1)),
+            500, 0.75, new BoundingBoxT(1, 0, 1, 1, new ImageSpaceT(42n, 3, 1, 0, 0, 3, 1), CoordinateUnits.Pixels), 'test:classes'),
     ]));
     envelope.add(new SemanticSegmentationMasksT(1, 0, layer('semanticSegmentation'), []));
     const {frame_results: frame} = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
@@ -447,9 +450,12 @@ test('decodes instance masks with separate binary pixels, wide class IDs, confid
     assert.equal(output.producer.instanceId, 'infer/parser');
     const item = output.detections[0];
     assert.equal(item.type, 'InstanceSegmentationMask');
-    assert.deepEqual(item.data, {uuid: '7', parentUuid: '42', creationTsNs: '0', width: 3, height: 1,
-        valueType: 'Uint8', pixels: new Uint8Array([0, 1, 0]), classId: 500, confidence: 0.75,
-        box: {x: 1, y: 0, width: 1, height: 1}});
+    assert.equal(item.data.parentUuid, '99');
+    assert.equal(item.data.valid, true);
+    assert.equal(item.data.encoding, BitmapEncoding.Uint8);
+    assert.equal(item.data.labelSet, 'test:classes');
+    assert.equal(item.data.classId, 500);
+    assert.deepEqual([...item.data.pixels], [0, 1, 0]);
     const resolved = resolveOverlay(indexFrame(frame), createOverlay('instance-segmentation', outputSource(output)));
     assert.equal(resolved.state, 'ready');
     assert.equal(resolved.feature.legend(resolved).entries[0].label, 'Class 500');
@@ -493,6 +499,44 @@ test('OCR wire payloads preserve recognized text, explicit subjects and invalid 
     assert.ok(Number.isNaN(decoded.layers[0].detections[0].data.x));
     assert.ok(Number.isNaN(decoded.layers[0].detections[0].data.confidence));
     assert.ok(Number.isNaN(decoded.layers[1].detections[0].data.candidates[0].confidence));
+});
+
+const maskBitmap = () => new BitmapDataT(2, 1, BitmapEncoding.Uint8, [0, 1], new ImageSpaceT(1n, 100, 100, 10, 20, 30, 40));
+
+test('each mask root retains explicit meaning, zero identities and self-contained geometry', () => {
+    const envelope = new Envelope();
+    envelope.add(new SegmentationMasksT(1, 0, null, [new SegmentationMaskT(null, maskBitmap(), OpacityMeaning.BackgroundOpacity)]));
+    envelope.add(new SemanticSegmentationMasksT(1, 0, null, [new SemanticSegmentationMaskT(null, maskBitmap(), 'test:labels', 0)]));
+    envelope.add(new InstanceSegmentationMasksT(1, 0, null, [new InstanceSegmentationMaskT(null, maskBitmap(), 0, 0, null, 'test:labels')]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    assert.equal(frame.layers.length, 3);
+    assert.ok(frame.layers.every(layer => layer.detections[0].data.valid));
+    assert.deepEqual(frame.layers.map(layer => layer.detections[0].data.space.originX), [10, 10, 10]);
+    assert.equal(frame.layers[1].detections[0].data.voidValue, 0);
+    assert.equal(frame.layers[2].detections[0].data.classId, 0);
+    assert.equal(frame.layers[2].detections[0].data.confidence, 0);
+});
+
+test('invalid encoding, dimensions, image space and family-specific values are rejected', () => {
+    const alpha = maskData(new SegmentationMaskT(null, maskBitmap(), OpacityMeaning.RegionOpacity), 'SegmentationMask');
+    assert.equal(alpha.valid, true);
+    for (const changes of [{encoding: 0}, {encoding: 99}, {space: null}, {width: 0}, {width: 0xffffffff},
+        {pixels: new Uint8Array(3)}, {pixels: new Uint8Array(1)}, {meaning: 0}]) {
+        assert.equal(validMask({...alpha, ...changes}, 'SegmentationMask'), false);
+    }
+    const instance = {...alpha, classId: null, confidence: null, labelSet: ''};
+    assert.equal(validMask(instance, 'InstanceSegmentationMask'), true);
+    for (const changes of [{pixels: new Uint8Array([0, 255])}, {classId: 0}, {confidence: NaN}]) {
+        assert.equal(validMask({...instance, ...changes}, 'InstanceSegmentationMask'), false);
+    }
+    const semantic = {...alpha, labelSet: 'test:labels', voidValue: null};
+    assert.equal(validMask(semantic, 'SemanticSegmentationMask'), true);
+    assert.equal(validMask({...semantic, voidValue: 0}, 'SemanticSegmentationMask'), true);
+    assert.equal(validMask({...semantic, voidValue: 256}, 'SemanticSegmentationMask'), false);
+    assert.equal(validMask({...semantic, encoding: BitmapEncoding.Uint32LE, voidValue: 0xffffffff,
+        pixels: new Uint8Array([0, 0, 0, 0, 0x78, 0x56, 0x34, 0x12])}, 'SemanticSegmentationMask'), true);
+    assert.equal(maskData(null, 'SegmentationMask').valid, false);
 });
 
 test('box and track category IDs preserve absence and zero, and confidence is not coerced', () => {

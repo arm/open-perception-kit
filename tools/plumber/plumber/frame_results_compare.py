@@ -46,7 +46,9 @@ DISTANCE_SPECS: dict[str, DistanceSpec] = {
     "BoxDetection": DistanceSpec(dr.distance_rect, threshold=dr.GEOMETRY_THRESHOLD),
     "ObjectTrack": DistanceSpec(dr.distance_rect, threshold=dr.GEOMETRY_THRESHOLD),
     "GazeMeasurement": DistanceSpec(dg.distance_gaze, threshold=dg.ANGLE_DISTANCE_THRESHOLD),
-    "SegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1, skip=True),
+    "SegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1),
+    "SemanticSegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1),
+    "InstanceSegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1),
     "Classification": DistanceSpec(dc.distance_classification, threshold=0.0),
     "CameraContact": DistanceSpec(dc.distance_camera_contact, threshold=0.0),
     "PersonPresence": DistanceSpec(dc.distance_person_presence, threshold=0.0),
@@ -70,6 +72,8 @@ def _item_parent(
     item: dict,
     object_index: dict[int, tuple[PayloadKey, dict]],
 ) -> dict | None:
+    if item.get("item_type") in dsm.MASK_TYPES:
+        return item if dsm.valid_mask(item) else None
     if item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
         return item if item.get("data", {}).get("spatialValid") else None
     if item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
@@ -95,6 +99,8 @@ def _process_remaining_items(
 
     gt_parent_item = _item_parent(gt_item, gt_object_index)
     if gt_parent_item is None:
+        if gt_item.get("item_type") in dsm.MASK_TYPES:
+            return False, "mask has invalid encoding, semantics or image space"
         if gt_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
             return False, "subject missing, ambiguous or invalid"
         if gt_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
@@ -105,6 +111,8 @@ def _process_remaining_items(
     for j, out_item in enumerate(remaining):
         out_parent_item = _item_parent(out_item, out_object_index)
         if out_parent_item is None:
+            if out_item.get("item_type") in dsm.MASK_TYPES:
+                return False, "mask has invalid encoding, semantics or image space"
             if out_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
                 return False, "subject missing, ambiguous or invalid"
             if out_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):

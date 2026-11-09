@@ -41,10 +41,40 @@ struct SegmentationMasks;
 struct SegmentationMasksBuilder;
 struct SegmentationMasksT;
 
+enum class OpacityMeaning : uint8_t {
+    Unspecified = 0,
+    BackgroundOpacity = 1,
+    RegionOpacity = 2,
+    MIN = Unspecified,
+    MAX = RegionOpacity
+};
+
+inline const OpacityMeaning (&EnumValuesOpacityMeaning())[3] {
+    static const OpacityMeaning values[] = {OpacityMeaning::Unspecified,
+                                            OpacityMeaning::BackgroundOpacity,
+                                            OpacityMeaning::RegionOpacity};
+    return values;
+}
+
+inline const char *const *EnumNamesOpacityMeaning() {
+    static const char *const names[4] = {
+        "Unspecified", "BackgroundOpacity", "RegionOpacity", nullptr};
+    return names;
+}
+
+inline const char *EnumNameOpacityMeaning(OpacityMeaning e) {
+    if (::flatbuffers::IsOutRange(e, OpacityMeaning::Unspecified, OpacityMeaning::RegionOpacity))
+        return "";
+    const size_t index = static_cast<size_t>(e);
+    return EnumNamesOpacityMeaning()[index];
+}
+
 struct SegmentationMaskT : public ::flatbuffers::NativeTable {
     typedef SegmentationMask TableType;
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
     std::unique_ptr<open_perception_kit::metadata::BitmapDataT> bitmap{};
+    open_perception_kit::metadata::OpacityMeaning meaning =
+        open_perception_kit::metadata::OpacityMeaning::Unspecified;
     SegmentationMaskT() = default;
     SegmentationMaskT(const SegmentationMaskT &o);
     SegmentationMaskT(SegmentationMaskT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -56,7 +86,8 @@ struct SegmentationMask FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     typedef SegmentationMaskBuilder Builder;
     enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
         VT_OBJECT = 4,
-        VT_BITMAP = 6
+        VT_BITMAP = 6,
+        VT_MEANING = 8
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -64,10 +95,15 @@ struct SegmentationMask FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     const open_perception_kit::metadata::BitmapData *bitmap() const {
         return GetPointer<const open_perception_kit::metadata::BitmapData *>(VT_BITMAP);
     }
+    open_perception_kit::metadata::OpacityMeaning meaning() const {
+        return static_cast<open_perception_kit::metadata::OpacityMeaning>(
+            GetField<uint8_t>(VT_MEANING, 0));
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) && VerifyOffset(verifier, VT_BITMAP) &&
-               verifier.VerifyTable(bitmap()) && verifier.EndTable();
+               verifier.VerifyTable(bitmap()) && VerifyField<uint8_t>(verifier, VT_MEANING, 1) &&
+               verifier.EndTable();
     }
     SegmentationMaskT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(SegmentationMaskT *_o,
@@ -88,6 +124,9 @@ struct SegmentationMaskBuilder {
     void add_bitmap(::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap) {
         fbb_.AddOffset(SegmentationMask::VT_BITMAP, bitmap);
     }
+    void add_meaning(open_perception_kit::metadata::OpacityMeaning meaning) {
+        fbb_.AddElement<uint8_t>(SegmentationMask::VT_MEANING, static_cast<uint8_t>(meaning), 0);
+    }
     explicit SegmentationMaskBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -98,13 +137,16 @@ struct SegmentationMaskBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<SegmentationMask> CreateSegmentationMask(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-    ::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap = 0) {
+inline ::flatbuffers::Offset<SegmentationMask>
+CreateSegmentationMask(::flatbuffers::FlatBufferBuilder &_fbb,
+                       ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+                       ::flatbuffers::Offset<open_perception_kit::metadata::BitmapData> bitmap = 0,
+                       open_perception_kit::metadata::OpacityMeaning meaning =
+                           open_perception_kit::metadata::OpacityMeaning::Unspecified) {
     SegmentationMaskBuilder builder_(_fbb);
     builder_.add_bitmap(bitmap);
     builder_.add_object(object);
+    builder_.add_meaning(meaning);
     return builder_.Finish();
 }
 
@@ -230,11 +272,13 @@ CreateSegmentationMasks(::flatbuffers::FlatBufferBuilder &_fbb,
 
 inline SegmentationMaskT::SegmentationMaskT(const SegmentationMaskT &o)
     : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
-      bitmap((o.bitmap) ? new open_perception_kit::metadata::BitmapDataT(*o.bitmap) : nullptr) {}
+      bitmap((o.bitmap) ? new open_perception_kit::metadata::BitmapDataT(*o.bitmap) : nullptr),
+      meaning(o.meaning) {}
 
 inline SegmentationMaskT &SegmentationMaskT::operator=(SegmentationMaskT o) FLATBUFFERS_NOEXCEPT {
     std::swap(object, o.object);
     std::swap(bitmap, o.bitmap);
+    std::swap(meaning, o.meaning);
     return *this;
 }
 
@@ -275,6 +319,10 @@ inline void SegmentationMask::UnPackTo(SegmentationMaskT *_o,
             _o->bitmap.reset();
         }
     }
+    {
+        auto _e = meaning();
+        _o->meaning = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<SegmentationMask>
@@ -298,7 +346,8 @@ CreateSegmentationMask(::flatbuffers::FlatBufferBuilder &_fbb,
     (void)_va;
     auto _object = _o->object ? CreateObjectMeta(_fbb, _o->object.get(), _rehasher) : 0;
     auto _bitmap = _o->bitmap ? CreateBitmapData(_fbb, _o->bitmap.get(), _rehasher) : 0;
-    return open_perception_kit::metadata::CreateSegmentationMask(_fbb, _object, _bitmap);
+    auto _meaning = _o->meaning;
+    return open_perception_kit::metadata::CreateSegmentationMask(_fbb, _object, _bitmap, _meaning);
 }
 
 inline SegmentationMasksT::SegmentationMasksT(const SegmentationMasksT &o)
