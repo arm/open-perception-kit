@@ -34,7 +34,7 @@ and check the built artifacts before publication.
 | [cfgv](https://github.com/asottile/cfgv) | [3.5.0](https://pypi.org/project/cfgv/3.5.0/) | MIT | PyPI |
 | [cmake-format](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmake-format/0.6.13/) | GPL-3.0-or-later | PyPI |
 | [clang-tidy](https://github.com/ssciwr/clang-tidy-wheel) | [23.1.3](https://pypi.org/project/clang-tidy/23.1.3/) | Apache-2.0 | PyPI |
-| [clang-format](https://github.com/ssciwr/clang-format-wheel) | [23.1.3](https://pypi.org/project/clang-format/23.1.3/) | Apache-2.0 | PyPI |
+| [clang-format](https://github.com/ssciwr/clang-format-wheel) | [23.1.5](https://pypi.org/project/clang-format/23.1.5/) | Apache-2.0 | PyPI |
 | [Click](https://github.com/pallets/click) | [8.5.0](https://pypi.org/project/click/8.5.0/) | BSD-3-Clause | PyPI |
 | [cmakelang](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmakelang/0.6.13/) | GPL-3.0-or-later | PyPI |
 | [convert-source-map](https://github.com/thlorenz/convert-source-map) | [2.0.0](https://www.npmjs.com/package/convert-source-map/v/2.0.0) | MIT | npm |
@@ -42,7 +42,7 @@ and check the built artifacts before publication.
 | [ExecuTorch](https://github.com/pytorch/executorch) | 1.3.1-3 | BSD-3-Clause and bundled terms | Debian package |
 | [expected](https://github.com/TartanLlama/expected) | [1.3.1](https://github.com/TartanLlama/expected/tree/v1.3.1) | CC0-1.0 | Fedora |
 | [fsspec](https://github.com/fsspec/filesystem_spec) | [2026.7.0](https://pypi.org/project/fsspec/2026.7.0/) | BSD-3-Clause | PyPI |
-| [FlatBuffers](https://github.com/google/flatbuffers) | [25.9.23](https://github.com/google/flatbuffers/tree/v25.9.23) (SDK/build), [25.9.23](https://pypi.org/project/flatbuffers/25.9.23/) (host Python), [25.2.10](https://github.com/google/flatbuffers/tree/v25.2.10) (MLWL build) | Apache-2.0 | npm, crates.io, PyPI, GitHub |
+| [FlatBuffers](https://github.com/google/flatbuffers) | [25.9.23](https://github.com/google/flatbuffers/tree/v25.9.23) (SDK/build), [25.12.19](https://pypi.org/project/flatbuffers/25.12.19/) (host Python), [25.2.10](https://github.com/google/flatbuffers/tree/v25.2.10) (MLWL build) | Apache-2.0 | npm, crates.io, PyPI, GitHub |
 | [fmt](https://github.com/fmtlib/fmt) | [12.0.0](https://github.com/fmtlib/fmt/tree/12.0.0) | MIT | openSUSE |
 | [Lucide](https://lucide.dev/) | [1.61.0](https://www.npmjs.com/package/lucide-static/v/1.61.0) | ISC and MIT (Feather-derived icons) | vendored SVG assets |
 | [Wafer](https://github.com/Arm-Debug/design-system) | [2.0.2](https://github.com/Arm-Debug/design-system/tree/v2.0.2) | Arm copyright notice; upstream declares no CSS licence identifier | vendored CSS |
@@ -62,7 +62,7 @@ and check the built artifacts before publication.
 | [hf-xet](https://github.com/huggingface/xet-core) | [1.6.0](https://pypi.org/project/hf-xet/1.6.0/) | Apache-2.0 | PyPI |
 | [httpcore](https://github.com/encode/httpcore) | [1.0.9](https://pypi.org/project/httpcore/1.0.9/) | BSD-3-Clause | PyPI |
 | [httpx](https://github.com/encode/httpx) | [0.28.1](https://pypi.org/project/httpx/0.28.1/) | BSD-3-Clause | PyPI |
-| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | [2.3.0](https://pypi.org/project/huggingface-hub/2.3.0/) | Apache-2.0 | PyPI |
+| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | [2.4.0](https://pypi.org/project/huggingface-hub/2.4.0/) | Apache-2.0 | PyPI |
 | [identify](https://github.com/pre-commit/identify) | [2.6.19](https://pypi.org/project/identify/2.6.19/) | MIT | PyPI |
 | [idna](https://github.com/kjd/idna) | [3.19](https://pypi.org/project/idna/3.19/) | BSD-3-Clause | PyPI |
 | [inflect](https://github.com/jaraco/inflect) | [7.3.1](https://pypi.org/project/inflect/7.3.1/) | MIT | PyPI |
@@ -91,7 +91,7 @@ and check the built artifacts before publication.
 | [more-itertools](https://github.com/more-itertools/more-itertools) | [10.7.0](https://pypi.org/project/more-itertools/10.7.0/) | MIT | PyPI |
 | [magic\_enum](https://github.com/Neargye/magic_enum) | [v0.9.7](https://github.com/Neargye/magic_enum/tree/v0.9.7) | MIT | Debian |
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |
-| [NumPy](https://github.com/numpy/numpy) | [2.4.2](https://pypi.org/project/numpy/2.4.2/) (build and host Python) | BSD-3-Clause and [wheel terms](https://github.com/numpy/numpy/blob/v2.4.2/pyproject.toml), including GPL-3.0-or-later WITH GCC-exception-3.1 (libgfortran) and LGPL-2.1-or-later (x86_64 libquadmath) | PyPI |
+| [NumPy](https://github.com/numpy/numpy) | [2.4.2](https://pypi.org/project/numpy/2.4.2/), [2.5.4](https://pypi.org/project/numpy/2.5.4/) (build and host Python) | BSD-3-Clause and [wheel terms](https://github.com/numpy/numpy/blob/v2.4.2/pyproject.toml), including GPL-3.0-or-later WITH GCC-exception-3.1 (libgfortran) and LGPL-2.1-or-later (x86_64 libquadmath) | PyPI |
 | [onnx](https://github.com/onnx/onnx) | [1.22.0](https://pypi.org/project/onnx/1.22.0/) | Apache-2.0 | PyPI |
 | [onnxruntime](https://github.com/microsoft/onnxruntime) | [1.31.1](https://github.com/microsoft/onnxruntime/releases/tag/v1.31.1) | MIT and bundled terms | GitHub release |
 | [openai](https://github.com/openai/openai-python) | [2.44.0](https://pypi.org/project/openai/2.44.0/) | Apache-2.0 | PyPI |
