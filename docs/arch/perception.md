@@ -186,6 +186,73 @@ SDK 1.0 intentionally changes the interpretation of previously misrendered
 normalized/crop-local boxes and comparisons. Correct full-frame pixel pipelines
 retain their placement; the same generated snapshot is required throughout.
 
+## Tracking observations and timed history
+
+`ObjectTrack.object.id` identifies one published observation. Persistent identity
+is the complete `TrackIdentity` tuple `(tracker_id, session_id, track_id)`, shared
+by its `TrackTrace`. The local integer retains its familiar display value; it is
+not globally unique. Each tracker gets an opaque UUID session token, renewed on
+reset/restart, so independent trackers and reused numbers cannot alias. Layer
+provenance and display labels are not substitutes for this explicit identity.
+
+Every track observation and trace point carries a `TrackingSample`:
+
+- `frame_index` is the one-based count of frames processed by this tracker session,
+  not a packet object ID or the upstream frame counter.
+- `elapsed_ms` is monotonic tracker-local elapsed time, not UTC or media PTS.
+  Positive media running-time deltas advance it when available; otherwise the
+  configured fallback interval does. The first increment uses fallback.
+- `time_source` identifies `MediaDelta` versus `FallbackDelta` for that increment.
+  Forcing Kalman fallback does not turn a valid lifecycle media delta into an
+  estimated delta.
+- `state` explicitly declares `Observed` or `Predicted`; unspecified states are
+  not interpreted. Kalman prediction used internally before correction does not
+  make a matched observation a predicted-only output.
+
+`source_id` and `source_frame_index` are optional together. For observed output,
+the source is in the current tracker frame. For predicted output, its source
+frame is strictly earlier and the original observation need not be in the packet.
+The box is the current tracker estimate, whereas `source_confidence`, optional
+category ID and original label are retained from the source detection; they are
+not new measurements or prediction-quality scores.
+
+Observed association diagnostics declare `New`, `IoUScore`, `CosineScore` or
+`Reacquired` and an optional score with defined units. The kind reports the
+available diagnostic, not the configured matching strategy: a cosine score can
+be reported during IoU or hybrid matching, as before. A prediction has no new association.
+Tracking data no longer stores diagnostic strings or adds prediction tags to an
+entire payload. `text` stays the original label. `ObjectTracks.display_identity`
+controls presentation; renderers reconstruct the existing `ID:n`, `IOU`, `REID`,
+`REID-R`, `NEW` and `PRED` labels, including two-decimal score formatting. The
+existing `append-track-id-to-text` property controls this display preference.
+
+Trace points are filtered/estimated box centres in their self-contained image
+basis, ordered oldest to newest with strictly increasing frame indices and elapsed
+times. Each point declares whether it was observed or predicted. The trace is the
+complete current segment, not a delta update. Dormant reacquisition keeps the track
+identity but starts a fresh segment, preserving the existing visual discontinuity.
+History is retained by elapsed age, not a point count inferred from the latest
+frame interval. This corrects variable-rate and forced-Kalman-fallback retention;
+ordinary fixed-rate geometry, palettes and line styles remain unchanged.
+
+Native/browser consumers join trails by the complete identity and reject ambiguous
+duplicates. A trail may stand alone when predicted boxes are disabled. If a current
+track accompanies it, its last sample must agree with that observation. Renderers
+do not guess missing identity, chronology or spatial information.
+
+Plumber compares tracker/local track numbers and sample state/time, validates
+current source correspondence, and permits missing historical source observations
+for predictions. Session UUID text differs between independent executions; one
+unambiguous session per tracker in each packet establishes the comparison scope.
+Multiple sessions without a stable correspondence fail rather than being guessed.
+Trace lengths and sample chronology must agree; extra points and malformed data
+are no longer silently accepted by comparing only a shared prefix. Display wording
+and association score precision do not define track identity.
+
+This is a breaking SDK 1.0 development migration of `ObjectTracks` and
+`TrackTraces`, with unchanged root identities and regenerated bindings. No legacy
+text/tag parser or old-point adapter is provided.
+
 ## Embedding spaces and selection
 
 `ObjectEmbedding.space` declares a versioned opaque space ID, dimension and

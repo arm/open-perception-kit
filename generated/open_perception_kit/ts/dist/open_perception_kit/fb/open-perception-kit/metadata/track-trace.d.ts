@@ -19,7 +19,8 @@
 import * as flatbuffers from 'flatbuffers';
 import { ImageSpace, ImageSpaceT } from '../../open-perception-kit/metadata/image-space.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
-import { Point2f, Point2fT } from '../../open-perception-kit/metadata/point2f.js';
+import { TrackIdentity, TrackIdentityT } from '../../open-perception-kit/metadata/track-identity.js';
+import { TrackTracePoint, TrackTracePointT } from '../../open-perception-kit/metadata/track-trace-point.js';
 export declare class TrackTrace implements flatbuffers.IUnpackableObject<TrackTraceT> {
     bb: flatbuffers.ByteBuffer | null;
     bb_pos: number;
@@ -27,13 +28,13 @@ export declare class TrackTrace implements flatbuffers.IUnpackableObject<TrackTr
     static getRootAsTrackTrace(bb: flatbuffers.ByteBuffer, obj?: TrackTrace): TrackTrace;
     static getSizePrefixedRootAsTrackTrace(bb: flatbuffers.ByteBuffer, obj?: TrackTrace): TrackTrace;
     object(obj?: ObjectMeta): ObjectMeta | null;
-    trackId(): bigint;
-    points(index: number, obj?: Point2f): Point2f | null;
+    identity(obj?: TrackIdentity): TrackIdentity | null;
+    points(index: number, obj?: TrackTracePoint): TrackTracePoint | null;
     pointsLength(): number;
     space(obj?: ImageSpace): ImageSpace | null;
     static startTrackTrace(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
-    static addTrackId(builder: flatbuffers.Builder, trackId: bigint): void;
+    static addIdentity(builder: flatbuffers.Builder, identityOffset: flatbuffers.Offset): void;
     static addPoints(builder: flatbuffers.Builder, pointsOffset: flatbuffers.Offset): void;
     static createPointsVector(builder: flatbuffers.Builder, data: flatbuffers.Offset[]): flatbuffers.Offset;
     static startPointsVector(builder: flatbuffers.Builder, numElems: number): void;
@@ -44,9 +45,9 @@ export declare class TrackTrace implements flatbuffers.IUnpackableObject<TrackTr
 }
 export declare class TrackTraceT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
-    trackId: bigint;
-    points: (Point2fT)[];
+    identity: TrackIdentityT | null;
+    points: (TrackTracePointT)[];
     space: ImageSpaceT | null;
-    constructor(object?: ObjectMetaT | null, trackId?: bigint, points?: (Point2fT)[], space?: ImageSpaceT | null);
+    constructor(object?: ObjectMetaT | null, identity?: TrackIdentityT | null, points?: (TrackTracePointT)[], space?: ImageSpaceT | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

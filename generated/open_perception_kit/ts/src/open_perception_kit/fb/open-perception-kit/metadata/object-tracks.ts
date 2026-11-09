@@ -71,8 +71,13 @@ tracksLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+displayIdentity():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : true;
+}
+
 static startObjectTracks(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addSchemaMajor(builder:flatbuffers.Builder, schemaMajor:number) {
@@ -103,6 +108,10 @@ static startTracksVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addDisplayIdentity(builder:flatbuffers.Builder, displayIdentity:boolean) {
+  builder.addFieldInt8(4, +displayIdentity, +true);
+}
+
 static endObjectTracks(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
@@ -122,7 +131,8 @@ unpack(): ObjectTracksT {
     this.schemaMajor(),
     this.schemaMinor(),
     (this.layer() !== null ? this.layer()!.unpack() : null),
-    this.bb!.createObjList<ObjectTrack, ObjectTrackT>(this.tracks.bind(this), this.tracksLength())
+    this.bb!.createObjList<ObjectTrack, ObjectTrackT>(this.tracks.bind(this), this.tracksLength()),
+    this.displayIdentity()
   );
 }
 
@@ -132,6 +142,7 @@ unpackTo(_o: ObjectTracksT): void {
   _o.schemaMinor = this.schemaMinor();
   _o.layer = (this.layer() !== null ? this.layer()!.unpack() : null);
   _o.tracks = this.bb!.createObjList<ObjectTrack, ObjectTrackT>(this.tracks.bind(this), this.tracksLength());
+  _o.displayIdentity = this.displayIdentity();
 }
 }
 
@@ -140,7 +151,8 @@ constructor(
   public schemaMajor: number = 1,
   public schemaMinor: number = 0,
   public layer: LayerInfoT|null = null,
-  public tracks: (ObjectTrackT)[] = []
+  public tracks: (ObjectTrackT)[] = [],
+  public displayIdentity: boolean = true
 ){}
 
 
@@ -153,6 +165,7 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   ObjectTracks.addSchemaMinor(builder, this.schemaMinor);
   ObjectTracks.addLayer(builder, layer);
   ObjectTracks.addTracks(builder, tracks);
+  ObjectTracks.addDisplayIdentity(builder, this.displayIdentity);
 
   return ObjectTracks.endObjectTracks(builder);
 }

@@ -20,6 +20,7 @@
 #include "Matching.h"
 #include "TrackLifecycle.h"
 #include "opk/FrameResults.h"
+#include "tracking_test_helpers.h"
 
 #include <limits>
 #include <vector>
@@ -75,12 +76,12 @@ TEST(OpkTrackerTiming, LargeTraceDurationRetainsPointsAndShrinkingTrimsThem) {
     opk::tracker::Config config;
     config.traceHistorySeconds = std::numeric_limits<float>::max();
     const opk::tracker::Point2f point;
-    opk::tracker::trackstate::appendTracePoint(track, point, config.kalmanDtFallback, config);
-    opk::tracker::trackstate::appendTracePoint(track, point, config.kalmanDtFallback, config);
+    opk::tracker::trackstate::appendTracePoint(track, point, *testTrackingSample(1), config);
+    opk::tracker::trackstate::appendTracePoint(track, point, *testTrackingSample(2), config);
     EXPECT_EQ(track.traceHistoryPoints.size(), 2U);
 
     config.traceHistorySeconds = 0.0f;
-    opk::tracker::trackstate::appendTracePoint(track, point, config.kalmanDtFallback, config);
+    opk::tracker::trackstate::appendTracePoint(track, point, *testTrackingSample(3), config);
     EXPECT_EQ(track.traceHistoryPoints.size(), 1U);
 }
 
@@ -153,6 +154,25 @@ TEST(OpkTrackerMatching, EmbeddingModeAcceptsNonOverlappingEmbeddingAssignment) 
     EXPECT_EQ(result.matches[0].first, 0U);
     EXPECT_EQ(result.matches[0].second, 42U);
     EXPECT_TRUE(result.unmatchedDetections.empty());
+}
+
+TEST(OpkTrackerMatching, DiagnosticKindDoesNotClaimTheConfiguredMatchingStrategy) {
+    const auto embedding = makeEmbedding();
+    const auto before = makeDetection(1, 0, 0, 10, 10);
+    const auto after = makeDetection(2, 1, 1, 10, 10);
+    opk::tracker::ActiveTrackMap tracks;
+    tracks.emplace(42, makeTrack(42, before, embedding));
+    const opk::tracker::DetectionBatch detections{&after};
+    const opk::tracker::EmbeddingBatch embeddings{{2, &embedding}};
+    const auto result = opk::tracker::matching::associateDetectionsToActiveTracks(
+        detections,
+        embeddings,
+        tracks,
+        1.0f / 30.0f,
+        matchingConfig(opk::tracker::AssociationMode::Iou));
+    ASSERT_EQ(result.matches.size(), 1U);
+    EXPECT_EQ(result.associationsByDetection.at(0).kind,
+              open_perception_kit::metadata::TrackAssociationKind::CosineScore);
 }
 
 TEST(OpkTrackerTiming, KalmanDtUsesRunningTimeDeltaUnlessFallbackIsForced) {

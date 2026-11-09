@@ -25,6 +25,8 @@ namespace opk::tracker::trackingoutput {
 struct TrackingResult {
     const DetectionTrackAssignments &detectionTrackAssignments;
     const TrackIdList &predictedOnlyTrackIds;
+    std::string sessionId;
+    open_perception_kit::metadata::TrackingSampleT sample;
 };
 
 void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,

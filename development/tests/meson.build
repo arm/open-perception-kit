@@ -215,7 +215,7 @@ if python_ops_enabled
     test_python,
     args : [files('image_geometry_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
     env : python_script_pipeline_test_env,
-    depends : [gstopkinfer, opkcomm, onnxops, stdops, python_ops],
+    depends : [gstopkinfer, gstopktracker, gstopkosd, opkcomm, onnxops, stdops, python_ops],
     timeout : 90,
     is_parallel : false,
   )
@@ -430,6 +430,7 @@ opktracker_matching_tests = executable(
   'opktracker_matching_tests',
   ['opktracker_matching_test.cpp',
    'embedding_contract_test.cpp',
+   'tracking_contract_test.cpp',
    '../ops-std/postproc/ObjectEmbeddingParser.cpp',
    '../elements/opktracker/FrameInputs.cpp',
    '../elements/opktracker/Tracker.cpp',

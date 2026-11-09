@@ -28,6 +28,9 @@ from file_pipeline_test_support import run_file_pipeline
 from open_perception_kit.packet import decode
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
+from open_perception_kit.fb.open_perception_kit.metadata.TrackObservationState import TrackObservationState
 
 
 class ImageGeometryPipelineTest(unittest.TestCase):
@@ -82,13 +85,16 @@ def process(env, tensors, context):
             process = run_file_pipeline([
                 "videotestsrc", "num-buffers=2", "pattern=ball", "!",
                 "video/x-raw,format=BGRA,width=64,height=64", "!", "opkinfer", "active=true",
-                f"opchain-path={opchain}", "!", "opkcomm", "method=file", f"file-name={output}", "!",
+                f"opchain-path={opchain}", "!", "opktracker", "name=tracker_a", "min-hits-to-confirm=1", "use-kalman=false", "!",
+                "opktracker", "name=tracker_b", "min-hits-to-confirm=1", "use-kalman=false", "!", "opkosd", "!",
+                "opkcomm", "method=file", f"file-name={output}", "!",
                 "appsink", "wait-on-eos=true", "sync=false", "async=false",
             ], output, 2, env=environment, cwd=repository)
             self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
             records = [json.loads(line) for line in output.read_text().splitlines() if line]
             self.assertEqual(len(records), 2)
-            for record in records:
+            sessions = None
+            for index, record in enumerate(records, 1):
                 envelope = decode(base64.b64decode(record["frame_results_packet_b64"], validate=True))
                 self.assertTrue(envelope.valid())
                 frames = list(envelope.for_each(FrameContextT))
@@ -102,6 +108,34 @@ def process(env, tensors, context):
                     self.assertEqual((item.box.space.width, item.box.space.height), (64, 64))
                     self.assertEqual((item.box.space.originX, item.box.space.originY), (16, 16))
                     self.assertEqual((item.box.space.extentWidth, item.box.space.extentHeight), (32, 32))
+                tracked = list(envelope.for_each(ObjectTracksT))
+                self.assertEqual(len(tracked), 2)
+                current_sessions = {payload.tracks[0].identity.sessionId for payload in tracked}
+                self.assertEqual(len(current_sessions), 2)
+                if sessions is not None:
+                    self.assertEqual(current_sessions, sessions)
+                sessions = current_sessions
+                source_ids = {item.object.id for payload in envelope.for_each(
+                    BoxDetectionsT) for item in payload.detections}
+                for payload in tracked:
+                    self.assertFalse(payload.layer.tags)
+                    for track in payload.tracks:
+                        self.assertEqual(track.sample.frameIndex, index)
+                        if track.sample.state == TrackObservationState.Observed:
+                            self.assertIn(track.sourceId, source_ids)
+                            self.assertEqual(track.sourceFrameIndex, index)
+                        else:
+                            self.assertEqual(track.sample.state, TrackObservationState.Predicted)
+                            self.assertLess(track.sourceFrameIndex, index)
+                            self.assertIsNone(track.association)
+                if index == 2:
+                    traces = list(envelope.for_each(TrackTracesT))
+                    self.assertEqual(len(traces), 2)
+                    for payload in traces:
+                        for trace in payload.traces:
+                            self.assertIn(trace.identity.sessionId, current_sessions)
+                            self.assertEqual(trace.points[-1].sample.frameIndex, index)
+                            self.assertLess(trace.points[0].sample.elapsedMs, trace.points[-1].sample.elapsedMs)
 
 
 if __name__ == "__main__":

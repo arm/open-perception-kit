@@ -21,6 +21,7 @@
 #include "opk/FrameResults.h"
 #include "postproc/ScrfdParser.h"
 #include "postproc/UltrafaceParser.h"
+#include "tracking_test_helpers.h"
 #include <cmath>
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -75,7 +76,8 @@ TEST(ImageGeometry, SubjectLookupCountsBoxAndTrackIdentitiesBeforeGeometryValida
     open_perception_kit::metadata::ObjectTracksT tracks;
     auto track = std::make_unique<open_perception_kit::metadata::ObjectTrackT>();
     track->object = open_perception_kit::makeObjectMeta(7);
-    track->track_id = 99;
+    track->identity = testTrackIdentity(99);
+    track->sample = testTrackingSample(1);
     tracks.tracks.push_back(std::move(track));
     result.add(tracks); // Missing track geometry must not rescue the duplicate ID.
     EXPECT_EQ(open_perception_kit::findSubjectBox(result, 7), nullptr);

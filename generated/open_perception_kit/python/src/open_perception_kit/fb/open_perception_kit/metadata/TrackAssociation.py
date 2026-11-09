@@ -22,88 +22,94 @@ from flatbuffers.compat import import_numpy
 np = import_numpy()
 
 
-class Point2f(object):
+class TrackAssociation(object):
     __slots__ = ['_tab']
 
     @classmethod
     def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = Point2f()
+        x = TrackAssociation()
         x.Init(buf, n + offset)
         return x
 
     @classmethod
-    def GetRootAsPoint2f(cls, buf, offset=0):
+    def GetRootAsTrackAssociation(cls, buf, offset=0):
         """This method is deprecated. Please switch to GetRootAs."""
         return cls.GetRootAs(buf, offset)
-    # Point2f
+    # TrackAssociation
 
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # Point2f
-    def X(self):
+    # TrackAssociation
+    def Kind(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
+        return 0
 
-    # Point2f
-    def Y(self):
+    # TrackAssociation
+    def Score(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+        return None
 
 
-def Point2fStart(builder):
+def TrackAssociationStart(builder):
     builder.StartObject(2)
 
 
 def Start(builder):
-    Point2fStart(builder)
+    TrackAssociationStart(builder)
 
 
-def Point2fAddX(builder, x):
-    builder.PrependFloat32Slot(0, x, 0.0)
+def TrackAssociationAddKind(builder, kind):
+    builder.PrependUint8Slot(0, kind, 0)
 
 
-def AddX(builder, x):
-    Point2fAddX(builder, x)
+def AddKind(builder, kind):
+    TrackAssociationAddKind(builder, kind)
 
 
-def Point2fAddY(builder, y):
-    builder.PrependFloat32Slot(1, y, 0.0)
+def TrackAssociationAddScore(builder, score):
+    builder.PrependFloat32Slot(1, score, None)
 
 
-def AddY(builder, y):
-    Point2fAddY(builder, y)
+def AddScore(builder, score):
+    TrackAssociationAddScore(builder, score)
 
 
-def Point2fEnd(builder):
+def TrackAssociationEnd(builder):
     return builder.EndObject()
 
 
 def End(builder):
-    return Point2fEnd(builder)
+    return TrackAssociationEnd(builder)
 
 
-class Point2fT(object):
+try:
+    from typing import Optional
+except:
+    pass
 
-    # Point2fT
+
+class TrackAssociationT(object):
+
+    # TrackAssociationT
     def __init__(
         self,
-        x=0.0,
-        y=0.0,
+        kind=0,
+        score=None,
     ):
-        self.x = x  # type: float
-        self.y = y  # type: float
+        self.kind = kind  # type: int
+        self.score = score  # type: Optional[float]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
-        point2f = Point2f()
-        point2f.Init(buf, pos)
-        return cls.InitFromObj(point2f)
+        trackAssociation = TrackAssociation()
+        trackAssociation.Init(buf, pos)
+        return cls.InitFromObj(trackAssociation)
 
     @classmethod
     def InitFromPackedBuf(cls, buf, pos=0):
@@ -111,22 +117,22 @@ class Point2fT(object):
         return cls.InitFromBuf(buf, pos+n)
 
     @classmethod
-    def InitFromObj(cls, point2f):
-        x = Point2fT()
-        x._UnPack(point2f)
+    def InitFromObj(cls, trackAssociation):
+        x = TrackAssociationT()
+        x._UnPack(trackAssociation)
         return x
 
-    # Point2fT
-    def _UnPack(self, point2f):
-        if point2f is None:
+    # TrackAssociationT
+    def _UnPack(self, trackAssociation):
+        if trackAssociation is None:
             return
-        self.x = point2f.X()
-        self.y = point2f.Y()
+        self.kind = trackAssociation.Kind()
+        self.score = trackAssociation.Score()
 
-    # Point2fT
+    # TrackAssociationT
     def Pack(self, builder):
-        Point2fStart(builder)
-        Point2fAddX(builder, self.x)
-        Point2fAddY(builder, self.y)
-        point2f = Point2fEnd(builder)
-        return point2f
+        TrackAssociationStart(builder)
+        TrackAssociationAddKind(builder, self.kind)
+        TrackAssociationAddScore(builder, self.score)
+        trackAssociation = TrackAssociationEnd(builder)
+        return trackAssociation

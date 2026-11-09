@@ -28,7 +28,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 
                   FLATBUFFERS_VERSION_REVISION == 23,
               "Non-compatible flatbuffers version included");
 
-#include "common_generated.h"
+#include "tracking_generated.h"
 
 namespace open_perception_kit {
 namespace metadata {
@@ -44,8 +44,8 @@ struct TrackTracesT;
 struct TrackTraceT : public ::flatbuffers::NativeTable {
     typedef TrackTrace TableType;
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
-    uint64_t track_id = 0;
-    std::vector<std::unique_ptr<open_perception_kit::metadata::Point2fT>> points{};
+    std::unique_ptr<open_perception_kit::metadata::TrackIdentityT> identity{};
+    std::vector<std::unique_ptr<open_perception_kit::metadata::TrackTracePointT>> points{};
     std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> space{};
     TrackTraceT() = default;
     TrackTraceT(const TrackTraceT &o);
@@ -58,30 +58,32 @@ struct TrackTrace FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     typedef TrackTraceBuilder Builder;
     enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
         VT_OBJECT = 4,
-        VT_TRACK_ID = 6,
+        VT_IDENTITY = 6,
         VT_POINTS = 8,
         VT_SPACE = 10
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
     }
-    uint64_t track_id() const {
-        return GetField<uint64_t>(VT_TRACK_ID, 0);
+    const open_perception_kit::metadata::TrackIdentity *identity() const {
+        return GetPointer<const open_perception_kit::metadata::TrackIdentity *>(VT_IDENTITY);
     }
-    const ::flatbuffers::Vector<::flatbuffers::Offset<open_perception_kit::metadata::Point2f>> *
+    const ::flatbuffers::Vector<
+        ::flatbuffers::Offset<open_perception_kit::metadata::TrackTracePoint>> *
     points() const {
         return GetPointer<const ::flatbuffers::Vector<
-            ::flatbuffers::Offset<open_perception_kit::metadata::Point2f>> *>(VT_POINTS);
+            ::flatbuffers::Offset<open_perception_kit::metadata::TrackTracePoint>> *>(VT_POINTS);
     }
     const open_perception_kit::metadata::ImageSpace *space() const {
         return GetPointer<const open_perception_kit::metadata::ImageSpace *>(VT_SPACE);
     }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
-               verifier.VerifyTable(object()) && VerifyField<uint64_t>(verifier, VT_TRACK_ID, 8) &&
-               VerifyOffset(verifier, VT_POINTS) && verifier.VerifyVector(points()) &&
-               verifier.VerifyVectorOfTables(points()) && VerifyOffset(verifier, VT_SPACE) &&
-               verifier.VerifyTable(space()) && verifier.EndTable();
+               verifier.VerifyTable(object()) && VerifyOffset(verifier, VT_IDENTITY) &&
+               verifier.VerifyTable(identity()) && VerifyOffset(verifier, VT_POINTS) &&
+               verifier.VerifyVector(points()) && verifier.VerifyVectorOfTables(points()) &&
+               VerifyOffset(verifier, VT_SPACE) && verifier.VerifyTable(space()) &&
+               verifier.EndTable();
     }
     TrackTraceT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(TrackTraceT *_o,
@@ -99,11 +101,13 @@ struct TrackTraceBuilder {
     void add_object(::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object) {
         fbb_.AddOffset(TrackTrace::VT_OBJECT, object);
     }
-    void add_track_id(uint64_t track_id) {
-        fbb_.AddElement<uint64_t>(TrackTrace::VT_TRACK_ID, track_id, 0);
+    void
+    add_identity(::flatbuffers::Offset<open_perception_kit::metadata::TrackIdentity> identity) {
+        fbb_.AddOffset(TrackTrace::VT_IDENTITY, identity);
     }
-    void add_points(::flatbuffers::Offset<::flatbuffers::Vector<
-                        ::flatbuffers::Offset<open_perception_kit::metadata::Point2f>>> points) {
+    void
+    add_points(::flatbuffers::Offset<::flatbuffers::Vector<
+                   ::flatbuffers::Offset<open_perception_kit::metadata::TrackTracePoint>>> points) {
         fbb_.AddOffset(TrackTrace::VT_POINTS, points);
     }
     void add_space(::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space) {
@@ -119,17 +123,17 @@ struct TrackTraceBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<TrackTrace>
-CreateTrackTrace(::flatbuffers::FlatBufferBuilder &_fbb,
-                 ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                 uint64_t track_id = 0,
-                 ::flatbuffers::Offset<::flatbuffers::Vector<
-                     ::flatbuffers::Offset<open_perception_kit::metadata::Point2f>>> points = 0,
-                 ::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space = 0) {
+inline ::flatbuffers::Offset<TrackTrace> CreateTrackTrace(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::TrackIdentity> identity = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<
+        ::flatbuffers::Offset<open_perception_kit::metadata::TrackTracePoint>>> points = 0,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space = 0) {
     TrackTraceBuilder builder_(_fbb);
-    builder_.add_track_id(track_id);
     builder_.add_space(space);
     builder_.add_points(points);
+    builder_.add_identity(identity);
     builder_.add_object(object);
     return builder_.Finish();
 }
@@ -137,15 +141,15 @@ CreateTrackTrace(::flatbuffers::FlatBufferBuilder &_fbb,
 inline ::flatbuffers::Offset<TrackTrace> CreateTrackTraceDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-    uint64_t track_id = 0,
-    const std::vector<::flatbuffers::Offset<open_perception_kit::metadata::Point2f>> *points =
-        nullptr,
+    ::flatbuffers::Offset<open_perception_kit::metadata::TrackIdentity> identity = 0,
+    const std::vector<::flatbuffers::Offset<open_perception_kit::metadata::TrackTracePoint>>
+        *points = nullptr,
     ::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space = 0) {
     auto points__ =
-        points ? _fbb.CreateVector<::flatbuffers::Offset<open_perception_kit::metadata::Point2f>>(
-                     *points)
+        points ? _fbb.CreateVector<
+                     ::flatbuffers::Offset<open_perception_kit::metadata::TrackTracePoint>>(*points)
                : 0;
-    return open_perception_kit::metadata::CreateTrackTrace(_fbb, object, track_id, points__, space);
+    return open_perception_kit::metadata::CreateTrackTrace(_fbb, object, identity, points__, space);
 }
 
 ::flatbuffers::Offset<TrackTrace>
@@ -269,18 +273,19 @@ CreateTrackTraces(::flatbuffers::FlatBufferBuilder &_fbb,
 
 inline TrackTraceT::TrackTraceT(const TrackTraceT &o)
     : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
-      track_id(o.track_id),
+      identity((o.identity) ? new open_perception_kit::metadata::TrackIdentityT(*o.identity)
+                            : nullptr),
       space((o.space) ? new open_perception_kit::metadata::ImageSpaceT(*o.space) : nullptr) {
     points.reserve(o.points.size());
     for (const auto &points_ : o.points) {
-        points.emplace_back((points_) ? new open_perception_kit::metadata::Point2fT(*points_)
-                                      : nullptr);
+        points.emplace_back(
+            (points_) ? new open_perception_kit::metadata::TrackTracePointT(*points_) : nullptr);
     }
 }
 
 inline TrackTraceT &TrackTraceT::operator=(TrackTraceT o) FLATBUFFERS_NOEXCEPT {
     std::swap(object, o.object);
-    std::swap(track_id, o.track_id);
+    std::swap(identity, o.identity);
     std::swap(points, o.points);
     std::swap(space, o.space);
     return *this;
@@ -310,8 +315,17 @@ inline void TrackTrace::UnPackTo(TrackTraceT *_o,
         }
     }
     {
-        auto _e = track_id();
-        _o->track_id = _e;
+        auto _e = identity();
+        if (_e) {
+            if (_o->identity) {
+                _e->UnPackTo(_o->identity.get(), _resolver);
+            } else {
+                _o->identity = std::unique_ptr<open_perception_kit::metadata::TrackIdentityT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->identity) {
+            _o->identity.reset();
+        }
     }
     {
         auto _e = points();
@@ -321,8 +335,9 @@ inline void TrackTrace::UnPackTo(TrackTraceT *_o,
                 if (_o->points[_i]) {
                     _e->Get(_i)->UnPackTo(_o->points[_i].get(), _resolver);
                 } else {
-                    _o->points[_i] = std::unique_ptr<open_perception_kit::metadata::Point2fT>(
-                        _e->Get(_i)->UnPack(_resolver));
+                    _o->points[_i] =
+                        std::unique_ptr<open_perception_kit::metadata::TrackTracePointT>(
+                            _e->Get(_i)->UnPack(_resolver));
                 }
             }
         } else {
@@ -364,20 +379,20 @@ CreateTrackTrace(::flatbuffers::FlatBufferBuilder &_fbb,
     } _va = {&_fbb, _o, _rehasher};
     (void)_va;
     auto _object = _o->object ? CreateObjectMeta(_fbb, _o->object.get(), _rehasher) : 0;
-    auto _track_id = _o->track_id;
-    auto _points =
-        _o->points.size()
-            ? _fbb.CreateVector<::flatbuffers::Offset<open_perception_kit::metadata::Point2f>>(
-                  _o->points.size(),
-                  [](size_t i, _VectorArgs *__va) {
-                      return CreatePoint2f(
-                          *__va->__fbb, __va->__o->points[i].get(), __va->__rehasher);
-                  },
-                  &_va)
-            : 0;
+    auto _identity = _o->identity ? CreateTrackIdentity(_fbb, _o->identity.get(), _rehasher) : 0;
+    auto _points = _o->points.size()
+                       ? _fbb.CreateVector<
+                             ::flatbuffers::Offset<open_perception_kit::metadata::TrackTracePoint>>(
+                             _o->points.size(),
+                             [](size_t i, _VectorArgs *__va) {
+                                 return CreateTrackTracePoint(
+                                     *__va->__fbb, __va->__o->points[i].get(), __va->__rehasher);
+                             },
+                             &_va)
+                       : 0;
     auto _space = _o->space ? CreateImageSpace(_fbb, _o->space.get(), _rehasher) : 0;
     return open_perception_kit::metadata::CreateTrackTrace(
-        _fbb, _object, _track_id, _points, _space);
+        _fbb, _object, _identity, _points, _space);
 }
 
 inline TrackTracesT::TrackTracesT(const TrackTracesT &o)

@@ -51,7 +51,7 @@ function detectionSummary(detection) {
     const data = detection?.data || {};
 
     if (type === 'Rect') {
-        const label = data.text || `Class ${data.classId ?? '-'}`;
+        const label = data.displayText || data.text || `Class ${data.classId ?? '-'}`;
         const confidence = number(data.confidence);
         return {
             title: label,
@@ -108,7 +108,7 @@ function detectionSummary(detection) {
 
     if (type === 'TrackTrace') {
         return {
-            title: `Track ${data.trackId ?? '-'}`,
+            title: `Track ${data.identity?.trackId ?? '-'}`,
             detail: data.spatialValid === false ? 'Spatial reference unavailable' : 'trace',
             meta: '',
         };

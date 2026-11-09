@@ -97,9 +97,16 @@ class ObjectTracks(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
+    # ObjectTracks
+    def DisplayIdentity(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return True
+
 
 def ObjectTracksStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 
 def Start(builder):
@@ -146,6 +153,14 @@ def StartTracksVector(builder, numElems):
     return ObjectTracksStartTracksVector(builder, numElems)
 
 
+def ObjectTracksAddDisplayIdentity(builder, displayIdentity):
+    builder.PrependBoolSlot(4, displayIdentity, 1)
+
+
+def AddDisplayIdentity(builder, displayIdentity):
+    ObjectTracksAddDisplayIdentity(builder, displayIdentity)
+
+
 def ObjectTracksEnd(builder):
     return builder.EndObject()
 
@@ -169,12 +184,14 @@ class ObjectTracksT(object):
         schemaMinor=0,
         layer=None,
         tracks=None,
+        displayIdentity=True,
     ):
         self.schemaMajor = schemaMajor  # type: int
         self.schemaMinor = schemaMinor  # type: int
         self.layer = layer  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.LayerInfo.LayerInfoT]
         # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.ObjectTrack.ObjectTrackT]]
         self.tracks = tracks
+        self.displayIdentity = displayIdentity  # type: bool
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -211,6 +228,7 @@ class ObjectTracksT(object):
                     objectTrack_ = open_perception_kit.fb.open_perception_kit.metadata.ObjectTrack.ObjectTrackT.InitFromObj(
                         objectTracks.Tracks(i))
                     self.tracks.append(objectTrack_)
+        self.displayIdentity = objectTracks.DisplayIdentity()
 
     # ObjectTracksT
     def Pack(self, builder):
@@ -231,5 +249,6 @@ class ObjectTracksT(object):
             ObjectTracksAddLayer(builder, layer)
         if self.tracks is not None:
             ObjectTracksAddTracks(builder, tracks)
+        ObjectTracksAddDisplayIdentity(builder, self.displayIdentity)
         objectTracks = ObjectTracksEnd(builder)
         return objectTracks

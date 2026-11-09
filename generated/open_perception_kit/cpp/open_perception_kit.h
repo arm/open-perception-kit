@@ -57,7 +57,7 @@ namespace open_perception_kit {
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "1.0.0";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "ed154bd2324b48248518cda981de1cd8e8c0b99429de5334eef94a1e0f6c0735";
+    "2e35be6418caff504add5bf4443a81ca5c8ad0c6c0a45373fee24a234b07d6f3";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {

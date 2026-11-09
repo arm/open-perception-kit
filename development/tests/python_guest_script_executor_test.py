@@ -100,6 +100,43 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
             self.assertIn("must define callable process(env)", result.stderr)
             self.assertFalse(output.exists())
 
+    def test_tracking_identity_samples_and_trace_history_cross_the_live_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            imports = """
+                from open_perception_kit.fb.open_perception_kit.metadata.ObjectTrack import ObjectTrackT
+                from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT
+                from open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity import TrackIdentityT
+                from open_perception_kit.fb.open_perception_kit.metadata.TrackingSample import TrackingSampleT
+                from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT
+                from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
+                from open_perception_kit.fb.open_perception_kit.metadata.TrackTracePoint import TrackTracePointT
+            """
+            seed = self.write_script(directory, "seed_tracking.py", textwrap.dedent(imports) + """
+def process(env):
+    identity = TrackIdentityT(trackerId='tracker', sessionId='session', trackId=9007199254740993)
+    sample = TrackingSampleT(frameIndex=2, elapsedMs=25, timeSource=1, state=2)
+    env.add(ObjectTracksT(displayIdentity=False, tracks=[ObjectTrackT(identity=identity, sample=sample,
+        sourceId=7, sourceFrameIndex=1, sourceConfidence=0, text='raw label')]))
+    env.add(TrackTracesT(traces=[TrackTraceT(identity=identity,
+        points=[TrackTracePointT(x=1, y=2, sample=sample)])]))
+""")
+            inspect = self.write_script(directory, "inspect_tracking.py", textwrap.dedent(imports) + """
+def process(env):
+    payload = env.get(ObjectTracksT)
+    track = payload.tracks[0]
+    assert payload.displayIdentity is False and track.text == 'raw label'
+    assert track.identity.trackId == 9007199254740993 and track.identity.sessionId == 'session'
+    assert track.sourceId == 7 and track.sourceFrameIndex == 1 and track.sourceConfidence == 0
+    assert track.sample.state == 2 and track.sample.frameIndex == 2 and track.association is None
+    point = env.get(TrackTracesT).traces[0].points[0]
+    assert point.sample.elapsedMs == 25 and point.x == 1
+""")
+            output = directory / OUTPUT_FILENAME
+            result = self.run_executor(output, seed, inspect)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(decode(output.read_bytes()).valid())
+
     def test_embedding_space_and_subject_cross_the_live_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)

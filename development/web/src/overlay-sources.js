@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+import {trackKey} from './tracking-data.js';
+export {trackKey};
+
 const SOURCE_FIELDS = [
     'payloadType', 'contentType', 'engine', 'model', 'inferElementId', 'labelFamily',
     'producerInstanceId', 'producerComponent', 'producerImplementation',
@@ -56,11 +59,6 @@ export function producerKey(source) {
 
 export function objectId(value) {
     return value == null || String(value) === '0' ? '' : String(value);
-}
-
-export function trackKey(source, id) {
-    const producer = producerKey(source);
-    return producer && objectId(id) ? JSON.stringify([producer, objectId(id)]) : null;
 }
 
 export function sourceLabel(source) {
@@ -142,7 +140,7 @@ export function indexFrame(frame) {
                 const entry = {...item, layer, source: output.source};
                 output.items.push(entry);
                 append(index.objects, objectId(item.data.uuid), entry);
-                append(index.byTrack, trackKey(output.source, item.data.trackId), entry);
+                append(index.byTrack, trackKey(item.data.identity), entry);
             }
         }
     }
