@@ -160,7 +160,7 @@ and check the built artifacts before publication.
 The Optimized-Runtimes entry covers the OR headers consumed by `opk-or-ops`
 and the upstream host conformance sources used by tests. OPK does not build or
 bundle that repository's network runtime binaries or model weights through this dependency;
-Runtime libraries and model packages are provisioned separately.
+example runtime libraries and model packages are provisioned separately.
 
 The published architecture archives and SDK packages do not bundle
 cmake-format, cmakelang, autocommand, pathspec, certifi, tqdm, ultralytics,

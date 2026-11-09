@@ -340,8 +340,8 @@ reject it. Existing configurations need no edits.
 Model descriptors may specify `runtimeLibrary` for `opk-or-ops/Inference`.
 It is a trusted native shared library path resolved beside the descriptor, like
 `modelFile`. Existing descriptors may omit it. OR descriptors should use
-`"version": "1.3.0"`; earlier readers reject this unknown field. The provider supports stateless synchronous inference with static dense Float32
-host tensors. Unsupported model and memory requirements produce configuration errors.
+`"version": "1.3.0"`; earlier readers reject this unknown field. See the
+[OR example](../../../development/examples/or-yolo26/README.md) for prototype limits.
 
 ## OpChain 1.9: UltraFace raw logits
 
