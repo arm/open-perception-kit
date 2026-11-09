@@ -85,15 +85,19 @@ G_DEFINE_TYPE(GstOpkComm, gst_opk_comm, GST_TYPE_BASE_TRANSFORM)
 
 /* ----------------------- Properties ----------------------- */
 
-enum class OpkCommProps : guint {
-    PROP_0,
-    PROP_METHOD,
-    PROP_FILE_NAME,
-    PROP_WS_PORT,
-    PROP_ENDPOINT,
-    PROP_TCP_HOST,
-    PROP_TCP_PORT,
+namespace {
+
+enum class PropertyId : guint {
+    Reserved = 0,
+    Method,
+    FileName,
+    WsPort,
+    Endpoint,
+    TcpHost,
+    TcpPort,
 };
+
+} // namespace
 
 static GType gst_opk_comm_method_get_type(void) {
     static GType methodType = 0;
@@ -246,12 +250,12 @@ static void gst_opk_comm_set_property(GObject *object,
     std::unique_lock lock(self->priv->writer_mutex);
     std::unique_lock propertyLock(self->priv->property_mutex);
 
-    switch (static_cast<OpkCommProps>(propertyId)) {
-    case OpkCommProps::PROP_METHOD:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::Method:
         self->method = static_cast<GstOpkCommMethod>(g_value_get_enum(value));
         break;
 
-    case OpkCommProps::PROP_FILE_NAME:
+    case PropertyId::FileName:
         g_free(self->file_name);
         self->file_name = g_value_dup_string(value);
         if (self->file_name == nullptr) {
@@ -259,11 +263,11 @@ static void gst_opk_comm_set_property(GObject *object,
         }
         break;
 
-    case OpkCommProps::PROP_WS_PORT:
+    case PropertyId::WsPort:
         self->ws_port = g_value_get_uint(value);
         break;
 
-    case OpkCommProps::PROP_ENDPOINT:
+    case PropertyId::Endpoint:
         g_free(self->endpoint);
         self->endpoint = g_value_dup_string(value);
         if (self->endpoint == nullptr) {
@@ -271,7 +275,7 @@ static void gst_opk_comm_set_property(GObject *object,
         }
         break;
 
-    case OpkCommProps::PROP_TCP_HOST:
+    case PropertyId::TcpHost:
         g_free(self->tcp_host);
         self->tcp_host = g_value_dup_string(value);
         if (self->tcp_host == nullptr) {
@@ -279,7 +283,7 @@ static void gst_opk_comm_set_property(GObject *object,
         }
         break;
 
-    case OpkCommProps::PROP_TCP_PORT:
+    case PropertyId::TcpPort:
         self->tcp_port = g_value_get_uint(value);
         break;
 
@@ -310,28 +314,28 @@ static void gst_opk_comm_get_property(GObject *object,
     const GstOpkComm *self = GST_OPK_COMM(object);
     const std::scoped_lock lock(self->priv->property_mutex);
 
-    switch (static_cast<OpkCommProps>(propertyId)) {
-    case OpkCommProps::PROP_METHOD:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::Method:
         g_value_set_enum(value, self->method);
         break;
 
-    case OpkCommProps::PROP_FILE_NAME:
+    case PropertyId::FileName:
         g_value_set_string(value, self->file_name);
         break;
 
-    case OpkCommProps::PROP_WS_PORT:
+    case PropertyId::WsPort:
         g_value_set_uint(value, self->ws_port);
         break;
 
-    case OpkCommProps::PROP_ENDPOINT:
+    case PropertyId::Endpoint:
         g_value_set_string(value, self->endpoint);
         break;
 
-    case OpkCommProps::PROP_TCP_HOST:
+    case PropertyId::TcpHost:
         g_value_set_string(value, self->tcp_host);
         break;
 
-    case OpkCommProps::PROP_TCP_PORT:
+    case PropertyId::TcpPort:
         g_value_set_uint(value, self->tcp_port);
         break;
 
@@ -369,7 +373,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(OpkCommProps::PROP_METHOD),
+        static_cast<guint>(PropertyId::Method),
         g_param_spec_enum("method",
                           "Method",
                           "Publishing method: file, websocket, or tcp"
@@ -381,7 +385,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(OpkCommProps::PROP_FILE_NAME),
+        static_cast<guint>(PropertyId::FileName),
         g_param_spec_string("file-name",
                             "File name",
                             "File path ('-' - std out)"
@@ -392,7 +396,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(OpkCommProps::PROP_WS_PORT),
+        static_cast<guint>(PropertyId::WsPort),
         g_param_spec_uint("ws-port",
                           "WebSocket port",
                           "Port used when method=websocket"
@@ -405,7 +409,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(OpkCommProps::PROP_ENDPOINT),
+        static_cast<guint>(PropertyId::Endpoint),
         g_param_spec_string("endpoint",
                             "WebSocket endpoint",
                             "Endpoint path used when method=websocket"
@@ -416,7 +420,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(OpkCommProps::PROP_TCP_HOST),
+        static_cast<guint>(PropertyId::TcpHost),
         g_param_spec_string("tcp-host",
                             "TCP host",
                             "Bind host used when method=tcp"
@@ -427,7 +431,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(OpkCommProps::PROP_TCP_PORT),
+        static_cast<guint>(PropertyId::TcpPort),
         g_param_spec_uint("tcp-port",
                           "TCP port",
                           "Listen port used when method=tcp"

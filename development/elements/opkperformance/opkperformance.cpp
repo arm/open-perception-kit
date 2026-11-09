@@ -97,12 +97,16 @@ GST_DEBUG_CATEGORY_STATIC(gst_opk_performance_debug);
 #define DEFAULT_ENABLED TRUE
 
 // Property IDs
+namespace {
+
 enum class PropertyId : guint {
     Reserved = 0,
     UpdateInterval,
     ShowAllMetrics,
     Enabled,
 };
+
+} // namespace
 
 // Function prototypes
 static void gst_opk_performance_set_property(GObject *object,

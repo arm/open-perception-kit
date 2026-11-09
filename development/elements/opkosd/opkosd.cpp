@@ -89,6 +89,8 @@ namespace Osd = opk::osd;
 #define DEFAULT_BG_IMAGE ""
 
 // Property IDs
+namespace {
+
 enum class PropertyId : guint {
     Reserved = 0,
     Enabled,
@@ -96,6 +98,8 @@ enum class PropertyId : guint {
     BgImage,
     CopyInput,
 };
+
+} // namespace
 
 // Function prototypes
 static void gst_opk_osd_set_property(GObject *object,

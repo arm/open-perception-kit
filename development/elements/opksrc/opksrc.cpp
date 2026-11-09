@@ -32,11 +32,15 @@ GType gst_opk_src_get_type();
 
 G_DEFINE_TYPE(GstOpkSrc, gst_opk_src, GST_TYPE_BIN)
 
-enum {
-    PROP_0,
-    PROP_WS_PORT,
-    PROP_RATE,
+namespace {
+
+enum class PropertyId : guint {
+    Reserved = 0,
+    WsPort,
+    Rate,
 };
+
+} // namespace
 
 static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE(
     "src",
@@ -302,13 +306,13 @@ static void gst_opk_src_set_property(GObject *object,
     if (!propertyGuard.isChangeAllowed())
         return;
 
-    switch (propertyId) {
-    case PROP_WS_PORT:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::WsPort:
         GST_OBJECT_LOCK(self);
         self->ws_port = g_value_get_int(value);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_RATE:
+    case PropertyId::Rate:
         GST_OBJECT_LOCK(self);
         self->rate = g_value_get_int(value);
         GST_OBJECT_UNLOCK(self);
@@ -327,11 +331,11 @@ static void gst_opk_src_get_property(GObject *object,
     auto *self = reinterpret_cast<GstOpkSrc *>(object);
 
     g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
-    switch (propertyId) {
-    case PROP_WS_PORT:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::WsPort:
         g_value_set_int(value, self->ws_port);
         break;
-    case PROP_RATE:
+    case PropertyId::Rate:
         g_value_set_int(value, self->rate);
         break;
     default:
@@ -365,7 +369,7 @@ static void gst_opk_src_class_init(GstOpkSrcClass *srcClass) {
         static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_property(objectClass,
-                                    PROP_WS_PORT,
+                                    static_cast<guint>(PropertyId::WsPort),
                                     g_param_spec_int("ws-port",
                                                      "WebSocket Port",
                                                      "WebSocket port for WebRTC signaling"
@@ -377,7 +381,7 @@ static void gst_opk_src_class_init(GstOpkSrcClass *srcClass) {
                                                      kRW));
 
     g_object_class_install_property(objectClass,
-                                    PROP_RATE,
+                                    static_cast<guint>(PropertyId::Rate),
                                     g_param_spec_int("rate",
                                                      "Sample rate",
                                                      "Output PCM sample rate in Hz (set in NULL)"
