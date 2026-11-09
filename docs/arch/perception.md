@@ -186,6 +186,61 @@ SDK 1.0 intentionally changes the interpretation of previously misrendered
 normalized/crop-local boxes and comparisons. Correct full-frame pixel pipelines
 retain their placement; the same generated snapshot is required throughout.
 
+## Embedding spaces and selection
+
+`ObjectEmbedding.space` declares a versioned opaque space ID, dimension and
+comparison metric. The supported metric is `Cosine`; `Unspecified` or an unknown
+metric is not usable. Equal vector lengths or producer/model display names do
+not establish comparability. A producer may share a space ID with another
+producer only when their vectors have the same meaning. Change the ID when
+weights, preprocessing, output selection or vector semantics change incompatibly.
+Dimension and metric must also agree before comparison.
+
+`subject_id` explicitly names the observation described by the vector. It is
+independent of `ObjectMeta.parent_id`, which remains derivation metadata.
+Tracker selection resolves a unique box/track observation; it never substitutes
+a persistent track ID or parent link. Plumber also supports unambiguous whole-frame
+subjects through the shared subject resolver.
+
+Vectors must have the declared dimension, finite values and nonzero norm to be
+used. Missing vectors, zero vectors, unidentified spaces and unsupported metrics
+are unavailable, not zero similarity. Cosine comparison does not assume unit
+length. Native arithmetic accumulates Float32 values in double precision to avoid
+overflow/underflow. `ObjectEmbeddingParser` retains its L2 normalization for valid
+nonzero output, preserves zero vectors as unusable, and rejects malformed tensors
+or non-finite output before publication.
+
+The generic parser's optional `embeddingSpaceId` attribute supplies the semantic
+space declaration. Without it, vectors remain transportable but cannot be used
+for matching; a model name is not used as an identity fallback. This attribute
+is introduced by the OpChain v1 reader schema `1.9.0`.
+
+The tracker replaces `embedding-content-type` with optional `embedding-space-id`
+and `embedding-producer-id` selectors. Empty selectors accept only a single
+eligible candidate per subject. Duplicates are counted before vector validation,
+so even a valid/invalid pair is ambiguous. Multiple spaces or producers never
+overwrite one another by arrival order. A producer filter selects an exact
+instance ID; producer provenance alone never establishes vector comparability.
+
+Active and dormant track history retain the full typed embedding, including its
+space. Incompatible/unavailable embeddings cannot contribute to association or
+dormant reassociation. Hybrid mode retains IoU fallback, embedding-only mode
+requires a valid compatible comparison, and existing thresholds/costs are
+unchanged. Missing observations retain the last usable embedding; a later match
+with a usable vector updates both values and space together.
+
+Plumber retains all observations rather than collecting one vector per object.
+It checks space, vector usability and corresponding subject source/geometry before
+applying the existing clipped cosine distance `clamp(1 - cosine, 0, 1)` with
+tolerance 0.2. Reordering equivalent outputs can match; changing spaces, swapping
+subjects or dropping an output cannot. Browser decoding and terminal inspection
+expose space, subject and usability without inventing defaults.
+
+This is an intentional semantic/API migration within unreleased SDK 1.0. Old
+unidentified embeddings must be given an explicit producer-authored space, and
+users of the former tracker property must adopt the new selectors. No legacy
+property alias or guessed embedding-space identity is provided.
+
 ## Mask representation
 
 The existing mask roots declare separate data contracts. Rendering settings,

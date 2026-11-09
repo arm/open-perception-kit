@@ -355,8 +355,12 @@ def _normalize_segmentation_mask(mask: Any, item_type="SegmentationMask") -> dic
 
 
 def _normalize_object_embedding(embedding: Any) -> dict[str, Any]:
-    data = _object_data(embedding.object)
-    data["values"] = [float(value) for value in _sequence(embedding.values)]
+    data = _object_data(getattr(embedding, "object", None))
+    data["values"] = [float(value) for value in _sequence(getattr(embedding, "values", None))]
+    data["subjectId"] = getattr(embedding, "subjectId", None)
+    space = getattr(embedding, "space", None)
+    data["space"] = None if space is None else {
+        "id": _text(space.id), "dimensions": int(space.dimensions), "metric": space.metric}
     return {
         "item_type": "ObjectEmbedding",
         "data": data,
@@ -480,7 +484,7 @@ def _resolve_subjects(snapshot: FrameResultsSnapshot) -> None:
                     frame_counts[key] = frame_counts.get(key, 0) + 1
     for payload in snapshot.payloads.values():
         for item in payload.items:
-            if item["item_type"] not in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
+            if item["item_type"] not in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):
                 continue
             candidates = subjects.get(item["data"]["subjectId"], [])
             if item["item_type"] in ("CameraContact", "GazeMeasurement"):
@@ -540,10 +544,9 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         for payload in frame_results.for_each(root):
             _add_payload_items(snapshot, _payload_key("open_perception_kit.metadata." + name + "s", payload.layer),
                                payload.layer, [_normalize_segmentation_mask(item, name) for item in payload.masks or []])
-    _normalize_payload_collection(
-        frame_results, snapshot, ObjectEmbeddingsT,
-        "open_perception_kit.metadata.ObjectEmbeddings", "embeddings", _normalize_object_embedding,
-    )
+    for payload in frame_results.for_each(ObjectEmbeddingsT):
+        _add_payload_items(snapshot, _payload_key("open_perception_kit.metadata.ObjectEmbeddings", payload.layer),
+                           payload.layer, [_normalize_object_embedding(item) for item in payload.embeddings or []])
     _normalize_payload_collection(
         frame_results, snapshot, ObjectTracksT,
         "open_perception_kit.metadata.ObjectTracks", "tracks", _normalize_object_track,

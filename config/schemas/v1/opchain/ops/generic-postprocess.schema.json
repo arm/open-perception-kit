@@ -109,6 +109,19 @@
         }
       }
     },
+    "objectEmbedding": {
+      "title": "ObjectEmbeddingParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parser"],
+      "properties": {
+        "parser": {"const": "ObjectEmbeddingParser"},
+        "embeddingSpaceId": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString",
+          "description": "Versioned semantic embedding-space identity. Omission leaves vectors unidentified and unavailable for matching."
+        }
+      }
+    },
     "noConfig": {
       "title": "No-config GenericPostprocess parser attributes v1",
       "type": "object",
@@ -119,7 +132,6 @@
       "properties": {
         "parser": {
           "enum": [
-            "ObjectEmbeddingParser",
             "PersonClassificationParser",
             "RvmParser",
             "Yolo26SemanticSegmentationParser"
@@ -576,6 +588,9 @@
           },
           {
             "$ref": "#/$defs/noConfig"
+          },
+          {
+            "$ref": "#/$defs/objectEmbedding"
           },
           {
             "$ref": "#/$defs/imagenetClassification"
