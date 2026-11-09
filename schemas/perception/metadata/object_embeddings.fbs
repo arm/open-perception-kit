@@ -2,9 +2,26 @@ include "common.fbs";
 
 namespace open_perception_kit.metadata;
 
+enum EmbeddingMetric:ubyte { Unspecified, Cosine }
+
+// A producer-authored, versioned comparison contract, not a model display name.
+// Change id when weights, preprocessing, output selection or vector semantics
+// change incompatibly. Different producers may explicitly declare the same space.
+table EmbeddingSpace {
+  id:string;
+  dimensions:uint;
+  metric:EmbeddingMetric = Unspecified;
+}
+
 table ObjectEmbedding {
   object:open_perception_kit.metadata.ObjectMeta;
+  // Cosine accepts finite, nonzero vectors of the declared dimension; consumers
+  // compute norms rather than assuming unit length. Empty/zero/non-finite vectors
+  // and unidentified spaces are unavailable for comparison, never zero similarity.
   values:[float];
+  space:EmbeddingSpace;
+  // Subject observation, independent of ObjectMeta.parent_id derivation.
+  subject_id:ulong = null;
 }
 
 table ObjectEmbeddings {

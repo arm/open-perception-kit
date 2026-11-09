@@ -19,7 +19,6 @@ gstopktracker = shared_module(
     'opktracker.cpp',
     'Tracker.cpp',
     'TrackState.cpp',
-    'Utils.cpp',
     'FrameInputs.cpp',
     'Matching.cpp',
     'TrackLifecycle.cpp',

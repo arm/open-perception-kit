@@ -59,6 +59,10 @@ from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement import 
 from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTrack import ObjectTrackT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbedding import ObjectEmbeddingT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.EmbeddingSpace import EmbeddingSpaceT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.EmbeddingMetric import EmbeddingMetric  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str) -> LayerInfoT:
@@ -154,6 +158,45 @@ class FrameResultsCompareTests(unittest.TestCase):
         for invalid in (make(label_set=""), make(kind=99), make(subject=999),
                         make(kind=ClassificationKind.RecognizedText)):
             self.assertFalse(compare_frame_results_frame(self.args, invalid, invalid)[0])
+
+    def test_embeddings_require_declared_compatible_spaces_and_usable_values(self):
+        def make(values, space_id="test:a", dimensions=None, metric=EmbeddingMetric.Cosine):
+            result = frame_results_with_boxes((2, 10, 10, 20, 20))
+            space = EmbeddingSpaceT(id=space_id, dimensions=len(
+                values) if dimensions is None else dimensions, metric=metric)
+            result.add(ObjectEmbeddingsT(layer=layer("custom", "embedding"), embeddings=[
+                ObjectEmbeddingT(object=ObjectMetaT(id=10, parentId=999), subjectId=2, space=space, values=values)]))
+            return frame_results_frame(FrameResults(result.serialize()))
+        expected = make([1, 0])
+        for actual, matches in [(make([3, 0]), True), (make([1, 0], "test:b"), False),
+                                (make([1, 0], ""), False), (make([1, 0], dimensions=3), False),
+                                (make([1, 0], metric=EmbeddingMetric.Unspecified), False)]:
+            ok, message = compare_frame_results_frame(self.args, expected, actual)
+            self.assertEqual(ok, matches, message)
+        for values in ([], [0, 0], [float("nan"), 1], [float("inf"), 1]):
+            invalid = make(values)
+            self.assertFalse(compare_frame_results_frame(self.args, invalid, invalid)[0])
+        for values in ([3e38, 3e38], [1e-44, 1e-44]):
+            value = make(values)
+            ok, message = compare_frame_results_frame(self.args, value, value)
+            self.assertTrue(ok, message)
+
+    def test_embedding_subjects_and_multiple_spaces_are_not_collapsed(self):
+        def make(assignments):
+            result = frame_results_with_boxes((2, 10, 10, 20, 20), (3, 60, 10, 20, 20))
+            result.add(ObjectEmbeddingsT(layer=layer("custom", "embedding"), embeddings=[
+                ObjectEmbeddingT(object=ObjectMetaT(id=10+index, parentId=2), subjectId=subject,
+                                 space=EmbeddingSpaceT(id=space, dimensions=2, metric=EmbeddingMetric.Cosine), values=values)
+                for index, (subject, space, values) in enumerate(assignments)]))
+            return frame_results_frame(FrameResults(result.serialize()))
+        entries = [(2, "test:a", [1, 0]), (3, "test:a", [0, 1]), (2, "test:b", [0, 1])]
+        expected = make(entries)
+        for actual, matches in [(make(list(reversed(entries))), True),
+                                (make([(3, "test:a", [1, 0]), (2, "test:a", [0, 1]), entries[2]]), False),
+                                (make([(None, "test:a", [1, 0]), *entries[1:]]), False),
+                                (make(entries[:2]), False)]:
+            ok, message = compare_frame_results_frame(self.args, expected, actual)
+            self.assertEqual(ok, matches, message)
 
     def test_gaze_subjects_retain_detector_producer_identity(self):
         def make(identity_field, swapped=False, offset=0, reverse=False):

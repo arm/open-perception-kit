@@ -43,7 +43,7 @@ opk::op::OpChainDescriptor builtInStage() {
 TEST(ConfigValidator, SileroAudioPreservesOpChainVersion) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "1.13.0");
+    EXPECT_EQ(*supported, "1.14.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
@@ -307,7 +307,7 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     const auto supportedVersion = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
-    EXPECT_EQ(*supportedVersion, "1.13.0");
+    EXPECT_EQ(*supportedVersion, "1.14.0");
 
     nlohmann::json document{
         {"version", "1.4.0"},
@@ -342,6 +342,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     }
 
     const auto validConditionalAttributes = std::array{
+        nlohmann::json{{"parser", "ObjectEmbeddingParser"}, {"embeddingSpaceId", "test:reid:v1"}},
         nlohmann::json{{"parser", "CameraContactParser"},
                        {"contactClassIndex", 0},
                        {"noContactClassIndex", 1}},
@@ -362,6 +363,9 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     }
 
     const auto invalidAttributes = std::array{
+        nlohmann::json{{"parser", "ObjectEmbeddingParser"}, {"embeddingSpaceId", ""}},
+        nlohmann::json{{"parser", "ObjectEmbeddingParser"}, {"embeddingSpaceId", "   "}},
+        nlohmann::json{{"parser", "ObjectEmbeddingParser"}, {"embeddingSpaceId", 7}},
         nlohmann::json{{"parser", "UnknownParser"}},
         nlohmann::json{{"parser", "RetinaFaceParser"}, {"confidenceThreshold", 1.1}},
         nlohmann::json{{"parser", "RetinaFaceParser"}, {"iouThreshold", -0.1}},

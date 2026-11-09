@@ -18,7 +18,7 @@
 #include "Matching.h"
 
 #include "TrackState.h"
-#include "Utils.h"
+#include "opk/Embedding.h"
 
 #include "algo/Hungarian.h"
 #include "algo/IoU.h"
@@ -90,9 +90,8 @@ predictTrackBoxes(ActiveTrackMap &activeTracks, float kalmanDt, const Config &co
     return predictedTrackBoxes;
 }
 
-const std::vector<float> *findDetectionEmbedding(size_t detectionIndex,
-                                                 const DetectionBatch &detections,
-                                                 const EmbeddingBatch &embeddings) {
+const open_perception_kit::metadata::ObjectEmbeddingT *findDetectionEmbedding(
+    size_t detectionIndex, const DetectionBatch &detections, const EmbeddingBatch &embeddings) {
     const auto embeddingIt = embeddings.find(idOf(detectionAt(detections, detectionIndex)));
     if (embeddingIt == embeddings.end() || embeddingIt->second == nullptr) {
         return nullptr;
@@ -108,12 +107,13 @@ std::optional<float> computeValidSimilarity(size_t detectionIndex,
                                             const Config &config) {
     const auto *embedding = findDetectionEmbedding(detectionIndex, detections, embeddings);
     const auto trackIt = activeTracks.find(trackId);
-    if (embedding == nullptr || trackIt == activeTracks.end() || !trackIt->second.hasEmbedding) {
+    if (embedding == nullptr || trackIt == activeTracks.end()) {
         return std::nullopt;
     }
 
-    const float similarity = cosineSimilarity(*embedding, trackIt->second.lastEmbedding);
-    if (similarity < config.minCosineSimilarity) {
+    const auto similarity =
+        opk::embedding::cosineSimilarity(*embedding, trackIt->second.lastEmbedding);
+    if (!similarity || *similarity < config.minCosineSimilarity) {
         return std::nullopt;
     }
 

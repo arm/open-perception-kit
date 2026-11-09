@@ -100,6 +100,34 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
             self.assertIn("must define callable process(env)", result.stderr)
             self.assertFalse(output.exists())
 
+    def test_embedding_space_and_subject_cross_the_live_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            imports = """
+                from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbedding import ObjectEmbeddingT
+                from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT
+                from open_perception_kit.fb.open_perception_kit.metadata.EmbeddingSpace import EmbeddingSpaceT
+                from open_perception_kit.fb.open_perception_kit.metadata.EmbeddingMetric import EmbeddingMetric
+            """
+            seed = self.write_script(directory, "seed_embeddings.py", textwrap.dedent(imports) + """
+def process(env):
+    env.add(ObjectEmbeddingsT(embeddings=[ObjectEmbeddingT(subjectId=7, values=[3,4],
+        space=EmbeddingSpaceT(id='test:space:v1', dimensions=2, metric=EmbeddingMetric.Cosine)),
+        ObjectEmbeddingT(values=[])]))
+""")
+            inspect = self.write_script(directory, "inspect_embeddings.py", textwrap.dedent(imports) + """
+def process(env):
+    values = env.get(ObjectEmbeddingsT).embeddings
+    assert values[0].subjectId == 7 and list(values[0].values) == [3,4]
+    assert values[0].space.id == 'test:space:v1' and values[0].space.dimensions == 2
+    assert values[0].space.metric == EmbeddingMetric.Cosine
+    assert values[1].subjectId is None and values[1].space is None and len(values[1].values) == 0
+""")
+            output = directory / OUTPUT_FILENAME
+            result = self.run_executor(output, seed, inspect)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(decode(output.read_bytes()).valid())
+
     def test_mask_encoding_meaning_and_optional_ids_cross_the_live_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)

@@ -19,7 +19,7 @@
 
 #include "Matching.h"
 #include "TrackState.h"
-#include "Utils.h"
+#include "opk/Embedding.h"
 
 #include <algorithm>
 #include <cassert>
@@ -81,8 +81,9 @@ Point2f makePoint(float x, float y) {
     return Point2f{x, y};
 }
 
-const std::vector<float> *findDetectionEmbedding(DetectionIndex detectionIndex,
-                                                 const FrameTrackingContext &frameTrackingContext) {
+const open_perception_kit::metadata::ObjectEmbeddingT *
+findDetectionEmbedding(DetectionIndex detectionIndex,
+                       const FrameTrackingContext &frameTrackingContext) {
     const auto &detection = detectionAt(frameTrackingContext.detections, detectionIndex);
     if (!detection.object) {
         return nullptr;
@@ -127,9 +128,8 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
             : "IOU:N/A";
 
     if (const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
-        embedding != nullptr && isValidEmbedding(*embedding)) {
+        embedding != nullptr && opk::embedding::valid(*embedding)) {
         track.lastEmbedding = *embedding;
-        track.hasEmbedding = true;
     }
 
     auto &lastBox = ensureBox(track.lastDetection);
@@ -149,20 +149,16 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
     }
 
     const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
-    if (embedding == nullptr || !isValidEmbedding(*embedding)) {
+    if (embedding == nullptr || !opk::embedding::valid(*embedding)) {
         return false;
     }
 
     float bestSimilarity = -1.0f;
     TrackId bestDormantTrackId = 0;
     for (const auto &[dormantTrackId, dormant] : mutableTrackState.inactiveTracks) {
-        if (!isValidEmbedding(dormant.lastEmbedding)) {
-            continue;
-        }
-
-        const float similarity = cosineSimilarity(*embedding, dormant.lastEmbedding);
-        if (similarity > bestSimilarity) {
-            bestSimilarity = similarity;
+        const auto similarity = opk::embedding::cosineSimilarity(*embedding, dormant.lastEmbedding);
+        if (similarity && *similarity > bestSimilarity) {
+            bestSimilarity = *similarity;
             bestDormantTrackId = dormantTrackId;
         }
     }
@@ -182,7 +178,6 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
     restoredTrack.lastDetection = detectionAt(frameTrackingContext.detections, detectionIndex);
     restoredTrack.lastMatchDiagnostic = fmt::format("REID-R:{:.2f}", bestSimilarity);
     restoredTrack.lastEmbedding = *embedding;
-    restoredTrack.hasEmbedding = true;
     restoredTrack.missedFrames = 0;
     restoredTrack.hitStreak = std::max(1, frameTrackingContext.config.minHitsToConfirm);
     restoredTrack.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
@@ -224,9 +219,8 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
     newTrack.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
     if (const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
-        embedding != nullptr && isValidEmbedding(*embedding)) {
+        embedding != nullptr && opk::embedding::valid(*embedding)) {
         newTrack.lastEmbedding = *embedding;
-        newTrack.hasEmbedding = true;
     }
 
     Point2f initPoint;
@@ -260,7 +254,7 @@ void archiveTrackToDormant(TrackId trackId,
         return;
     }
 
-    if (trackIt->second.hasEmbedding && isValidEmbedding(trackIt->second.lastEmbedding)) {
+    if (opk::embedding::valid(trackIt->second.lastEmbedding)) {
         DormantTrackState dormant;
         dormant.trackId = trackId;
         dormant.lastDetection = trackIt->second.lastDetection;

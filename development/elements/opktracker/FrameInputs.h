@@ -22,14 +22,14 @@
 namespace opk::tracker::frameinputs {
 
 /**
- * @brief Collects valid embedding vectors keyed by their parent detection ID.
+ * @brief Selects unique embedding observations keyed by explicit subject ID.
  *
- * Scans FrameResults embedding payloads, validates dimensions/content,
- * and returns non-owning vector views that participate in association/re-identification.
+ * Applies optional space/producer filters, counts duplicates before validating
+ * vectors, and resolves unique box/track subjects. Null entries are unavailable.
  *
  * @param frameResults Input frame results containing model outputs for the frame.
  * @param config Tracker configuration used to validate embedding usage.
- * @return EmbeddingBatch Mapping of parent ID to embedding vector view.
+ * @return EmbeddingBatch Mapping of subject ID to typed embedding view.
  */
 EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameResults,
                                  const Config &config);

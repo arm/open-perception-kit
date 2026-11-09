@@ -76,7 +76,7 @@ def _item_parent(
         return item if dsm.valid_mask(item) else None
     if item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
         return item if item.get("data", {}).get("spatialValid") else None
-    if item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
+    if item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):
         return item.get("subject")
     parent_id = item.get("data", {}).get("parentId", 0)
     if parent_id == 0:
@@ -101,7 +101,7 @@ def _process_remaining_items(
     if gt_parent_item is None:
         if gt_item.get("item_type") in dsm.MASK_TYPES:
             return False, "mask has invalid encoding, semantics or image space"
-        if gt_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
+        if gt_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):
             return False, "subject missing, ambiguous or invalid"
         if gt_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
             return False, "item has no valid spatial reference"
@@ -113,7 +113,7 @@ def _process_remaining_items(
         if out_parent_item is None:
             if out_item.get("item_type") in dsm.MASK_TYPES:
                 return False, "mask has invalid encoding, semantics or image space"
-            if out_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
+            if out_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):
                 return False, "subject missing, ambiguous or invalid"
             if out_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
                 return False, "item has no valid spatial reference"

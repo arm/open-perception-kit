@@ -65,8 +65,8 @@
     },
     {
       "path": "cpp/fb/object_embeddings_generated.h",
-      "sha256": "d1c557806c93ad5e3345ec8f6dfcfd701eda888c62f2c4b2b44e8282536acf3e",
-      "size": 19552
+      "sha256": "52d588f3d6531653f66fb6bcd4960160a9ef1cc8f9920bcbcf0f96c2094fe9a1",
+      "size": 28224
     },
     {
       "path": "cpp/fb/object_tracks_generated.h",
@@ -120,13 +120,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "404f2e98e1fe3beb5b714cddf7fd4de9f3ebd07549749e96724add126682eb9c",
+      "sha256": "ed453ff13c17ce656fc6d496d481fa5f0903b2d41b010c1fc412d1a0e05b847f",
       "size": 37133
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "75974150277a91a5d5ad9877aca63dbb53dc7bfd5ef1dc02897d2a56ebf2f0a5",
-      "size": 421192
+      "sha256": "99a77a910a9333ce2eb6eb4cd14a34e4798f094fd6603309b5faa891152eff8f",
+      "size": 428018
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -150,7 +150,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "24a942f35a14e8b34e43cab8f8efe96971eba24c7daea9109ad537951d15ef50",
+      "sha256": "477bc28c4f0f73518d75692321831f24334228c081bda793eb4a6d523ded5042",
       "size": 1166
     },
     {
@@ -234,6 +234,16 @@
       "size": 819
     },
     {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/EmbeddingMetric.py",
+      "sha256": "1fc7655445e0fac8d3e61978d63a5c678e9ca03296bb8593d9375f4529b607dd",
+      "size": 820
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/EmbeddingSpace.py",
+      "sha256": "87afdc4d3d1d58ca2a29144074b0d061ab1a2500512cfb2862aff4bcd462f2a0",
+      "size": 4621
+    },
+    {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/FrameContext.py",
       "sha256": "7f11df19708b65b6f4a446adbadb093132929435c158bef39a2fbe2a66b41547",
       "size": 7735
@@ -280,8 +290,8 @@
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ObjectEmbedding.py",
-      "sha256": "a96ceaf978e39b78088904aefaf9bf34f3af16b5e4a45d8e9e33f3c3b65c7fd6",
-      "size": 6366
+      "sha256": "7ffe2b6dc610af778568ba2c6e70a1875259bfcfeba1c0309b4482b7abe54924",
+      "size": 8270
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ObjectEmbeddings.py",
@@ -445,7 +455,7 @@
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "07ffcc5856711d3ed95d77b30af10a677f8f9b6262130138684f246883ed906c",
+      "sha256": "628009318e73cd5b344460f12cd015397e5eb1879ea2c24da792165fac5473e5",
       "size": 15484
     },
     {
@@ -539,6 +549,16 @@
       "size": 3764
     },
     {
+      "path": "rust/src/fb/open_perception_kit/metadata/embedding_metric_generated.rs",
+      "sha256": "3ea3b221f4712a3577c19aba5bf9bafd4e6a4950d4bc06bcf6d0ba56b8796ace",
+      "size": 3769
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/embedding_space_generated.rs",
+      "sha256": "14feacab21ca3dc4d92e668ed8e1710b588b497fa0883b94a299fc073d727b00",
+      "size": 7191
+    },
+    {
       "path": "rust/src/fb/open_perception_kit/metadata/frame_context_generated.rs",
       "sha256": "b0799627f00ce37754c6c92e9881afe965257e11c9dca44fb6ddcec3a7c5482d",
       "size": 13634
@@ -585,13 +605,13 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "c76251549500d0cd646caad6c64a1e951d3ceb34bbc4ec4fe3fd689533ad78ce",
-      "size": 4340
+      "sha256": "9ad4c352878ffe611db434e5a16611f9037a749c77526b71ce199db39c24b521",
+      "size": 4492
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
-      "sha256": "a0201a31e681b47859de477e5de5aa2a1edd153ae56599cbfd211ae359ecf652",
-      "size": 6610
+      "sha256": "b894808d04cac87ac908e2f4b6d0915964a82501f8c84bb4ddfc4b82ce0d89d4",
+      "size": 9069
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embeddings_generated.rs",
@@ -735,12 +755,12 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "b40ea6493341df74395b397396869e595ed98344e720e508d8c951a2f898fdad",
+      "sha256": "c78ff0dc9c0d777b080b05a765daf6655f5bc76319ff320542e5c8d916330e5f",
       "size": 58636
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
-      "sha256": "cc7a1fb5bac0bac70e183c8ef2f69d7c707dfc0ede51096dc8dcfe43e076b2d3",
+      "sha256": "58e5a65fd6018d6371a95f3b58d5f167d9c9be95e8c78024c889a19a23e53b36",
       "size": 1025
     },
     {
@@ -760,12 +780,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "81e1d387c13f265ddce1f781489aa135c7f1817a26196c0a34d1dfec598b013d",
+      "sha256": "68c446fbe1a1010f7c35e6886b905407790fccb11b9da0127a67713f48112a1d",
       "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "d4602d3c3d62be897c6332c67c02c3fbc0425a8673b51c90c00b2ad1718becfd",
+      "sha256": "9e6cf3918ba8cc5467ca739d915f58b64e4e408166f726990ed770a90a0a1ac0",
       "size": 14047
     },
     {
@@ -939,6 +959,26 @@
       "size": 1123
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-metric.d.ts",
+      "sha256": "07ecef7055d2ed8733ffa93c2a91449283f38b3107aa1f99d536bc0f67a639c3",
+      "size": 866
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-metric.js",
+      "sha256": "8deaceedf41d133634ad4ee6de0a858a613db5e571d2e2115f2b5dc89fb692f9",
+      "size": 1125
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-space.d.ts",
+      "sha256": "345de4b1ff36e297bf1c50537c759fa64eb726f814684ccc76228bf52d4b0ac3",
+      "size": 2476
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-space.js",
+      "sha256": "8ac8071f7b1591a5aa36519d9c0d0fe454c23070494ed38a907a6465c146d3e4",
+      "size": 3608
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.d.ts",
       "sha256": "9377763243ef4c905647c4c69cf874f46ef6819bd4ea99fca762d0f1a3de6a80",
       "size": 3186
@@ -1030,13 +1070,13 @@
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.d.ts",
-      "sha256": "2a596a11ce5e154396046b819bcd743ce2cf44e77bff7767ea14dedc6b5e15f0",
-      "size": 2757
+      "sha256": "cee11cfd26ec3c12c7a5396377ea65383b919010e9030900d38bc424461c44f6",
+      "size": 3092
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.js",
-      "sha256": "c27117181e07395177cbefc6461c03b28e4f598cb42477d9736f9de6b088d9bc",
-      "size": 4258
+      "sha256": "7fe8253fe434a7bb22ceb317878fe94df3512a9f07c9dbb65c26575115123a09",
+      "size": 5252
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.d.ts",
@@ -1280,12 +1320,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "78ef98c0537cd3f96a11c01cf02e8545b026511155eb2706842e268636532fa8",
+      "sha256": "163c6d46b5f8ceeb07c1a4cbe218f919065194faff7501c1410c5c5e7e7f7cc7",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "d3d02e4fd1beebff4992308f840b2f12129628edec2f63027dbd2678aa64a799",
+      "sha256": "4ee5fcaf809577d3a756524776eddbcf35c3e0b183e39cc3b15dcb9ed894f182",
       "size": 1203
     },
     {
@@ -1305,7 +1345,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "fb44591d0cb4b2e818b202da637c2b560a87b3cc5d316f1d86713ab67a512c3e",
+      "sha256": "e50a9dd4c284677458ee1f6c7777d503c847f0bdc9c2f0d3d01a0fcdcc5a1c47",
       "size": 12726
     },
     {
@@ -1394,6 +1434,16 @@
       "size": 949
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/embedding-metric.ts",
+      "sha256": "e725a5b9988793657600eed30360e4c957d0cbed3ac38bb3ab4724f133cf58c5",
+      "size": 950
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/embedding-space.ts",
+      "sha256": "8ef2bdbaa4598eb4e057f53b1c682b03171666cde399a8aa38b439b12963f67f",
+      "size": 4042
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/frame-context.ts",
       "sha256": "22ce113fe800348f1a41382dd47a68bb07246bc6d4c3abf7fe4863e8c1c6dd22",
       "size": 5643
@@ -1440,8 +1490,8 @@
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.ts",
-      "sha256": "fa18feb3a824a237a2f72e7646d2e33c86f3f1cfb728a00f84028923087a259c",
-      "size": 4977
+      "sha256": "ff1447402fb16947931590fb9c8eba672561de8b678c343a86936ac9164700a6",
+      "size": 5932
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.ts",
@@ -1565,7 +1615,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "f68138c8780b78d92d51fbd5b8564dfa3f71663ab30dd9ba2a6a103c98dd570b",
+      "sha256": "6e30ea7b6044e753603f673393341b29113053babd244bb71536e2699a2f829c",
       "size": 1216
     },
     {
@@ -1934,8 +1984,8 @@
         },
         {
           "path": "fb/object_embeddings_generated.h",
-          "sha256": "c9a44de420901284d4ac6cebc87ae27b7cdf048808b378b9d991f66630747c13",
-          "size": 17085
+          "sha256": "1a4e9837c028a364ca6ad22be9a92416653b56c5e64aaf70e7e423d5eb21bedc",
+          "size": 24993
         },
         {
           "path": "fb/object_tracks_generated.h",
@@ -1989,13 +2039,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "e719a87f6a23dec94b7258cc6eaf9d904dfd1390519f806ee38848743b5f6fea",
+          "sha256": "ca5eb5619697929d9fa6c7b9a7e5e2da5f1a4f00885fb12c069bfe5b2f33bbf1",
           "size": 35746
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "158a02731c7058ccab5524f7bfc9f1d5d1f5038abf4dbe58bf9d4538da0fe7ea",
-          "size": 399902
+          "sha256": "337f36bebd8674725960b67ccb8890677851e13250b4206740b4c1320869c3fc",
+          "size": 406421
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -2171,8 +2221,8 @@
         },
         {
           "path": "object_embeddings.fbs",
-          "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
-          "size": 402
+          "sha256": "748a4c0aa2e4f46c668b83fc76389429521064a91588a58765cd30e38c7a91ea",
+          "size": 1168
         },
         {
           "path": "object_tracks.fbs",
@@ -2215,7 +2265,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "b500edeafa21c9cc735b38a334cf85ebebf123e913b9c02c41f544c25c3a539c",
+      "schema_set_sha256": "ed154bd2324b48248518cda981de1cd8e8c0b99429de5334eef94a1e0f6c0735",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2230,7 +2280,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "3ed0d7a3f792fa861a601aff0e60f0d1078071cdefcc516a7a5ffdd68552d55c",
+          "sha256": "ac39e1dbeb0728db757f4bdf469d489782ea00cc9444e0958fc54bc0ed425ad4",
           "size": 506
         },
         {
@@ -2314,6 +2364,16 @@
           "size": 158
         },
         {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/EmbeddingMetric.py",
+          "sha256": "b1650bee178af6d31c6c28244c9a492845bbde8f05648cafba5317e304fe85c3",
+          "size": 159
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/EmbeddingSpace.py",
+          "sha256": "203183690920c247a37be74a1e11c0df8a6de16e23e0ca9f1d20008c67500945",
+          "size": 3954
+        },
+        {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/FrameContext.py",
           "sha256": "e331bdf2c74e6430c101dcff0fb080790efe82d3bea3a8c0e03864592cb7ee25",
           "size": 7001
@@ -2360,8 +2420,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ObjectEmbedding.py",
-          "sha256": "e72b4b7921b1a45e26e4dacd12ad6701222e603a2368850729ae95185127022e",
-          "size": 5671
+          "sha256": "bd2e7550e7df768ed48026444834933d9b7b60243bc48a3c203de13e48afce0c",
+          "size": 7551
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ObjectEmbeddings.py",
@@ -2525,7 +2585,7 @@
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "1c81d57ec8986b3ac45a5599c75057dd8ba7b262add86b0a41caf35f1caf0ab4",
+          "sha256": "4ec30276708042636c1e879054781ad9c33b6eb105a887aeadbf9a150e2ee365",
           "size": 14823
         }
       ],
@@ -2695,8 +2755,8 @@
         },
         {
           "path": "object_embeddings.fbs",
-          "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
-          "size": 402
+          "sha256": "748a4c0aa2e4f46c668b83fc76389429521064a91588a58765cd30e38c7a91ea",
+          "size": 1168
         },
         {
           "path": "object_tracks.fbs",
@@ -2739,7 +2799,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "b500edeafa21c9cc735b38a334cf85ebebf123e913b9c02c41f544c25c3a539c",
+      "schema_set_sha256": "ed154bd2324b48248518cda981de1cd8e8c0b99429de5334eef94a1e0f6c0735",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2828,6 +2888,16 @@
           "size": 3083
         },
         {
+          "path": "src/fb/open_perception_kit/metadata/embedding_metric_generated.rs",
+          "sha256": "343293950e1a8ae5e4fc8af67e6fdd29d54ba8acf4230b1ef19bd24526ad2791",
+          "size": 3088
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/embedding_space_generated.rs",
+          "sha256": "39e2858f763344f0fa1dad3cc26b3d8722fdafc47aab4f38f5a6d8f933f22c6b",
+          "size": 6510
+        },
+        {
           "path": "src/fb/open_perception_kit/metadata/frame_context_generated.rs",
           "sha256": "191e24d5028b45f1f7431f0548f7985677dcb0b37820db13c578b7030b69f8ec",
           "size": 12953
@@ -2874,13 +2944,13 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "74925ad498469977b31d685e768802d47655cd0965ed0494956e13eb433747f3",
-          "size": 3659
+          "sha256": "c9c553fb6c8886f40924b39099d4060da56858afed2be669928b1fe4f8f025af",
+          "size": 3811
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
-          "sha256": "ab6493edad7549f57125eebad4132f7b148c5abfbbc7bd9e7d130e4c04ac6114",
-          "size": 5929
+          "sha256": "998050b252ca552729f23e3f810bcada4c83303c83dac0c67f5b113b720d6390",
+          "size": 8388
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embeddings_generated.rs",
@@ -3024,7 +3094,7 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "a1c7ac3240c87716b5e8f6ceb2d8688947a96f726c096a85a4921cf03739d52b",
+          "sha256": "b86abb5c53c6521f1ba3aa0fa4944bab0a2ab25b9f15e5b584806ca534015e8b",
           "size": 57955
         }
       ],
@@ -3179,8 +3249,8 @@
         },
         {
           "path": "object_embeddings.fbs",
-          "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
-          "size": 402
+          "sha256": "748a4c0aa2e4f46c668b83fc76389429521064a91588a58765cd30e38c7a91ea",
+          "size": 1168
         },
         {
           "path": "object_tracks.fbs",
@@ -3223,7 +3293,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "b500edeafa21c9cc735b38a334cf85ebebf123e913b9c02c41f544c25c3a539c",
+      "schema_set_sha256": "ed154bd2324b48248518cda981de1cd8e8c0b99429de5334eef94a1e0f6c0735",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3238,7 +3308,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "66fceb1122fda3a3eff5544d346d86ef1eff6bbb93a36a3fa0f993478eafebb7",
+          "sha256": "d0dfbd4589290205ffcc08a35b7fa5ba1a5e489fccfb99c2119cd2d30209dd3a",
           "size": 12045
         },
         {
@@ -3332,6 +3402,16 @@
           "size": 268
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/embedding-metric.ts",
+          "sha256": "67204ec02f5b431c968b962546d55bb6cce2b8e5dc66d25e4b4e0527d5f4b403",
+          "size": 269
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/embedding-space.ts",
+          "sha256": "a461e7013214fb10a4dd75b71f949a5e15bb2824920ede99a5be171760ababff",
+          "size": 3361
+        },
+        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/frame-context.ts",
           "sha256": "b38181c1f3c3643525ff836e9691f0fc35091d6eeca2d7d1c8e2cd9a88120245",
           "size": 4962
@@ -3378,8 +3458,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.ts",
-          "sha256": "83dd201f8e4e8e1b861263c70022018bb2efd9f00a30e71b5ad45d3ccd99cd78",
-          "size": 4296
+          "sha256": "f5ac25e985969ae5683b1ec3b897f5bf1c0b12f3c56b79ecd3bea4dd1cd4d4c6",
+          "size": 5251
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.ts",
@@ -3498,7 +3578,7 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "815677eba2b1943a92b8b050bf85dcab00cbde098ddf3f872cbcc1da413c2a41",
+          "sha256": "48596f297eb1a345dd4f89d38167c3402eb7957788d9b88a7e98c33e3eb8b1d1",
           "size": 535
         },
         {
@@ -3663,8 +3743,8 @@
         },
         {
           "path": "object_embeddings.fbs",
-          "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
-          "size": 402
+          "sha256": "748a4c0aa2e4f46c668b83fc76389429521064a91588a58765cd30e38c7a91ea",
+          "size": 1168
         },
         {
           "path": "object_tracks.fbs",
@@ -3707,7 +3787,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "b500edeafa21c9cc735b38a334cf85ebebf123e913b9c02c41f544c25c3a539c",
+      "schema_set_sha256": "ed154bd2324b48248518cda981de1cd8e8c0b99429de5334eef94a1e0f6c0735",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
