@@ -93,7 +93,7 @@ struct Inference::State {
         for (uint32_t i = 0; i < tensor.rank; ++i) {
             if (tensor.dimensions[i] <= 0 || tensor.dimensions[i] > std::numeric_limits<int>::max())
                 throw std::runtime_error("OR tensor dimension is unsupported");
-            result.dims[i] = tensor.dimensions[i];
+            result.dims[i] = static_cast<int>(tensor.dimensions[i]);
         }
 
         return result;
@@ -187,8 +187,10 @@ struct Inference::State {
     void initializeRuntime(const std::string &runtimeLibrary) {
         const auto libraryPath = ensureExplicitLibraryPath(runtimeLibrary);
         library = dlopen(libraryPath.c_str(), RTLD_NOW | RTLD_LOCAL);
-        if (!library)
-            throw std::runtime_error(dlerror());
+        if (!library) {
+            // Linux dlerror(3) is MT-Safe; runtime_error copies the message immediately.
+            throw std::runtime_error(dlerror()); // NOLINT(concurrency-mt-unsafe)
+        }
 
         using GetApi = or_status(OR_CALL *)(uint32_t, or_api *);
         const auto getApi = reinterpret_cast<GetApi>(dlsym(library, "or_get_api"));

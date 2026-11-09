@@ -24,20 +24,22 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+constexpr size_t DetectionCount = 4420;
+
 TEST(UltraFaceParser, LogitsMatchProbabilitiesAndRemainStable) {
     for (const bool logits : {false, true}) {
         opk::AttributeMap attributes;
         attributes.set("scoresAreLogits", logits);
         attributes.set("confidenceThreshold", 0.9);
 
-        std::vector<float> scores(4420 * 2, logits ? -1000.0f : 0.0f);
-        for (size_t i = 0; i < 4420; ++i)
+        std::vector<float> scores(DetectionCount * 2, logits ? -1000.0f : 0.0f);
+        for (size_t i = 0; i < DetectionCount; ++i)
             scores[2 * i] = logits ? 1000.0f : 1.0f;
 
         scores[0] = logits ? 1000.0f : 0.01f;
         scores[1] = logits ? 1000.0f + std::log(99.0f) : 0.99f;
 
-        const std::vector<float> boxes(4420 * 4, 0.0f);
+        const std::vector<float> boxes(DetectionCount * 4, 0.0f);
         opk::TensorView scoreTensor(scores.data(),
                                     scores.size() * sizeof(float),
                                     opk::Shape(1, 4420, 2),
@@ -77,8 +79,8 @@ TEST(UltraFaceParser, PublishedOnnxConfigurationConvertsCapturedLogits) {
         chain->ops, [](const auto &op) { return op.id == "opk-std-ops/GenericPostprocess"; });
     ASSERT_NE(postprocess, chain->ops.end());
 
-    std::vector<float> scores(4420 * 2, -1000.0f);
-    for (size_t i = 0; i < 4420; ++i)
+    std::vector<float> scores(DetectionCount * 2, -1000.0f);
+    for (size_t i = 0; i < DetectionCount; ++i)
         scores[2 * i] = 1000.0f;
 
     // Foreground/background score pairs from the pinned ONNX model (SHA-256
@@ -86,9 +88,12 @@ TEST(UltraFaceParser, PublishedOnnxConfigurationConvertsCapturedLogits) {
     // GettyImages-1140581459.mov at 0 s, anchors 3756/122. Boxes are synthetic.
     scores[0] = -3.236875057220459f;
     scores[1] = 3.1505584716796875f;
-    scores[2 * 3000] = 0.7768499851226807f;
-    scores[2 * 3000 + 1] = -0.7768499851226807f;
-    const std::vector<float> boxes(4420 * 4, 0.0f);
+
+    // Keep the background anchor separate so NMS cannot hide a filtering error.
+    constexpr size_t BackgroundIndex = 3000;
+    scores[2 * BackgroundIndex] = 0.7768499851226807f;
+    scores[2 * BackgroundIndex + 1] = -0.7768499851226807f;
+    const std::vector<float> boxes(DetectionCount * 4, 0.0f);
     opk::TensorView scoreTensor(scores.data(),
                                 scores.size() * sizeof(float),
                                 opk::Shape(1, 4420, 2),
