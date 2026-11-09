@@ -80,33 +80,37 @@ struct _GstOpkTracker::Members {
 
 G_DEFINE_TYPE(GstOpkTracker, gst_opktracker, GST_TYPE_BASE_TRANSFORM)
 
-enum {
-    PROP_0,
-    PROP_CONTENT_TYPE,
-    PROP_USE_EMBEDDINGS,
-    PROP_EMBEDDING_CONTENT_TYPE,
-    PROP_EMBEDDING_WEIGHT,
-    PROP_MIN_COSINE_SIMILARITY,
-    PROP_REID_REASSOCIATE_THRESHOLD,
-    PROP_DORMANT_TRACK_HISTORY_SECONDS,
-    PROP_IOU_THRESHOLD,
-    PROP_MAX_MISSED_FRAMES,
-    PROP_MIN_HITS_TO_CONFIRM,
-    PROP_APPEND_TRACK_ID_TO_TEXT,
-    PROP_TRACE_HISTORY_SECONDS,
-    PROP_KALMAN_DT_FALLBACK,
-    PROP_KALMAN_DT_FORCE_FALLBACK,
-    PROP_KALMAN_INITIAL_COVARIANCE_POS,
-    PROP_KALMAN_INITIAL_COVARIANCE_VEL,
-    PROP_KALMAN_PROCESS_NOISE_POS,
-    PROP_KALMAN_PROCESS_NOISE_VEL,
-    PROP_KALMAN_MEASUREMENT_NOISE_POS,
-    PROP_USE_KALMAN,
-    PROP_EMIT_PREDICTED_DETECTIONS,
-    PROP_EMIT_TRACE,
-    PROP_ASSOCIATION_MODE,
-    PROP_INFER_ID,
+namespace {
+
+enum class PropertyId : guint {
+    Reserved = 0,
+    ContentType,
+    UseEmbeddings,
+    EmbeddingContentType,
+    EmbeddingWeight,
+    MinCosineSimilarity,
+    ReidReassociateThreshold,
+    DormantTrackHistorySeconds,
+    IouThreshold,
+    MaxMissedFrames,
+    MinHitsToConfirm,
+    AppendTrackIdToText,
+    TraceHistorySeconds,
+    KalmanDtFallback,
+    KalmanDtForceFallback,
+    KalmanInitialCovariancePos,
+    KalmanInitialCovarianceVel,
+    KalmanProcessNoisePos,
+    KalmanProcessNoiseVel,
+    KalmanMeasurementNoisePos,
+    UseKalman,
+    EmitPredictedDetections,
+    EmitTrace,
+    AssociationMode,
+    InferId,
 };
+
+} // namespace
 
 static opk::tracker::AssociationMode associationModeFromString(const gchar *modeText) {
     if (modeText == nullptr) {
@@ -279,7 +283,7 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
     const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
     if (!propertyGuard.isChangeAllowed())
         return;
-    if (propertyId == PROP_ASSOCIATION_MODE) {
+    if (propertyId == static_cast<guint>(PropertyId::AssociationMode)) {
         if (const gchar *const mode = g_value_get_string(value);
             mode && g_strcmp0(mode, "iou") != 0 && g_strcmp0(mode, "embedding") != 0 &&
             g_strcmp0(mode, "hybrid") != 0) {
@@ -292,18 +296,18 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
         }
     }
     g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
-    switch (propertyId) {
-    case PROP_CONTENT_TYPE: {
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::ContentType: {
         const auto *const requestedContentType = g_value_get_string(value);
         g_free(self->contentType);
         self->contentType = g_strdup(requestedContentType ? requestedContentType
                                                           : opk::tracker::Defaults::contentType);
         break;
     }
-    case PROP_USE_EMBEDDINGS:
+    case PropertyId::UseEmbeddings:
         self->useEmbeddings = g_value_get_boolean(value);
         break;
-    case PROP_EMBEDDING_CONTENT_TYPE: {
+    case PropertyId::EmbeddingContentType: {
         const auto *const requestedEmbeddingContentType = g_value_get_string(value);
         g_free(self->embeddingContentType);
         self->embeddingContentType =
@@ -311,64 +315,64 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
                                                    : opk::tracker::Defaults::embeddingContentType);
         break;
     }
-    case PROP_EMBEDDING_WEIGHT:
+    case PropertyId::EmbeddingWeight:
         self->embeddingWeight = g_value_get_float(value);
         break;
-    case PROP_MIN_COSINE_SIMILARITY:
+    case PropertyId::MinCosineSimilarity:
         self->minCosineSimilarity = g_value_get_float(value);
         break;
-    case PROP_REID_REASSOCIATE_THRESHOLD:
+    case PropertyId::ReidReassociateThreshold:
         self->reidReassociateThreshold = g_value_get_float(value);
         break;
-    case PROP_DORMANT_TRACK_HISTORY_SECONDS:
+    case PropertyId::DormantTrackHistorySeconds:
         self->dormantTrackHistorySeconds = g_value_get_float(value);
         break;
-    case PROP_IOU_THRESHOLD:
+    case PropertyId::IouThreshold:
         self->iouThreshold = g_value_get_float(value);
         break;
-    case PROP_MAX_MISSED_FRAMES:
+    case PropertyId::MaxMissedFrames:
         self->maxMissedFrames = g_value_get_int(value);
         break;
-    case PROP_MIN_HITS_TO_CONFIRM:
+    case PropertyId::MinHitsToConfirm:
         self->minHitsToConfirm = g_value_get_int(value);
         break;
-    case PROP_APPEND_TRACK_ID_TO_TEXT:
+    case PropertyId::AppendTrackIdToText:
         self->appendIdentityIdToText = g_value_get_boolean(value);
         break;
-    case PROP_TRACE_HISTORY_SECONDS:
+    case PropertyId::TraceHistorySeconds:
         self->traceHistorySeconds = g_value_get_float(value);
         break;
-    case PROP_KALMAN_DT_FALLBACK:
+    case PropertyId::KalmanDtFallback:
         self->kalmanDtFallback = g_value_get_float(value);
         break;
-    case PROP_KALMAN_DT_FORCE_FALLBACK:
+    case PropertyId::KalmanDtForceFallback:
         self->kalmanDtForceFallback = g_value_get_boolean(value);
         break;
-    case PROP_KALMAN_INITIAL_COVARIANCE_POS:
+    case PropertyId::KalmanInitialCovariancePos:
         self->kalmanInitialCovariancePos = g_value_get_float(value);
         break;
-    case PROP_KALMAN_INITIAL_COVARIANCE_VEL:
+    case PropertyId::KalmanInitialCovarianceVel:
         self->kalmanInitialCovarianceVel = g_value_get_float(value);
         break;
-    case PROP_KALMAN_PROCESS_NOISE_POS:
+    case PropertyId::KalmanProcessNoisePos:
         self->kalmanProcessNoisePos = g_value_get_float(value);
         break;
-    case PROP_KALMAN_PROCESS_NOISE_VEL:
+    case PropertyId::KalmanProcessNoiseVel:
         self->kalmanProcessNoiseVel = g_value_get_float(value);
         break;
-    case PROP_KALMAN_MEASUREMENT_NOISE_POS:
+    case PropertyId::KalmanMeasurementNoisePos:
         self->kalmanMeasurementNoisePos = g_value_get_float(value);
         break;
-    case PROP_USE_KALMAN:
+    case PropertyId::UseKalman:
         self->useKalman = g_value_get_boolean(value);
         break;
-    case PROP_EMIT_PREDICTED_DETECTIONS:
+    case PropertyId::EmitPredictedDetections:
         self->emitPredictedDetections = g_value_get_boolean(value);
         break;
-    case PROP_EMIT_TRACE:
+    case PropertyId::EmitTrace:
         self->emitTrace = g_value_get_boolean(value);
         break;
-    case PROP_ASSOCIATION_MODE: {
+    case PropertyId::AssociationMode: {
         const auto *const requestedAssociationMode = g_value_get_string(value);
         g_free(self->associationMode);
         self->associationMode =
@@ -377,7 +381,7 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
                          : associationModeToString(opk::tracker::Defaults::associationMode));
         break;
     }
-    case PROP_INFER_ID:
+    case PropertyId::InferId:
         g_free(self->inferId);
         self->inferId = g_value_dup_string(value);
         break;
@@ -392,77 +396,77 @@ static void gst_opktracker_get_property(GObject *selfInParentType,
                                         GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
     g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
-    switch (propertyId) {
-    case PROP_CONTENT_TYPE:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::ContentType:
         g_value_set_string(value, self->contentType);
         break;
-    case PROP_USE_EMBEDDINGS:
+    case PropertyId::UseEmbeddings:
         g_value_set_boolean(value, self->useEmbeddings);
         break;
-    case PROP_EMBEDDING_CONTENT_TYPE:
+    case PropertyId::EmbeddingContentType:
         g_value_set_string(value, self->embeddingContentType);
         break;
-    case PROP_EMBEDDING_WEIGHT:
+    case PropertyId::EmbeddingWeight:
         g_value_set_float(value, self->embeddingWeight);
         break;
-    case PROP_MIN_COSINE_SIMILARITY:
+    case PropertyId::MinCosineSimilarity:
         g_value_set_float(value, self->minCosineSimilarity);
         break;
-    case PROP_REID_REASSOCIATE_THRESHOLD:
+    case PropertyId::ReidReassociateThreshold:
         g_value_set_float(value, self->reidReassociateThreshold);
         break;
-    case PROP_DORMANT_TRACK_HISTORY_SECONDS:
+    case PropertyId::DormantTrackHistorySeconds:
         g_value_set_float(value, self->dormantTrackHistorySeconds);
         break;
-    case PROP_IOU_THRESHOLD:
+    case PropertyId::IouThreshold:
         g_value_set_float(value, self->iouThreshold);
         break;
-    case PROP_MAX_MISSED_FRAMES:
+    case PropertyId::MaxMissedFrames:
         g_value_set_int(value, self->maxMissedFrames);
         break;
-    case PROP_MIN_HITS_TO_CONFIRM:
+    case PropertyId::MinHitsToConfirm:
         g_value_set_int(value, self->minHitsToConfirm);
         break;
-    case PROP_APPEND_TRACK_ID_TO_TEXT:
+    case PropertyId::AppendTrackIdToText:
         g_value_set_boolean(value, self->appendIdentityIdToText);
         break;
-    case PROP_TRACE_HISTORY_SECONDS:
+    case PropertyId::TraceHistorySeconds:
         g_value_set_float(value, self->traceHistorySeconds);
         break;
-    case PROP_KALMAN_DT_FALLBACK:
+    case PropertyId::KalmanDtFallback:
         g_value_set_float(value, self->kalmanDtFallback);
         break;
-    case PROP_KALMAN_DT_FORCE_FALLBACK:
+    case PropertyId::KalmanDtForceFallback:
         g_value_set_boolean(value, self->kalmanDtForceFallback);
         break;
-    case PROP_KALMAN_INITIAL_COVARIANCE_POS:
+    case PropertyId::KalmanInitialCovariancePos:
         g_value_set_float(value, self->kalmanInitialCovariancePos);
         break;
-    case PROP_KALMAN_INITIAL_COVARIANCE_VEL:
+    case PropertyId::KalmanInitialCovarianceVel:
         g_value_set_float(value, self->kalmanInitialCovarianceVel);
         break;
-    case PROP_KALMAN_PROCESS_NOISE_POS:
+    case PropertyId::KalmanProcessNoisePos:
         g_value_set_float(value, self->kalmanProcessNoisePos);
         break;
-    case PROP_KALMAN_PROCESS_NOISE_VEL:
+    case PropertyId::KalmanProcessNoiseVel:
         g_value_set_float(value, self->kalmanProcessNoiseVel);
         break;
-    case PROP_KALMAN_MEASUREMENT_NOISE_POS:
+    case PropertyId::KalmanMeasurementNoisePos:
         g_value_set_float(value, self->kalmanMeasurementNoisePos);
         break;
-    case PROP_USE_KALMAN:
+    case PropertyId::UseKalman:
         g_value_set_boolean(value, self->useKalman);
         break;
-    case PROP_EMIT_PREDICTED_DETECTIONS:
+    case PropertyId::EmitPredictedDetections:
         g_value_set_boolean(value, self->emitPredictedDetections);
         break;
-    case PROP_EMIT_TRACE:
+    case PropertyId::EmitTrace:
         g_value_set_boolean(value, self->emitTrace);
         break;
-    case PROP_ASSOCIATION_MODE:
+    case PropertyId::AssociationMode:
         g_value_set_string(value, self->associationMode);
         break;
-    case PROP_INFER_ID:
+    case PropertyId::InferId:
         g_value_set_string(value, gst_opktracker_get_effective_inferId(self));
         break;
     default:
@@ -502,7 +506,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_CONTENT_TYPE,
+        static_cast<guint>(PropertyId::ContentType),
         g_param_spec_string(
             "content-type",
             "Content type",
@@ -515,7 +519,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_USE_EMBEDDINGS,
+        static_cast<guint>(PropertyId::UseEmbeddings),
         g_param_spec_boolean("use-embeddings",
                              "Use embeddings",
                              "Enable ReID embedding-based association"
@@ -526,7 +530,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_EMBEDDING_CONTENT_TYPE,
+        static_cast<guint>(PropertyId::EmbeddingContentType),
         g_param_spec_string(
             "embedding-content-type",
             "Embedding content type",
@@ -539,7 +543,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_EMBEDDING_WEIGHT,
+        static_cast<guint>(PropertyId::EmbeddingWeight),
         g_param_spec_float("embedding-weight",
                            "Embedding weight",
                            "Blend factor between IoU and embedding cost (0..1)"
@@ -552,7 +556,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_MIN_COSINE_SIMILARITY,
+        static_cast<guint>(PropertyId::MinCosineSimilarity),
         g_param_spec_float("min-cosine-similarity",
                            "Min cosine similarity",
                            "Minimum cosine similarity to accept embedding contribution"
@@ -565,7 +569,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_REID_REASSOCIATE_THRESHOLD,
+        static_cast<guint>(PropertyId::ReidReassociateThreshold),
         g_param_spec_float("reid-reassociate-threshold",
                            "ReID reassociate threshold",
                            "Similarity threshold to restore track from dormant gallery"
@@ -578,7 +582,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_DORMANT_TRACK_HISTORY_SECONDS,
+        static_cast<guint>(PropertyId::DormantTrackHistorySeconds),
         g_param_spec_float("dormant-track-history-seconds",
                            "Dormant track history seconds",
                            "How long expired track embeddings remain available for reassociation"
@@ -591,7 +595,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_IOU_THRESHOLD,
+        static_cast<guint>(PropertyId::IouThreshold),
         g_param_spec_float("iou-threshold",
                            "IoU threshold",
                            "Minimum IoU for matching detection to track"
@@ -604,7 +608,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_MAX_MISSED_FRAMES,
+        static_cast<guint>(PropertyId::MaxMissedFrames),
         g_param_spec_int("max-missed-frames",
                          "Max missed frames",
                          "Frames to keep unmatched tracks alive"
@@ -617,7 +621,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_MIN_HITS_TO_CONFIRM,
+        static_cast<guint>(PropertyId::MinHitsToConfirm),
         g_param_spec_int("min-hits-to-confirm",
                          "Min hits to confirm",
                          "Hits before track is shown"
@@ -630,7 +634,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_APPEND_TRACK_ID_TO_TEXT,
+        static_cast<guint>(PropertyId::AppendTrackIdToText),
         g_param_spec_boolean("append-track-id-to-text",
                              "Append track ID",
                              "Append [ID:n] to detection text"
@@ -641,7 +645,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_TRACE_HISTORY_SECONDS,
+        static_cast<guint>(PropertyId::TraceHistorySeconds),
         g_param_spec_float(
             "trace-history-seconds",
             "Trace history seconds",
@@ -655,7 +659,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_KALMAN_DT_FALLBACK,
+        static_cast<guint>(PropertyId::KalmanDtFallback),
         g_param_spec_float("kalman-dt-fallback",
                            "Kalman dt fallback",
                            "Kalman time step used when timestamps are unavailable or forced"
@@ -668,7 +672,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_KALMAN_DT_FORCE_FALLBACK,
+        static_cast<guint>(PropertyId::KalmanDtForceFallback),
         g_param_spec_boolean("kalman-dt-force-fallback",
                              "Force Kalman dt fallback",
                              "Use kalman-dt-fallback instead of buffer timestamps"
@@ -679,7 +683,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_KALMAN_INITIAL_COVARIANCE_POS,
+        static_cast<guint>(PropertyId::KalmanInitialCovariancePos),
         g_param_spec_float(
             "kalman-initial-covariance-pos",
             "Kalman initial covariance position",
@@ -694,7 +698,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_KALMAN_INITIAL_COVARIANCE_VEL,
+        static_cast<guint>(PropertyId::KalmanInitialCovarianceVel),
         g_param_spec_float(
             "kalman-initial-covariance-vel",
             "Kalman initial covariance velocity",
@@ -709,7 +713,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_KALMAN_PROCESS_NOISE_POS,
+        static_cast<guint>(PropertyId::KalmanProcessNoisePos),
         g_param_spec_float("kalman-process-noise-pos",
                            "Kalman process noise position",
                            "Process noise on position"
@@ -722,7 +726,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_KALMAN_PROCESS_NOISE_VEL,
+        static_cast<guint>(PropertyId::KalmanProcessNoiseVel),
         g_param_spec_float("kalman-process-noise-vel",
                            "Kalman process noise velocity",
                            "Process noise on velocity"
@@ -735,7 +739,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_KALMAN_MEASUREMENT_NOISE_POS,
+        static_cast<guint>(PropertyId::KalmanMeasurementNoisePos),
         g_param_spec_float("kalman-measurement-noise-pos",
                            "Kalman measurement noise position",
                            "Measurement noise on x/y"
@@ -748,7 +752,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_USE_KALMAN,
+        static_cast<guint>(PropertyId::UseKalman),
         g_param_spec_boolean("use-kalman",
                              "Use Kalman",
                              "Enable Kalman prediction and measurement smoothing"
@@ -759,7 +763,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_EMIT_PREDICTED_DETECTIONS,
+        static_cast<guint>(PropertyId::EmitPredictedDetections),
         g_param_spec_boolean("emit-predicted-detections",
                              "Emit predicted detections",
                              "Append predicted-only tracks when detections are temporarily missing"
@@ -770,7 +774,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_EMIT_TRACE,
+        static_cast<guint>(PropertyId::EmitTrace),
         g_param_spec_boolean("emit-trace",
                              "Emit trace",
                              "Append trackTrace output for active tracks"
@@ -781,7 +785,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_ASSOCIATION_MODE,
+        static_cast<guint>(PropertyId::AssociationMode),
         g_param_spec_string("association-mode",
                             "Association mode",
                             "Association strategy: hybrid, iou, or embedding"
@@ -792,7 +796,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_INFER_ID,
+        static_cast<guint>(PropertyId::InferId),
         g_param_spec_string(
             "infer-id",
             "ID of the inference element",
