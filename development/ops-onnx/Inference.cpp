@@ -35,6 +35,7 @@
 #include <utility>
 
 #include <fmt/core.h>
+#include <glib.h>
 
 #include "opk/Result.h"
 #include "opk/Types.h"
@@ -110,7 +111,9 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
         const unsigned int legacyThreads =
             hwThreads ? std::max(MinimumIntraOpNumThreads, hwThreads - ReservedHardwareThreads)
                       : MinimumIntraOpNumThreads;
-        const int intraThreads = static_cast<int>(intraOpNumThreads.value_or(legacyThreads));
+        // shortcut: quota-only deployments need explicit counts; add quota detection for them.
+        const unsigned int defaultThreads = std::min(legacyThreads, g_get_num_processors());
+        const int intraThreads = static_cast<int>(intraOpNumThreads.value_or(defaultThreads));
         const int interThreads =
             static_cast<int>(interOpNumThreads.value_or(SequentialInterOpNumThreads));
         const auto executionMode = interThreads == SequentialInterOpNumThreads
@@ -122,7 +125,7 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
                        intraThreads,
                        intraThreads == AutomaticNumThreads ? "ORT-managed"
                        : intraOpNumThreads                 ? "explicit"
-                                                           : "legacy hardware policy",
+                                                           : "default",
                        interThreads,
                        executionMode == ExecutionMode::ORT_SEQUENTIAL ? "sequential"
                        : interThreads == AutomaticNumThreads          ? "parallel, ORT-managed"

@@ -161,8 +161,8 @@ positive integers request that many intra-op threads, including the caller.
 The accepted range is zero through the maximum signed 32-bit integer.
 Use integer notation such as `2`; OPK configuration validation rejects decimal
 and exponent notation such as `2.0` and `2e0`.
-Omitting the attribute preserves OPK's existing policy: the reported hardware
-thread count minus one, with a minimum of one and a fallback of one when unknown.
+Omission uses hardware threads minus one, capped by the CPUs available to the process, with a
+minimum/fallback of one. Quota-only limits require an explicit count.
 For `interOpNumThreads`, omission or one preserves sequential graph execution.
 Zero enables parallel graph execution with an ONNX Runtime-managed inter-op
 pool; larger integers enable parallel execution with the requested pool size.

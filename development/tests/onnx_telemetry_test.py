@@ -45,6 +45,7 @@ class OnnxTelemetryTest(unittest.TestCase):
                 )
                 opchain["ops"] = [op for op in opchain["ops"]
                                   if op["id"] == "opk-onnx-ops/Inference"]
+                opchain["ops"][0]["attributes"].pop("intraOpNumThreads", None)
                 descriptor = directory / "opchain.json"
                 descriptor.write_text(json.dumps(opchain))
 
@@ -55,6 +56,8 @@ class OnnxTelemetryTest(unittest.TestCase):
                     "XDG_CACHE_HOME": str(directory / "cache"),
                     "GST_REGISTRY": str(directory / "registry.bin"),
                     "GST_PLUGIN_PATH": str(PLUGIN_DIRECTORY),
+                    "OPK_LOG_LEVEL": "info",
+                    "OPK_LOG_TARGETS": "stderr",
                     "LD_LIBRARY_PATH": os.pathsep.join(
                         (str(PLUGIN_DIRECTORY), os.environ.get("LD_LIBRARY_PATH", ""))
                     ),
@@ -65,10 +68,14 @@ class OnnxTelemetryTest(unittest.TestCase):
                     [shutil.which("gst-launch-1.0"), "-q", "videotestsrc", "num-buffers=1",
                      "!", "opkinfer", f"opchain-path={descriptor}", "!", "fakesink"],
                     env=environment, capture_output=True, text=True, timeout=20,
+                    preexec_fn=(lambda: os.sched_setaffinity(0, {min(os.sched_getaffinity(0))}))
+                    if sys.platform == "linux" else None,
                 )
                 self.assertNotEqual(result.returncode, 0)
                 # A missing model proves Ort::Env was created before model loading failed.
                 self.assertIn("File doesn't exist", result.stdout + result.stderr)
+                if sys.platform == "linux":
+                    self.assertIn("intraOpNumThreads=1 (", result.stdout + result.stderr)
                 self.assertEqual(list(directory.rglob("deviceid")), [])
                 self.assertEqual(list(directory.rglob("onnxruntime.db")), [])
 
