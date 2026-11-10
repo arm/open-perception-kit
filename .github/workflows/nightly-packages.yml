@@ -50,7 +50,7 @@ jobs:
         env:
           DEB_ARCH: ${{ matrix.deb_arch }}
         run: |
-          mkdir -p nightly-logs nightly-packages
+          mkdir -p nightly-logs nightly-packages nightly-models
           git rev-parse HEAD > nightly-logs/source-commit.txt
           cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
           echo "HF_DOWNLOAD_CACHEBUST=$cache_key" >> "$GITHUB_ENV"
@@ -68,6 +68,15 @@ jobs:
           container_id="$(docker create opk-nightly-deployment)"
           trap 'docker rm -f "$container_id" >/dev/null' EXIT
           docker cp "$container_id:/opt/opk-release-artifacts/." nightly-packages/
+          docker buildx build --load --progress=plain --target opk-models \
+            --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
+            --tag opk-nightly-models . 2>&1 | tee nightly-logs/models-image.txt
+          model_container_id="$(docker create opk-nightly-models)"
+          trap 'docker rm -f "$container_id" "$model_container_id" >/dev/null' EXIT
+          mkdir -p nightly-models/{ultraface-rfb-320,nitec-resnet-18-executorch}
+          for model in ultraface-rfb-320 nitec-resnet-18-executorch; do
+            docker cp "$model_container_id:/work/config/models/$model/." "nightly-models/$model/"
+          done
       - name: Build runtime and demo DEB packages
         if: matrix.kind == 'debian'
         run: |
@@ -78,6 +87,17 @@ jobs:
             --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
             --output type=local,dest=nightly-packages . \
             2>&1 | tee nightly-logs/debian-packages.txt
+      # Both formats use the same clean Debian base and common runtime checks.
+      # The script installs the DEBs or extracts the tarball according to the matrix.
+      - name: ${{ matrix.kind == 'debian' && 'Install and test DEB packages in a clean container' || 'Extract and test release tarball in a clean container' }}
+        env:
+          PACKAGE_KIND: ${{ matrix.kind }}
+        run: |
+          docker run --rm \
+            -v "$PWD/nightly-packages:/artifacts:ro" -v "$PWD:/source:ro" \
+            -v "$PWD/nightly-models:/models:ro" \
+            debian:trixie-slim bash /source/scripts/testing/nightly-deb-and-archive-smoke.sh "$PACKAGE_KIND" \
+            2>&1 | tee "nightly-logs/${PACKAGE_KIND}-package-smoke.txt"
       - name: Report remaining nightly coverage
         if: always()
         run: echo 'Comprehensive packaged SDK consumer tests are not yet implemented.' >> "$GITHUB_STEP_SUMMARY"
