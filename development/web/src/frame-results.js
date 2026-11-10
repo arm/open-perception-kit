@@ -81,11 +81,11 @@ function layer(payload, payloadType, detections) {
 function boxData(item) {
     return {
         ...objectData(item.object),
-        x: Number(item.box?.x || 0),
-        y: Number(item.box?.y || 0),
-        width: Number(item.box?.width || 0),
-        height: Number(item.box?.height || 0),
-        confidence: Number(item.confidence || 0),
+        x: Number(item.box?.x ?? 0),
+        y: Number(item.box?.y ?? 0),
+        width: Number(item.box?.width ?? 0),
+        height: Number(item.box?.height ?? 0),
+        confidence: Number(item.confidence ?? 0),
         classId: Number(item.classId ?? -1),
         text: text(item.text),
     };
@@ -93,7 +93,7 @@ function boxData(item) {
 
 function candidateData(candidate) {
     return {
-        confidence: Number(candidate.confidence || 0),
+        confidence: Number(candidate.confidence ?? 0),
         classId: Number(candidate.classId ?? -1),
         text: text(candidate.text),
         x: Number(candidate.x || 0),

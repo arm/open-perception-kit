@@ -657,3 +657,127 @@ test.describe('instance masks', () => {
     await expect.poll(sample).toEqual(clear);
   });
 });
+
+test.describe('OCR overlays', () => {
+  test.use({deviceScaleFactor: 2});
+
+  test('explicit sources, parent-linked Unicode text, geometry and saved OCR controls', async ({page}) => {
+    await page.routeWebSocket('**/ws', () => {});
+    await page.addInitScript(() => {
+      window.ocrText = [];
+      const fillText = CanvasRenderingContext2D.prototype.fillText;
+      const clearRect = CanvasRenderingContext2D.prototype.clearRect;
+      CanvasRenderingContext2D.prototype.clearRect = function (...args) {
+        if (this.canvas.id === 'clientOsdCanvas') window.ocrText = [];
+        return clearRect.apply(this, args);
+      };
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...args) {
+        if (this.canvas.id === 'clientOsdCanvas') window.ocrText.push({text, x, y, font: this.font});
+        return fillText.call(this, text, x, y, ...args);
+      };
+    });
+    await page.goto('/', {waitUntil: 'domcontentloaded'});
+    const emit = (options = {}) => page.evaluate(({live = false, detectorOnly = false, missing = false,
+      duplicate = false, text = 'PLATE 1234', score = 0.9, model = 'reader'} = {}) => {
+      const detector = {payloadType: 'BoxDetections', model: 'detector', contentType: '', detections: [{type: 'Rect', data: {
+        uuid: '200', parentUuid: '42', x: 80, y: 0, width: 160, height: 40, confidence: 0.8,
+      }}]};
+      const reader = {payloadType: 'Classifications', model, contentType: '', detections: [{type: 'Classification', data: {
+        uuid: '300', parentUuid: '200', candidates: [{text, confidence: score}],
+      }}]};
+      const frame = {layers: [
+        {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {uuid: '42', originalWidth: 640, originalHeight: 480}}]},
+        ...(!missing ? [detector] : []), ...(duplicate ? [detector] : []), ...(!detectorOnly ? [reader] : []),
+      ]};
+      Object.defineProperties(document.getElementById('video'), {
+        videoWidth: {configurable: true, value: 640}, videoHeight: {configurable: true, value: 480},
+      });
+      Object.defineProperties(document.getElementById('clientOsdCanvas'), {
+        clientWidth: {configurable: true, value: 800}, clientHeight: {configurable: true, value: 800},
+      });
+      window.dispatchEvent(new CustomEvent(live ? 'metadata-message' : 'video-frame-results', {
+        detail: live ? {frame_results: frame} : frame,
+      }));
+    }, options);
+    const texts = () => page.evaluate(() => window.ocrText.map(item => item.text));
+    const samples = () => page.locator('#clientOsdCanvas').evaluate(canvas => {
+      const context = canvas.getContext('2d');
+      return [[200, 230], [400, 250], [202, 308], [200, 50]].map(([x, y]) => [...context.getImageData(x, y, 1, 1).data]);
+    });
+    const clear = Array.from({length: 4}, () => [0, 0, 0, 0]);
+    await emit({live: true, detectorOnly: true});
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    await page.locator('#addOverlayBtn').click();
+    await page.locator('#overlayFeature').selectOption('ocr');
+    await expect(page.locator('#overlayOutput')).toBeVisible();
+    await expect(page.locator('#overlayOutput')).toHaveValue('');
+    await expect(page.locator('#saveOverlayBtn')).toBeDisabled();
+    await emit({live: true});
+    await page.locator('#overlayOutput').selectOption({label: 'reader'});
+    await page.locator('#saveOverlayBtn').click();
+    const card = page.locator('.overlay-card');
+    await card.locator('.overlay-toggle').click();
+    await expect.poll(texts).toEqual([]);
+    await expect.poll(samples).toEqual(clear);
+    await emit();
+    await expect.poll(texts).toEqual(['PLATE 1234']);
+    await expect.poll(samples).toEqual([[0, 255, 255, 255], [0, 0, 0, 0], [0, 0, 0, 199], [0, 0, 0, 0]]);
+    await emit({live: true, text: 'newer, unmatched'});
+    await expect.poll(texts).toEqual(['PLATE 1234']);
+    await card.getByLabel('Regions', {exact: true}).uncheck();
+    await expect.poll(async () => (await samples())[0][3]).toBe(0);
+    await expect.poll(texts).toEqual(['PLATE 1234']);
+    await card.getByLabel('Recognized text', {exact: true}).uncheck();
+    await expect.poll(texts).toEqual([]);
+    await card.getByLabel('Text confidence', {exact: true}).check();
+    await expect.poll(texts).toEqual(['Text: 90.0%']);
+    await card.getByLabel('Region confidence', {exact: true}).check();
+    await expect.poll(texts).toEqual(['Region: 80.0% · Text: 90.0%']);
+    await emit({text: '', score: 0});
+    await expect.poll(texts).toEqual(['Region: 80.0% · Text: 0.0%']);
+    await card.getByLabel('Region confidence', {exact: true}).uncheck();
+    await expect.poll(texts).toEqual(['Text: 0.0%']);
+    await card.getByLabel('Text confidence', {exact: true}).uncheck();
+    await card.getByLabel('Recognized text', {exact: true}).check();
+    await card.getByLabel('Regions', {exact: true}).check();
+    await card.getByLabel('Text size', {exact: true}).selectOption('24');
+    await emit({text: '東京 <img src=x onerror="window.injected=true"> ' + '文'.repeat(1000)});
+    await expect.poll(() => page.evaluate(() => window.ocrText[0]?.font)).toBe('24px monospace');
+    await expect.poll(() => page.evaluate(() => window.ocrText[0]?.text.endsWith('…'))).toBe(true);
+    expect(await page.evaluate(() => window.injected)).toBeUndefined();
+    await expect(page.locator('img[src="x"]')).toHaveCount(0);
+    expect(await page.evaluate(() => window.ocrText.every(item => item.x >= 0 && item.x < 800 && item.y >= 100 && item.y < 700))).toBe(true);
+    await emit({missing: true});
+    await expect(card).toContainText('Waiting for parent boxes');
+    await expect.poll(texts).toEqual([]);
+    await expect.poll(samples).toEqual(clear);
+    await emit({duplicate: true});
+    await expect(card).toContainText('Ambiguous');
+    await expect.poll(texts).toEqual([]);
+    await emit({model: 'other reader'});
+    await expect(card).toContainText('Waiting for source');
+    await expect.poll(samples).toEqual(clear);
+    await card.getByLabel('Region confidence', {exact: true}).check();
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    await card.locator('.overlay-toggle').click();
+    await expect(card.getByLabel('Text size', {exact: true})).toHaveValue('24');
+    await expect(card.getByLabel('Region confidence', {exact: true})).toBeChecked();
+    await expect(card.getByLabel('Text confidence', {exact: true})).not.toBeChecked();
+    await emit();
+    await expect.poll(texts).toEqual(['PLATE 1234 · Region: 80.0%']);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('video-frame-results', {detail: null})));
+    await expect.poll(texts).toEqual([]);
+    await expect.poll(samples).toEqual(clear);
+    await card.getByRole('button', {name: 'Change source…', exact: true}).click();
+    await page.locator('#overlayOutput').selectOption({label: 'detector'});
+    await page.locator('#saveOverlayBtn').click();
+    await emit();
+    await expect.poll(texts).toEqual([]);
+    await card.getByLabel('Region confidence', {exact: true}).check();
+    await card.getByLabel('Text confidence', {exact: true}).check();
+    await expect.poll(texts).toEqual(['Region: 80.0%']);
+    await card.locator('.overlay-remove').click();
+    await expect.poll(samples).toEqual(clear);
+  });
+});
