@@ -4,6 +4,8 @@
 name: Nightly builds (build coverage)
 
 on:
+  push:
+    branches: [test/EXPKITS-1514-nightly-once]
   schedule:
     - cron: '0 1 * * *'
   workflow_dispatch:
