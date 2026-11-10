@@ -62,14 +62,14 @@ class VoiceActivityDetection(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+        return None
 
     # VoiceActivityDetection
     def SpeechActive(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
-        return False
+        return None
 
     # VoiceActivityDetection
     def WindowStartSample(self):
@@ -124,7 +124,7 @@ def AddObject(builder, object):
 
 
 def VoiceActivityDetectionAddSpeechProbability(builder, speechProbability):
-    builder.PrependFloat32Slot(1, speechProbability, 0.0)
+    builder.PrependFloat32Slot(1, speechProbability, None)
 
 
 def AddSpeechProbability(builder, speechProbability):
@@ -132,7 +132,7 @@ def AddSpeechProbability(builder, speechProbability):
 
 
 def VoiceActivityDetectionAddSpeechActive(builder, speechActive):
-    builder.PrependBoolSlot(2, speechActive, 0)
+    builder.PrependBoolSlot(2, speechActive, None)
 
 
 def AddSpeechActive(builder, speechActive):
@@ -199,8 +199,8 @@ class VoiceActivityDetectionT(object):
     def __init__(
         self,
         object=None,
-        speechProbability=0.0,
-        speechActive=False,
+        speechProbability=None,
+        speechActive=None,
         windowStartSample=0,
         windowEndSample=0,
         windowStartTsNs=None,
@@ -209,8 +209,8 @@ class VoiceActivityDetectionT(object):
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
-        self.speechProbability = speechProbability  # type: float
-        self.speechActive = speechActive  # type: bool
+        self.speechProbability = speechProbability  # type: Optional[float]
+        self.speechActive = speechActive  # type: Optional[bool]
         self.windowStartSample = windowStartSample  # type: int
         self.windowEndSample = windowEndSample  # type: int
         self.windowStartTsNs = windowStartTsNs  # type: Optional[int]

@@ -46,8 +46,10 @@ struct Fixture {
         auto result = parser.parse(input, results);
         EXPECT_TRUE(result) << (result ? "" : result.error().toString());
         bool active = false;
-        results.for_each<Payload>(
-            [&](const auto &payload) { active = payload.detections[0]->speech_active; });
+        results.for_each<Payload>([&](const auto &payload) {
+            EXPECT_TRUE(payload.detections[0]->speech_active.has_value());
+            active = payload.detections[0]->speech_active.value_or(false);
+        });
         input.inferenceInfo.audio.windowStartSample += input.inferenceInfo.audio.hopSampleCount;
         input.inferenceInfo.audio.windowEndSample += input.inferenceInfo.audio.hopSampleCount;
         if (!input.inferenceInfo.audio.windowStartTimestampNs.has_value() ||
@@ -78,7 +80,7 @@ TEST(SileroVadParser, UsesProbabilitiesAndCountsConsecutiveHopSamples) {
     size_t count = 0;
     f.results.for_each<Payload>([&](const auto &payload) {
         if (count++ == 0) {
-            EXPECT_FLOAT_EQ(payload.detections[0]->speech_probability, 0.9f);
+            EXPECT_FLOAT_EQ(payload.detections[0]->speech_probability.value_or(-1), 0.9f);
             EXPECT_EQ(payload.layer->content_type, "voiceActivity");
         }
     });

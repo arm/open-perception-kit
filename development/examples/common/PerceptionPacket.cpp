@@ -82,6 +82,10 @@ bool validateKnownPayloadBlob(const open_perception_kit::internalfb::WirePayload
                               std::string &error) {
     return validatePayloadBlobAsType<open_perception_kit::metadata::BoxDetectionsT>(
                payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<open_perception_kit::metadata::VoiceActivityDetectionsT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<open_perception_kit::metadata::TurnDetectionsT>(
+               payload, payloadIndex, error) ||
            validatePayloadBlobAsType<open_perception_kit::metadata::CameraContactsT>(
                payload, payloadIndex, error) ||
            validatePayloadBlobAsType<open_perception_kit::metadata::PersonPresencesT>(

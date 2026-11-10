@@ -195,7 +195,15 @@ class ElementPropertiesTest(unittest.TestCase):
                          self.Gst.State.PLAYING)
         comm = pipeline.get_by_name("comm")
         comm.set_property("file-name", str(invalid))
-        message = pipeline.get_bus().timed_pop_filtered(self.Gst.SECOND, self.Gst.MessageType.ERROR)
+        # Streaming can observe the failed writer before the setter posts its
+        # specific error. Require that error, without assuming cross-thread order.
+        deadline = time.monotonic() + STATE_TIMEOUT_SECONDS
+        message = None
+        while time.monotonic() < deadline:
+            remaining = max(0, int((deadline - time.monotonic()) * self.Gst.SECOND))
+            message = pipeline.get_bus().timed_pop_filtered(remaining, self.Gst.MessageType.ERROR)
+            if message is None or message.src == comm:
+                break
         self.assertIsNotNone(message)
         self.assertEqual(message.src, comm)
         self.assertIn("file-name", message.parse_error()[1])

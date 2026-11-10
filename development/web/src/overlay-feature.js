@@ -62,6 +62,8 @@ export function defineFeature({controls = STYLE_CONTROLS, defaults = {}, resolve
             if (reason) return {state: 'unsupported', message: reason};
             const output = index.outputs.get(sourceKey(selection.primary));
             if (!output) return {state: 'waiting', message: 'Waiting for source'};
+            if (output.layers.some(layer => layer.status === 'invalid'))
+                return {state: 'unsupported', message: 'Source contains invalid result data.', output, items: []};
             return resolve({state: 'ready', message: '', output, items: output.items}, index, settings);
         },
     };

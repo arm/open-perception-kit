@@ -63,41 +63,50 @@ const std::string &OpChain::getRuntime() const {
     return this->runtime;
 }
 
-std::vector<std::string_view> OpChain::getProvidedContentTypes() const {
-    std::vector<std::string_view> result;
-    for (const auto *op : opPtrs) {
-        const auto *contentOp = op->as<OpInterfacePostprocessor>();
+namespace {
+
+template <typename Interface, typename Getter>
+std::vector<opk::OutputCapability> collectOutputs(std::span<opk::op::Op *const> ops,
+                                                  Getter getter) {
+    std::vector<opk::OutputCapability> result;
+    for (const auto *op : ops) {
+        const auto *contentOp = op->as<Interface>();
         if (contentOp == nullptr)
             continue;
-        for (const auto contentType : contentOp->getProvidedContentTypes()) {
-            if (!contentType.empty() && std::ranges::find(result, contentType) == result.end())
-                result.push_back(contentType);
+        for (const auto &output : getter(*contentOp)) {
+            if (!output.payloadType.empty() && std::ranges::find(result, output) == result.end())
+                result.push_back(output);
         }
     }
     return result;
 }
 
-std::vector<std::string_view> OpChain::getRequiredContentTypes() const {
-    std::vector<std::string_view> required;
-    std::vector<std::string_view> provided;
+} // namespace
+
+std::vector<opk::OutputCapability> OpChain::getProvidedOutputs() const {
+    return collectOutputs<OpInterfacePostprocessor>(
+        opPtrs, [](const auto &op) { return op.getProvidedOutputs(); });
+}
+
+std::vector<opk::OutputCapability> OpChain::getRequiredOutputs() const {
+    std::vector<opk::OutputCapability> result, earlier;
     for (const auto *op : opPtrs) {
-        if (const auto *consumer = op->as<OpInterfaceContentConsumer>()) {
-            for (const auto contentType : consumer->getRequiredContentTypes()) {
-                if (!contentType.empty() &&
-                    std::ranges::find(provided, contentType) == provided.end() &&
-                    std::ranges::find(required, contentType) == required.end())
-                    required.push_back(contentType);
+        if (const auto *consumer = op->as<OpInterfaceResultConsumer>()) {
+            for (const auto &required : consumer->getRequiredOutputs()) {
+                if (!required.payloadType.empty() &&
+                    !std::ranges::any_of(
+                        earlier,
+                        [&](const auto &output) { return opk::provides(output, required); }) &&
+                    std::ranges::find(result, required) == result.end())
+                    result.push_back(required);
             }
         }
         if (const auto *producer = op->as<OpInterfacePostprocessor>()) {
-            for (const auto contentType : producer->getProvidedContentTypes()) {
-                if (!contentType.empty() &&
-                    std::ranges::find(provided, contentType) == provided.end())
-                    provided.push_back(contentType);
-            }
+            const auto outputs = producer->getProvidedOutputs();
+            earlier.insert(earlier.end(), outputs.begin(), outputs.end());
         }
     }
-    return required;
+    return result;
 }
 
 opk::Result<size_t> OpChain::getRequiredAudioSamples() const {

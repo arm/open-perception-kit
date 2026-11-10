@@ -79,6 +79,16 @@ changing a script.
 `instanceId` is optional, but assigning one gives payloads a stable producer
 identity even if the operation order changes.
 
+With an OpChain v1 reader supporting `1.10.0`, scripts can explicitly declare
+`providedOutputs` and `requiredOutputs` in their attributes. Entries have
+`payloadType` (the fully qualified SDK root, for example
+`open_perception_kit.metadata.BoxDetections`) and optional `role` (for example
+`humanFace`). Only declare outputs the script actually publishes. An omitted
+declaration is not inferred from a filename, model name or script contents.
+An empty required role accepts any role of that root; it never matches another
+payload family. The declarations support dependency activation and model
+inspection, not automatic conversion of external JSON into SDK payloads.
+
 Place the operation after inference to receive output tensors. It may also be
 used elsewhere in the chain, in which case `tensors` is empty when no inference
 outputs are available. A PythonScript operation may be the terminal

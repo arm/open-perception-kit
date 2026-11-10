@@ -487,9 +487,7 @@ Result<void> YoloXParser::parse(const opk::TensorParser::Input &input,
                                             .producer = &input.producerInfo});
     appendDetections(
         dets, settings, geometry, input.inferenceInfo.image, input.inferenceInfo.parentId, payload);
-    if (!payload.detections.empty()) {
-        results.add(std::move(payload));
-    }
+    results.add(std::move(payload));
 
     return {};
 }
