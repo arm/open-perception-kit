@@ -380,7 +380,9 @@ The native opacity compositor retains its existing tint and binary background
 threshold of 150; the browser background feature retains graded alpha and its
 existing style controls. These are visualization policies, not transport meanings.
 The browser decoder and terminal inspection support all mask roots. Semantic and
-instance overlay controls are separate feature work, not introduced by this slice.
+instance overlays use these declared image regions and label identities, with
+per-class controls, explicit void handling and optional instance annotations.
+See [the WebUI contract](../../development/web/README.md#semantic-segmentation).
 
 Plumber validates and compares all mask families, including malformed-reference
 failures. It checks normalized image regions at the existing geometry tolerance,
