@@ -1028,6 +1028,8 @@ ARG TARGETARCH
 
 WORKDIR /work
 COPY --from=opk-release-sources /work/development development
+COPY --from=opk-release-sources /work/generated generated
+COPY --from=opk-release-sources /work/config/schemas config/schemas
 COPY --from=opk-release-sources /work/requirements/build.json requirements/build.json
 COPY --from=opk-release-sources /work/LICENSE /work/NOTICE ./
 COPY --from=opk-release-sources /work/docs/third-party-licenses.md docs/third-party-licenses.md
