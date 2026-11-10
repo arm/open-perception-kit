@@ -522,6 +522,27 @@ test('OCR wire payloads preserve recognized text, explicit subjects and invalid 
     assert.ok(Number.isNaN(decoded.layers[1].detections[0].data.candidates[0].confidence));
 });
 
+test('OCR projects normalized ROI subjects without parent frames and preserves absent text confidence', () => {
+    const envelope = new Envelope();
+    const subject = 9007199254740993n;
+    envelope.add(new BoxDetectionsT(1, 0, layer('arbitrary'), [
+        new BoxDetectionT(new ObjectMetaT(subject), new BoundingBoxT(.25, .125, .5, .5,
+            new ImageSpaceT(42n, 640, 480, 100, 50, 200, 100), CoordinateUnits.Normalized), .8),
+    ]));
+    envelope.add(new ClassificationsT(1, 0, layer('custom-reader'), [
+        new ClassificationT(new ObjectMetaT(2n, 999n), [new ClassificationCandidateT(null, null, 'ROI 東京')],
+            null, ClassificationKind.RecognizedText, subject),
+    ]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    const reader = frame.layers.find(item => item.payloadType === 'Classifications');
+    const resolved = resolveOverlay(indexFrame(frame), createOverlay('ocr', outputSource(reader)));
+    assert.equal(resolved.state, 'ready');
+    assert.deepEqual(resolved.regions[0].box, {x: 150, y: 62.5, width: 100, height: 50});
+    assert.equal(resolved.regions[0].text, 'ROI 東京');
+    assert.equal(resolved.regions[0].recognitionScore, null);
+});
+
 test('audio roots preserve unavailable values, zero PTS and false decisions without role guessing', () => {
     const envelope = new Envelope();
     envelope.add(new FrameContextT(1, 0, layer('custom'), null,
