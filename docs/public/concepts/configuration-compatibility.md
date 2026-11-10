@@ -327,3 +327,10 @@ field and behavior migration before changing the version number.
 After migrating, run the repository checker, dry-run the pipeline, and then run
 it with the intended model artifacts and inputs. Keep the original files and
 matching runtime available until the migrated pipeline has been verified.
+
+### RetinaFace postprocessing
+
+OpChain reader schema `1.8.0` adds `RetinaFaceParser` with confidence and IoU
+thresholds. It emits face boxes in frame pixels. Rebuild native readers before
+using the new parser; older readers can warn about a minor mismatch and then
+reject it. Existing configurations need no edits.

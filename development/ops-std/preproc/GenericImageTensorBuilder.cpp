@@ -24,6 +24,7 @@
 #include <fmt/core.h>
 #include <magic_enum/magic_enum.hpp>
 
+#include <algorithm>
 #include <string>
 
 using namespace opk::stdop::preproc;
@@ -239,6 +240,27 @@ std::string describeConversion(const opk::ImageOpDesc &source,
 
 opk::Result<void>
 opk::stdop::preproc::GenericImageTensorBuilder::build(const TensorBuilder::Setup &setup) {
+    if (setup.imageDestinationDesc.kind == opk::DataKind::ImageBgrChw &&
+        setup.imageDestinationDesc.type == opk::Dtype::Float32) {
+        auto rgbSetup = setup;
+        rgbSetup.imageDestinationDesc.kind = opk::DataKind::ImageRgbChw;
+        std::swap(rgbSetup.imageSourceDesc.mean.r, rgbSetup.imageSourceDesc.mean.b);
+        std::swap(rgbSetup.imageSourceDesc.std.r, rgbSetup.imageSourceDesc.std.b);
+        const auto &destination = setup.imageDestinationDesc;
+        if (!destination.rectIsFullSurface()) {
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData,
+                          "ImageBgrChw preprocessing requires a full destination surface"));
+        }
+        auto result = build(rgbSetup);
+        if (!result)
+            return result;
+        // Reuse the existing format-specific RGB kernels and normalization.
+        auto *const data = opk::mutablePlaneData<float>(destination.planes[0]);
+        const size_t planeSize = destination.surfaceWidth * destination.surfaceHeight;
+        std::swap_ranges(data, data + planeSize, data + 2 * planeSize);
+        return {};
+    }
     for (const auto &mapping : kKernelMappings) {
         if (!matches(mapping, setup.imageSourceDesc, setup.imageDestinationDesc)) {
             continue;

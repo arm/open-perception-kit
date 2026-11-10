@@ -31,6 +31,7 @@ stdops = shared_module(
     'postproc/Yolo26SemanticSegmentationParser.cpp',
     'postproc/YoloXParser.cpp',
     'postproc/UltrafaceParser.cpp',
+    'postproc/RetinaFaceParser.cpp',
     'postproc/PaddleocrParser.cpp',
     'postproc/PaddleOcrDbDetectionParser.cpp',
     'postproc/PaddleOcrRecognitionParser.cpp',

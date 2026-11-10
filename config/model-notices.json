@@ -102,5 +102,9 @@
   "yolo26s-640-README.md": {
     "url": "https://huggingface.co/Arm/yolo26s-640-int8-onnx-raspberrypi5/raw/7ec6a1e0269ef93063dca29805933c632637049b/README.md",
     "sha256": "d00d0b5d1099828d3da4b16ce9cf76b276ca665624c29b53d969eb8755d467c7"
+  },
+  "retinaface-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/yakhyo/retinaface-pytorch/97a0b04622a90f6bc4b40c1305c206260ec90b5a/LICENSE",
+    "sha256": "a4f7998feb5c90555daae4329db61caf7049e6b2706991dc1d9eb2a0923847ae"
   }
 }

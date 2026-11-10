@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "name": "RetinaFaceResNet341920x1080",
+  "displayName": "RetinaFace ResNet34 1920x1080 FP32",
+  "task": "Face detection",
+  "runtime": "ONNX CPU",
+  "description": "Detect faces using the upstream RetinaFace ONNX model.",
+  "execution": {"preprocessing": "cpu"},
+  "ops": [
+    {"id": "opk-std-ops/InferenceController", "attributes": {}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {}},
+    {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "model-1920x1080.json", "intraOpNumThreads": 3, "interOpNumThreads": 1}},
+    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "RetinaFaceParser", "confidenceThreshold": 0.6, "iouThreshold": 0.4}}
+  ]
+}
