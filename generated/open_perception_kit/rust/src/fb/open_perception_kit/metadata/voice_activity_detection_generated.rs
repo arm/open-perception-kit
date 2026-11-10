@@ -70,12 +70,16 @@ impl<'a> VoiceActivityDetection<'a> {
         }
         builder.add_window_end_sample(args.window_end_sample);
         builder.add_window_start_sample(args.window_start_sample);
-        builder.add_speech_probability(args.speech_probability);
+        if let Some(x) = args.speech_probability {
+            builder.add_speech_probability(x);
+        }
         if let Some(x) = args.object {
             builder.add_object(x);
         }
         builder.add_discontinuity(args.discontinuity);
-        builder.add_speech_active(args.speech_active);
+        if let Some(x) = args.speech_active {
+            builder.add_speech_active(x);
+        }
         builder.finish()
     }
 
@@ -113,25 +117,23 @@ impl<'a> VoiceActivityDetection<'a> {
         }
     }
     #[inline]
-    pub fn speech_probability(&self) -> f32 {
+    pub fn speech_probability(&self) -> Option<f32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<f32>(VoiceActivityDetection::VT_SPEECH_PROBABILITY, Some(0.0))
-                .unwrap()
+                .get::<f32>(VoiceActivityDetection::VT_SPEECH_PROBABILITY, None)
         }
     }
     #[inline]
-    pub fn speech_active(&self) -> bool {
+    pub fn speech_active(&self) -> Option<bool> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<bool>(VoiceActivityDetection::VT_SPEECH_ACTIVE, Some(false))
-                .unwrap()
+                .get::<bool>(VoiceActivityDetection::VT_SPEECH_ACTIVE, None)
         }
     }
     #[inline]
@@ -215,8 +217,8 @@ impl flatbuffers::Verifiable for VoiceActivityDetection<'_> {
 }
 pub struct VoiceActivityDetectionArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
-    pub speech_probability: f32,
-    pub speech_active: bool,
+    pub speech_probability: Option<f32>,
+    pub speech_active: Option<bool>,
     pub window_start_sample: u64,
     pub window_end_sample: u64,
     pub window_start_ts_ns: Option<u64>,
@@ -228,8 +230,8 @@ impl<'a> Default for VoiceActivityDetectionArgs<'a> {
     fn default() -> Self {
         VoiceActivityDetectionArgs {
             object: None,
-            speech_probability: 0.0,
-            speech_active: false,
+            speech_probability: None,
+            speech_active: None,
             window_start_sample: 0,
             window_end_sample: 0,
             window_start_ts_ns: None,
@@ -254,19 +256,15 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> VoiceActivityDetectionBuilder<'
     }
     #[inline]
     pub fn add_speech_probability(&mut self, speech_probability: f32) {
-        self.fbb_.push_slot::<f32>(
+        self.fbb_.push_slot_always::<f32>(
             VoiceActivityDetection::VT_SPEECH_PROBABILITY,
             speech_probability,
-            0.0,
         );
     }
     #[inline]
     pub fn add_speech_active(&mut self, speech_active: bool) {
-        self.fbb_.push_slot::<bool>(
-            VoiceActivityDetection::VT_SPEECH_ACTIVE,
-            speech_active,
-            false,
-        );
+        self.fbb_
+            .push_slot_always::<bool>(VoiceActivityDetection::VT_SPEECH_ACTIVE, speech_active);
     }
     #[inline]
     pub fn add_window_start_sample(&mut self, window_start_sample: u64) {
@@ -341,8 +339,8 @@ impl core::fmt::Debug for VoiceActivityDetection<'_> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct VoiceActivityDetectionT {
     pub object: Option<Box<ObjectMetaT>>,
-    pub speech_probability: f32,
-    pub speech_active: bool,
+    pub speech_probability: Option<f32>,
+    pub speech_active: Option<bool>,
     pub window_start_sample: u64,
     pub window_end_sample: u64,
     pub window_start_ts_ns: Option<u64>,
@@ -353,8 +351,8 @@ impl Default for VoiceActivityDetectionT {
     fn default() -> Self {
         Self {
             object: None,
-            speech_probability: 0.0,
-            speech_active: false,
+            speech_probability: None,
+            speech_active: None,
             window_start_sample: 0,
             window_end_sample: 0,
             window_start_ts_ns: None,

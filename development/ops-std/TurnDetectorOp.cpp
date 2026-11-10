@@ -16,6 +16,7 @@
  */
 
 #include "TurnDetectorOp.h"
+#include "opk/AudioResults.h"
 
 #include <algorithm>
 
@@ -42,6 +43,7 @@ opk::Result<void> TurnDetectorOp::configure(const opk::AttributeMap &attributes)
     retrySamples = static_cast<uint64_t>(retryMs) * opk::PcmRingBuffer::frequency / 1000;
     maxAttempts = static_cast<size_t>(count);
     inference = nullptr;
+    vadProducer = nullptr;
     history.reset();
     nextPosition.reset();
     lastSpeechEnd.reset();
@@ -63,8 +65,11 @@ opk::Result<void> TurnDetectorOp::bind(const size_t index, const std::vector<opk
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                       "TurnDetector requires adjacent VAD postprocess/inference"));
-    const auto provided = post->getProvidedContentTypes();
-    if (std::ranges::find(provided, "voiceActivity") == provided.end())
+    const auto provided = post->getProvidedOutputs();
+    const auto required =
+        opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>();
+    if (!std::ranges::any_of(provided,
+                             [&](const auto &output) { return opk::provides(output, required); }))
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                                         "TurnDetector requires preceding voiceActivity output"));
 
@@ -90,6 +95,7 @@ opk::Result<void> TurnDetectorOp::bind(const size_t index, const std::vector<opk
     history = std::make_unique<opk::PcmRingBuffer>(samples);
     reset(0);
     inference = next;
+    vadProducer = ops[index - 1];
     return {};
 }
 
@@ -108,16 +114,24 @@ opk::Result<bool> TurnDetectorOp::findSpeech(const opk::op::OpChainContext &cont
     // and producer instead of reading the first/last voiceActivity payload blindly.
     std::optional<bool> speech;
     size_t matches = 0;
+    const auto producer = vadProducer->producerInfo(
+        context.inferenceInfo.inferElementId, "", "opk-std-ops/GenericPostprocess");
     context.frameResults->for_each<open_perception_kit::metadata::VoiceActivityDetectionsT>(
         [&](const auto &payload) {
-            if (!payload.layer || payload.layer->model != vadModel ||
+            if (!payload.layer || !payload.layer->producer ||
+                payload.layer->producer->instance_id != producer.instance_id ||
+                payload.layer->producer->component != producer.component ||
+                payload.layer->model != vadModel ||
                 payload.layer->infer_element_id != context.inferenceInfo.inferElementId)
                 return;
             for (const auto &detection : payload.detections) {
                 if (detection && detection->window_start_sample == audio.windowStartSample &&
                     detection->window_end_sample == audio.windowEndSample) {
-                    speech = detection->speech_active;
                     ++matches;
+                    if (opk::audio_results::valid(*detection))
+                        speech = detection->speech_active;
+                    else
+                        speech.reset();
                 }
             }
         });
@@ -196,7 +210,7 @@ opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &
     const auto invalid = [](const char *const message) -> opk::Result<OpSignal> {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData, message));
     };
-    if (!inference || !history || !context.frameResults)
+    if (!inference || !vadProducer || !history || !context.frameResults)
         return invalid("TurnDetector is not bound or has no FrameResults");
     const auto *const window = context.getPcmView(inputAudioSourceName);
     const auto &audio = context.inferenceInfo.audio;

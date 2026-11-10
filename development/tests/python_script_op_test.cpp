@@ -249,6 +249,31 @@ TEST(PythonScriptOp, PreservesStateAndExposesReadOnlyTensors) {
     ASSERT_TRUE(script.process(context));
 }
 
+TEST(PythonScriptOp, DeclaresTypedOutputsWithoutGuessingFromTheScriptName) {
+    opk::python::PythonScriptOp script;
+    auto configuration = attributes("empty_tensors.py");
+    ASSERT_TRUE(script.configure(configuration));
+    EXPECT_TRUE(script.getProvidedOutputs().empty());
+    auto output = std::make_shared<opk::AttributeMap>();
+    output->set("payloadType", "open_perception_kit.metadata.BoxDetections")
+        .set("role", "humanFace");
+    auto required = std::make_shared<opk::AttributeMap>();
+    required->set("payloadType", "open_perception_kit.metadata.VoiceActivityDetections");
+    configuration.setArray("providedOutputs",
+                           opk::AttributeValue::Array{opk::AttributeValue(output)});
+    configuration.setArray("requiredOutputs",
+                           opk::AttributeValue::Array{opk::AttributeValue(required)});
+    ASSERT_TRUE(script.configure(configuration));
+    EXPECT_EQ(
+        script.getProvidedOutputs(),
+        std::vector<opk::OutputCapability>{
+            opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>("humanFace")});
+    EXPECT_EQ(
+        script.getRequiredOutputs(),
+        std::vector<opk::OutputCapability>{
+            opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>()});
+}
+
 TEST(PythonScriptOp, AllowsPlacementWithoutInferenceOutputs) {
     opk::python::PythonScriptOp script;
     std::vector<opk::op::Op *> ops = {&script};

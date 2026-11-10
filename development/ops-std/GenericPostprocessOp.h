@@ -84,7 +84,7 @@ class GenericPostprocessOp : public opk::op::Op, public opk::op::OpInterfacePost
      * @return Result indicating success or binding error.
      */
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
-    std::vector<std::string_view> getProvidedContentTypes() const override;
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override;
 
   private:
     std::unique_ptr<opk::TensorParser> parser;

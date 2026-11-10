@@ -37,6 +37,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMas
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
 from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
 from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
+from open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements import PerformanceMeasurementsT
 
 
 @dataclass(frozen=True, order=True)
@@ -60,7 +61,8 @@ class PayloadSnapshot:
 class FrameResultsSnapshot:
     frame_counter: int | None
     payloads: dict[PayloadKey, PayloadSnapshot]
-    object_index: dict[int, tuple[PayloadKey, dict[str, Any]]]
+    handled_payloads: int = 0
+    unhandled_payloads: int = 0
 
 
 def _text(value: Any) -> str:
@@ -215,15 +217,11 @@ def _add_payload_items(
     layer_info: Any,
     items: list[dict[str, Any]],
 ) -> None:
+    snapshot.handled_payloads += 1
     payload_snapshot = snapshot.payloads.setdefault(
         key, PayloadSnapshot(key=key, layer_info=_layer_info_dict(layer_info))
     )
     payload_snapshot.items.extend(items)
-
-    for item in items:
-        object_id = item.get("data", {}).get("id", 0)
-        if isinstance(object_id, int) and object_id != 0:
-            snapshot.object_index[object_id] = (key, item)
 
 
 def _normalize_box_detection(box_detection: Any) -> dict[str, Any]:
@@ -252,6 +250,7 @@ def _normalize_classification(classification: Any) -> dict[str, Any]:
         for candidate in classification.candidates or []
         if candidate is not None
     ]
+    data["invalidCandidates"] = any(candidate is None for candidate in classification.candidates or [])
     return {
         "item_type": "Classification",
         "data": data,
@@ -290,8 +289,8 @@ def _normalize_person_presence(person_presence: Any) -> dict[str, Any]:
 def _normalize_voice_activity(detection: Any) -> dict[str, Any]:
     data = _object_data(detection.object)
     data.update({
-        "speechProbability": float(detection.speechProbability),
-        "speechActive": bool(detection.speechActive),
+        "speechProbability": None if detection.speechProbability is None else float(detection.speechProbability),
+        "speechActive": detection.speechActive,
         "windowStartSample": int(detection.windowStartSample),
         "windowEndSample": int(detection.windowEndSample),
         "windowStartTsNs": detection.windowStartTsNs,
@@ -304,8 +303,8 @@ def _normalize_voice_activity(detection: Any) -> dict[str, Any]:
 def _normalize_turn_detection(detection: Any) -> dict[str, Any]:
     data = _object_data(detection.object)
     data.update({
-        "turnProbability": float(detection.turnProbability),
-        "turnComplete": bool(detection.turnComplete),
+        "turnProbability": None if detection.turnProbability is None else float(detection.turnProbability),
+        "turnComplete": detection.turnComplete,
         "windowStartSample": int(detection.windowStartSample),
         "windowEndSample": int(detection.windowEndSample),
         "windowStartTsNs": detection.windowStartTsNs,
@@ -439,6 +438,7 @@ def _normalize_audio_frame(audio: Any) -> dict[str, Any]:
             "originalSampleCount": int(audio.originalSampleCount),
             "cutLeftSampleCount": int(audio.cutLeftSampleCount),
             "cutRightSampleCount": int(audio.cutRightSampleCount),
+            "presentationTsNs": audio.presentationTsNs,
         }
     )
     return {
@@ -476,7 +476,8 @@ def _normalize_payload_collection(
             snapshot,
             _payload_key(payload_type, payload.layer),
             payload.layer,
-            [normalize_item(item) for item in collection if item is not None],
+            [normalize_item(item) if item is not None else {
+                "item_type": "InvalidResult", "data": {}} for item in collection],
         )
 
 
@@ -516,7 +517,6 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
     snapshot = FrameResultsSnapshot(
         frame_counter=frame_counter,
         payloads={},
-        object_index={},
     )
     _normalize_frame_contexts(frame_results, snapshot)
     _normalize_payload_collection(
@@ -591,4 +591,6 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         if len({item["data"]["bitmap"].get("frameId") for item in masks}) > 1:
             for item in masks:
                 item["data"]["ambiguousFrame"] = True
+    snapshot.unhandled_payloads = frame_results.size() - snapshot.handled_payloads - \
+        frame_results.count(PerformanceMeasurementsT)
     return snapshot

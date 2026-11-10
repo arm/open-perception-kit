@@ -25,8 +25,8 @@ export declare class VoiceActivityDetection implements flatbuffers.IUnpackableOb
     static getRootAsVoiceActivityDetection(bb: flatbuffers.ByteBuffer, obj?: VoiceActivityDetection): VoiceActivityDetection;
     static getSizePrefixedRootAsVoiceActivityDetection(bb: flatbuffers.ByteBuffer, obj?: VoiceActivityDetection): VoiceActivityDetection;
     object(obj?: ObjectMeta): ObjectMeta | null;
-    speechProbability(): number;
-    speechActive(): boolean;
+    speechProbability(): number | null;
+    speechActive(): boolean | null;
     windowStartSample(): bigint;
     windowEndSample(): bigint;
     windowStartTsNs(): bigint | null;
@@ -42,19 +42,19 @@ export declare class VoiceActivityDetection implements flatbuffers.IUnpackableOb
     static addWindowEndTsNs(builder: flatbuffers.Builder, windowEndTsNs: bigint): void;
     static addDiscontinuity(builder: flatbuffers.Builder, discontinuity: boolean): void;
     static endVoiceActivityDetection(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createVoiceActivityDetection(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, speechProbability: number, speechActive: boolean, windowStartSample: bigint, windowEndSample: bigint, windowStartTsNs: bigint | null, windowEndTsNs: bigint | null, discontinuity: boolean): flatbuffers.Offset;
+    static createVoiceActivityDetection(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, speechProbability: number | null, speechActive: boolean | null, windowStartSample: bigint, windowEndSample: bigint, windowStartTsNs: bigint | null, windowEndTsNs: bigint | null, discontinuity: boolean): flatbuffers.Offset;
     unpack(): VoiceActivityDetectionT;
     unpackTo(_o: VoiceActivityDetectionT): void;
 }
 export declare class VoiceActivityDetectionT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
-    speechProbability: number;
-    speechActive: boolean;
+    speechProbability: number | null;
+    speechActive: boolean | null;
     windowStartSample: bigint;
     windowEndSample: bigint;
     windowStartTsNs: bigint | null;
     windowEndTsNs: bigint | null;
     discontinuity: boolean;
-    constructor(object?: ObjectMetaT | null, speechProbability?: number, speechActive?: boolean, windowStartSample?: bigint, windowEndSample?: bigint, windowStartTsNs?: bigint | null, windowEndTsNs?: bigint | null, discontinuity?: boolean);
+    constructor(object?: ObjectMetaT | null, speechProbability?: number | null, speechActive?: boolean | null, windowStartSample?: bigint, windowEndSample?: bigint, windowStartTsNs?: bigint | null, windowEndTsNs?: bigint | null, discontinuity?: boolean);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

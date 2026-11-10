@@ -186,6 +186,40 @@ SDK 1.0 intentionally changes the interpretation of previously misrendered
 normalized/crop-local boxes and comparisons. Correct full-frame pixel pipelines
 retain their placement; the same generated snapshot is required throughout.
 
+## Shared routing and result availability
+
+Model capabilities and dependencies use explicit payload roots plus optional
+roles, not content-type strings alone. The root is the generated fully qualified
+SDK name; a role narrows selection within that root. Native parsers declare the
+roots they publish, and trusted Python Ops can declare their inputs/outputs.
+An empty declaration list means no declared capability; it is not evidence that
+a script cannot publish data. Auxiliary source/performance metadata is separate
+from model-result capability advertising.
+
+Availability is represented by existing payload structure, without a guessed
+shared score or negative result:
+
+- A successfully executed collection producer publishes its typed payload even
+  when the collection is empty. Detector threshold/NMS filtering can produce a
+  valid empty `BoxDetections` payload.
+- An absent payload is not an empty success: it may be disabled, unscheduled,
+  gated, lacking eligible subjects, or unavailable. Skipped turn assessments do
+  not become negative turn decisions.
+- Missing optional measurements remain absent. Invalid records are not converted
+  into valid zeros, false decisions, or empty collections. Processing errors remain
+  errors rather than synthetic successes.
+- An explicit classification kind/namespace with an empty candidate list is an
+  empty result for its subject; unspecified kind/identity is not interchangeable.
+- Unsupported or malformed payload entries are preserved by generic transport,
+  reported as unhandled by browser inspection, and fail Plumber comparison unless
+  a comparator explicitly supports them. Performance diagnostics remain explicitly
+  excluded from semantic comparison.
+
+Browser adapters expose `available`, `empty` and `invalid` layer states and a
+count of unhandled entries. Invalid selected outputs are not rendered as empty
+successes. Plumber accounts for every payload entry, including empty collections;
+unknown protocols and malformed records cannot silently disappear into a match.
+
 ## Tracking observations and timed history
 
 `ObjectTrack.object.id` identifies one published observation. Persistent identity
@@ -506,10 +540,13 @@ tooling only and does not add Python postprocessors to production OpChains.
 `VoiceActivityDetections` (`VACT`) contains `VoiceActivityDetection` items and the
 standard `LayerInfo`/producer metadata. Its semantic content type is
 `voiceActivity`. Each item describes one inference window, not an utterance:
-`speech_probability` is the model score and `speech_active` is the decision after
+Optional `speech_probability` is the model score and optional `speech_active` is the decision after
 hysteresis and attack/release. `window_start_sample` and `window_end_sample`
 identify a half-open interval of mono 16 kHz samples since the latest stream
 reset. `discontinuity` marks the first window after a reset.
+Absent probability/decision values mean unavailable, not zero probability or
+inactive speech. Present zero and false remain valid. Shared consumers validate
+finite probabilities, nonempty sample ranges and ordered-or-absent timestamp pairs.
 
 Optional `window_start_ts_ns` and `window_end_ts_ns` describe the same interval
 on the source media presentation timeline (PTS), with resampler delay removed.
@@ -518,6 +555,9 @@ when source PTS is unknown, the window includes negative filter preroll, or the
 range cannot be represented. Timestamp zero is valid. Separate inference calls
 append separate payloads, including when one source buffer produces several
 windows. Consumers must iterate all payloads rather than reading only the first.
+Audio window comparisons use producer identity and the explicit window/measurement
+fields. An `ObjectMeta.parent_id` is derivation provenance and does not require
+the source buffer's observation to remain in the current packet.
 
 `VoiceActivityParser.{h,cpp}` owns tensor decoding, shared hysteresis and VAD
 payload production. New configurations explicitly supply `outputTensorIndex`
@@ -546,20 +586,17 @@ the effective audio hop. Decisions change only at window boundaries: the Silero
 profile's 50 ms delay with a 512-sample hop takes two calls (64 ms). State resets
 on `inferenceInfo.audio.discontinuity`; each parser instance owns its counters.
 
-This additive payload is included in OPK/SDK 0.1.3 under the approved
-release-specific version exception ([EXPKITS-1570](https://jira.arm.com/browse/EXPKITS-1570)).
-Existing payload roots and their identities are unchanged. Older SDKs cannot
-provide typed access to `VoiceActivityDetections`; consumers need the regenerated
-SDK. The generic envelope's unknown-payload behavior remains unchanged. No
-mixed-version typed compatibility is claimed.
+SDK 1.0 keeps this root identity and adopts explicit measurement availability.
+Producers and consumers use the same regenerated development snapshot. Native
+inspection, browser decoding and Plumber all handle the typed audio roots.
 
 ## Turn detection results
 
 `TurnDetections` (`TURN`) contains `TurnDetection` items with standard object,
 layer and producer metadata. Its semantic content type is `turnDetection`.
 `SmartTurnParser` appends one payload per model evaluation, including negative
-assessments and retries. `turn_probability` is the model's completion score in
-`[0,1]`; `turn_complete` is true when that score meets the configured `threshold`
+assessments and retries. Optional `turn_probability` is the model's completion score in
+`[0,1]`; optional `turn_complete` is true when that score meets the configured `threshold`
 (default 0.5). It is a model hint, not a final conversation-controller decision.
 The parser emits no diagnostic prints. Consumers iterate every payload rather
 than interpreting repeated positives as separate completed utterances.
@@ -573,15 +610,18 @@ marks the first assessment after initialization, stream discontinuity or a gap
 in the retained history. `TurnDetector` preserves this marker across skipped
 VAD hops until the next model assessment. A history gap need not restart the
 source sample counter; a stream reset does.
+Turn gating requires the exact bound VAD producer, configured model/inference
+element and current window. Duplicate or unusable matching results fail rather
+than selecting a first/last producer or inventing silence. The conversation
+example likewise rejects ambiguous producers/windows; valid confirmation and
+silence-timeout rules are unchanged.
 
 The conversation controller owns turn confirmation, deduplication, timeout
 fallback and STT submission. Neither this payload nor the parser implements
 those policies. Plumber normalizes and compares turn assessments using their
 decision, audio bounds, timestamps and probability.
 
-This additive root is included in OPK/SDK 0.1.3 under the same release-specific
-version exception. Existing payload roots and identities are unchanged. Typed access
-requires the regenerated C++, Python, Rust or TypeScript SDK; older SDKs retain
-their generic unknown-payload behavior. No mixed-version typed compatibility is
-claimed. Construction and serialization tests cover positive/negative results,
+The optional score/decision migration is part of the breaking, unreleased SDK 1.0
+contract. Root identities remain unchanged; generated bindings must be upgraded
+together. Construction and serialization tests cover positive/negative results,
 repeated assessments, empty payloads and optional/zero timestamps.

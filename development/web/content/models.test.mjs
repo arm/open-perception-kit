@@ -211,7 +211,7 @@ test("selector renders task and model details from descriptor metadata", () => {
     name: "YoloV11",
     runtime: "ONNX",
     task: "Object detection",
-    providedContentTypes: ["genericObject"],
+    providedOutputs: [{payloadType: "open_perception_kit.metadata.BoxDetections", role: "genericObject"}],
   };
 
   modelsManager.render([model]);
@@ -246,14 +246,14 @@ test("dependent models show their provider networks beside the toggle", () => {
       displayName: "L2CS MobileGaze",
       element_name: "opkinfer2",
       name: "GazeDetection",
-      requiredContentTypes: ["humanFace"],
+      requiredOutputs: [{payloadType: "open_perception_kit.metadata.BoxDetections", role: "humanFace"}],
     },
     {
       active: false,
       displayName: "UltraFace",
       element_name: "opkinfer1",
       name: "Ultraface",
-      providedContentTypes: ["humanFace"],
+      providedOutputs: [{payloadType: "open_perception_kit.metadata.BoxDetections", role: "humanFace"}],
       task: "Face detection",
     },
     {
@@ -261,7 +261,7 @@ test("dependent models show their provider networks beside the toggle", () => {
       displayName: "YOLOv11n",
       element_name: "opkinfer0",
       name: "YoloV11",
-      providedContentTypes: ["genericObject"],
+      providedOutputs: [{payloadType: "open_perception_kit.metadata.Classifications", role: "humanFace"}],
     },
   ]);
 
@@ -287,8 +287,8 @@ test("dependent models identify missing providers", () => {
     active: false,
     element_name: "opkinfer0",
     name: "GazeDetection",
-    providedContentTypes: "humanFace",
-    requiredContentTypes: ["", null, "humanFace"],
+    providedOutputs: "humanFace",
+    requiredOutputs: [null, {}, {payloadType: "open_perception_kit.metadata.BoxDetections", role: "humanFace"}],
   }]);
 
   const dependencyInfo = modelsContainer.children[0].querySelector(".model-dependency-info");

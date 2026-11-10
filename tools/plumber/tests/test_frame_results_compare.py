@@ -204,6 +204,72 @@ class FrameResultsCompareTests(unittest.TestCase):
                 self.assertTrue(compare_frame_results_frame(self.args, reference, frame(offset=1000, reverse=True))[0])
                 self.assertFalse(compare_frame_results_frame(self.args, reference, frame(swapped=True, offset=1000))[0])
 
+    def test_audio_windows_do_not_require_resident_derivation_parents(self):
+        from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetection import VoiceActivityDetectionT
+        from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
+        from open_perception_kit.fb.open_perception_kit.metadata.TurnDetection import TurnDetectionT
+        from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
+        for item_type, root_type, score, decision in (
+            (VoiceActivityDetectionT, VoiceActivityDetectionsT, "speechProbability", "speechActive"),
+            (TurnDetectionT, TurnDetectionsT, "turnProbability", "turnComplete"),
+        ):
+            def frame(parent, producer="audio/parser", **changes):
+                data = {score: 0, decision: False, "windowStartSample": 0, "windowEndSample": 512,
+                        "windowStartTsNs": 0, "windowEndTsNs": 32000000, **changes}
+                value = item_type(object=ObjectMetaT(id=1, parentId=parent), **data)
+                info = layer("audio", "audio0")
+                info.producer = ProducerInfoT(instanceId=producer, component="test", implementation="test")
+                envelope = FrameResults()
+                envelope.add(root_type(layer=info, detections=[value]))
+                return frame_results_frame(FrameResults(envelope.serialize()))
+
+            with self.subTest(root=root_type.__name__):
+                reference = frame(0)
+                self.assertTrue(compare_frame_results_frame(self.args, reference, frame(999))[0])
+                self.assertTrue(compare_frame_results_frame(self.args, frame(999), frame(123))[0])
+                unknown_time = frame(999, windowStartTsNs=None, windowEndTsNs=None)
+                self.assertTrue(compare_frame_results_frame(self.args, unknown_time, unknown_time)[0])
+                self.assertFalse(compare_frame_results_frame(
+                    self.args, reference, frame(999, producer="other/parser"))[0])
+                for changes in ({"windowEndSample": 1024}, {decision: True}, {score: .5},
+                                {"windowStartTsNs": None, "windowEndTsNs": None}):
+                    self.assertFalse(compare_frame_results_frame(self.args, reference, frame(999, **changes))[0])
+                for changes in ({score: None}, {score: float("nan")}, {decision: None},
+                                {"windowEndSample": 0}, {"windowStartTsNs": None}):
+                    invalid = frame(999, **changes)
+                    self.assertFalse(compare_frame_results_frame(self.args, invalid, invalid)[0])
+
+    def test_unsupported_payloads_do_not_disappear_into_a_successful_comparison(self):
+        from open_perception_kit.packet import external_key
+        opaque = FrameResults()
+        opaque.add(external_key("test:unsupported"), b"caller-owned protocol")
+        ok, message = compare_frame_results_frame(self.args, frame_results_frame(opaque), frame_results_frame(opaque))
+        self.assertFalse(ok)
+        self.assertIn("unsupported", message)
+        invalid = frame_results_frame(FrameResults(b"not a packet"))
+        self.assertFalse(compare_frame_results_frame(self.args, invalid, invalid)[0])
+        import flatbuffers
+        from open_perception_kit.internalfb.WireEnvelope import WireEnvelope, WireEnvelopeT
+        from open_perception_kit.sdk import ENVELOPE_FILE_IDENTIFIER
+        valid = frame_results_with_boxes()
+        wire = WireEnvelopeT.InitFromObj(WireEnvelope.GetRootAs(valid.serialize(), 0))
+        wire.payloads[0].blob = [0, 0, 0, 0]
+        builder = flatbuffers.Builder(256)
+        builder.Finish(wire.Pack(builder), file_identifier=ENVELOPE_FILE_IDENTIFIER)
+        malformed = FrameResults(bytes(builder.Output()))
+        self.assertTrue(malformed.valid())
+        self.assertFalse(compare_frame_results_frame(
+            self.args, frame_results_frame(malformed), frame_results_frame(malformed))[0])
+
+    def test_declared_empty_classification_is_distinct_from_missing_or_unavailable(self):
+        result = frame_results_with_boxes()
+        result.add(ClassificationsT(layer=layer("classification", "classifier"), classifications=[
+            ClassificationT(subjectId=1, kind=ClassificationKind.Categorical, labelSet="test:labels", candidates=[])]))
+        empty = frame_results_frame(FrameResults(result.serialize()))
+        self.assertTrue(compare_frame_results_frame(self.args, empty, empty)[0])
+        self.assertFalse(compare_frame_results_frame(self.args, empty,
+                         frame_results_frame(frame_results_with_boxes()))[0])
+
     def test_embeddings_require_declared_compatible_spaces_and_usable_values(self):
         def make(values, space_id="test:a", dimensions=None, metric=EmbeddingMetric.Cosine):
             result = frame_results_with_boxes((2, 10, 10, 20, 20))

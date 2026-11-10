@@ -5416,6 +5416,22 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616
     return py_long_from_unsigned(value->cut_right_sample_count);
 }
 
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_n70726573656e746174696f6e5f74735f6e73(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::AudioFrameContextT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (!value->presentation_ts_ns) {
+        Py_RETURN_NONE;
+    }
+    return py_long_from_unsigned(*(value->presentation_ts_ns));
+}
+
 PyGetSetDef *
 getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874() {
     static PyGetSetDef definitions[] = {
@@ -5454,6 +5470,12 @@ getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f467
              get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_n6375745f72696768745f73616d706c655f636f756e74),
          nullptr,
          "read-only cut_right_sample_count",
+         nullptr},
+        {"presentationTsNs",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_n70726573656e746174696f6e5f74735f6e73),
+         nullptr,
+         "read-only presentation_ts_ns",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };
@@ -9046,7 +9068,10 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    return PyFloat_FromDouble(static_cast<double>(value->turn_probability));
+    if (!value->turn_probability) {
+        Py_RETURN_NONE;
+    }
+    return PyFloat_FromDouble(static_cast<double>(*(value->turn_probability)));
 }
 
 PyObject *
@@ -9059,7 +9084,10 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    if (value->turn_complete) {
+    if (!value->turn_complete) {
+        Py_RETURN_NONE;
+    }
+    if (*(value->turn_complete)) {
         Py_RETURN_TRUE;
     }
     Py_RETURN_FALSE;
@@ -9386,7 +9414,10 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    return PyFloat_FromDouble(static_cast<double>(value->speech_probability));
+    if (!value->speech_probability) {
+        Py_RETURN_NONE;
+    }
+    return PyFloat_FromDouble(static_cast<double>(*(value->speech_probability)));
 }
 
 PyObject *
@@ -9399,7 +9430,10 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    if (value->speech_active) {
+    if (!value->speech_active) {
+        Py_RETURN_NONE;
+    }
+    if (*(value->speech_active)) {
         Py_RETURN_TRUE;
     }
     Py_RETURN_FALSE;

@@ -17,7 +17,7 @@
 
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
 import {collectOutputs} from './overlay-sources.js';
-import {contactOutcome, validCandidate, presenceOutcome} from './classification-results.js';
+import {contactOutcome, validCandidate, validEmptyClassification, presenceOutcome} from './classification-results.js';
 import {validGaze} from './gaze-results.js';
 
 const body = document.getElementById('inferenceOutputBody');
@@ -79,6 +79,8 @@ function detectionSummary(detection) {
 
     if (type === 'Classification') {
         const best = Array.isArray(data.candidates) ? data.candidates[0] : null;
+        if (!best) return {title: validEmptyClassification(data) ? 'No candidates' : 'Classification unavailable',
+            detail: validEmptyClassification(data) ? 'Empty classification result' : 'Missing classification kind or identity', meta: ''};
         if (best && !validCandidate(data, best))
             return {title: 'Classification unavailable', detail: 'Invalid kind, identity or score', meta: ''};
         return {
@@ -89,6 +91,7 @@ function detectionSummary(detection) {
     }
 
     if (type === 'VoiceActivityDetection' || type === 'TurnDetection') {
+        if (!data.usable) return {title: 'Audio result unavailable', detail: 'Missing or invalid audio measurement', meta: ''};
         const voiceActivity = type === 'VoiceActivityDetection';
         return {
             title: voiceActivity ? (data.speechActive ? 'Speech active' : 'Silence')
@@ -105,6 +108,9 @@ function detectionSummary(detection) {
             meta: '',
         };
     }
+
+    if (type === 'AudioFrame') return {title: 'Audio source buffer',
+        detail: `${data.originalChannels} channels, ${data.originalFrequency} Hz`, meta: `${data.originalSampleCount} samples`};
 
     if (type === 'TrackTrace') {
         return {
@@ -171,7 +177,7 @@ function renderLayer(layer) {
     const header = createNode('div', 'inference-layer-header');
 
     header.appendChild(createNode('span', 'inference-layer-title wfr-txt-label', layerTitle(layer)));
-    header.appendChild(createNode('span', 'inference-layer-count wfr-txt-caption', layer.count || 0));
+    header.appendChild(createNode('span', 'inference-layer-count wfr-txt-caption', layer.status === 'invalid' ? 'Unavailable' : layer.count || 0));
     container.appendChild(header);
     container.appendChild(createNode('div', 'inference-layer-kind wfr-txt-caption', layer.contentType || layer.labelFamily || 'output'));
 
@@ -180,7 +186,7 @@ function renderLayer(layer) {
         rows.forEach((row) => detectionsNode.appendChild(renderDetection(row)));
         container.appendChild(detectionsNode);
     } else {
-        container.appendChild(renderEmpty('No detections'));
+        container.appendChild(renderEmpty(layer.status === 'invalid' ? 'Invalid result data' : 'No results'));
     }
 
     if (hiddenCount) {
@@ -202,22 +208,28 @@ export function renderInferenceOutput(output) {
     }
 
     const layers = Array.isArray(output?.layers)
-        ? output.layers.filter((layer) => layer.model || layer.contentType || layer.engine)
+        ? output.layers.filter((layer) => layer.payloadType)
         : [];
     currentLayers = layers;
     updateCopyButtonState();
-    if (!layers.length) {
+    if (output?.decodeError) {
+        body.replaceChildren(renderEmpty(`Metadata unavailable: ${output.decodeError}`));
+        return;
+    }
+    const unsupported = output?.unsupportedPayloadCount > 0
+        ? [renderEmpty(`${output.unsupportedPayloadCount} unsupported or malformed payload(s) were not interpreted.`)] : [];
+    if (!layers.length && !unsupported.length) {
         body.replaceChildren(renderEmpty("No inference output yet, enable a model to see inference here."));
         return;
     }
 
-    body.replaceChildren(...layers.map(renderLayer));
+    body.replaceChildren(...unsupported, ...layers.map(renderLayer));
 }
 
 function copyableLayers() {
     return currentLayers.filter((layer) => {
         const detections = Array.isArray(layer.detections) ? layer.detections : [];
-        return detections.length > 0 || Number(layer.count || 0) > 0;
+        return layer.status === 'empty' || layer.status === 'invalid' || detections.length > 0;
     });
 }
 

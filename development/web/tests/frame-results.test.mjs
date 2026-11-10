@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {Builder, ByteBuffer} from 'flatbuffers';
-import {Envelope, OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
+import {Envelope, OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION, external_key} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {WireEnvelope, WireEnvelopeT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
 import {BitmapDataT, BoundingBoxT, LayerInfoT, ObjectMetaT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
 import {BoxDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.js';
@@ -37,6 +37,7 @@ import {PersonPresenceResultT} from '../../../generated/open_perception_kit/ts/d
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
 import {InstanceSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.js';
 import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
+import {AudioFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.js';
 import {ObjectTrackT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js';
 import {TrackIdentityT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-identity.js';
 import {TrackingSampleT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/tracking-sample.js';
@@ -258,6 +259,7 @@ test('splitting classification roots preserves their mixed publication order', (
     const filtered = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(builder.asUint8Array()).toString('base64')}).frame_results;
     assert.deepEqual(filtered.layers.map(item => item.payloadType), ['CameraContacts', 'Classifications', 'PersonPresences']);
+    assert.equal(filtered.unsupportedPayloadCount, 1);
 });
 
 test('presence decoding distinguishes unavailable and zero scores without coercing NaN', () => {
@@ -350,7 +352,7 @@ test('decodes audio assessments with exact sample positions, timestamp presence 
         uuid: '1', parentUuid: '0', creationTsNs: '0',
         windowStartSample: '0', windowEndSample: '512',
         windowStartTsNs: '0', windowEndTsNs: '32000000', discontinuity: true,
-        speechProbability: 0, speechActive: false,
+        speechProbability: 0, speechActive: false, usable: true,
     });
     assert.equal(voice.detections[1].data.windowStartSample, largeSample.toString());
     assert.equal(voice.detections[1].data.windowEndSample, (largeSample + 400n).toString());
@@ -386,8 +388,8 @@ test('renders, copies and retains audio assessments until their source resets or
         value: {clipboard: {async writeText(value) { copied = value; }}}});
     try {
         const {renderInferenceOutput} = await import('../src/inference-output.js');
-        const bounds = {windowStartSample: '0', windowEndSample: '512', discontinuity: true};
-        renderInferenceOutput({layers: [{model: 'audio', contentType: 'voiceActivity', count: 4,
+        const bounds = {windowStartSample: '0', windowEndSample: '512', discontinuity: true, usable: true};
+        renderInferenceOutput({layers: [{model: 'audio', payloadType: 'VoiceActivityDetections', contentType: 'voiceActivity', count: 4,
             detections: [
                 {type: 'VoiceActivityDetection', data: {...bounds, speechProbability: 1, speechActive: true}},
                 {type: 'VoiceActivityDetection', data: {...bounds, speechProbability: 0, speechActive: false}},
@@ -415,7 +417,7 @@ test('renders, copies and retains audio assessments until their source resets or
             {...bounds, discontinuity: false, speechProbability: 0.8, speechActive: true});
         const turn = audioLayer('turn-score', 'TurnDetections', 'TurnDetection',
             {...bounds, discontinuity: false, turnProbability: 0.2, turnComplete: false});
-        const video = {model: 'video-boxes', contentType: 'genericObject', count: 1,
+        const video = {model: 'video-boxes', payloadType: 'BoxDetections', contentType: 'genericObject', count: 1,
             detections: [{type: 'Rect', data: {text: 'person'}}]};
         const send = layers => listeners.get('metadata-message')({detail: {inference_output: {layers}}});
         const renderedText = () => texts(body).join('\n');
@@ -569,6 +571,7 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
     });
     assert.equal(frame.layers[0].payloadType, 'BoxDetections');
     assert.equal(frame.layers[0].count, 0);
+    assert.equal(frame.layers[0].status, 'empty');
     const mask = frame.layers.find((item) => item.payloadType === 'SegmentationMasks');
     assert.deepEqual([...mask.detections[0].data.pixels], [0, 64, 128, 255]);
     assert.ok(mask.detections[0].data.pixels instanceof Uint8Array);
@@ -683,6 +686,42 @@ test('OCR wire payloads preserve recognized text, explicit subjects and invalid 
     assert.ok(Number.isNaN(decoded.layers[0].detections[0].data.x));
     assert.ok(Number.isNaN(decoded.layers[0].detections[0].data.confidence));
     assert.ok(Number.isNaN(decoded.layers[1].detections[0].data.candidates[0].confidence));
+});
+
+test('audio roots preserve unavailable values, zero PTS and false decisions without role guessing', () => {
+    const envelope = new Envelope();
+    envelope.add(new FrameContextT(1, 0, layer('custom'), null,
+        new AudioFrameContextT(null, 1n, 16000n, 512n, 0n, 0n, 0n)));
+    envelope.add(new VoiceActivityDetectionsT(1, 0, layer('custom'), [
+        new VoiceActivityDetectionT(null, null, null, 0n, 512n),
+        new VoiceActivityDetectionT(null, 0, false, 0n, 512n, 0n, 32000000n, true),
+    ]));
+    envelope.add(new TurnDetectionsT(1, 0, layer('custom'), [
+        new TurnDetectionT(null, .5, false, 512n, 16000n),
+    ]));
+    const result = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    assert.equal(result.unsupportedPayloadCount, 0);
+    assert.equal(result.layers[0].detections[0].data.presentationTsNs, '0');
+    const [missing, zero] = result.layers[1].detections.map(item => item.data);
+    assert.equal(missing.speechProbability, null);
+    assert.equal(missing.speechActive, null);
+    assert.equal(missing.usable, false);
+    assert.equal(zero.speechProbability, 0);
+    assert.equal(zero.speechActive, false);
+    assert.equal(zero.windowStartTsNs, '0');
+    assert.equal(zero.usable, true);
+    assert.equal(result.layers[2].detections[0].data.turnComplete, false);
+    assert.equal(result.layers[2].detections[0].data.usable, true);
+});
+
+test('unsupported payloads are reported rather than presented as an empty successful result', () => {
+    const envelope = new Envelope();
+    envelope.add(external_key('test:unsupported'), new Uint8Array([1, 2, 3]));
+    const result = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    assert.equal(result.layers.length, 0);
+    assert.equal(result.unsupportedPayloadCount, 1);
 });
 
 const maskBitmap = () => new BitmapDataT(2, 1, BitmapEncoding.Uint8, [0, 1], new ImageSpaceT(1n, 100, 100, 10, 20, 30, 40));

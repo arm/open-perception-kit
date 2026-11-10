@@ -144,8 +144,13 @@ locked Python dependencies.
 Some Ops expose narrower contracts used by inference and postprocessing code:
 
 - `OpInterfaceInference` exposes tensor memory and model metadata to inference backends.
-- `OpInterfacePostprocessor` reports the semantic content types produced by
-  domain-specific output parsing.
+- `OpInterfacePostprocessor::getProvidedOutputs()` declares model result roots and
+  optional roles as `OutputCapability` values. Native parsers derive root names
+  from generated SDK traits, not model names or content-type guesses.
+- `OpInterfaceResultConsumer::getRequiredOutputs()` declares typed requirements.
+  A root must match exactly; an empty required role accepts any role of that root.
+  The OpChain exposes only requirements not satisfied by an earlier declared
+  provider in the same chain. Declarations describe capability, not per-frame execution.
 
 These interfaces keep backend execution and result interpretation separate from
 concrete Op implementations.

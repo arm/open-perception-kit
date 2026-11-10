@@ -123,6 +123,10 @@ void printTypedPayloadText(const open_perception_kit::container::envelope &frame
     // runs once for every payload of that type in this frame. The display helper
     // formats that one decoded payload into terminal-friendly text.
     printPayloadBranch<open_perception_kit::metadata::FrameContextT>(frameResults, printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::VoiceActivityDetectionsT>(frameResults,
+                                                                                printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::TurnDetectionsT>(frameResults,
+                                                                       printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::BoxDetectionsT>(frameResults,
                                                                       printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::ObjectTracksT>(frameResults, printedPayloads);

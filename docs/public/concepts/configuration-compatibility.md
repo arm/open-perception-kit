@@ -262,6 +262,13 @@ configuration, preserving their PCM context, inference cadence and VAD policy.
 Migrated results retain the `voiceActivity` content type and model identity; their
 producer implementation is now `VoiceActivityParser`.
 
+OpChain reader schema `1.15.0` adds optional `providedOutputs` and `requiredOutputs`
+to PythonScript attributes. Each entry declares a fully qualified payload root
+and optional role. The runtime's capability interfaces and control messages now
+carry typed declarations; rebuild custom Op libraries and upgrade the WebUI
+together. Existing role-based ROI configuration remains valid. Files adopting
+the new optional declarations should advance their own minor and reset patch.
+
 OpChain reader schema `1.14.0` adds optional `embeddingSpaceId` to
 `ObjectEmbeddingParser`. This is an author-declared, versioned comparison-space
 identity, not a display name. Omitting it still permits transport, but matching
