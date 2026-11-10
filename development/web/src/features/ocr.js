@@ -20,6 +20,7 @@ import {drawTextChip} from '../overlay-drawing.js';
 import {objectId} from '../overlay-sources.js';
 
 const resolvedFrames = new WeakMap();
+const labelLayouts = new WeakMap();
 const validScore = value => Number.isFinite(value) && value >= 0 && value <= 1;
 
 // Bound layout work without modifying the full text retained in the decoded payload.
@@ -133,7 +134,24 @@ function fitLabel(ctx, text, width) {
     return characters.slice(0, low).join('') + '…';
 }
 
-function render({ctx, mapper}, resolved, settings) {
+function fitLabels(ctx, regions, settings, width) {
+    return regions.map(({text, recognitionScore, detectionScore}) => {
+        const scores = [];
+        if (settings.regionConfidence && validScore(detectionScore)) scores.push(`Region: ${(detectionScore * 100).toFixed(1)}%`);
+        if (settings.textConfidence && validScore(recognitionScore)) scores.push(`Text: ${(recognitionScore * 100).toFixed(1)}%`);
+        let label = settings.text ? text : '';
+        const scoreLabel = scores.join(' · ');
+        if (scoreLabel) {
+            // Keep both requested scores visible when shortening a long recognized string.
+            if (label) label = fitLabel(ctx, label, width - 8 - ctx.measureText(` · ${scoreLabel}`).width);
+            label = [label, scoreLabel].filter(Boolean).join(' · ');
+        }
+        if (label) label = fitLabel(ctx, label, width - 8);
+        return {label, width: label ? ctx.measureText(label).width + 8 : 0};
+    });
+}
+
+function render({ctx, mapper, overlay}, resolved, settings) {
     const display = mapper.display;
     const fontSize = Number(settings.textSize);
     const labelHeight = fontSize + 4;
@@ -144,8 +162,15 @@ function render({ctx, mapper}, resolved, settings) {
     ctx.strokeStyle = settings.color;
     ctx.lineWidth = 2;
     ctx.font = `${fontSize}px monospace`;
-    for (const region of resolved.regions || []) {
-        const {box, frame, text, recognitionScore, detectionScore} = region;
+    const signature = JSON.stringify([display.width, ctx.font, settings.text, settings.regionConfidence, settings.textConfidence]);
+    let layout = labelLayouts.get(overlay);
+    if (!layout || layout.regions !== resolved.regions || layout.signature !== signature) {
+        // Retain only this overlay's current frame/layout, not a history of text strings.
+        layout = {regions: resolved.regions, signature, labels: fitLabels(ctx, resolved.regions || [], settings, display.width)};
+        labelLayouts.set(overlay, layout);
+    }
+    for (const [index, region] of (resolved.regions || []).entries()) {
+        const {box, frame, text} = region;
         const x = display.x + box.x * display.width / frame.originalWidth;
         const y = display.y + box.y * display.height / frame.originalHeight;
         const width = box.width * display.width / frame.originalWidth;
@@ -154,20 +179,8 @@ function render({ctx, mapper}, resolved, settings) {
             ctx.setLineDash(text ? [] : [4, 3]);
             ctx.strokeRect(x, y, width, height);
         }
-        const scores = [];
-        if (settings.regionConfidence && validScore(detectionScore)) scores.push(`Region: ${(detectionScore * 100).toFixed(1)}%`);
-        if (settings.textConfidence && validScore(recognitionScore)) scores.push(`Text: ${(recognitionScore * 100).toFixed(1)}%`);
-        let label = settings.text ? text : '';
-        const scoreLabel = scores.join(' · ');
-        if (scoreLabel) {
-            // Keep both requested scores visible when shortening a long recognized string.
-            if (label) label = fitLabel(ctx, label, display.width - 8 - ctx.measureText(` · ${scoreLabel}`).width);
-            label = [label, scoreLabel].filter(Boolean).join(' · ');
-        }
+        const {label, width: labelWidth} = layout.labels[index];
         if (!label || display.height < labelHeight) continue;
-        label = fitLabel(ctx, label, display.width - 8);
-        if (!label) continue;
-        const labelWidth = ctx.measureText(label).width + 8;
         const labelX = Math.max(display.x, Math.min(x, display.x + display.width - labelWidth));
         const preferredY = y - labelHeight - 3 >= display.y ? y - labelHeight - 3 : y + height + 3;
         const labelY = Math.max(display.y, Math.min(preferredY, display.y + display.height - labelHeight));

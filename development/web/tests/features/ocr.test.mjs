@@ -146,11 +146,65 @@ test('OCR renders source-aligned outlines and bounded Unicode labels with indepe
     assert.equal(reader.detections[0].data.candidates[0].text, originalText, 'full text remains available for inspection/copy');
     overlay.settings.textConfidence = true;
     overlay.settings.regionConfidence = true;
-    assert.ok(draw().calls.find(call => call.text?.startsWith('<img')).text.endsWith('Region: 70.0% · Text: 90.0%'));
+    const withScores = draw();
+    assert.ok(withScores.calls.find(call => call.text?.startsWith('<img')).text.endsWith('Region: 70.0% · Text: 90.0%'));
+    assert.ok(withScores.calls.filter(call => call.text).every(call => withScores.measureText(call.text).width + 8 <= 800),
+        'the entire label, including both scores and padding, fits the displayed width');
     const detections = render(frame, [select('ocr', detector, {regionConfidence: true, textConfidence: true})], 800, 800, 640, 480);
     assert.deepEqual(detections.calls.filter(call => call.text).map(call => call.text), ['Region: 80.0%', 'Region: 70.0%']);
     assert.ok(detections.calls.some(call => call.dash?.join() === '4,3'));
     assert.equal(render(null, [overlay]).calls.length, 0);
+});
+
+test('OCR reuses current label layout and invalidates width, font, toggles and frame changes', () => {
+    const {reader, frame} = fixture();
+    reader.detections[0].data.candidates[0].text = '東京 ' + '😀'.repeat(120);
+    const result = resolved(frame, reader);
+    const overlay = select('ocr', reader, {regionConfidence: true, textConfidence: true});
+    let measurements = 0;
+    const labels = [];
+    const ctx = {save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, setLineDash() {}, strokeRect() {}, fillRect() {},
+        measureText(text) { measurements++; return {width: Array.from(text).length * Number.parseFloat(this.font) / 2}; },
+        fillText(text, x, y) { labels.push({text, x, y}); }};
+    const target = {ctx, overlay, mapper: {display: {x: 25, y: 30, width: 400, height: 300}}};
+    const draw = (value = result, owner = overlay) => {
+        labels.length = 0;
+        const before = measurements;
+        ocr.render({...target, overlay: owner}, value, owner.settings);
+        const used = measurements - before;
+        for (const {text, x} of labels) {
+            assert.ok(x - 4 >= 25);
+            assert.ok(x + ctx.measureText(text).width + 4 <= 25 + target.mapper.display.width);
+            assert.equal(/[\uD800-\uDFFF]/u.test(text), false);
+        }
+        return used;
+    };
+    const count = result.regions.length;
+    assert.ok(draw() > count);
+    assert.ok(labels[0].text.endsWith('Region: 70.0% · Text: 90.0%'));
+    assert.equal(draw(), count, 'only text-chip drawing measures each cached label');
+    overlay.settings.color = '#123456';
+    overlay.settings.opacity = 0.4;
+    assert.equal(draw(), count, 'non-layout styles preserve fitted labels');
+    for (const change of [{textSize: '24'}, {text: false}, {regionConfidence: false}, {textConfidence: false},
+        {text: true, regionConfidence: true, textConfidence: true}]) {
+        Object.assign(overlay.settings, change);
+        const used = draw();
+        assert.ok(labels.length ? used > labels.length : used === 0);
+        assert.equal(draw(), labels.length);
+    }
+    target.mapper.display.width = 180;
+    assert.ok(draw() > count, 'narrowing the display refits labels');
+    target.mapper.display.width = 800;
+    assert.ok(draw() > count, 'widening the display restores available text');
+    const next = fixture();
+    next.reader.detections[0].data.candidates[0] = {text: 'UPDATED', confidence: 0.25};
+    const nextResult = resolved(next.frame, next.reader);
+    assert.ok(draw(nextResult) > count);
+    assert.ok(labels.some(({text}) => text.startsWith('UPDATED') && text.includes('Text: 25.0%')));
+    const other = select('ocr', next.reader, {textSize: '12'});
+    assert.ok(draw(nextResult, other) > count);
+    assert.equal(draw(nextResult), count, 'overlays keep independent layout caches');
 });
 
 test('zero and absent text scores never fall back to region confidence; saved confidence preferences migrate', () => {

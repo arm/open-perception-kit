@@ -8492,6 +8492,7 @@ var instance_segmentation_default = withClassSettings(defineFeature({
 
 // development/web/src/features/ocr.js
 var resolvedFrames2 = /* @__PURE__ */ new WeakMap();
+var labelLayouts = /* @__PURE__ */ new WeakMap();
 var validScore = (value) => Number.isFinite(value) && value >= 0 && value <= 1;
 function displayText(text2) {
   let result = "";
@@ -8603,7 +8604,22 @@ function fitLabel(ctx, text2, width) {
   }
   return characters.slice(0, low).join("") + "\u2026";
 }
-function render4({ ctx, mapper }, resolved, settings) {
+function fitLabels(ctx, regions, settings, width) {
+  return regions.map(({ text: text2, recognitionScore, detectionScore }) => {
+    const scores = [];
+    if (settings.regionConfidence && validScore(detectionScore)) scores.push(`Region: ${(detectionScore * 100).toFixed(1)}%`);
+    if (settings.textConfidence && validScore(recognitionScore)) scores.push(`Text: ${(recognitionScore * 100).toFixed(1)}%`);
+    let label = settings.text ? text2 : "";
+    const scoreLabel = scores.join(" \xB7 ");
+    if (scoreLabel) {
+      if (label) label = fitLabel(ctx, label, width - 8 - ctx.measureText(` \xB7 ${scoreLabel}`).width);
+      label = [label, scoreLabel].filter(Boolean).join(" \xB7 ");
+    }
+    if (label) label = fitLabel(ctx, label, width - 8);
+    return { label, width: label ? ctx.measureText(label).width + 8 : 0 };
+  });
+}
+function render4({ ctx, mapper, overlay: overlay2 }, resolved, settings) {
   const display = mapper.display;
   const fontSize = Number(settings.textSize);
   const labelHeight = fontSize + 4;
@@ -8614,8 +8630,14 @@ function render4({ ctx, mapper }, resolved, settings) {
   ctx.strokeStyle = settings.color;
   ctx.lineWidth = 2;
   ctx.font = `${fontSize}px monospace`;
-  for (const region of resolved.regions || []) {
-    const { box, frame, text: text2, recognitionScore, detectionScore } = region;
+  const signature = JSON.stringify([display.width, ctx.font, settings.text, settings.regionConfidence, settings.textConfidence]);
+  let layout = labelLayouts.get(overlay2);
+  if (!layout || layout.regions !== resolved.regions || layout.signature !== signature) {
+    layout = { regions: resolved.regions, signature, labels: fitLabels(ctx, resolved.regions || [], settings, display.width) };
+    labelLayouts.set(overlay2, layout);
+  }
+  for (const [index, region] of (resolved.regions || []).entries()) {
+    const { box, frame, text: text2 } = region;
     const x = display.x + box.x * display.width / frame.originalWidth;
     const y = display.y + box.y * display.height / frame.originalHeight;
     const width = box.width * display.width / frame.originalWidth;
@@ -8624,19 +8646,8 @@ function render4({ ctx, mapper }, resolved, settings) {
       ctx.setLineDash(text2 ? [] : [4, 3]);
       ctx.strokeRect(x, y, width, height);
     }
-    const scores = [];
-    if (settings.regionConfidence && validScore(detectionScore)) scores.push(`Region: ${(detectionScore * 100).toFixed(1)}%`);
-    if (settings.textConfidence && validScore(recognitionScore)) scores.push(`Text: ${(recognitionScore * 100).toFixed(1)}%`);
-    let label = settings.text ? text2 : "";
-    const scoreLabel = scores.join(" \xB7 ");
-    if (scoreLabel) {
-      if (label) label = fitLabel(ctx, label, display.width - 8 - ctx.measureText(` \xB7 ${scoreLabel}`).width);
-      label = [label, scoreLabel].filter(Boolean).join(" \xB7 ");
-    }
+    const { label, width: labelWidth } = layout.labels[index];
     if (!label || display.height < labelHeight) continue;
-    label = fitLabel(ctx, label, display.width - 8);
-    if (!label) continue;
-    const labelWidth = ctx.measureText(label).width + 8;
     const labelX = Math.max(display.x, Math.min(x, display.x + display.width - labelWidth));
     const preferredY = y - labelHeight - 3 >= display.y ? y - labelHeight - 3 : y + height + 3;
     const labelY = Math.max(display.y, Math.min(preferredY, display.y + display.height - labelHeight));

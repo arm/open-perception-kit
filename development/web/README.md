@@ -409,6 +409,9 @@ OCR text is bounded to 512 Unicode code points before layout, and labels are
 ellipsized to the available width. Whitespace is collapsed for the single-line overlay;
 the full original text remains available in the inference panel and copy output.
 Text is drawn as data, never evaluated as HTML.
+Fitted labels are reused between redraws of the same matched frame. A new frame,
+display width, font size, or text/score selection refits them; each overlay retains
+only its current layout.
 
 **Region confidence** and **Text confidence** are independent and off by default.
 The region score comes from the box; the text score comes from its linked
