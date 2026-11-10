@@ -60,14 +60,14 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         # Pipeline order is upstream to downstream. Both face models can provide the
         # contact model's input, while the unrelated model provides the wrong type.
         capabilities = {
-            "unrelated": {"provided-content-type": "genericObject"},
-            "face-a": {"provided-content-type": "humanFace"},
-            "face-b": {"provided-content-type": "humanFace"},
+            "unrelated": {"provided-payload-type": "open_perception_kit.metadata.Classifications", "provided-role": "humanFace"},
+            "face-a": {"provided-payload-type": "open_perception_kit.metadata.BoxDetections", "provided-role": "humanFace"},
+            "face-b": {"provided-payload-type": "open_perception_kit.metadata.BoxDetections", "provided-role": "humanFace"},
             "contact": {
-                "required-content-type": "humanFace",
-                "provided-content-type": "cameraContact",
+                "required-payload-type": "open_perception_kit.metadata.BoxDetections", "required-role": "humanFace",
+                "provided-payload-type": "open_perception_kit.metadata.CameraContacts", "provided-role": "cameraContact",
             },
-            "gaze": {"required-content-type": "cameraContact"},
+            "gaze": {"required-payload-type": "open_perception_kit.metadata.CameraContacts"},
         }
         return {
             name: write_test_opchain(self.directory.name, name, attributes)
@@ -154,7 +154,7 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         self.create_pipeline()
         self.start_pipeline()
 
-        for structure_name in ("not-a-content-requirement", "opk-content-required"):
+        for structure_name in ("not-a-result-requirement", "opk-result-required", "opk-content-required"):
             structure = self.Gst.Structure.new_empty(structure_name)
             event = self.Gst.Event.new_custom(
                 self.Gst.EventType.CUSTOM_UPSTREAM, structure

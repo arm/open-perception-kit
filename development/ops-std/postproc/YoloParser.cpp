@@ -436,16 +436,16 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
         if (applyNms) {
             suppressOverlappingDetections(*detections, iouThreshold);
         }
-        open_perception_kit::metadata::BoxDetectionsT payload;
-        payload.layer = open_perception_kit::makeLayerInfo(
-            {.model = input.inferenceInfo.modelName,
-             .inferElementId = input.inferenceInfo.inferElementId,
-             .contentType = k_content_type,
-             .labelFamily = "coco",
-             .producer = &input.producerInfo});
-        appendDetections(*detections, input, payload, normalizeOutputCoordinates);
-        results.add(std::move(payload));
     }
+    open_perception_kit::metadata::BoxDetectionsT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .labelFamily = "coco",
+                                            .producer = &input.producerInfo});
+    appendDetections(*detections, input, payload, normalizeOutputCoordinates);
+    results.add(std::move(payload));
     return {};
 }
 

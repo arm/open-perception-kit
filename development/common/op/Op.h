@@ -26,6 +26,7 @@
 
 #include "opk/AttributeMap.h"
 #include "opk/Model.h"
+#include "opk/OutputCapability.h"
 #include "opk/Result.h"
 
 #include "op/OpChainContext.h"
@@ -107,19 +108,19 @@ struct OpInterfaceSharedInput {
  * @brief Interface for operations that perform inference postprocessing.
  *
  * Operations implementing this interface are responsible for parsing inference output
- * tensors and populating Perception objects with detected results.
+ * tensors and populating typed FrameResults payloads, including successful empty results.
  */
 struct OpInterfacePostprocessor {
     virtual ~OpInterfacePostprocessor() = default;
-    virtual std::vector<std::string_view> getProvidedContentTypes() const = 0;
+    virtual std::vector<opk::OutputCapability> getProvidedOutputs() const = 0;
 };
 
 /**
- * @brief Interface for operations that consume semantic FrameResults content.
+ * @brief Interface for operations that declare typed FrameResults input requirements.
  */
-struct OpInterfaceContentConsumer {
-    virtual ~OpInterfaceContentConsumer() = default;
-    virtual std::vector<std::string_view> getRequiredContentTypes() const = 0;
+struct OpInterfaceResultConsumer {
+    virtual ~OpInterfaceResultConsumer() = default;
+    virtual std::vector<opk::OutputCapability> getRequiredOutputs() const = 0;
 };
 
 /**

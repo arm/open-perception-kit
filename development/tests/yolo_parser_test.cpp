@@ -115,6 +115,29 @@ TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
 }
 
+TEST(YoloParser, SuccessfulEmptyDetectionIsStillAPublishedResult) {
+    opk::AttributeMap attributes;
+    std::vector<float> values(std::size_t{6} * 8, 0);
+    opk::TensorView tensor(values.data(),
+                           values.size() * sizeof(float),
+                           opk::Shape(1, 6, 8),
+                           opk::Dtype::Float32,
+                           1,
+                           0);
+    opk::TensorParser::Input input(attributes);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {
+        .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
+    input.inferenceInfo.modelName = "empty-yolo";
+    open_perception_kit::FrameResults result;
+    ASSERT_TRUE(opk::stdop::postproc::YoloParser().parse(input, result));
+    ASSERT_EQ(result.count<open_perception_kit::metadata::BoxDetectionsT>(), 1U);
+    result.for_each<open_perception_kit::metadata::BoxDetectionsT>([](const auto &payload) {
+        EXPECT_TRUE(payload.detections.empty());
+        EXPECT_EQ(payload.layer->model, "empty-yolo");
+    });
+}
+
 TEST(YoloParser, ZeroThresholdPreservesZeroScoreAndSelectsARealCategory) {
     for (const bool channelsFirst : {true, false}) {
         opk::AttributeMap attrs;

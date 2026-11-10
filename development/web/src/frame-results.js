@@ -30,6 +30,9 @@ import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {maskData} from './mask-data.js';
 import {usableEmbedding} from './embedding-data.js';
+import {validAudioResult} from './audio-data.js';
+import {VoiceActivityDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.js';
+import {TurnDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.js';
 import {identityData, sampleData, validTrack, validTrace, trackLabel} from './tracking-data.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 
@@ -81,6 +84,7 @@ function layer(payload, payloadType, detections) {
         payloadType,
         payload,
         count: detections.length,
+        status: detections.length ? 'available' : 'empty',
         detections,
     };
 }
@@ -111,7 +115,11 @@ function candidateData(candidate) {
 
 function addPayloadLayers(envelope, payloadType, name, mapper, layers) {
     for (const payload of envelope.for_each(payloadType)) {
-        layers.push(layer(payload, name, mapper(payload)));
+        try {
+            layers.push(layer(payload, name, mapper(payload)));
+        } catch {
+            layers.push({...layer(payload, name, []), status: 'invalid'});
+        }
     }
 }
 
@@ -152,7 +160,11 @@ function addClassificationLayers(packet, layers) {
         } catch {
             continue; // Same malformed-known-payload policy as Envelope.for_each.
         }
-        layers.push(layer(payload, info.root_type, mapper(payload)));
+        try {
+            layers.push(layer(payload, info.root_type, mapper(payload)));
+        } catch {
+            layers.push({...layer(payload, info.root_type, []), status: 'invalid'});
+        }
     }
 }
 
@@ -211,6 +223,14 @@ export function decodeFrameResultsMessage(message) {
                     presentationTsNs: payload.video.presentationTsNs === null ? null : identifier(payload.video.presentationTsNs),
                 },
             });
+        }
+        if (payload.audio) {
+            const audio = payload.audio;
+            detections.push({type: 'AudioFrame', data: {...objectData(audio.object),
+                originalChannels: identifier(audio.originalChannels), originalFrequency: identifier(audio.originalFrequency),
+                originalSampleCount: identifier(audio.originalSampleCount), cutLeftSampleCount: identifier(audio.cutLeftSampleCount),
+                cutRightSampleCount: identifier(audio.cutRightSampleCount),
+                presentationTsNs: audio.presentationTsNs == null ? null : identifier(audio.presentationTsNs)}});
         }
         return detections;
     }, layers);
@@ -282,6 +302,19 @@ export function decodeFrameResultsMessage(message) {
             return {type: 'ObjectEmbedding', data: {...data, usable: usableEmbedding(data)}};
         }), layers);
 
+    for (const [root, name, probability, decision] of [
+        [VoiceActivityDetectionsT, 'VoiceActivityDetection', 'speechProbability', 'speechActive'],
+        [TurnDetectionsT, 'TurnDetection', 'turnProbability', 'turnComplete'],
+    ]) {
+        addPayloadLayers(envelope, root, name + 's', payload => payload.detections.map(item => {
+            const data = {...objectData(item.object), [probability]: item[probability], [decision]: item[decision],
+                windowStartSample: identifier(item.windowStartSample), windowEndSample: identifier(item.windowEndSample),
+                windowStartTsNs: item.windowStartTsNs == null ? null : identifier(item.windowStartTsNs),
+                windowEndTsNs: item.windowEndTsNs == null ? null : identifier(item.windowEndTsNs), discontinuity: item.discontinuity};
+            return {type: name, data: {...data, usable: validAudioResult(data, probability, decision)}};
+        }), layers);
+    }
+
     for (const payload of envelope.for_each(PerformanceMeasurementsT)) {
         const data = {
             pixelFormat: text(payload.pixelFormat),
@@ -298,6 +331,6 @@ export function decodeFrameResultsMessage(message) {
 
     return {
         frame_counter: Number.isInteger(message.frame_counter) ? message.frame_counter : undefined,
-        frame_results: {layers, performance},
+        frame_results: {layers, performance, unsupportedPayloadCount: envelope.size() - layers.length},
     };
 }

@@ -59,8 +59,12 @@ export class AudioFrameContext {
         const offset = this.bb.__offset(this.bb_pos, 14);
         return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
     }
+    presentationTsNs() {
+        const offset = this.bb.__offset(this.bb_pos, 16);
+        return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+    }
     static startAudioFrameContext(builder) {
-        builder.startObject(6);
+        builder.startObject(7);
     }
     static addObject(builder, objectOffset) {
         builder.addFieldOffset(0, objectOffset, 0);
@@ -80,11 +84,14 @@ export class AudioFrameContext {
     static addCutRightSampleCount(builder, cutRightSampleCount) {
         builder.addFieldInt64(5, cutRightSampleCount, BigInt('0'));
     }
+    static addPresentationTsNs(builder, presentationTsNs) {
+        builder.addFieldInt64(6, presentationTsNs, null);
+    }
     static endAudioFrameContext(builder) {
         const offset = builder.endObject();
         return offset;
     }
-    static createAudioFrameContext(builder, objectOffset, originalChannels, originalFrequency, originalSampleCount, cutLeftSampleCount, cutRightSampleCount) {
+    static createAudioFrameContext(builder, objectOffset, originalChannels, originalFrequency, originalSampleCount, cutLeftSampleCount, cutRightSampleCount, presentationTsNs) {
         AudioFrameContext.startAudioFrameContext(builder);
         AudioFrameContext.addObject(builder, objectOffset);
         AudioFrameContext.addOriginalChannels(builder, originalChannels);
@@ -92,10 +99,12 @@ export class AudioFrameContext {
         AudioFrameContext.addOriginalSampleCount(builder, originalSampleCount);
         AudioFrameContext.addCutLeftSampleCount(builder, cutLeftSampleCount);
         AudioFrameContext.addCutRightSampleCount(builder, cutRightSampleCount);
+        if (presentationTsNs !== null)
+            AudioFrameContext.addPresentationTsNs(builder, presentationTsNs);
         return AudioFrameContext.endAudioFrameContext(builder);
     }
     unpack() {
-        return new AudioFrameContextT((this.object() !== null ? this.object().unpack() : null), this.originalChannels(), this.originalFrequency(), this.originalSampleCount(), this.cutLeftSampleCount(), this.cutRightSampleCount());
+        return new AudioFrameContextT((this.object() !== null ? this.object().unpack() : null), this.originalChannels(), this.originalFrequency(), this.originalSampleCount(), this.cutLeftSampleCount(), this.cutRightSampleCount(), this.presentationTsNs());
     }
     unpackTo(_o) {
         _o.object = (this.object() !== null ? this.object().unpack() : null);
@@ -104,19 +113,21 @@ export class AudioFrameContext {
         _o.originalSampleCount = this.originalSampleCount();
         _o.cutLeftSampleCount = this.cutLeftSampleCount();
         _o.cutRightSampleCount = this.cutRightSampleCount();
+        _o.presentationTsNs = this.presentationTsNs();
     }
 }
 export class AudioFrameContextT {
-    constructor(object = null, originalChannels = BigInt('0'), originalFrequency = BigInt('0'), originalSampleCount = BigInt('0'), cutLeftSampleCount = BigInt('0'), cutRightSampleCount = BigInt('0')) {
+    constructor(object = null, originalChannels = BigInt('0'), originalFrequency = BigInt('0'), originalSampleCount = BigInt('0'), cutLeftSampleCount = BigInt('0'), cutRightSampleCount = BigInt('0'), presentationTsNs = null) {
         this.object = object;
         this.originalChannels = originalChannels;
         this.originalFrequency = originalFrequency;
         this.originalSampleCount = originalSampleCount;
         this.cutLeftSampleCount = cutLeftSampleCount;
         this.cutRightSampleCount = cutRightSampleCount;
+        this.presentationTsNs = presentationTsNs;
     }
     pack(builder) {
         const object = (this.object !== null ? this.object.pack(builder) : 0);
-        return AudioFrameContext.createAudioFrameContext(builder, object, this.originalChannels, this.originalFrequency, this.originalSampleCount, this.cutLeftSampleCount, this.cutRightSampleCount);
+        return AudioFrameContext.createAudioFrameContext(builder, object, this.originalChannels, this.originalFrequency, this.originalSampleCount, this.cutLeftSampleCount, this.cutRightSampleCount, this.presentationTsNs);
     }
 }

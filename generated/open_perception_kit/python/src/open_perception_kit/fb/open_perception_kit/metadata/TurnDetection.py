@@ -62,14 +62,14 @@ class TurnDetection(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+        return None
 
     # TurnDetection
     def TurnComplete(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
-        return False
+        return None
 
     # TurnDetection
     def WindowStartSample(self):
@@ -124,7 +124,7 @@ def AddObject(builder, object):
 
 
 def TurnDetectionAddTurnProbability(builder, turnProbability):
-    builder.PrependFloat32Slot(1, turnProbability, 0.0)
+    builder.PrependFloat32Slot(1, turnProbability, None)
 
 
 def AddTurnProbability(builder, turnProbability):
@@ -132,7 +132,7 @@ def AddTurnProbability(builder, turnProbability):
 
 
 def TurnDetectionAddTurnComplete(builder, turnComplete):
-    builder.PrependBoolSlot(2, turnComplete, 0)
+    builder.PrependBoolSlot(2, turnComplete, None)
 
 
 def AddTurnComplete(builder, turnComplete):
@@ -199,8 +199,8 @@ class TurnDetectionT(object):
     def __init__(
         self,
         object=None,
-        turnProbability=0.0,
-        turnComplete=False,
+        turnProbability=None,
+        turnComplete=None,
         windowStartSample=0,
         windowEndSample=0,
         windowStartTsNs=None,
@@ -209,8 +209,8 @@ class TurnDetectionT(object):
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
-        self.turnProbability = turnProbability  # type: float
-        self.turnComplete = turnComplete  # type: bool
+        self.turnProbability = turnProbability  # type: Optional[float]
+        self.turnComplete = turnComplete  # type: Optional[bool]
         self.windowStartSample = windowStartSample  # type: int
         self.windowEndSample = windowEndSample  # type: int
         self.windowStartTsNs = windowStartTsNs  # type: Optional[int]

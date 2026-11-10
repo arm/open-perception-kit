@@ -1121,12 +1121,12 @@ function orderModels(models) {
 function readableText(value) {
   return String(value ?? "").trim();
 }
-function contentTypes(value) {
-  return Array.isArray(value) ? value.map(readableText).filter(Boolean) : [];
+function outputs(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item?.payloadType === "string" && item.payloadType.length > 0 && typeof item.role === "string") : [];
 }
 function dependencyProviderTasks(model, models) {
-  const required = new Set(contentTypes(model.requiredContentTypes));
-  return [...new Set(models.filter((candidate) => candidate !== model && contentTypes(candidate.providedContentTypes).some((type) => required.has(type))).map((candidate) => readableText(candidate.task) || readableText(candidate.name)).filter(Boolean))];
+  const required = outputs(model.requiredOutputs);
+  return [...new Set(models.filter((candidate) => candidate !== model && outputs(candidate.providedOutputs).some((output) => required.some((input) => output.payloadType === input.payloadType && (!input.role || output.role === input.role)))).map((candidate) => readableText(candidate.task) || readableText(candidate.name)).filter(Boolean))];
 }
 function resolveModelPresentation(model) {
   const rawName = readableText(model.name) || "Unknown model";
@@ -1158,8 +1158,8 @@ var ModelsManager = class {
       displayName: model.displayName || "",
       task: model.task || "",
       runtime: model.runtime || "",
-      providedContentTypes: contentTypes(model.providedContentTypes),
-      requiredContentTypes: contentTypes(model.requiredContentTypes)
+      providedOutputs: outputs(model.providedOutputs),
+      requiredOutputs: outputs(model.requiredOutputs)
     })));
     if (nextSignature === this._lastModelsSignature) {
       return;
@@ -1202,11 +1202,11 @@ var ModelsManager = class {
       modelDetails.textContent = presentation.secondaryLabel;
       modelCopy.appendChild(modelDetails);
     }
-    const requiredContentTypes = contentTypes(model.requiredContentTypes);
+    const requiredOutputs = outputs(model.requiredOutputs);
     modelInfo.appendChild(modelCopy);
     const modelActions = document.createElement("div");
     modelActions.className = "model-actions";
-    if (requiredContentTypes.length > 0) {
+    if (requiredOutputs.length > 0) {
       const providerTasks = dependencyProviderTasks(model, models);
       const accessibleProviders = providerTasks.length > 0 ? providerTasks.join(", ") : "No provider registered";
       const dependencyInfo = document.createElement("div");
@@ -2186,6 +2186,7 @@ var ClassificationKind;
 
 // development/web/src/classification-results.js
 var validProbability = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+var validEmptyClassification = (value) => value.kind === ClassificationKind.Categorical && Boolean(value.labelSet) || value.kind === ClassificationKind.RecognizedText && !value.labelSet;
 function validCandidate(classification, candidate) {
   if (!candidate || candidate.confidence != null && !validProbability(candidate.confidence)) return false;
   if (classification.kind === ClassificationKind.Categorical)
@@ -2255,6 +2256,11 @@ function detectionSummary(detection) {
   }
   if (type === "Classification") {
     const best = Array.isArray(data.candidates) ? data.candidates[0] : null;
+    if (!best) return {
+      title: validEmptyClassification(data) ? "No candidates" : "Classification unavailable",
+      detail: validEmptyClassification(data) ? "Empty classification result" : "Missing classification kind or identity",
+      meta: ""
+    };
     if (best && !validCandidate(data, best))
       return { title: "Classification unavailable", detail: "Invalid kind, identity or score", meta: "" };
     return {
@@ -2270,6 +2276,19 @@ function detectionSummary(detection) {
       meta: ""
     };
   }
+  if (type === "VoiceActivityDetection" || type === "TurnDetection") {
+    const speech = type === "VoiceActivityDetection";
+    return {
+      title: data.usable ? speech ? data.speechActive ? "Speech active" : "Speech inactive" : data.turnComplete ? "Turn complete" : "Turn incomplete" : "Audio result unavailable",
+      detail: `${data.windowStartSample}\u2013${data.windowEndSample} samples (16 kHz)`,
+      meta: data.usable ? number(speech ? data.speechProbability : data.turnProbability) : ""
+    };
+  }
+  if (type === "AudioFrame") return {
+    title: "Audio source buffer",
+    detail: `${data.originalChannels} channels, ${data.originalFrequency} Hz`,
+    meta: `${data.originalSampleCount} samples`
+  };
   if (type === "TrackTrace") {
     return {
       title: `Track ${data.identity?.trackId ?? "-"}`,
@@ -2324,7 +2343,7 @@ function renderLayer(layer2) {
   const container = createNode("div", "inference-layer");
   const header = createNode("div", "inference-layer-header");
   header.appendChild(createNode("span", "inference-layer-title wfr-txt-label", layerTitle(layer2)));
-  header.appendChild(createNode("span", "inference-layer-count wfr-txt-caption", layer2.count || 0));
+  header.appendChild(createNode("span", "inference-layer-count wfr-txt-caption", layer2.status === "invalid" ? "Unavailable" : layer2.count || 0));
   container.appendChild(header);
   container.appendChild(createNode("div", "inference-layer-kind wfr-txt-caption", layer2.contentType || layer2.labelFamily || "output"));
   if (rows.length) {
@@ -2332,7 +2351,7 @@ function renderLayer(layer2) {
     rows.forEach((row) => detectionsNode.appendChild(renderDetection(row)));
     container.appendChild(detectionsNode);
   } else {
-    container.appendChild(renderEmpty("No detections"));
+    container.appendChild(renderEmpty(layer2.status === "invalid" ? "Invalid result data" : "No results"));
   }
   if (hiddenCount) {
     container.appendChild(renderEmpty(`${hiddenCount} more not shown`));
@@ -2348,19 +2367,24 @@ function renderInferenceOutput(output) {
     body2.replaceChildren(renderEmpty("Inference paused."));
     return;
   }
-  const layers = Array.isArray(output?.layers) ? output.layers.filter((layer2) => layer2.model || layer2.contentType || layer2.engine) : [];
+  const layers = Array.isArray(output?.layers) ? output.layers.filter((layer2) => layer2.payloadType) : [];
   currentLayers = layers;
   updateCopyButtonState2();
-  if (!layers.length) {
+  if (output?.decodeError) {
+    body2.replaceChildren(renderEmpty(`Metadata unavailable: ${output.decodeError}`));
+    return;
+  }
+  const unsupported = output?.unsupportedPayloadCount > 0 ? [renderEmpty(`${output.unsupportedPayloadCount} unsupported or malformed payload(s) were not interpreted.`)] : [];
+  if (!layers.length && !unsupported.length) {
     body2.replaceChildren(renderEmpty("No inference output yet, enable a model to see inference here."));
     return;
   }
-  body2.replaceChildren(...layers.map(renderLayer));
+  body2.replaceChildren(...unsupported, ...layers.map(renderLayer));
 }
 function copyableLayers() {
   return currentLayers.filter((layer2) => {
     const detections = Array.isArray(layer2.detections) ? layer2.detections : [];
-    return detections.length > 0 || Number(layer2.count || 0) > 0;
+    return layer2.status === "empty" || layer2.status === "invalid" || detections.length > 0;
   });
 }
 function updateCopyButtonState2() {
@@ -4656,8 +4680,12 @@ var AudioFrameContext = class _AudioFrameContext {
     const offset = this.bb.__offset(this.bb_pos, 14);
     return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
   }
+  presentationTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
   static startAudioFrameContext(builder) {
-    builder.startObject(6);
+    builder.startObject(7);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -4677,11 +4705,14 @@ var AudioFrameContext = class _AudioFrameContext {
   static addCutRightSampleCount(builder, cutRightSampleCount) {
     builder.addFieldInt64(5, cutRightSampleCount, BigInt("0"));
   }
+  static addPresentationTsNs(builder, presentationTsNs) {
+    builder.addFieldInt64(6, presentationTsNs, null);
+  }
   static endAudioFrameContext(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createAudioFrameContext(builder, objectOffset, originalChannels, originalFrequency, originalSampleCount, cutLeftSampleCount, cutRightSampleCount) {
+  static createAudioFrameContext(builder, objectOffset, originalChannels, originalFrequency, originalSampleCount, cutLeftSampleCount, cutRightSampleCount, presentationTsNs) {
     _AudioFrameContext.startAudioFrameContext(builder);
     _AudioFrameContext.addObject(builder, objectOffset);
     _AudioFrameContext.addOriginalChannels(builder, originalChannels);
@@ -4689,10 +4720,12 @@ var AudioFrameContext = class _AudioFrameContext {
     _AudioFrameContext.addOriginalSampleCount(builder, originalSampleCount);
     _AudioFrameContext.addCutLeftSampleCount(builder, cutLeftSampleCount);
     _AudioFrameContext.addCutRightSampleCount(builder, cutRightSampleCount);
+    if (presentationTsNs !== null)
+      _AudioFrameContext.addPresentationTsNs(builder, presentationTsNs);
     return _AudioFrameContext.endAudioFrameContext(builder);
   }
   unpack() {
-    return new AudioFrameContextT(this.object() !== null ? this.object().unpack() : null, this.originalChannels(), this.originalFrequency(), this.originalSampleCount(), this.cutLeftSampleCount(), this.cutRightSampleCount());
+    return new AudioFrameContextT(this.object() !== null ? this.object().unpack() : null, this.originalChannels(), this.originalFrequency(), this.originalSampleCount(), this.cutLeftSampleCount(), this.cutRightSampleCount(), this.presentationTsNs());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
@@ -4701,20 +4734,22 @@ var AudioFrameContext = class _AudioFrameContext {
     _o.originalSampleCount = this.originalSampleCount();
     _o.cutLeftSampleCount = this.cutLeftSampleCount();
     _o.cutRightSampleCount = this.cutRightSampleCount();
+    _o.presentationTsNs = this.presentationTsNs();
   }
 };
 var AudioFrameContextT = class {
-  constructor(object = null, originalChannels = BigInt("0"), originalFrequency = BigInt("0"), originalSampleCount = BigInt("0"), cutLeftSampleCount = BigInt("0"), cutRightSampleCount = BigInt("0")) {
+  constructor(object = null, originalChannels = BigInt("0"), originalFrequency = BigInt("0"), originalSampleCount = BigInt("0"), cutLeftSampleCount = BigInt("0"), cutRightSampleCount = BigInt("0"), presentationTsNs = null) {
     this.object = object;
     this.originalChannels = originalChannels;
     this.originalFrequency = originalFrequency;
     this.originalSampleCount = originalSampleCount;
     this.cutLeftSampleCount = cutLeftSampleCount;
     this.cutRightSampleCount = cutRightSampleCount;
+    this.presentationTsNs = presentationTsNs;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
-    return AudioFrameContext.createAudioFrameContext(builder, object, this.originalChannels, this.originalFrequency, this.originalSampleCount, this.cutLeftSampleCount, this.cutRightSampleCount);
+    return AudioFrameContext.createAudioFrameContext(builder, object, this.originalChannels, this.originalFrequency, this.originalSampleCount, this.cutLeftSampleCount, this.cutRightSampleCount, this.presentationTsNs);
   }
 };
 
@@ -7480,11 +7515,11 @@ var TurnDetection = class _TurnDetection {
   }
   turnProbability() {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   turnComplete() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : null;
   }
   windowStartSample() {
     const offset = this.bb.__offset(this.bb_pos, 10);
@@ -7513,10 +7548,10 @@ var TurnDetection = class _TurnDetection {
     builder.addFieldOffset(0, objectOffset, 0);
   }
   static addTurnProbability(builder, turnProbability) {
-    builder.addFieldFloat32(1, turnProbability, 0);
+    builder.addFieldFloat32(1, turnProbability, null);
   }
   static addTurnComplete(builder, turnComplete) {
-    builder.addFieldInt8(2, +turnComplete, 0);
+    builder.addFieldInt8(2, +turnComplete, null);
   }
   static addWindowStartSample(builder, windowStartSample) {
     builder.addFieldInt64(3, windowStartSample, BigInt("0"));
@@ -7540,8 +7575,10 @@ var TurnDetection = class _TurnDetection {
   static createTurnDetection(builder, objectOffset, turnProbability, turnComplete, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
     _TurnDetection.startTurnDetection(builder);
     _TurnDetection.addObject(builder, objectOffset);
-    _TurnDetection.addTurnProbability(builder, turnProbability);
-    _TurnDetection.addTurnComplete(builder, turnComplete);
+    if (turnProbability !== null)
+      _TurnDetection.addTurnProbability(builder, turnProbability);
+    if (turnComplete !== null)
+      _TurnDetection.addTurnComplete(builder, turnComplete);
     _TurnDetection.addWindowStartSample(builder, windowStartSample);
     _TurnDetection.addWindowEndSample(builder, windowEndSample);
     if (windowStartTsNs !== null)
@@ -7566,7 +7603,7 @@ var TurnDetection = class _TurnDetection {
   }
 };
 var TurnDetectionT = class {
-  constructor(object = null, turnProbability = 0, turnComplete = false, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+  constructor(object = null, turnProbability = null, turnComplete = null, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
     this.object = object;
     this.turnProbability = turnProbability;
     this.turnComplete = turnComplete;
@@ -7711,11 +7748,11 @@ var VoiceActivityDetection = class _VoiceActivityDetection {
   }
   speechProbability() {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   speechActive() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : null;
   }
   windowStartSample() {
     const offset = this.bb.__offset(this.bb_pos, 10);
@@ -7744,10 +7781,10 @@ var VoiceActivityDetection = class _VoiceActivityDetection {
     builder.addFieldOffset(0, objectOffset, 0);
   }
   static addSpeechProbability(builder, speechProbability) {
-    builder.addFieldFloat32(1, speechProbability, 0);
+    builder.addFieldFloat32(1, speechProbability, null);
   }
   static addSpeechActive(builder, speechActive) {
-    builder.addFieldInt8(2, +speechActive, 0);
+    builder.addFieldInt8(2, +speechActive, null);
   }
   static addWindowStartSample(builder, windowStartSample) {
     builder.addFieldInt64(3, windowStartSample, BigInt("0"));
@@ -7771,8 +7808,10 @@ var VoiceActivityDetection = class _VoiceActivityDetection {
   static createVoiceActivityDetection(builder, objectOffset, speechProbability, speechActive, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
     _VoiceActivityDetection.startVoiceActivityDetection(builder);
     _VoiceActivityDetection.addObject(builder, objectOffset);
-    _VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
-    _VoiceActivityDetection.addSpeechActive(builder, speechActive);
+    if (speechProbability !== null)
+      _VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
+    if (speechActive !== null)
+      _VoiceActivityDetection.addSpeechActive(builder, speechActive);
     _VoiceActivityDetection.addWindowStartSample(builder, windowStartSample);
     _VoiceActivityDetection.addWindowEndSample(builder, windowEndSample);
     if (windowStartTsNs !== null)
@@ -7797,7 +7836,7 @@ var VoiceActivityDetection = class _VoiceActivityDetection {
   }
 };
 var VoiceActivityDetectionT = class {
-  constructor(object = null, speechProbability = 0, speechActive = false, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+  constructor(object = null, speechProbability = null, speechActive = null, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
     this.object = object;
     this.speechProbability = speechProbability;
     this.speechActive = speechActive;
@@ -8104,7 +8143,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "2e35be6418caff504add5bf4443a81ca5c8ad0c6c0a45373fee24a234b07d6f3";
+var SCHEMA_SET_SHA256 = "4e701a0bbb27a37bf8f6f171f35506f4a48a697cb8a4e93642a646c4fd171093";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -8483,6 +8522,16 @@ function usableEmbedding({ space, values }) {
   return typeof space?.id === "string" && space.id.length > 0 && space.metric === EmbeddingMetric.Cosine && Array.isArray(values) && space.dimensions === values.length && values.length > 0 && values.every(Number.isFinite) && values.some((value) => value !== 0);
 }
 
+// development/web/src/audio-data.js
+function validAudioResult(data, probability, decision) {
+  const score = data[probability];
+  if (typeof score !== "number" || !Number.isFinite(score) || score < 0 || score > 1 || typeof data[decision] !== "boolean") return false;
+  const unsigned = (value) => value != null && (typeof value !== "number" || Number.isSafeInteger(value)) && /^[0-9]{1,20}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
+  if (!unsigned(data.windowStartSample) || !unsigned(data.windowEndSample) || BigInt(data.windowEndSample) <= BigInt(data.windowStartSample)) return false;
+  const start = data.windowStartTsNs, end = data.windowEndTsNs;
+  return start == null && end == null || unsigned(start) && unsigned(end) && BigInt(start) < BigInt(end);
+}
+
 // development/web/src/tracking-data.js
 var positiveId = (value) => value != null && (typeof value !== "number" || Number.isSafeInteger(value)) && /^[1-9][0-9]{0,19}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
 function trackKey(identity) {
@@ -8582,6 +8631,7 @@ function layer(payload, payloadType, detections) {
     payloadType,
     payload,
     count: detections.length,
+    status: detections.length ? "available" : "empty",
     detections
   };
 }
@@ -8609,7 +8659,11 @@ function candidateData(candidate) {
 }
 function addPayloadLayers(envelope, payloadType, name, mapper, layers) {
   for (const payload of envelope.for_each(payloadType)) {
-    layers.push(layer(payload, name, mapper(payload)));
+    try {
+      layers.push(layer(payload, name, mapper(payload)));
+    } catch {
+      layers.push({ ...layer(payload, name, []), status: "invalid" });
+    }
   }
 }
 var classificationMappers = /* @__PURE__ */ new Map([
@@ -8656,7 +8710,11 @@ function addClassificationLayers(packet, layers) {
     } catch {
       continue;
     }
-    layers.push(layer(payload, info.root_type, mapper(payload)));
+    try {
+      layers.push(layer(payload, info.root_type, mapper(payload)));
+    } catch {
+      layers.push({ ...layer(payload, info.root_type, []), status: "invalid" });
+    }
   }
 }
 function decodeBase64(value) {
@@ -8709,6 +8767,18 @@ function decodeFrameResultsMessage(message) {
           presentationTsNs: payload.video.presentationTsNs === null ? null : identifier(payload.video.presentationTsNs)
         }
       });
+    }
+    if (payload.audio) {
+      const audio = payload.audio;
+      detections.push({ type: "AudioFrame", data: {
+        ...objectData(audio.object),
+        originalChannels: identifier(audio.originalChannels),
+        originalFrequency: identifier(audio.originalFrequency),
+        originalSampleCount: identifier(audio.originalSampleCount),
+        cutLeftSampleCount: identifier(audio.cutLeftSampleCount),
+        cutRightSampleCount: identifier(audio.cutRightSampleCount),
+        presentationTsNs: audio.presentationTsNs == null ? null : identifier(audio.presentationTsNs)
+      } });
     }
     return detections;
   }, layers);
@@ -8776,6 +8846,24 @@ function decodeFrameResultsMessage(message) {
     };
     return { type: "ObjectEmbedding", data: { ...data, usable: usableEmbedding(data) } };
   }), layers);
+  for (const [root2, name, probability, decision] of [
+    [VoiceActivityDetectionsT, "VoiceActivityDetection", "speechProbability", "speechActive"],
+    [TurnDetectionsT, "TurnDetection", "turnProbability", "turnComplete"]
+  ]) {
+    addPayloadLayers(envelope, root2, name + "s", (payload) => payload.detections.map((item) => {
+      const data = {
+        ...objectData(item.object),
+        [probability]: item[probability],
+        [decision]: item[decision],
+        windowStartSample: identifier(item.windowStartSample),
+        windowEndSample: identifier(item.windowEndSample),
+        windowStartTsNs: item.windowStartTsNs == null ? null : identifier(item.windowStartTsNs),
+        windowEndTsNs: item.windowEndTsNs == null ? null : identifier(item.windowEndTsNs),
+        discontinuity: item.discontinuity
+      };
+      return { type: name, data: { ...data, usable: validAudioResult(data, probability, decision) } };
+    }), layers);
+  }
   for (const payload of envelope.for_each(PerformanceMeasurementsT)) {
     const data = {
       pixelFormat: text(payload.pixelFormat),
@@ -8796,7 +8884,7 @@ function decodeFrameResultsMessage(message) {
   }
   return {
     frame_counter: Number.isInteger(message.frame_counter) ? message.frame_counter : void 0,
-    frame_results: { layers, performance: performance2 }
+    frame_results: { layers, performance: performance2, unsupportedPayloadCount: envelope.size() - layers.length }
   };
 }
 
@@ -8816,9 +8904,11 @@ function metadataUrl() {
   const endpoint = config.metadataEndpoint || "/ws";
   return `${WS_PROTO2}://${WS_HOST2}:${port}${endpoint}`;
 }
-function normaliseInferenceOutput(frameResults) {
+function normaliseInferenceOutput(frameResults, decodeError) {
   const layers = Array.isArray(frameResults?.layers) ? frameResults.layers : [];
   return {
+    decodeError,
+    unsupportedPayloadCount: frameResults?.unsupportedPayloadCount || 0,
     layers: layers.map((layer2) => {
       const detections = Array.isArray(layer2?.detections) ? layer2.detections : [];
       return {
@@ -8838,7 +8928,7 @@ function publishMetadata(frameCounter, frameResults, decodeError = null) {
     detail: {
       frame_counter: Number.isInteger(frameCounter) ? frameCounter : void 0,
       frame_results: frameResults,
-      inference_output: normaliseInferenceOutput(frameResults),
+      inference_output: normaliseInferenceOutput(frameResults, decodeError),
       performance: normalisePerformance(frameResults),
       decode_error: decodeError
     }
@@ -9258,15 +9348,15 @@ function sourceLabels(sources, groupByPayload = true) {
   return labels;
 }
 function collectOutputs(frame) {
-  const outputs = /* @__PURE__ */ new Map();
+  const outputs2 = /* @__PURE__ */ new Map();
   for (const layer2 of frame?.layers || []) {
     if (!layer2.payloadType || layer2.payloadType === "FrameContext") continue;
     const source = outputSource(layer2);
     const key = sourceKey(source);
-    if (!outputs.has(key)) outputs.set(key, { key, source, layers: [] });
-    outputs.get(key).layers.push(layer2);
+    if (!outputs2.has(key)) outputs2.set(key, { key, source, layers: [] });
+    outputs2.get(key).layers.push(layer2);
   }
-  return outputs;
+  return outputs2;
 }
 function append(index, key, value) {
   if (!key) return;
@@ -9274,9 +9364,9 @@ function append(index, key, value) {
   index.get(key).push(value);
 }
 function indexFrame(frame) {
-  const outputs = collectOutputs(frame);
-  const index = { frame, outputs, byPayload: /* @__PURE__ */ new Map(), byProducer: /* @__PURE__ */ new Map(), objects: /* @__PURE__ */ new Map(), byTrack: /* @__PURE__ */ new Map() };
-  for (const output of outputs.values()) {
+  const outputs2 = collectOutputs(frame);
+  const index = { frame, outputs: outputs2, byPayload: /* @__PURE__ */ new Map(), byProducer: /* @__PURE__ */ new Map(), objects: /* @__PURE__ */ new Map(), byTrack: /* @__PURE__ */ new Map() };
+  for (const output of outputs2.values()) {
     append(index.byPayload, output.source.payloadType, output);
     append(index.byProducer, producerKey(output.source), output);
     output.items = [];
@@ -9367,6 +9457,8 @@ function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: reso
       if (reason) return { state: "unsupported", message: reason };
       const output = index.outputs.get(sourceKey(selection.primary));
       if (!output) return { state: "waiting", message: "Waiting for source" };
+      if (output.layers.some((layer2) => layer2.status === "invalid"))
+        return { state: "unsupported", message: "Source contains invalid result data.", output, items: [] };
       return resolve5({ state: "ready", message: "", output, items: output.items }, index, settings);
     }
   };

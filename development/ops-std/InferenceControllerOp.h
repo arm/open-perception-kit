@@ -39,7 +39,7 @@ namespace opk::stdop {
  * 2. Preprocess, inference, and postprocess operations consume one crop per loop iteration
  * 3. GenericImagePreprocessOp returns OpSignal::BreakLoop when no crops remain
  */
-class InferenceControllerOp : public opk::op::Op, public opk::op::OpInterfaceContentConsumer {
+class InferenceControllerOp : public opk::op::Op, public opk::op::OpInterfaceResultConsumer {
   public:
     /**
      * @brief Constructs an inference controller operation.
@@ -77,7 +77,7 @@ class InferenceControllerOp : public opk::op::Op, public opk::op::OpInterfaceCon
      * @return Result indicating success or binding error.
      */
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
-    std::vector<std::string_view> getRequiredContentTypes() const override;
+    std::vector<opk::OutputCapability> getRequiredOutputs() const override;
 
   private:
     std::string contentType;

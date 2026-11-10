@@ -79,8 +79,8 @@ class OpChain {
     const std::string &getDisplayName() const;
     const std::string &getTask() const;
     const std::string &getRuntime() const;
-    std::vector<std::string_view> getProvidedContentTypes() const;
-    std::vector<std::string_view> getRequiredContentTypes() const;
+    std::vector<opk::OutputCapability> getProvidedOutputs() const;
+    std::vector<opk::OutputCapability> getRequiredOutputs() const;
     /// PCM window required by the bound inference inputs; zero means no audio input.
     /// Only static mono PCM shapes in unlooped chains are supported.
     /// Conflicting sizes, nonzero loop IDs in a PCM chain, and log-mel fail.

@@ -17,7 +17,7 @@ voice_pipeline = executable(
   'voice-pipeline',
   'main.cpp',
   build_rpath: '$ORIGIN/',
-  include_directories: [runtime_include],
+   include_directories: [runtime_include, common_include],
   dependencies: [tl_expected_dep, open_perception_kit_dep],
   link_with: [opk_runtime],
   install: false,

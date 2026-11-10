@@ -82,6 +82,7 @@ class TurnDetectorOp : public opk::op::Op, public opk::op::OpInterfaceAudioPrepr
     std::string vadModel = "silero-vad";
     /// Non-owning pointer to the adjacent inference Op, valid while the chain is bound.
     const opk::op::OpInterfaceInference *inference = nullptr;
+    const opk::op::Op *vadProducer = nullptr;
     /// Real PCM history, with capacity equal to the bound model's input sample count.
     std::unique_ptr<opk::PcmRingBuffer> history;
     /// Expected start of the next hop; a mismatch indicates a gap or overlap.

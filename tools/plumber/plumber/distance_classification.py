@@ -21,6 +21,8 @@ from .distance_rect import GEOMETRY_THRESHOLD
 
 def distance_classification(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item) -> float:
     """Compare declared kind/identity or literal text for the corresponding subject."""
+    if gt_item["data"].get("invalidCandidates") or out_item["data"].get("invalidCandidates"):
+        return 1.0
     if distance_subject(gt_item, out_item, _gt_parent_item, _out_parent_item) > GEOMETRY_THRESHOLD:
         return 1.0
 
@@ -89,6 +91,8 @@ def distance_person_presence(gt_item: dict, out_item: dict, _gt_parent_item: dic
 def distance_voice_activity(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item: dict) -> float:
     gt = gt_item["data"]
     out = out_item["data"]
+    if not valid_audio_result(gt, "speechProbability", "speechActive") or not valid_audio_result(out, "speechProbability", "speechActive"):
+        return 1.0
     # Match the analyzed interval and decision exactly; tolerate small score differences.
     for key in ("speechActive", "windowStartSample", "windowEndSample",
                 "windowStartTsNs", "windowEndTsNs", "discontinuity"):
@@ -100,9 +104,20 @@ def distance_voice_activity(gt_item: dict, out_item: dict, _gt_parent_item: dict
 def distance_turn_detection(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item: dict) -> float:
     gt = gt_item["data"]
     out = out_item["data"]
+    if not valid_audio_result(gt, "turnProbability", "turnComplete") or not valid_audio_result(out, "turnProbability", "turnComplete"):
+        return 1.0
     # Compare assessments of the same context, not just their completion probabilities.
     for key in ("turnComplete", "windowStartSample", "windowEndSample",
                 "windowStartTsNs", "windowEndTsNs", "discontinuity"):
         if gt[key] != out[key]:
             return 1.0
     return abs(gt["turnProbability"] - out["turnProbability"])
+
+
+def valid_audio_result(data, probability, decision):
+    start, end = data.get("windowStartSample"), data.get("windowEndSample")
+    if (not _valid_probability(data.get(probability)) or not isinstance(data.get(decision), bool)
+            or not isinstance(start, int) or not isinstance(end, int) or start < 0 or end <= start):
+        return False
+    first, last = data.get("windowStartTsNs"), data.get("windowEndTsNs")
+    return first is None and last is None or isinstance(first, int) and isinstance(last, int) and 0 <= first < last

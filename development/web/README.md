@@ -510,6 +510,19 @@ replacing/clearing an image drops its old decoded resource.
 
 ## Module responsibilities
 
+Model registration uses `providedOutputs` and `requiredOutputs` arrays containing
+`{payloadType, role}` declarations. Dependency presentation requires an exact root
+match; an empty required role accepts any role of that root. The former string-only
+capability arrays are not used. Declarations describe model capability, not whether
+it ran on the current frame.
+
+Decoded layers distinguish available observations, successful empty collections
+and invalid data. Unsupported/malformed payload entries are reported separately;
+invalid outputs do not become valid zero measurements or empty successes. Audio
+source buffers, VAD windows and turn assessments are decoded by payload root,
+retaining nullable probabilities/decisions, zero PTS and discontinuity markers.
+VAD/turn windows remain mono 16 kHz regardless of the original buffer rate.
+
 - `src/frame-results.js`: generated SDK decoding, payload family/provenance, and
   item adaptation. Both detector and tracker outputs remain available.
 - `src/overlay-sources.js`: source identities, concise labels, current-frame indexes.

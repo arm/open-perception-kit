@@ -16,6 +16,7 @@
  */
 
 #include "TextDisplay.h"
+#include "opk/AudioResults.h"
 #include "opk/ClassificationScores.h"
 #include "opk/Embedding.h"
 #include "opk/FrameResults.h"
@@ -157,11 +158,60 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
                                         : "unavailable"));
     }
     if (payload.audio) {
-        lines.push_back(fmt::format("  audio: {} channels={} frequency={} samples={}",
+        lines.push_back(fmt::format("  audio: {} channels={} frequency={} samples={} pts_ns={}",
                                     objectLabel(payload.audio->object.get()),
                                     payload.audio->original_channels,
                                     payload.audio->original_frequency,
-                                    payload.audio->original_sample_count));
+                                    payload.audio->original_sample_count,
+                                    payload.audio->presentation_ts_ns
+                                        ? std::to_string(*payload.audio->presentation_ts_ns)
+                                        : "unavailable"));
+    }
+}
+
+void TextDisplay::appendLines(
+    std::vector<std::string> &lines,
+    const open_perception_kit::metadata::VoiceActivityDetectionsT &payload) {
+    lines.push_back(fmt::format("VoiceActivityDetections: {} count={}",
+                                layerLabel(payload.layer.get()),
+                                payload.detections.size()));
+    for (const auto &value : payload.detections) {
+        if (!value || !value->speech_active || !value->speech_probability ||
+            !opk::audio_results::valid(*value)) {
+            lines.emplace_back("  VAD: unavailable");
+            continue;
+        }
+        lines.push_back(fmt::format(
+            "  VAD: active={} probability={:.3f} samples=[{},{}) pts=[{},{}) discontinuity={}",
+            *value->speech_active,
+            *value->speech_probability,
+            value->window_start_sample,
+            value->window_end_sample,
+            value->window_start_ts_ns ? std::to_string(*value->window_start_ts_ns) : "unavailable",
+            value->window_end_ts_ns ? std::to_string(*value->window_end_ts_ns) : "unavailable",
+            value->discontinuity));
+    }
+}
+
+void TextDisplay::appendLines(std::vector<std::string> &lines,
+                              const open_perception_kit::metadata::TurnDetectionsT &payload) {
+    lines.push_back(fmt::format(
+        "TurnDetections: {} count={}", layerLabel(payload.layer.get()), payload.detections.size()));
+    for (const auto &value : payload.detections) {
+        if (!value || !value->turn_complete || !value->turn_probability ||
+            !opk::audio_results::valid(*value)) {
+            lines.emplace_back("  Turn: unavailable");
+            continue;
+        }
+        lines.push_back(fmt::format(
+            "  Turn: complete={} probability={:.3f} samples=[{},{}) pts=[{},{}) discontinuity={}",
+            *value->turn_complete,
+            *value->turn_probability,
+            value->window_start_sample,
+            value->window_end_sample,
+            value->window_start_ts_ns ? std::to_string(*value->window_start_ts_ns) : "unavailable",
+            value->window_end_ts_ns ? std::to_string(*value->window_end_ts_ns) : "unavailable",
+            value->discontinuity));
     }
 }
 
