@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
+import contextlib
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
@@ -59,7 +61,14 @@ class CascadeResultTest(unittest.TestCase):
                 json.dumps({"frame_results_packet_b64": base64.b64encode(envelope.serialize()).decode()}),
                 encoding="utf-8",
             )
-            checker.main(path)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                checker.main(path)
+            self.assertIn("1 face detections, 1 camera-contact classifications", output.getvalue())
+
+            path.write_text("", encoding="utf-8")
+            with self.assertRaisesRegex(SystemExit, "No frame contained both"):
+                checker.main(path)
 
 
 if __name__ == "__main__":

@@ -57,9 +57,22 @@ smoke_runtime() {
         opkperformance ! fakesink
 }
 
+smoke_cascade() {
+    local opk_data="$1" image="$2"
+    local results=/tmp/nightly-cascade.ndjson
+    timeout 120s gst-launch-1.0 -q \
+        filesrc location="$image" ! jpegdec ! imagefreeze num-buffers=1 ! \
+        videoconvert ! video/x-raw,format=BGRA ! \
+        opkinfer opchain-path="$opk_data/opchains/nitec-resnet-18/opchain-executorch.json" ! \
+        opkcomm method=file file-name="$results" ! fakesink sync=false
+    echo 'Cascade FrameResults:'
+    cat "$results"
+    /tmp/opk-python/bin/python /source/scripts/testing/check-nightly-cascade.py "$results"
+}
+
 apt-get update
 if [[ "$1" == debian ]]; then
-    apt-get install -y --no-install-recommends "${runtime[0]}" "${demo[0]}" gstreamer1.0-tools
+    apt-get install -y --no-install-recommends "${runtime[0]}" "${demo[0]}" gstreamer1.0-tools python3-venv
     dpkg-query -W -f='${db:Status-Status}\n' opk-runtime opk-demo | grep -x -c installed | grep -x 2
     smoke_runtime
     python3 /source/scripts/testing/nightly_image_pipeline.py \
@@ -72,6 +85,13 @@ if [[ "$1" == debian ]]; then
         echo 'Packaged pipeline has missing inputs' >&2
         exit 1
     fi
+    /source/scripts/setup-python-ops-runtime.sh --python /usr/bin/python3 \
+        --venv /tmp/opk-python \
+        --runtime-json /source/development/ops-python/runtime.json \
+        --sdk-json /source/tools/perception/sdk.json
+    export PYTHONPATH=/source/generated/open_perception_kit/python/src
+    smoke_cascade /usr/share/opk/config \
+        /usr/share/opk/data/images/GettyImages-1140581459-thumbnail.jpg
 else
     apt-get install -y --no-install-recommends \
         ca-certificates gstreamer1.0-tools gstreamer1.0-nice \
@@ -103,4 +123,11 @@ else
     export OPK_PYTHON_RUNTIME_VENV=/tmp/opk-python
     /source/scripts/release/smoke-opk-package.sh "${archives[0]}" \
         /source/development/tests/python_script_op/runtime_environment.py
+    for model in ultraface-rfb-320 nitec-resnet-18-executorch; do
+        model_dir="$package_root/share/opk/models/$model"
+        model_file="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["modelFile"])' "$model_dir/model.json")"
+        cp "/models/$model/$model_file" "$model_dir/$model_file"
+    done
+    smoke_cascade "$package_root/share/opk" \
+        /source/data/images/GettyImages-1140581459-thumbnail.jpg
 fi

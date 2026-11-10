@@ -131,7 +131,7 @@ jobs:
         env:
           DEB_ARCH: ${{ matrix.deb_arch }}
         run: |
-          mkdir -p nightly-logs nightly-packages
+          mkdir -p nightly-logs nightly-packages nightly-models
           git rev-parse HEAD > nightly-logs/source-commit.txt
           cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
           echo "HF_DOWNLOAD_CACHEBUST=$cache_key" >> "$GITHUB_ENV"
@@ -149,6 +149,15 @@ jobs:
           container_id="$(docker create opk-nightly-deployment)"
           trap 'docker rm -f "$container_id" >/dev/null' EXIT
           docker cp "$container_id:/opt/opk-release-artifacts/." nightly-packages/
+          docker buildx build --load --progress=plain --target opk-models \
+            --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
+            --tag opk-nightly-models . 2>&1 | tee nightly-logs/models-image.txt
+          model_container_id="$(docker create opk-nightly-models)"
+          trap 'docker rm -f "$container_id" "$model_container_id" >/dev/null' EXIT
+          mkdir -p nightly-models/{ultraface-rfb-320,nitec-resnet-18-executorch}
+          for model in ultraface-rfb-320 nitec-resnet-18-executorch; do
+            docker cp "$model_container_id:/work/config/models/$model/." "nightly-models/$model/"
+          done
       - name: Build Debian packages
         if: matrix.kind == 'debian'
         run: |
@@ -165,11 +174,12 @@ jobs:
         run: |
           docker run --rm \
             -v "$PWD/nightly-packages:/artifacts:ro" -v "$PWD:/source:ro" \
+            -v "$PWD/nightly-models:/models:ro" \
             debian:trixie-slim bash /source/scripts/testing/nightly-package-smoke.sh "$PACKAGE_KIND" \
             2>&1 | tee nightly-logs/package-smoke.txt
       - name: Report remaining nightly coverage
         if: always()
-        run: echo 'Inference, container entrypoint and packaged SDK consumer tests are not yet implemented.' >> "$GITHUB_STEP_SUMMARY"
+        run: echo 'Container entrypoint and comprehensive packaged SDK consumer tests are not yet implemented.' >> "$GITHUB_STEP_SUMMARY"
       - name: Retain packages when requested
         if: inputs.upload_packages == true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
