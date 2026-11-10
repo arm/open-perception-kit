@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+
+name: Nightly builds (build coverage)
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      upload_packages:
+        description: Retain the generated packages for 14 days
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  development:
+    name: Development build
+    uses: ./.github/workflows/nightly-development.yml
+
+  images:
+    name: Images
+    uses: ./.github/workflows/nightly-images.yml
+
+  packages:
+    name: Packages
+    uses: ./.github/workflows/nightly-packages.yml
+    with:
+      upload_packages: ${{ inputs.upload_packages == true }}
