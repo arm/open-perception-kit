@@ -50,6 +50,7 @@ jobs:
         run: |
           docker buildx build --load --progress=plain --target opk-dev \
             --build-arg USER_UID="$(id -u)" --build-arg USER_GID="$(id -g)" \
+            --build-arg NO_EXAMPLE_CONTENT=true \
             --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
             --tag opk-nightly-dev . 2>&1 | tee nightly-logs/development-image.txt
       - name: Build and test debug
@@ -141,6 +142,7 @@ jobs:
         run: |
           docker buildx build --load --progress=plain --target opk-deployment-base \
             --build-arg OPK_RELEASE_BUILD=true --build-arg OPK_MLWL=enabled \
+            --build-arg NO_EXAMPLE_CONTENT=true \
             --build-arg OPK_RELEASE_VERSION="$OPK_VERSION" \
             --build-arg OPK_RELEASE_SOURCE_COMMIT="$GITHUB_SHA" \
             --tag opk-nightly-deployment . 2>&1 | tee nightly-logs/deployment-image.txt
@@ -152,6 +154,7 @@ jobs:
         run: |
           docker buildx build --progress=plain --target opk-debian-packages \
             --build-arg OPK_RELEASE_BUILD=true --build-arg OPK_MLWL=enabled \
+            --build-arg NO_EXAMPLE_CONTENT=true \
             --build-arg OPK_RELEASE_SOURCE_COMMIT="$GITHUB_SHA" \
             --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
             --output type=local,dest=nightly-packages . \

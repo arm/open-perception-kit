@@ -62,8 +62,16 @@ if [[ "$1" == debian ]]; then
     apt-get install -y --no-install-recommends "${runtime[0]}" "${demo[0]}" gstreamer1.0-tools
     dpkg-query -W -f='${db:Status-Status}\n' opk-runtime opk-demo | grep -x -c installed | grep -x 2
     smoke_runtime
-    NO_COLOR=1 opk-menu --dry-run yolo26n-320 | tee /tmp/opk-menu-smoke.log
+    python3 /source/scripts/testing/nightly_image_pipeline.py \
+        /usr/share/opk/config/pipelines/yolo26n-320.json /tmp/nightly-image-pipeline.json
+    NO_COLOR=1 opk-menu --dry-run /tmp/nightly-image-pipeline.json | tee /tmp/opk-menu-smoke.log
     grep -q '^Model: OK ' /tmp/opk-menu-smoke.log
+    grep -Fx 'Media: OK /usr/share/opk/data/images/GettyImages-1140581459-thumbnail.jpg' \
+        /tmp/opk-menu-smoke.log
+    if grep -q 'MISSING' /tmp/opk-menu-smoke.log; then
+        echo 'Packaged pipeline has missing inputs' >&2
+        exit 1
+    fi
 else
     apt-get install -y --no-install-recommends \
         ca-certificates gstreamer1.0-tools gstreamer1.0-nice \
