@@ -56,5 +56,5 @@ For a non-interactive installation smoke test, resolve a packaged preset
 without starting its pipeline:
 
 ```bash
-opk-menu --dry-run testing/only-opkmenu
+opk-menu --dry-run yolo26n-320
 ```
