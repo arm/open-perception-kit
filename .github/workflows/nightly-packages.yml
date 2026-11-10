@@ -1,0 +1,99 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Nightly packages
+
+on:
+  workflow_call:
+    inputs:
+      upload_packages:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  packages:
+    name: ${{ matrix.kind }} package build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {kind: archive, arch: x86_64, deb_arch: amd64, runner: ubuntu-24.04}
+          - {kind: archive, arch: aarch64, deb_arch: arm64, runner: ubuntu-24.04-arm}
+          - {kind: debian, arch: x86_64, deb_arch: amd64, runner: ubuntu-24.04}
+          - {kind: debian, arch: aarch64, deb_arch: arm64, runner: ubuntu-24.04-arm}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Prepare build
+        env:
+          DEB_ARCH: ${{ matrix.deb_arch }}
+        run: |
+          mkdir -p nightly-logs nightly-packages
+          git rev-parse HEAD > nightly-logs/source-commit.txt
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=$cache_key" >> "$GITHUB_ENV"
+          python3 -c 'from pathlib import Path; from scripts.release.ReleaseTool import read_version; print("OPK_VERSION=" + read_version(Path.cwd()))' >> "$GITHUB_ENV"
+          bash scripts/private/executorch/fetch-released-deb.sh "$DEB_ARCH" var 2>&1 | tee nightly-logs/executorch.txt
+      - name: Build deployment image and release tarball
+        if: matrix.kind == 'archive'
+        run: |
+          docker buildx build --load --progress=plain --target opk-deployment-base \
+            --build-arg OPK_RELEASE_BUILD=true --build-arg OPK_MLWL=enabled \
+            --build-arg NO_EXAMPLE_CONTENT=true \
+            --build-arg OPK_RELEASE_VERSION="$OPK_VERSION" \
+            --build-arg OPK_RELEASE_SOURCE_COMMIT="$GITHUB_SHA" \
+            --tag opk-nightly-deployment . 2>&1 | tee nightly-logs/deployment-image.txt
+          container_id="$(docker create opk-nightly-deployment)"
+          trap 'docker rm -f "$container_id" >/dev/null' EXIT
+          docker cp "$container_id:/opt/opk-release-artifacts/." nightly-packages/
+      - name: Build runtime and demo DEB packages
+        if: matrix.kind == 'debian'
+        run: |
+          docker buildx build --progress=plain --target opk-debian-packages \
+            --build-arg OPK_RELEASE_BUILD=true --build-arg OPK_MLWL=enabled \
+            --build-arg NO_EXAMPLE_CONTENT=true \
+            --build-arg OPK_RELEASE_SOURCE_COMMIT="$GITHUB_SHA" \
+            --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
+            --output type=local,dest=nightly-packages . \
+            2>&1 | tee nightly-logs/debian-packages.txt
+      - name: Report remaining nightly coverage
+        if: always()
+        run: echo 'Comprehensive packaged SDK consumer tests are not yet implemented.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain packages when requested
+        if: inputs.upload_packages == true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: nightly-${{ matrix.kind }}-packages-${{ matrix.arch }}
+          path: nightly-packages/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: nightly-${{ matrix.kind }}-logs-${{ matrix.arch }}
+          path: nightly-logs/
+          if-no-files-found: warn
+          retention-days: 14

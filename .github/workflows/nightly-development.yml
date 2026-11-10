@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Nightly development
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  development:
+    name: Development build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arch: x86_64, deb_arch: amd64, runner: ubuntu-24.04}
+          - {arch: aarch64, deb_arch: arm64, runner: ubuntu-24.04-arm}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Prepare build
+        env:
+          DEB_ARCH: ${{ matrix.deb_arch }}
+        run: |
+          mkdir -p nightly-logs
+          git rev-parse HEAD > nightly-logs/source-commit.txt
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=$cache_key" >> "$GITHUB_ENV"
+          bash scripts/private/executorch/fetch-released-deb.sh "$DEB_ARCH" var 2>&1 | tee nightly-logs/executorch.txt
+      - name: Build development image
+        run: |
+          docker buildx build --load --progress=plain --target opk-dev \
+            --build-arg USER_UID="$(id -u)" --build-arg USER_GID="$(id -g)" \
+            --build-arg NO_EXAMPLE_CONTENT=true \
+            --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
+            --tag opk-nightly-dev . 2>&1 | tee nightly-logs/development-image.txt
+      - name: Build and test debug
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work \
+            -e OPK_EXECUTORCH=enabled -e OPK_PYTHON_OPS=enabled \
+            opk-nightly-dev bash -lc \
+            './scripts/build.sh clean && ./scripts/build.sh debug true && meson test -C development/build-active --print-errorlogs' \
+            2>&1 | tee nightly-logs/development-debug.txt
+          cp -a development/build-active/meson-logs nightly-logs/debug-meson-logs
+      - name: Build and test release
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work \
+            -e OPK_EXECUTORCH=enabled -e OPK_PYTHON_OPS=enabled \
+            opk-nightly-dev bash -lc \
+            './scripts/build.sh clean && ./scripts/build.sh release true && meson test -C development/build-active --print-errorlogs' \
+            2>&1 | tee nightly-logs/development-release.txt
+      - name: Retain logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: nightly-development-logs-${{ matrix.arch }}
+          path: |
+            nightly-logs/
+            development/build*/meson-logs/
+          if-no-files-found: warn
+          retention-days: 14
