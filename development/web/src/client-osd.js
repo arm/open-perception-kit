@@ -339,9 +339,8 @@ function updateLegends() {
                 const reset = node('button', 'wfr-txt-caption', 'Reset labels');
                 reset.type = 'button';
                 reset.addEventListener('click', () => {
-                    overlay.settings.classes = Object.fromEntries(Object.entries(overlay.settings.classes)
-                        .map(([id, {label, ...style}]) => [id, style]));
-                    for (const item of row.legendNodes.values()) item.resetLabel?.();
+                    for (const style of Object.values(overlay.settings.classes)) delete style.label;
+                    for (const item of row.legendNodes.values()) item.name.value = '';
                     persist();
                     updateLegends();
                 });
@@ -357,36 +356,37 @@ function updateLegends() {
         for (const entry of legend.entries) {
             let item = row.legendNodes.get(entry.id);
             if (!item) {
-                const swatch = node('span', 'overlay-swatch');
-                swatch.setAttribute('aria-hidden', 'true');
+                const swatch = feature.classControls ? null : node('span', 'overlay-swatch');
+                swatch?.setAttribute('aria-hidden', 'true');
                 const element = node('li', 'wfr-txt-caption');
                 const heading = node('div', 'overlay-class-heading');
-                const presence = node('span', 'overlay-class-presence');
+                const presence = feature.classControls ? null : node('span', 'overlay-class-presence');
                 const name = node(feature.classControls ? 'input' : 'span', 'overlay-class-name');
-                heading.append(swatch, name, presence);
+                if (feature.classControls) heading.append(name);
+                else heading.append(swatch, name, presence);
                 element.append(heading);
-                let resetLabel;
                 if (feature.classControls) {
                     element.className += ' overlay-class-row';
-                    const settings = {enabled: entry.enabled, color: entry.color, opacity: entry.opacity};
-                    if (overlay.settings.classes?.[entry.id]?.label) settings.label = overlay.settings.classes[entry.id].label;
+                    const settings = overlay.settings.classes?.[entry.id]
+                        || {enabled: entry.enabled, color: entry.color, opacity: entry.opacity};
                     const preview = () => {
-                        const style = {...settings};
-                        if (style.label?.trim()) style.label = style.label.trim();
-                        else delete style.label;
-                        overlay.settings.classes = {...overlay.settings.classes, [entry.id]: style};
+                        // Discovery alone must not turn defaults into saved overrides.
+                        (overlay.settings.classes ??= {})[entry.id] = settings;
                         updateLegends();
                     };
                     name.type = 'text';
                     name.maxLength = 80;
                     name.placeholder = `Class ${entry.id}`;
                     name.value = settings.label || '';
-                    resetLabel = () => { delete settings.label; name.value = ''; };
                     name.setAttribute('aria-label', `Class ${entry.id} name`);
-                    name.addEventListener('input', () => { settings.label = name.value; preview(); });
+                    name.addEventListener('input', () => {
+                        const label = name.value.trim();
+                        if (label) settings.label = label;
+                        else delete settings.label;
+                        preview();
+                    });
                     name.addEventListener('change', () => {
-                        name.value = settings.label?.trim() || '';
-                        settings.label = name.value;
+                        name.value = settings.label || '';
                         persist();
                     });
                     name.addEventListener('keydown', event => {
@@ -400,22 +400,25 @@ function updateLegends() {
                 } else name.textContent = entry.label;
                 const nextId = [...row.legendNodes.keys()].sort((a, b) => a - b).find(id => id > entry.id);
                 row.legendList.insertBefore(element, row.legendNodes.get(nextId)?.element || null);
-                item = {element, swatch, presence, heading, resetLabel, label: `${entry.id} · ${entry.label}`};
+                item = {element, swatch, presence, heading, name, label: `${entry.id} · ${entry.label}`};
                 row.legendNodes.set(entry.id, item);
             }
             item.label = `${entry.id} · ${entry.label}`;
-            if (item.color !== entry.color) {
+            if (item.swatch && item.color !== entry.color) {
                 item.swatch.style.setProperty('--overlay-color', entry.color);
                 item.color = entry.color;
             }
         }
         for (const [id, item] of row.legendNodes) {
             const text = present.has(id) ? 'In frame' : resolved.state === 'ready' ? 'Not in frame' : 'Unavailable';
-            if (item.presence.textContent !== text) {
+            if (item.presence && item.presence.textContent !== text) {
                 item.presence.textContent = text;
             }
             const title = `${item.label} · ${text}`;
-            if (item.heading.title !== title) item.heading.title = title;
+            if (item.heading.title !== title) {
+                item.heading.title = title;
+                if (feature.classControls) item.name.setAttribute('aria-description', text);
+            }
         }
     }
 }

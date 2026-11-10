@@ -415,7 +415,7 @@ test.describe('semantic class maps', () => {
     await expect.poll(sample).toEqual(colors);
     await expect(legend.locator('.overlay-class-row')).toHaveCount(3);
     await expect(legend.locator('.overlay-class-name').first()).toHaveAttribute('placeholder', 'Class 0');
-    await expect(legend.locator('.overlay-class-presence').filter({hasText: /^In frame$/})).toHaveCount(3);
+    await expect(legend.locator('.overlay-class-name[aria-description="In frame"]')).toHaveCount(3);
     // Nearest-neighbor sampling leaves the class boundary sharp, not interpolated.
     expect(await page.locator('#clientOsdCanvas').evaluate(canvas =>
       [...canvas.getContext('2d').getImageData(399, 600, 2, 1).data]))
@@ -463,10 +463,10 @@ test.describe('semantic class maps', () => {
     await page.keyboard.press('Space');
     await expect.poll(sample).toEqual(clear);
     await expect(legend).toContainText('Overlay hidden');
-    await expect(legend.locator('.overlay-class-presence').filter({hasText: /^In frame$/})).toHaveCount(3);
+    await expect(legend.locator('.overlay-class-name[aria-description="In frame"]')).toHaveCount(3);
     await emit('video-frame-results', 'semantic', [18, 18, 18]);
     await expect.poll(sample).toEqual(clear);
-    await expect(legend.locator('.overlay-class-presence').filter({hasText: /^In frame$/})).toHaveCount(1);
+    await expect(legend.locator('.overlay-class-name[aria-description="In frame"]')).toHaveCount(1);
     expect(await className.evaluate(input => input.parentElement.title)).toContain('Not in frame');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Overlays', exact: true }).click();

@@ -312,7 +312,6 @@ body.video-feed-hidden :is(.video-freeze-frame, #video, .client-osd-canvas) { op
 .overlay-class-row input.overlay-class-name::placeholder { color: inherit; opacity: 1; }
 .overlay-class-row input.overlay-class-name:hover { border-color: var(--wfr-bdr-input-hover); }
 .overlay-class-row input.overlay-class-name:focus { border-color: var(--wfr-bdr-focus); background: var(--wfr-bg-input-default); }
-.overlay-class-row .overlay-swatch, .overlay-class-row .overlay-class-presence,
 .overlay-class-controls .overlay-field > .wfr-txt-label, .overlay-class-controls output { display: none; }
 .overlay-class-controls { display: contents; }
 .overlay-class-controls > .model-toggle-switch { grid-area: 1 / 1; }

@@ -320,7 +320,8 @@ the browser scales with nearest-neighbor sampling into the contained video
 rectangle without applying that transform again.
 
 The mask and presence indicators use only metadata matched to the displayed video
-frame. Unmatched frames clear the mask and mark classes absent; independent live
+frame. Unmatched frames and empty semantic payloads clear the mask and mark class
+presence unavailable; independent live
 metadata only discovers sources. Colorized pixels are cached per overlay and
 invalidated when its mask or class styles change. Source, visibility, order,
 master opacity, and per-class names/visibility/color/opacity are saved; class maps and

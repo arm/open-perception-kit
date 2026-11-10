@@ -8217,8 +8217,12 @@ var palette = Array.from({ length: 256 }, (_, id) => {
 var presentClasses = /* @__PURE__ */ new WeakMap();
 var surfaces = /* @__PURE__ */ new WeakMap();
 function classesIn(mask) {
-  if (!mask) return /* @__PURE__ */ new Set();
-  if (!presentClasses.has(mask.pixels)) presentClasses.set(mask.pixels, new Set(mask.pixels));
+  if (!mask) return new Uint8Array(256);
+  if (!presentClasses.has(mask.pixels)) {
+    const seen = new Uint8Array(256);
+    for (let i = 0; i < mask.pixels.length; i++) seen[mask.pixels[i]] = 1;
+    presentClasses.set(mask.pixels, seen);
+  }
   return presentClasses.get(mask.pixels);
 }
 function colorize(mask, classes) {
@@ -8228,16 +8232,25 @@ function colorize(mask, classes) {
     return [...rgb, style ? style.enabled ? Math.round(style.opacity * 255) : 0 : 255];
   });
   const rgba = new Uint8ClampedArray(mask.pixels.length * 4);
+  const seen = presentClasses.get(mask.pixels) || new Uint8Array(256);
   for (let i = 0; i < mask.pixels.length; i++) {
-    rgba.set(colors[mask.pixels[i]], i * 4);
+    const id = mask.pixels[i];
+    const color = colors[id];
+    const offset = i * 4;
+    rgba[offset] = color[0];
+    rgba[offset + 1] = color[1];
+    rgba[offset + 2] = color[2];
+    rgba[offset + 3] = color[3];
+    seen[id] = 1;
   }
+  presentClasses.set(mask.pixels, seen);
   return rgba;
 }
 function resolve2(result, index) {
   const items = result.items.filter((item) => item.type === "SemanticSegmentationMask");
   const invalid = (state, message) => ({ ...result, items: [], state, message });
   if (items.length > 1) return invalid("ambiguous", "Expected one full-frame class map for this source.");
-  if (!items.length) return { ...result, items };
+  if (!items.length) return invalid("partial", "No class map in the displayed frame.");
   const mask = items[0].data;
   const { width, height, valueType, pixels, parentUuid } = mask;
   if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > 16777216 || valueType !== "Uint8" || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
@@ -8286,14 +8299,14 @@ var feature = defineFeature({
   render: render2,
   legend(resolved, settings = resolved.settings) {
     const present = classesIn(resolved.mask);
-    const entries = palette.filter((entry) => present.has(entry.id) || settings?.classes?.[entry.id]).map(({ id, label, color }) => ({
+    const entries = palette.filter((entry) => present[entry.id] || settings?.classes?.[entry.id]).map(({ id, label, color }) => ({
       id,
       color,
       enabled: true,
       opacity: 1,
       ...settings?.classes?.[id],
       label: settings?.classes?.[id]?.label?.trim() || label,
-      present: present.has(id)
+      present: present[id] === 1
     }));
     const message = !resolved.mask ? resolved.message || "No class map in the displayed frame." : "";
     return { entries, message };
@@ -8795,8 +8808,8 @@ function updateLegends() {
         const reset = node("button", "wfr-txt-caption", "Reset labels");
         reset.type = "button";
         reset.addEventListener("click", () => {
-          overlay2.settings.classes = Object.fromEntries(Object.entries(overlay2.settings.classes).map(([id, { label, ...style }]) => [id, style]));
-          for (const item of row.legendNodes.values()) item.resetLabel?.();
+          for (const style of Object.values(overlay2.settings.classes)) delete style.label;
+          for (const item of row.legendNodes.values()) item.name.value = "";
           persist();
           updateLegends();
         });
@@ -8815,42 +8828,36 @@ function updateLegends() {
     for (const entry of legend.entries) {
       let item = row.legendNodes.get(entry.id);
       if (!item) {
-        const swatch = node("span", "overlay-swatch");
-        swatch.setAttribute("aria-hidden", "true");
+        const swatch = feature2.classControls ? null : node("span", "overlay-swatch");
+        swatch?.setAttribute("aria-hidden", "true");
         const element = node("li", "wfr-txt-caption");
         const heading = node("div", "overlay-class-heading");
-        const presence = node("span", "overlay-class-presence");
+        const presence = feature2.classControls ? null : node("span", "overlay-class-presence");
         const name = node(feature2.classControls ? "input" : "span", "overlay-class-name");
-        heading.append(swatch, name, presence);
+        if (feature2.classControls) heading.append(name);
+        else heading.append(swatch, name, presence);
         element.append(heading);
-        let resetLabel;
         if (feature2.classControls) {
           element.className += " overlay-class-row";
-          const settings = { enabled: entry.enabled, color: entry.color, opacity: entry.opacity };
-          if (overlay2.settings.classes?.[entry.id]?.label) settings.label = overlay2.settings.classes[entry.id].label;
+          const settings = overlay2.settings.classes?.[entry.id] || { enabled: entry.enabled, color: entry.color, opacity: entry.opacity };
           const preview = () => {
-            const style = { ...settings };
-            if (style.label?.trim()) style.label = style.label.trim();
-            else delete style.label;
-            overlay2.settings.classes = { ...overlay2.settings.classes, [entry.id]: style };
+            var _a;
+            ((_a = overlay2.settings).classes ?? (_a.classes = {}))[entry.id] = settings;
             updateLegends();
           };
           name.type = "text";
           name.maxLength = 80;
           name.placeholder = `Class ${entry.id}`;
           name.value = settings.label || "";
-          resetLabel = () => {
-            delete settings.label;
-            name.value = "";
-          };
           name.setAttribute("aria-label", `Class ${entry.id} name`);
           name.addEventListener("input", () => {
-            settings.label = name.value;
+            const label = name.value.trim();
+            if (label) settings.label = label;
+            else delete settings.label;
             preview();
           });
           name.addEventListener("change", () => {
-            name.value = settings.label?.trim() || "";
-            settings.label = name.value;
+            name.value = settings.label || "";
             persist();
           });
           name.addEventListener("keydown", (event) => {
@@ -8872,22 +8879,25 @@ function updateLegends() {
         } else name.textContent = entry.label;
         const nextId = [...row.legendNodes.keys()].sort((a, b) => a - b).find((id) => id > entry.id);
         row.legendList.insertBefore(element, row.legendNodes.get(nextId)?.element || null);
-        item = { element, swatch, presence, heading, resetLabel, label: `${entry.id} \xB7 ${entry.label}` };
+        item = { element, swatch, presence, heading, name, label: `${entry.id} \xB7 ${entry.label}` };
         row.legendNodes.set(entry.id, item);
       }
       item.label = `${entry.id} \xB7 ${entry.label}`;
-      if (item.color !== entry.color) {
+      if (item.swatch && item.color !== entry.color) {
         item.swatch.style.setProperty("--overlay-color", entry.color);
         item.color = entry.color;
       }
     }
     for (const [id, item] of row.legendNodes) {
       const text2 = present.has(id) ? "In frame" : resolved.state === "ready" ? "Not in frame" : "Unavailable";
-      if (item.presence.textContent !== text2) {
+      if (item.presence && item.presence.textContent !== text2) {
         item.presence.textContent = text2;
       }
       const title = `${item.label} \xB7 ${text2}`;
-      if (item.heading.title !== title) item.heading.title = title;
+      if (item.heading.title !== title) {
+        item.heading.title = title;
+        if (feature2.classControls) item.name.setAttribute("aria-description", text2);
+      }
     }
   }
 }

@@ -28,8 +28,13 @@ const presentClasses = new WeakMap();
 const surfaces = new WeakMap();
 
 function classesIn(mask) {
-    if (!mask) return new Set();
-    if (!presentClasses.has(mask.pixels)) presentClasses.set(mask.pixels, new Set(mask.pixels));
+    if (!mask) return new Uint8Array(256);
+    if (!presentClasses.has(mask.pixels)) {
+        // Hidden overlays still need presence, without allocating a raster.
+        const seen = new Uint8Array(256);
+        for (let i = 0; i < mask.pixels.length; i++) seen[mask.pixels[i]] = 1;
+        presentClasses.set(mask.pixels, seen);
+    }
     return presentClasses.get(mask.pixels);
 }
 
@@ -40,9 +45,18 @@ function colorize(mask, classes) {
         return [...rgb, style ? (style.enabled ? Math.round(style.opacity * 255) : 0) : 255];
     });
     const rgba = new Uint8ClampedArray(mask.pixels.length * 4);
+    const seen = presentClasses.get(mask.pixels) || new Uint8Array(256);
     for (let i = 0; i < mask.pixels.length; i++) {
-        rgba.set(colors[mask.pixels[i]], i * 4);
+        const id = mask.pixels[i];
+        const color = colors[id];
+        const offset = i * 4;
+        rgba[offset] = color[0];
+        rgba[offset + 1] = color[1];
+        rgba[offset + 2] = color[2];
+        rgba[offset + 3] = color[3];
+        seen[id] = 1;
     }
+    presentClasses.set(mask.pixels, seen);
     return rgba;
 }
 
@@ -50,7 +64,7 @@ function resolve(result, index) {
     const items = result.items.filter(item => item.type === 'SemanticSegmentationMask');
     const invalid = (state, message) => ({...result, items: [], state, message});
     if (items.length > 1) return invalid('ambiguous', 'Expected one full-frame class map for this source.');
-    if (!items.length) return {...result, items};
+    if (!items.length) return invalid('partial', 'No class map in the displayed frame.');
     const mask = items[0].data;
     const {width, height, valueType, pixels, parentUuid} = mask;
     if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
@@ -105,10 +119,10 @@ const feature = defineFeature({
     resolve, render,
     legend(resolved, settings = resolved.settings) {
         const present = classesIn(resolved.mask);
-        const entries = palette.filter(entry => present.has(entry.id) || settings?.classes?.[entry.id])
+        const entries = palette.filter(entry => present[entry.id] || settings?.classes?.[entry.id])
             .map(({id, label, color}) => ({id, color, enabled: true, opacity: 1,
                 ...settings?.classes?.[id], label: settings?.classes?.[id]?.label?.trim() || label,
-                present: present.has(id)}));
+                present: present[id] === 1}));
         const message = !resolved.mask ? resolved.message || 'No class map in the displayed frame.' : '';
         return {entries, message};
     },

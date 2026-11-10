@@ -90,8 +90,12 @@ test('invalid, ambiguous and cropped maps cannot render or supply legend entries
     const crop = {...video, detections: [{type: 'VideoFrame', data: {...video.detections[0].data, sourceCropLeft: 1}}]};
     assert.equal(resolved(layer, [crop, layer]).state, 'unsupported');
     const empty = resolved({...layer, detections: []});
-    assert.equal(empty.state, 'ready');
+    assert.equal(empty.state, 'partial');
+    assert.match(empty.message, /No class map/);
     assert.ok(semantic.legend(empty).entries.every(entry => !entry.present));
+    const zero = resolved(fixture([0, 0, 0, 0, 0, 0]));
+    assert.equal(zero.state, 'ready');
+    assert.deepEqual(semantic.legend(zero).entries.map(({id, present}) => [id, present]), [[0, true]]);
 });
 
 test('colorization preserves opaque class bytes and reuses its surface across redraws', () => {
@@ -108,6 +112,7 @@ test('colorization preserves opaque class bytes and reuses its surface across re
         const mapper = createCoordinateMapper({canvasWidth: 600, canvasHeight: 600, videoWidth: 300, videoHeight: 200});
         const target = {ctx, mapper, overlay};
         semantic.render(target, result);
+        assert.deepEqual(semantic.legend(result).entries.filter(entry => entry.present).map(entry => entry.id), [0, 13, 18]);
         semantic.render(target, result);
         assert.equal(uploads.length, 1);
         assert.equal(ctx.imageSmoothingEnabled, false);
@@ -136,6 +141,13 @@ test('colorization preserves opaque class bytes and reuses its surface across re
         settings.classes[0].opacity = 0;
         semantic.render(target, result, settings);
         assert.equal(uploads.at(-1).data[3], 0, 'style changes invalidate the paused-frame cache');
+        const hidden = resolved(fixture([255, 255, 255, 255, 255, 255]));
+        const beforePresence = uploads.length;
+        assert.deepEqual(semantic.legend(hidden).entries.map(entry => entry.id), [255]);
+        assert.equal(uploads.length, beforePresence, 'presence-only discovery does not allocate a raster');
+        semantic.render(otherTarget, hidden);
+        assert.deepEqual(semantic.legend(hidden).entries.map(entry => entry.id), [255]);
+        assert.deepEqual([...uploads.at(-1).data.slice(0, 4)], [232, 232, 208, 255]);
     } finally {
         for (const [key, value] of Object.entries(originals)) {
             if (value === undefined) delete globalThis[key]; else globalThis[key] = value;

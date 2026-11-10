@@ -421,6 +421,8 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.ok(find(legend, element => element.placeholder === 'Class 18'));
         const legendList = find(legend, element => element.className === 'overlay-legend-list');
         assert.equal(legendList.children.length, 2);
+        assert.equal(find(legend, element => element.className === 'overlay-swatch'), undefined);
+        assert.equal(find(legend, element => element.className === 'overlay-class-presence'), undefined);
         const classColor = find(legend, element => element['aria-label'] === 'Class 0 (0) color');
         mask.detections[0].data = {...mask.detections[0].data, pixels: new Uint8Array([18, 0, 0])};
         match();
@@ -432,24 +434,30 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.ok(find(legend, element => element.placeholder === 'Class 1'));
         assert.deepEqual(legendList.children.map(element => find(element, item => item.className === 'overlay-class-name').placeholder),
             ['Class 0', 'Class 1', 'Class 18'], 'new classes insert numerically without replacing existing controls');
-        assert.equal(find(legendList.children[0], element => element.className === 'overlay-class-presence').textContent, 'Not in frame');
+        assert.equal(find(legendList.children[0], element => element.className === 'overlay-class-name')['aria-description'], 'Not in frame');
         assert.equal(storageWrites, beforeLegend);
         const visible = find(semanticCard, element => element.tag === 'input' && element.role === 'switch');
         visible.checked = false;
         visible.fire('change');
         assert.match(legend.textContent, /Overlay hidden/);
-        const class1Presence = find(legendList.children[1], element => element.className === 'overlay-class-presence');
-        assert.equal(class1Presence.textContent, 'In frame', 'visibility must not change metadata presence');
+        const class1Name = find(legendList.children[1], element => element.className === 'overlay-class-name');
+        assert.equal(class1Name['aria-description'], 'In frame', 'visibility must not change metadata presence');
         mask.detections[0].data = {...mask.detections[0].data, pixels: new Uint8Array([18, 18, 18])};
         match();
-        assert.equal(class1Presence.textContent, 'Not in frame', 'hidden overlays still follow matched metadata');
-        assert.equal(find(legendList.children[2], element => element.className === 'overlay-class-presence').textContent, 'In frame');
+        assert.equal(class1Name['aria-description'], 'Not in frame', 'hidden overlays still follow matched metadata');
+        assert.equal(find(legendList.children[2], element => element.className === 'overlay-class-name')['aria-description'], 'In frame');
         visible.checked = true;
         visible.fire('change');
         assert.ok(find(legend, element => element.placeholder === 'Class 1'));
         window.fire('video-frame-results', {detail: null});
         assert.match(legend.textContent, /Waiting for matching video metadata/);
-        assert.equal(class1Presence.textContent, 'Unavailable', 'missing metadata is not evidence of absence');
+        assert.equal(class1Name['aria-description'], 'Unavailable', 'missing metadata is not evidence of absence');
+        window.fire('video-frame-results', {detail: {layers: [parent, {...mask, detections: []}]}});
+        assert.match(legend.textContent, /No class map/);
+        assert.equal(class1Name['aria-description'], 'Unavailable', 'an empty semantic payload has no class map');
+        match();
+        assert.equal(class1Name['aria-description'], 'Not in frame', 'valid metadata restores known absence');
+        assert.equal(find(legendList.children[2], element => element.className === 'overlay-class-name')['aria-description'], 'In frame');
         assert.deepEqual(saved().at(-1).settings, {opacity: 0.5, classes: {}});
         const beforeClassPreview = storageWrites;
         classColor.value = '#123456';
@@ -487,6 +495,17 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         classColor.fire('input');
         classColor.fire('change');
         assert.equal(saved().at(-1).settings.classes[0].label, undefined, 'subsequent edits cannot restore a reset label');
+        // The documented legend-without-controls contract still renders real swatches and presence.
+        OVERLAY_FEATURES.push({...semanticSegmentation, id: 'test-legend', classControls: undefined, render() {},
+            legend: () => ({entries: [{id: 7, label: 'Seven', color: '#123456', present: true}], message: ''})});
+        get('addOverlayBtn').fire('click');
+        get('overlayFeature').value = 'test-legend';
+        get('overlayFeature').fire('change');
+        get('overlayForm').fire('submit');
+        const readOnly = find(get('overlayList').children.at(-1), element => element.className === 'overlay-legend');
+        assert.equal(find(readOnly, element => element.className === 'overlay-swatch').style['--overlay-color'], '#123456');
+        assert.equal(find(readOnly, element => element.className === 'overlay-class-name').textContent, 'Seven');
+        assert.equal(find(readOnly, element => element.className === 'overlay-class-presence').textContent, 'In frame');
     } finally {
         OVERLAY_FEATURES.splice(0, OVERLAY_FEATURES.length, ...registered);
         for (const [name, descriptor] of Object.entries(originals)) {

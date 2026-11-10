@@ -258,7 +258,7 @@ test('decodes semantic class maps separately from alpha masks, preserving zero a
     const decoded = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(empty.serialize()).toString('base64')});
     assert.equal(decoded.frame_results.layers[0].count, 0);
-    assert.equal(resolveOverlay(indexFrame(decoded.frame_results), overlay).state, 'ready');
+    assert.equal(resolveOverlay(indexFrame(decoded.frame_results), overlay).state, 'partial');
 });
 
 test('rejects a packet from an incompatible producer identity', () => {
