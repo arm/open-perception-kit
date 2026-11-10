@@ -135,6 +135,7 @@ multiple related payloads, and one payload can support multiple features.
 | Performance text | `PerformanceOverlay`: combined pipeline text, since the schema has no source provenance to separate producers. |
 | Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
 | Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with current-frame presence indicators. |
+| Instance segmentation | `InstanceSegmentationMasks` with `instanceSegmentation` semantics: separate binary object masks, contrasting outlines, and optional numbered boxes/class/confidence labels. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
@@ -259,6 +260,7 @@ semantic resolution, rendering, and optional default overrides.
 | `discover(catalog)` | Return compatible primary descriptors from the observed-source Map. Match semantic requirements as well as family, and support empty payloads. Also used for unique, one-time binding of waiting overlays. |
 | `resolve(index, selection, settings)` | Resolve current-frame inputs and relationships. Return `state`, `message`, `items`, and feature-specific resolved data. |
 | `render(target, resolved, settings)` | Draw resolved data. Target supplies canvas/context, video, mapper, shared layout state, time, and the owning overlay for resource caching. |
+| `renderAnnotations(target, resolved, settings)` | Optional annotation pass for raster features, drawn at priority `0` after backgrounds. The resolved inputs and opacity are shared with `render`; stable overlay order applies within each priority. |
 | `legend(resolved, settings)` | Optional `{entries: [{id, label, color, present}], message}` for the expanded row. Uses displayed-frame results; controls retain their DOM nodes across frames. |
 | `classControls` | Optional native control descriptors for legend entries that also supply `enabled` and `opacity`. The feature validates per-ID overrides in `settings.classes`; presence and mask data are never saved. |
 
@@ -268,8 +270,8 @@ The dispatcher knows only the plugin contract and overlay order. Feature-specifi
 resolver; reusable geometry/drawing belongs in `overlay-drawing.js`. A new plugin
 module can be imported into the registry without changing the editor or dispatcher.
 
-Instance/panoptic segmentation requires its own agreed rendering contract; those
-meanings cannot be inferred from generic bitmap bytes.
+Panoptic segmentation requires its own agreed rendering contract; that meaning
+cannot be inferred from generic bitmap bytes.
 
 ## Semantic segmentation
 
@@ -329,6 +331,51 @@ presence are transient. Existing opacity-only preferences load with default
 class styles. Instance masks and background-replacement masks remain separate
 features and cannot bind to a semantic overlay.
 
+## Instance segmentation
+
+Choose **Instance segmentation** to show separate objects from an
+`InstanceSegmentationMasks` source. It reuses the semantic feature's compact
+class switches, colors, opacity, editable names, and **Reset labels**. Preferences
+remain independent per overlay and source. No dataset-specific labels are built
+in; signed class IDs from `-1` (the schema's unspecified default) through
+`2147483647` are accepted, independently of the binary bitmap's Uint8 storage.
+
+Each instance requires a source-sized `Uint8` bitmap containing only `0` and `1`:
+`0` is outside the object, and `1` is foreground at the configured class opacity.
+It is neither a per-pixel class ID nor an alpha byte. Empty all-zero masks do not
+draw or mark their class present. Each nonempty mask has a contrasting one-source-
+pixel outline, so touching objects of the same class are distinguishable.
+**Boxes and labels** (enabled by default) adds each object's white bounding box, class
+name, confidence, and frame-local number (`#1`, `#2`, ...). Numbers follow payload
+order and may change every frame; they are not tracking identities.
+
+The class's selected color fills its masks. Black or white outlines are chosen
+for contrast with that color. Later visible instances in payload order overwrite
+earlier ones where their foreground pixels overlap; alpha does not accumulate
+per overlapping mask. Hiding a class reveals any visible instance underneath.
+The final raster is blended using the master opacity. Class opacity also applies
+to its boxes and labels, and label changes do not invalidate cached mask pixels.
+
+All masks for a source must refer unambiguously to the same uncropped VideoFrame
+and match its original dimensions. The bitmap is authoritative for placement;
+boxes are source-image annotations, not an instruction to stretch a mask into an
+ROI. Boxes must be finite, positive-sized, and within the source frame (subpixel
+Float32 rounding at the edge is tolerated and clipped for drawing); confidence
+must be finite and within `[0,1]`. The renderer rejects the selected source's
+entire mask set when an item is malformed, rather than displaying a misleading
+partial result. It supports at most 512 masks and 67,108,864 total mask pixels per
+source/frame, checked before scanning pixel values. This aggregate budget is
+separate from the unchanged per-bitmap limits (8192 per side, 16,777,216 pixels)
+and permits 32 full-HD or eight UHD full-frame masks. Binary validation and
+compositing remain bounded even when many large masks are supplied.
+The entire bitmap is validated; actual foreground bounds then limit compositing
+work, independently of the supplied annotation box.
+
+Drawing uses only displayed-frame-matched metadata and nearest-neighbor scaling
+inside the contained video rectangle. Missing/unmatched frames clear both raster
+and annotations. Mask validation is cached per indexed output, and one composite
+canvas is cached per overlay rather than allocating a canvas per object.
+
 ## Background replacement
 
 Select **Background replacement**, then choose **Solid color** or **Local image**.
@@ -368,6 +415,7 @@ replacing/clearing an image drops its old decoded resource.
 - `src/overlay-features.js`: registry, lookup, resolution dispatch, and status text.
 - `src/overlay-feature.js`: shared feature contract, palette, and parent lookup.
 - `src/features/`: individual rendering features.
+- `src/features/segmentation.js`: shared full-frame mask validation and generic class preferences, colors, and legends for semantic/instance features.
 - `src/overlay-drawing.js`: coordinate mapping and drawing primitives.
 - `src/osd-renderer.js`: ordered dispatch and isolated canvas state; overlay opacity
   multiplies the renderer's alpha.
@@ -400,6 +448,9 @@ canvas pixels at DPR 2, nearest-neighbor boundaries, display letterboxing,
 matched-frame clearing, per-class alpha/color, uninterrupted control focus, and
 saved opacity/visibility/class preferences. Run it through
 that directory's Playwright configuration with `--grep 'semantic class maps'`.
+Instance coverage checks binary foreground, overlapping and same-class masks,
+outlines, frame-local labels, signed/wide class IDs, aggregate limits, independent
+class preferences, and clearing. Run its browser test with `--grep 'instance masks'`.
 
 In the browser, configure Tracked objects and toggle Boxes/Trails independently.
 Select a tracker through Bounding boxes and verify no trails draw. Add a separate
