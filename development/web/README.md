@@ -260,6 +260,7 @@ semantic resolution, rendering, and optional default overrides.
 | `discover(catalog)` | Return compatible primary descriptors from the observed-source Map. Match semantic requirements as well as family, and support empty payloads. Also used for unique, one-time binding of waiting overlays. |
 | `resolve(index, selection, settings)` | Resolve current-frame inputs and relationships. Return `state`, `message`, `items`, and feature-specific resolved data. |
 | `render(target, resolved, settings)` | Draw resolved data. Target supplies canvas/context, video, mapper, shared layout state, time, and the owning overlay for resource caching. |
+| `renderAnnotations(target, resolved, settings)` | Optional annotation pass for raster features, drawn at priority `0` after backgrounds. The resolved inputs and opacity are shared with `render`; stable overlay order applies within each priority. |
 | `legend(resolved, settings)` | Optional `{entries: [{id, label, color, present}], message}` for the expanded row. Uses displayed-frame results; controls retain their DOM nodes across frames. |
 | `classControls` | Optional native control descriptors for legend entries that also supply `enabled` and `opacity`. The feature validates per-ID overrides in `settings.classes`; presence and mask data are never saved. |
 
@@ -367,6 +368,8 @@ source/frame, checked before scanning pixel values. This aggregate budget is
 separate from the unchanged per-bitmap limits (8192 per side, 16,777,216 pixels)
 and permits 32 full-HD or eight UHD full-frame masks. Binary validation and
 compositing remain bounded even when many large masks are supplied.
+The entire bitmap is validated; actual foreground bounds then limit compositing
+work, independently of the supplied annotation box.
 
 Drawing uses only displayed-frame-matched metadata and nearest-neighbor scaling
 inside the contained video rectangle. Missing/unmatched frames clear both raster

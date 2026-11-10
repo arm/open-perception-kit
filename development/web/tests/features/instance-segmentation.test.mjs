@@ -73,7 +73,7 @@ test('invalid instance metadata fails closed; empty masks do not report present 
         Object.assign(bad.data, change);
         const result = resolve(layer([mask(), bad]));
         assert.notEqual(result.state, 'ready');
-        assert.deepEqual(result.masks, [], 'a malformed sibling cannot leave a partially misleading raster');
+        assert.deepEqual(result.items, [], 'a malformed sibling cannot leave a partially misleading raster');
     }
     const output = layer();
     const rounded = mask();
@@ -91,6 +91,11 @@ test('invalid instance metadata fails closed; empty masks do not report present 
     const empty = mask();
     empty.data.pixels.fill(0);
     assert.deepEqual(resolve(layer([empty])).items, []);
+    const outside = mask();
+    outside.data.pixels[0] = 255;
+    assert.equal(resolve(layer([outside])).state, 'unsupported', 'binary validation also covers pixels outside the box');
+    outside.data.pixels[0] = 1;
+    assert.deepEqual(resolve(layer([outside])).items[0].bounds, {left: 0, right: 4, top: 0, bottom: 3});
     assert.deepEqual(instance.legend(resolve(layer([]))).entries, []);
 
     const large = mask();
@@ -115,7 +120,7 @@ test('aggregate instance budget supports nine full-HD and three UHD masks', () =
         }}]};
         const result = resolve(output, [parent, output]);
         assert.equal(result.state, 'ready');
-        assert.equal(result.masks.length, count);
+        assert.equal(result.items.length, count);
     }
 });
 
@@ -130,7 +135,7 @@ test('binary foreground, outlines, overlap order, class alpha and frame-local an
         const overlay = createOverlay(instance.id, outputSource(output));
         overlay.settings.boxes = false;
         const result = resolveOverlay(index, overlay);
-        assert.equal(resolveOverlay(index, overlay).masks, result.masks, 'validation reused across animation redraws');
+        assert.equal(resolveOverlay(index, overlay).items, result.items, 'validation reused across animation redraws');
         const draws = [];
         const labels = [];
         const stack = [];
@@ -147,6 +152,8 @@ test('binary foreground, outlines, overlap order, class alpha and frame-local an
         assert.deepEqual(pixel(2, 2), [64, 64, 64, 255], 'byte 1 means foreground, not 1/255 alpha');
         assert.deepEqual(pixel(3, 2), [255, 255, 255, 255], 'later instance outline separates same-class objects');
         assert.deepEqual(pixel(4, 2), [64, 64, 64, 255]);
+        assert.deepEqual(pixel(2, 1), [255, 255, 255, 255], 'top edge uses the upper neighbor');
+        assert.deepEqual(pixel(2, 3), [255, 255, 255, 255], 'bottom edge uses the lower neighbor');
         assert.deepEqual(pixel(0, 0), [0, 0, 0, 0]);
         instance.render(target, result);
         assert.equal(uploads.length, 1);
@@ -165,11 +172,14 @@ test('binary foreground, outlines, overlap order, class alpha and frame-local an
         settings.classes[500].enabled = true;
         settings.boxes = true;
         instance.render(target, changedResult, settings);
+        assert.deepEqual(labels, [], 'raster pass does not draw annotations');
+        instance.renderAnnotations(target, changedResult, settings);
         assert.deepEqual(labels.map(item => item.text), ['#1 · Class 0 · 75%', '#2 · person · 75%']);
         assert.deepEqual(labels.map(item => item.alpha), [0.2, 0.4]);
         const beforeRename = uploads.length;
         settings.classes[500].label = 'renamed';
         instance.render(target, changedResult, settings);
+        instance.renderAnnotations(target, changedResult, settings);
         assert.equal(uploads.length, beforeRename);
         assert.equal(labels.at(-1).text, '#2 · renamed · 75%');
         instance.render(target, resolve(layer([])), settings);

@@ -69,3 +69,36 @@ test('dispatcher isolates source, order, style and visibility without knowing th
         } finally { OVERLAY_FEATURES.pop(); }
     } finally { OVERLAY_FEATURES.pop(); }
 });
+
+test('raster annotations follow all backgrounds and retain source, opacity and overlay order', () => {
+    const results = new Map();
+    const raster = defineFeature({id: 'test-raster', label: 'Raster', accepts: () => true, renderOrder: -1,
+        render({ctx}, resolved) {
+            results.set(resolved.output.source.model, resolved);
+            ctx.calls.push({phase: 'raster', model: resolved.output.source.model, alpha: ctx.globalAlpha});
+        },
+        renderAnnotations({ctx}, resolved) {
+            assert.equal(resolved, results.get(resolved.output.source.model), 'both passes share one resolution');
+            ctx.calls.push({phase: 'annotations', model: resolved.output.source.model, alpha: ctx.globalAlpha});
+        }});
+    const background = {...raster, id: 'test-background-only', renderAnnotations: undefined};
+    OVERLAY_FEATURES.push(raster, background);
+    try {
+        const first = {payloadType: 'TestPayload', model: 'first', detections: []};
+        const second = {...first, model: 'second'};
+        const annotated = select(raster.id, first, {opacity: 0.4});
+        const plain = select(background.id, second);
+        for (const overlays of [[annotated, plain], [plain, annotated]]) {
+            const ctx = render({layers: [first, second]}, overlays);
+            assert.deepEqual(ctx.calls.map(call => call.phase), ['raster', 'raster', 'annotations']);
+            assert.deepEqual(ctx.calls.slice(0, 2).map(call => call.model), overlays.map(overlay => overlay.selection.primary.model));
+            assert.deepEqual(ctx.calls.at(-1), {phase: 'annotations', model: 'first', alpha: 0.4});
+            assert.equal(ctx.globalAlpha, 1);
+        }
+        annotated.enabled = false;
+        assert.deepEqual(render({layers: [first, second]}, [annotated, plain]).calls.map(call => call.phase), ['raster']);
+        annotated.enabled = true;
+        annotated.settings.opacity = 0;
+        assert.deepEqual(render({layers: [first, second]}, [annotated, plain]).calls.map(call => call.phase), ['raster']);
+    } finally { OVERLAY_FEATURES.splice(-2); }
+});

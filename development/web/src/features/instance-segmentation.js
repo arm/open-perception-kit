@@ -28,12 +28,12 @@ const MAX_TOTAL_MASK_PIXELS = 64 * 1024 * 1024;
 function resolve(result, index) {
     if (resolvedFrames.has(result.output)) return resolvedFrames.get(result.output);
     const finish = value => { resolvedFrames.set(result.output, value); return value; };
-    const invalid = (state, message) => finish({...result, items: [], masks: [], state, message});
+    const invalid = (state, message) => finish({...result, items: [], state, message});
     const items = result.items.filter(item => item.type === 'InstanceSegmentationMask');
     if (items.length > 512) return invalid('unsupported', 'Too many instance masks (maximum 512).');
     const totalPixels = items.reduce((total, {data}) => total + (data.pixels instanceof Uint8Array ? data.pixels.length : 0), 0);
     if (totalPixels > MAX_TOTAL_MASK_PIXELS) return invalid('unsupported', `Instance masks exceed the total pixel budget (${MAX_TOTAL_MASK_PIXELS}).`);
-    const masks = [];
+    const validated = [];
     let parent;
     for (const [position, item] of items.entries()) {
         const mask = item.data;
@@ -52,21 +52,28 @@ function resolve(result, index) {
             || box.x + box.width > width + 0.001 || box.y + box.height > height + 0.001) {
             return invalid('unsupported', 'Invalid instance class, confidence, or source-image box.');
         }
-        let foreground = false;
-        for (let pixelIndex = 0; pixelIndex < mask.pixels.length; pixelIndex++) {
-            const value = mask.pixels[pixelIndex];
-            if (value !== 0 && value !== 1) return invalid('unsupported', 'Instance masks require binary Uint8 pixels (0 or 1).');
-            foreground ||= value === 1;
+        let left = width, right = -1, top = height, bottom = -1;
+        // Validate the entire bitmap; supplied boxes are not a bound on its foreground.
+        for (let y = 0, pixelIndex = 0; y < height; y++) {
+            for (let x = 0; x < width; x++, pixelIndex++) {
+                const value = mask.pixels[pixelIndex];
+                if (value > 1) return invalid('unsupported', 'Instance masks require binary Uint8 pixels (0 or 1).');
+                if (!value) continue;
+                if (x < left) left = x;
+                if (x > right) right = x;
+                if (y < top) top = y;
+                bottom = y;
+            }
         }
-        if (foreground) masks.push({...item, number: position + 1});
+        if (right >= 0) validated.push({...item, number: position + 1, bounds: {left, right, top, bottom}});
     }
-    return finish({...result, items: masks, masks});
+    return finish({...result, items: validated});
 }
 
 function colorize(masks, settings) {
     const {width, height} = masks[0].data;
     const rgba = new Uint8ClampedArray(width * height * 4);
-    for (const {data} of masks) {
+    for (const {data, bounds} of masks) {
         const style = classStyle(data.classId, settings);
         if (!style.enabled || style.opacity <= 0) continue;
         const rgb = style.color.slice(1).match(/../g).map(hex => parseInt(hex, 16));
@@ -75,20 +82,29 @@ function colorize(masks, settings) {
         const fill = [...rgb, alpha];
         const outline = [edge, edge, edge, alpha];
         const pixels = data.pixels;
-        for (let i = 0; i < pixels.length; i++) {
-            if (!pixels[i]) continue;
-            const boundary = i % width === 0 || i % width === width - 1
-                || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
-            // Later visible instances win overlaps; alpha does not accumulate per mask.
-            rgba.set(boundary ? outline : fill, i * 4);
+        for (let y = bounds.top; y <= bounds.bottom; y++) {
+            const row = y * width;
+            for (let x = bounds.left; x <= bounds.right; x++) {
+                const i = row + x;
+                if (!pixels[i]) continue;
+                const boundary = x === 0 || x === width - 1
+                    || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
+                // Later visible instances win overlaps; alpha does not accumulate per mask.
+                const color = boundary ? outline : fill;
+                const offset = i * 4;
+                rgba[offset] = color[0];
+                rgba[offset + 1] = color[1];
+                rgba[offset + 2] = color[2];
+                rgba[offset + 3] = color[3];
+            }
         }
     }
     return rgba;
 }
 
 function render({ctx, mapper, overlay}, resolved, settings = resolved.settings) {
-    if (!resolved.masks?.length) return;
-    const {width, height} = resolved.masks[0].data;
+    if (!resolved.items?.length) return;
+    const {width, height} = resolved.items[0].data;
     const signature = classRenderSignature(settings);
     let surface = surfaces.get(overlay);
     if (!surface) {
@@ -98,21 +114,24 @@ function render({ctx, mapper, overlay}, resolved, settings = resolved.settings) 
     if (surface.output !== resolved.output || surface.signature !== signature) {
         if (surface.canvas.width !== width) surface.canvas.width = width;
         if (surface.canvas.height !== height) surface.canvas.height = height;
-        surface.canvas.getContext('2d').putImageData(new ImageData(colorize(resolved.masks, settings), width, height), 0, 0);
+        surface.canvas.getContext('2d').putImageData(new ImageData(colorize(resolved.items, settings), width, height), 0, 0);
         surface.output = resolved.output;
         surface.signature = signature;
     }
     const display = mapper.display;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(surface.canvas, display.x, display.y, display.width, display.height);
+}
+
+function renderAnnotations({ctx, mapper}, resolved, settings = resolved.settings) {
     if (settings.boxes) {
-        for (const {data, number} of resolved.masks) {
+        for (const {data, number} of resolved.items || []) {
             const style = classStyle(data.classId, settings);
             if (!style.enabled || style.opacity <= 0) continue;
             ctx.save();
             ctx.globalAlpha *= style.opacity;
             drawObjectBox(ctx, {...data.box,
-                width: Math.min(data.box.width, width - data.box.x), height: Math.min(data.box.height, height - data.box.y),
+                width: Math.min(data.box.width, data.width - data.box.x), height: Math.min(data.box.height, data.height - data.box.y),
                 label: `#${number} · ${style.label} · ${Math.round(data.confidence * 100)}%`}, mapper, '#ffffff');
             ctx.restore();
         }
@@ -125,9 +144,9 @@ export default withClassSettings(defineFeature({
     controls: [...MASK_CONTROLS, {key: 'boxes', label: 'Boxes and labels', type: 'checkbox', value: true}],
     defaults: () => ({classes: {}}),
     classControls: CLASS_CONTROLS,
-    resolve, render,
+    resolve, render, renderAnnotations,
     legend(resolved, settings = resolved.settings) {
-        const present = new Set((resolved.masks || []).map(item => item.data.classId));
+        const present = new Set((resolved.items || []).map(item => item.data.classId));
         return classLegend(present, settings, resolved.message || (!present.size ? 'No instances in the displayed frame.' : ''));
     },
 }), -1, 2_147_483_647);

@@ -512,6 +512,45 @@ test.describe('semantic class maps', () => {
 test.describe('instance masks', () => {
   test.use({ deviceScaleFactor: 2 });
 
+  for (const order of [['instance-segmentation', 'semantic-segmentation'], ['semantic-segmentation', 'instance-segmentation']]) {
+    test(`instance annotations remain above opaque masks: ${order.join(', ')}`, async ({ page }) => {
+      await page.routeWebSocket('**/ws', () => {});
+      await page.goto('/', {waitUntil: 'domcontentloaded'});
+      await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+      for (const feature of order) {
+        await page.locator('#addOverlayBtn').click();
+        await page.locator('#overlayFeature').selectOption(feature);
+        await page.locator('#saveOverlayBtn').click();
+        const card = page.locator('.overlay-card').last();
+        await card.locator('.overlay-toggle').click();
+        await card.getByLabel('Opacity', {exact: true}).fill('1');
+        await card.getByLabel('Opacity', {exact: true}).dispatchEvent('change');
+      }
+      await page.evaluate(() => {
+        const pixels = new Uint8Array(35);
+        for (let y = 1; y < 4; y++) pixels.fill(1, y * 7 + 1, y * 7 + 5);
+        const bitmap = {parentUuid: '42', width: 7, height: 5, valueType: 'Uint8'};
+        Object.defineProperties(document.getElementById('video'), {
+          videoWidth: {configurable: true, value: 7}, videoHeight: {configurable: true, value: 5},
+        });
+        Object.defineProperties(document.getElementById('clientOsdCanvas'), {
+          clientWidth: {configurable: true, value: 700}, clientHeight: {configurable: true, value: 700},
+        });
+        window.dispatchEvent(new CustomEvent('video-frame-results', {detail: {layers: [
+          {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {uuid: '42', originalWidth: 7, originalHeight: 5}}]},
+          {payloadType: 'InstanceSegmentationMasks', contentType: 'instanceSegmentation', detections: [
+            {type: 'InstanceSegmentationMask', data: {...bitmap, pixels, classId: 0, confidence: 1, box: {x: 1, y: 1, width: 4, height: 3}}},
+          ]},
+          {payloadType: 'SemanticSegmentationMasks', contentType: 'semanticSegmentation', detections: [
+            {type: 'SemanticSegmentationMask', data: {...bitmap, pixels: new Uint8Array(35)}},
+          ]},
+        ]}}));
+      });
+      await expect.poll(() => page.locator('#clientOsdCanvas').evaluate(canvas =>
+        [...canvas.getContext('2d').getImageData(200, 700, 1, 1).data])).toEqual([255, 255, 255, 255]);
+    });
+  }
+
   test('separate binary objects share class controls without losing frame matching', async ({ page }) => {
     await page.routeWebSocket('**/ws', () => {});
     await page.addInitScript(() => {
@@ -591,7 +630,7 @@ test.describe('instance masks', () => {
     await overlayVisible.focus();
     await page.keyboard.press('Space');
     await expect.poll(sample).toEqual(clear);
-    await expect(card.locator('.overlay-class-presence').filter({hasText: /^In frame$/})).toHaveCount(2);
+    await expect(card.locator('.overlay-class-name[aria-description="In frame"]')).toHaveCount(2);
     await overlayVisible.focus();
     await page.keyboard.press('Space');
     await expect.poll(async () => (await sample())[2][3]).toBe(128);

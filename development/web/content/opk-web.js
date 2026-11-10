@@ -8373,12 +8373,12 @@ function resolve3(result, index) {
     resolvedFrames.set(result.output, value);
     return value;
   };
-  const invalid = (state, message) => finish({ ...result, items: [], masks: [], state, message });
+  const invalid = (state, message) => finish({ ...result, items: [], state, message });
   const items = result.items.filter((item) => item.type === "InstanceSegmentationMask");
   if (items.length > 512) return invalid("unsupported", "Too many instance masks (maximum 512).");
   const totalPixels = items.reduce((total, { data }) => total + (data.pixels instanceof Uint8Array ? data.pixels.length : 0), 0);
   if (totalPixels > MAX_TOTAL_MASK_PIXELS) return invalid("unsupported", `Instance masks exceed the total pixel budget (${MAX_TOTAL_MASK_PIXELS}).`);
-  const masks = [];
+  const validated = [];
   let parent;
   for (const [position, item] of items.entries()) {
     const mask = item.data;
@@ -8391,20 +8391,26 @@ function resolve3(result, index) {
     if (!Number.isInteger(classId) || classId < -1 || classId > 2147483647 || !Number.isFinite(confidence) || confidence < 0 || confidence > 1 || !box || ![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0 || box.x >= width || box.y >= height || box.x + box.width > width + 1e-3 || box.y + box.height > height + 1e-3) {
       return invalid("unsupported", "Invalid instance class, confidence, or source-image box.");
     }
-    let foreground = false;
-    for (let pixelIndex = 0; pixelIndex < mask.pixels.length; pixelIndex++) {
-      const value = mask.pixels[pixelIndex];
-      if (value !== 0 && value !== 1) return invalid("unsupported", "Instance masks require binary Uint8 pixels (0 or 1).");
-      foreground || (foreground = value === 1);
+    let left = width, right = -1, top = height, bottom = -1;
+    for (let y = 0, pixelIndex = 0; y < height; y++) {
+      for (let x = 0; x < width; x++, pixelIndex++) {
+        const value = mask.pixels[pixelIndex];
+        if (value > 1) return invalid("unsupported", "Instance masks require binary Uint8 pixels (0 or 1).");
+        if (!value) continue;
+        if (x < left) left = x;
+        if (x > right) right = x;
+        if (y < top) top = y;
+        bottom = y;
+      }
     }
-    if (foreground) masks.push({ ...item, number: position + 1 });
+    if (right >= 0) validated.push({ ...item, number: position + 1, bounds: { left, right, top, bottom } });
   }
-  return finish({ ...result, items: masks, masks });
+  return finish({ ...result, items: validated });
 }
 function colorize2(masks, settings) {
   const { width, height } = masks[0].data;
   const rgba = new Uint8ClampedArray(width * height * 4);
-  for (const { data } of masks) {
+  for (const { data, bounds } of masks) {
     const style = classStyle(data.classId, settings);
     if (!style.enabled || style.opacity <= 0) continue;
     const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
@@ -8413,17 +8419,26 @@ function colorize2(masks, settings) {
     const fill = [...rgb, alpha];
     const outline = [edge, edge, edge, alpha];
     const pixels = data.pixels;
-    for (let i = 0; i < pixels.length; i++) {
-      if (!pixels[i]) continue;
-      const boundary = i % width === 0 || i % width === width - 1 || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
-      rgba.set(boundary ? outline : fill, i * 4);
+    for (let y = bounds.top; y <= bounds.bottom; y++) {
+      const row = y * width;
+      for (let x = bounds.left; x <= bounds.right; x++) {
+        const i = row + x;
+        if (!pixels[i]) continue;
+        const boundary = x === 0 || x === width - 1 || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
+        const color = boundary ? outline : fill;
+        const offset = i * 4;
+        rgba[offset] = color[0];
+        rgba[offset + 1] = color[1];
+        rgba[offset + 2] = color[2];
+        rgba[offset + 3] = color[3];
+      }
     }
   }
   return rgba;
 }
 function render3({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolved.settings) {
-  if (!resolved.masks?.length) return;
-  const { width, height } = resolved.masks[0].data;
+  if (!resolved.items?.length) return;
+  const { width, height } = resolved.items[0].data;
   const signature = classRenderSignature(settings);
   let surface = surfaces2.get(overlay2);
   if (!surface) {
@@ -8433,23 +8448,25 @@ function render3({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolv
   if (surface.output !== resolved.output || surface.signature !== signature) {
     if (surface.canvas.width !== width) surface.canvas.width = width;
     if (surface.canvas.height !== height) surface.canvas.height = height;
-    surface.canvas.getContext("2d").putImageData(new ImageData(colorize2(resolved.masks, settings), width, height), 0, 0);
+    surface.canvas.getContext("2d").putImageData(new ImageData(colorize2(resolved.items, settings), width, height), 0, 0);
     surface.output = resolved.output;
     surface.signature = signature;
   }
   const display = mapper.display;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(surface.canvas, display.x, display.y, display.width, display.height);
+}
+function renderAnnotations({ ctx, mapper }, resolved, settings = resolved.settings) {
   if (settings.boxes) {
-    for (const { data, number: number2 } of resolved.masks) {
+    for (const { data, number: number2 } of resolved.items || []) {
       const style = classStyle(data.classId, settings);
       if (!style.enabled || style.opacity <= 0) continue;
       ctx.save();
       ctx.globalAlpha *= style.opacity;
       drawObjectBox(ctx, {
         ...data.box,
-        width: Math.min(data.box.width, width - data.box.x),
-        height: Math.min(data.box.height, height - data.box.y),
+        width: Math.min(data.box.width, data.width - data.box.x),
+        height: Math.min(data.box.height, data.height - data.box.y),
         label: `#${number2} \xB7 ${style.label} \xB7 ${Math.round(data.confidence * 100)}%`
       }, mapper, "#ffffff");
       ctx.restore();
@@ -8466,8 +8483,9 @@ var instance_segmentation_default = withClassSettings(defineFeature({
   classControls: CLASS_CONTROLS,
   resolve: resolve3,
   render: render3,
+  renderAnnotations,
   legend(resolved, settings = resolved.settings) {
-    const present = new Set((resolved.masks || []).map((item) => item.data.classId));
+    const present = new Set((resolved.items || []).map((item) => item.data.classId));
     return classLegend(present, settings, resolved.message || (!present.size ? "No instances in the displayed frame." : ""));
   }
 }), -1, 2147483647);
@@ -8535,15 +8553,19 @@ function renderOsd(canvas2, video5, index, overlays2 = [], { now = Date.now() } 
     perception: index.frame
   });
   const target = { ctx, canvas: canvas2, video: video5, mapper, layout: { left: 0, right: 0, performanceY: 10 }, now };
-  const ordered = [...overlays2].sort((a, b) => (featureFor(a.featureId)?.renderOrder ?? 0) - (featureFor(b.featureId)?.renderOrder ?? 0));
-  for (const overlay2 of ordered) {
+  const passes = [];
+  for (const overlay2 of overlays2) {
     if (!overlay2.enabled) continue;
     const resolved = resolveOverlay(index, overlay2);
     if (["waiting", "unsupported"].includes(resolved.state) || resolved.settings.opacity <= 0) continue;
+    passes.push({ overlay: overlay2, resolved, method: "render", order: resolved.feature.renderOrder ?? 0 });
+    if (resolved.feature.renderAnnotations) passes.push({ overlay: overlay2, resolved, method: "renderAnnotations", order: 0 });
+  }
+  for (const { overlay: overlay2, resolved, method } of passes.sort((a, b) => a.order - b.order)) {
     ctx.save();
     try {
       ctx.globalAlpha = resolved.settings.opacity ?? 1;
-      resolved.feature.render({ ...target, overlay: overlay2 }, resolved, resolved.settings);
+      resolved.feature[method]({ ...target, overlay: overlay2 }, resolved, resolved.settings);
     } finally {
       ctx.restore();
     }
