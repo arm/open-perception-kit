@@ -39,7 +39,19 @@ def main(path):
         if not envelope.valid():
             raise ValueError(f"invalid FrameResults packet: {envelope.error()}")
         if has_cascade_result(envelope, BoxDetectionsT, ClassificationsT):
-            print("Found face detection and camera-contact classification in one frame")
+            faces = sum(
+                len(payload.detections or [])
+                for payload in envelope.for_each(BoxDetectionsT)
+                if payload.layer is not None
+                and payload.layer.contentType in ("humanFace", b"humanFace")
+            )
+            contacts = sum(
+                len(payload.classifications or [])
+                for payload in envelope.for_each(ClassificationsT)
+                if payload.layer is not None
+                and payload.layer.contentType in ("cameraContact", b"cameraContact")
+            )
+            print(f"Cascade frame: {faces} face detections, {contacts} camera-contact classifications")
             return
     raise SystemExit("No frame contained both a face detection and a camera-contact classification")
 
