@@ -98,6 +98,12 @@ jobs:
             -v "$PWD/nightly-models:/models:ro" \
             debian:trixie-slim bash /source/scripts/testing/nightly-deb-and-archive-smoke.sh "$PACKAGE_KIND" \
             2>&1 | tee "nightly-logs/${PACKAGE_KIND}-package-smoke.txt"
+      # The archive job already built the deployment image; the DEB job does not.
+      - name: Run deployment image entrypoint (archive job)
+        if: matrix.kind == 'archive'
+        run: |
+          bash scripts/testing/nightly-deployment-entrypoint-smoke.sh \
+            opk-nightly-deployment nightly-models nightly-logs
       - name: Report remaining nightly coverage
         if: always()
         run: echo 'Comprehensive packaged SDK consumer tests are not yet implemented.' >> "$GITHUB_STEP_SUMMARY"
