@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Runs inside a fresh Debian Trixie container with /artifacts and /source mounted read-only.
+# Runs in a clean Debian container: installs runtime and demo DEBs, or extracts
+# the release tarball. Both paths exercise the runtime and inference cascade.
+# /artifacts, /source and /models are mounted read-only by the workflow.
 set -euo pipefail
 shopt -s nullglob
 
@@ -72,6 +74,7 @@ smoke_cascade() {
 
 apt-get update
 if [[ "$1" == debian ]]; then
+    # The demo DEB supplies its launcher, models and thumbnail.
     apt-get install -y --no-install-recommends "${runtime[0]}" "${demo[0]}" gstreamer1.0-tools python3-venv
     dpkg-query -W -f='${db:Status-Status}\n' opk-runtime opk-demo | grep -x -c installed | grep -x 2
     smoke_runtime
@@ -93,6 +96,7 @@ if [[ "$1" == debian ]]; then
     smoke_cascade /usr/share/opk/config \
         /usr/share/opk/data/images/GettyImages-1140581459-thumbnail.jpg
 else
+    # The tarball excludes model binaries and demo media; use separate inputs.
     apt-get install -y --no-install-recommends \
         ca-certificates gstreamer1.0-tools gstreamer1.0-nice \
         gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
