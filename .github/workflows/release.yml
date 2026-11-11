@@ -77,6 +77,10 @@ jobs:
     name: Code coverage
     uses: ./.github/workflows/coverage.yml
 
+  docs:
+    name: Documentation validation
+    uses: ./.github/workflows/docs-validate.yml
+
   build:
     name: Build ${{ matrix.architecture }} package
     needs: prepare
