@@ -73,6 +73,10 @@ jobs:
     name: Meson tests
     uses: ./.github/workflows/meson-tests.yml
 
+  coverage:
+    name: Code coverage
+    uses: ./.github/workflows/coverage.yml
+
   build:
     name: Build ${{ matrix.architecture }} package
     needs: prepare
