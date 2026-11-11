@@ -14,13 +14,17 @@
 # limitations under the License.
 
 import json
+import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
 from scripts.testing.nightly_image_pipeline import image_pipeline
 
 SCRIPT = Path(__file__).with_name("nightly-package-smoke.sh")
+DEPLOYMENT_SCRIPT = Path(__file__).with_name("nightly-deployment-smoke.sh")
+DEPLOYMENT_PIPELINE = Path(__file__).with_name("nightly-deployment-pipeline.json")
 
 
 class PackageSmokeTest(unittest.TestCase):
@@ -47,6 +51,59 @@ class PackageSmokeTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             image_pipeline({"pipeline": ["opkinfer !"], "alternative-source-image": []})
+
+
+class DeploymentSmokeTest(unittest.TestCase):
+    def test_pipeline_is_finite_and_captures_cascade_results(self):
+        preset = json.loads(DEPLOYMENT_PIPELINE.read_text(encoding="utf-8"))
+        pipeline = " ".join(preset["pipeline"])
+        self.assertFalse(preset["loop"])
+        self.assertIn("GettyImages-1140581459-thumbnail.jpg", pipeline)
+        self.assertIn("imagefreeze num-buffers=1", pipeline)
+        self.assertIn("nitec-resnet-18/opchain-executorch.json", pipeline)
+        self.assertIn("file-name=/tmp/nightly-deployment-cascade.ndjson", pipeline)
+
+    def test_deployment_smoke_propagates_failures_and_removes_container(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            models = root / "models"
+            models.mkdir()
+            log = root / "docker-calls.txt"
+            docker = root / "docker"
+            docker.write_text(
+                "#!/usr/bin/env bash\n"
+                "printf '%s\\n' \"$*\" >> \"$FAKE_DOCKER_LOG\"\n"
+                "case $1 in\n"
+                "  create) echo test-container ;;\n"
+                "  start) exit \"${FAKE_START_STATUS:-0}\" ;;\n"
+                "  cp) if [[ ${FAKE_COPY_FAIL:-0} == 1 ]]; then exit 1; fi; "
+                "echo packet > \"$3\" ;;\n"
+                "  run) exit \"${FAKE_CHECK_STATUS:-0}\" ;;\n"
+                "  rm) exit 0 ;;\n"
+                "esac\n",
+                encoding="utf-8",
+            )
+            docker.chmod(0o755)
+            for start, copy, check, expected in ((0, 0, 0, 0), (7, 0, 0, 7),
+                                                  (0, 1, 0, 1), (0, 0, 9, 9)):
+                with self.subTest(start=start, copy=copy, check=check):
+                    log.write_text("", encoding="utf-8")
+                    env = dict(os.environ, PATH=f"{root}:{os.environ['PATH']}",
+                               FAKE_DOCKER_LOG=str(log), FAKE_START_STATUS=str(start),
+                               FAKE_COPY_FAIL=str(copy), FAKE_CHECK_STATUS=str(check))
+                    result = subprocess.run(
+                        ["bash", str(DEPLOYMENT_SCRIPT), "test-image", str(models), str(root / "logs")],
+                        env=env, capture_output=True,
+                    )
+                    self.assertEqual(result.returncode, expected, result.stderr.decode())
+                    calls = log.read_text(encoding="utf-8").splitlines()
+                    self.assertTrue(calls[0].startswith("create "))
+                    self.assertIn("OPK_PIPELINE=/nightly/pipeline.json", calls[0])
+                    self.assertNotIn("--entrypoint", calls[0])
+                    self.assertIn("start --attach test-container", calls)
+                    self.assertEqual(calls[-1], "rm -f test-container")
+                    self.assertEqual(any(call.startswith("run ") for call in calls),
+                                     start == 0 and copy == 0)
 
 
 if __name__ == "__main__":

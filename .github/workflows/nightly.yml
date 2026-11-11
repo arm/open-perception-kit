@@ -177,9 +177,14 @@ jobs:
             -v "$PWD/nightly-models:/models:ro" \
             debian:trixie-slim bash /source/scripts/testing/nightly-package-smoke.sh "$PACKAGE_KIND" \
             2>&1 | tee nightly-logs/package-smoke.txt
+      - name: Test deployment entrypoint
+        if: matrix.kind == 'archive'
+        run: |
+          bash scripts/testing/nightly-deployment-smoke.sh \
+            opk-nightly-deployment nightly-models nightly-logs
       - name: Report remaining nightly coverage
         if: always()
-        run: echo 'Container entrypoint and comprehensive packaged SDK consumer tests are not yet implemented.' >> "$GITHUB_STEP_SUMMARY"
+        run: echo 'Comprehensive packaged SDK consumer tests are not yet implemented.' >> "$GITHUB_STEP_SUMMARY"
       - name: Retain packages when requested
         if: inputs.upload_packages == true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
