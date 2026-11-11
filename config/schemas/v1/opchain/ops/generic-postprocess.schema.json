@@ -525,6 +525,27 @@
           "default": 0.5
         }
       }
+    },
+    "retinaface": {
+      "title": "RetinaFaceParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "RetinaFaceParser"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.6
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.4
+        }
+      }
     }
   },
   "if": {
@@ -591,6 +612,9 @@
           },
           {
             "$ref": "#/$defs/smartTurn"
+          },
+          {
+            "$ref": "#/$defs/retinaface"
           }
         ]
       }

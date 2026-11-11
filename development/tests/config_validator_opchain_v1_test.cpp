@@ -43,7 +43,7 @@ opk::op::OpChainDescriptor builtInStage() {
 TEST(ConfigValidator, SileroAudioPreservesOpChainVersion) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "1.7.0");
+    EXPECT_EQ(*supported, "1.8.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
@@ -307,7 +307,7 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     const auto supportedVersion = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
-    EXPECT_EQ(*supportedVersion, "1.7.0");
+    EXPECT_EQ(*supportedVersion, "1.8.0");
 
     nlohmann::json document{
         {"version", "1.4.0"},
@@ -326,6 +326,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         "ObjectEmbeddingParser",
         "PaddleOcrDetectionParser",
         "PersonClassificationParser",
+        "RetinaFaceParser",
         "RvmParser",
         "ScrfdParser",
         "UltrafaceParser",
@@ -361,6 +362,9 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
 
     const auto invalidAttributes = std::array{
         nlohmann::json{{"parser", "UnknownParser"}},
+        nlohmann::json{{"parser", "RetinaFaceParser"}, {"confidenceThreshold", 1.1}},
+        nlohmann::json{{"parser", "RetinaFaceParser"}, {"iouThreshold", -0.1}},
+        nlohmann::json{{"parser", "RetinaFaceParser"}, {"unexpected", true}},
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"unexpected", true}},
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"angleBinWidthDeg", 0}},
         nlohmann::json{{"parser", "CameraContactParser"},

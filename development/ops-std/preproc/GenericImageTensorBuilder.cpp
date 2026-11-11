@@ -24,6 +24,7 @@
 #include <fmt/core.h>
 #include <magic_enum/magic_enum.hpp>
 
+#include <algorithm>
 #include <string>
 
 using namespace opk::stdop::preproc;
@@ -221,9 +222,12 @@ constexpr KernelMapping kKernelMappings[] = {
 bool matches(const KernelMapping &mapping,
              const opk::ImageOpDesc &source,
              const opk::ImageOpDesc &destination) {
+    const auto kind =
+        destination.kind == opk::DataKind::ImageBgrChw && destination.type == opk::Dtype::Float32
+            ? opk::DataKind::ImageRgbChw
+            : destination.kind;
     return mapping.sourceFormat == source.format && mapping.sourceType == source.type &&
-           mapping.destinationKind == destination.kind &&
-           mapping.destinationType == destination.type;
+           mapping.destinationKind == kind && mapping.destinationType == destination.type;
 }
 
 std::string describeConversion(const opk::ImageOpDesc &source,
@@ -239,13 +243,19 @@ std::string describeConversion(const opk::ImageOpDesc &source,
 
 opk::Result<void>
 opk::stdop::preproc::GenericImageTensorBuilder::build(const TensorBuilder::Setup &setup) {
+    auto source = setup.imageSourceDesc;
+    if (setup.imageDestinationDesc.kind == opk::DataKind::ImageBgrChw &&
+        setup.imageDestinationDesc.type == opk::Dtype::Float32) {
+        // Kernels normalize by colour; model parameters follow output channel order.
+        std::swap(source.mean.r, source.mean.b);
+        std::swap(source.std.r, source.std.b);
+    }
     for (const auto &mapping : kKernelMappings) {
-        if (!matches(mapping, setup.imageSourceDesc, setup.imageDestinationDesc)) {
+        if (!matches(mapping, source, setup.imageDestinationDesc)) {
             continue;
         }
 
-        if (mapping.kernel(
-                setup.imageSourceDesc, setup.imageDestinationDesc, opk::Sampling::Nearest)) {
+        if (mapping.kernel(source, setup.imageDestinationDesc, opk::Sampling::Nearest)) {
             return {};
         }
 

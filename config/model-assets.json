@@ -2,5 +2,17 @@
   "pp-ocrv6-tiny-rec/characters.txt": {
     "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/dab3fe35379033fdcb2d0e9572fac0b36c9a9ebf/ppocr/utils/dict/ppocrv6_tiny_dict.txt",
     "sha256": "c5cbe34ef40c29c4df07ed012bf96569cb69a2d2a01a07027e9f13cb832bd9cd"
+  },
+  "retinaface-resnet34/retinaface_r34.onnx": {
+    "url": "https://github.com/yakhyo/retinaface-pytorch/releases/download/v0.0.1/retinaface_r34.onnx",
+    "sha256": "bd0263dc2a465d32859555cb1741f2d98991eb0053696e8ee33fec583d30e630"
+  },
+  "gaze-resnet34/resnet34_gaze.onnx": {
+    "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet34_gaze.onnx",
+    "sha256": "c8e6b14f6095d2425241b9302aa663d9a23b7dfb9d43941352b718c91dc7f2cf"
+  },
+  "gaze-resnet50/resnet50_gaze.onnx": {
+    "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet50_gaze.onnx",
+    "sha256": "bb28d421565adc4dfb665742f8fc80bdef36dd8caa0c87e040e0937f9fdca9a6"
   }
 }

@@ -207,6 +207,8 @@ bool makeLetterboxDestination(const opk::ImageOpDesc &src,
 void fillRgbF32Chw(const opk::ImageOpDesc &dst, const opk::Colorf &mean, const opk::Colorf &std) {
     auto *out = opk::mutablePlaneData<float>(dst.planes[0]);
     const size_t planeSize = dst.surfaceWidth * dst.surfaceHeight;
+    const size_t redOffset = dst.kind == opk::DataKind::ImageBgrChw ? 2 * planeSize : 0;
+    const size_t blueOffset = 2 * planeSize - redOffset;
     auto rgb = letterboxRgb(dst);
     if (!opk::MeanStd::isDefaultMean(mean) || !opk::MeanStd::isDefaultStd(std)) {
         rgb = applyMeanStd(rgb, mean, std);
@@ -217,9 +219,9 @@ void fillRgbF32Chw(const opk::ImageOpDesc &dst, const opk::Colorf &mean, const o
         for (size_t x = 0; x < dst.rect.width; ++x) {
             const size_t dxi = dst.rect.x + x;
             const size_t hw = dyi * dst.surfaceWidth + dxi;
-            out[0 * planeSize + hw] = rgb.r;
+            out[redOffset + hw] = rgb.r;
             out[1 * planeSize + hw] = rgb.g;
-            out[2 * planeSize + hw] = rgb.b;
+            out[blueOffset + hw] = rgb.b;
         }
     }
 }
@@ -371,6 +373,8 @@ bool ImageOpsNv12::StretchBlit_Nv12_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
 
     const auto yuv = makeYuvToRgb(src);
     const size_t planeSize = dstWidth * dstHeight;
+    const size_t redOffset = dst.kind == opk::DataKind::ImageBgrChw ? 2 * planeSize : 0;
+    const size_t blueOffset = 2 * planeSize - redOffset;
 
     if (opk::MeanStd::isDefaultMean(mean) && opk::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
@@ -383,9 +387,9 @@ bool ImageOpsNv12::StretchBlit_Nv12_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
                 OPK_READ_NV12_RGB01(srcYRow, srcUVRow, x, yuv, r01, g01, b01);
 
                 const size_t hw = y * dstWidth + x;
-                dstPtr[0 * planeSize + hw] = r01;
+                dstPtr[redOffset + hw] = r01;
                 dstPtr[1 * planeSize + hw] = g01;
-                dstPtr[2 * planeSize + hw] = b01;
+                dstPtr[blueOffset + hw] = b01;
             }
         }
     } else {
@@ -404,9 +408,9 @@ bool ImageOpsNv12::StretchBlit_Nv12_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
                 OPK_READ_NV12_RGB01(srcYRow, srcUVRow, x, yuv, r01, g01, b01);
 
                 const size_t hw = y * dstWidth + x;
-                dstPtr[0 * planeSize + hw] = (r01 - mean.r) * invStdR;
+                dstPtr[redOffset + hw] = (r01 - mean.r) * invStdR;
                 dstPtr[1 * planeSize + hw] = (g01 - mean.g) * invStdG;
-                dstPtr[2 * planeSize + hw] = (b01 - mean.b) * invStdB;
+                dstPtr[blueOffset + hw] = (b01 - mean.b) * invStdB;
             }
         }
     }
@@ -452,6 +456,8 @@ bool ImageOpsNv12::StretchBlit_Nv12_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
 
     const auto yuv = makeYuvToRgb(src);
     const size_t planeSize = dstHeight * dstWidth;
+    const size_t redOffset = dst.kind == opk::DataKind::ImageBgrChw ? 2 * planeSize : 0;
+    const size_t blueOffset = 2 * planeSize - redOffset;
 
     if (opk::MeanStd::isDefaultMean(mean) && opk::MeanStd::isDefaultStd(std)) {
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
@@ -470,9 +476,9 @@ bool ImageOpsNv12::StretchBlit_Nv12_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
                 OPK_READ_NV12_RGB01(srcYRow, srcUVRow, sx, yuv, r01, g01, b01);
 
                 const size_t hw = dyi * dstWidth + dxi;
-                dstPtr[0 * planeSize + hw] = r01;
+                dstPtr[redOffset + hw] = r01;
                 dstPtr[1 * planeSize + hw] = g01;
-                dstPtr[2 * planeSize + hw] = b01;
+                dstPtr[blueOffset + hw] = b01;
             }
         }
     } else {
@@ -497,9 +503,9 @@ bool ImageOpsNv12::StretchBlit_Nv12_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
                 OPK_READ_NV12_RGB01(srcYRow, srcUVRow, sx, yuv, r01, g01, b01);
 
                 const size_t hw = dyi * dstWidth + dxi;
-                dstPtr[0 * planeSize + hw] = (r01 - mean.r) * invStdR;
+                dstPtr[redOffset + hw] = (r01 - mean.r) * invStdR;
                 dstPtr[1 * planeSize + hw] = (g01 - mean.g) * invStdG;
-                dstPtr[2 * planeSize + hw] = (b01 - mean.b) * invStdB;
+                dstPtr[blueOffset + hw] = (b01 - mean.b) * invStdB;
             }
         }
     }

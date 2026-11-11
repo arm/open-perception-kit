@@ -262,6 +262,7 @@ The built-in postprocessors currently registered in `GenericPostprocessOp` are:
 - `Yolo26InstanceSegmentationParser`
 - `Yolo26SemanticSegmentationParser`
 - `UltrafaceParser`
+- `RetinaFaceParser`
 - `GazeDetectionParser`
 - `CameraContactParser`
 - `PaddleOcrDetectionParser`

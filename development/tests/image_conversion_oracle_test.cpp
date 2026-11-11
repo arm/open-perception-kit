@@ -500,6 +500,11 @@ expectedValues(Rgb rgb, const ImageOpDesc &src, const Variant &variant, bool use
                 static_cast<float>(byte(rgb.g)),
                 static_cast<float>(byte(rgb.b))};
     }
+    if (variant.kind == DataKind::ImageBgrChw) {
+        return {(rgb.b - src.mean.b) / src.std.b,
+                (rgb.g - src.mean.g) / src.std.g,
+                (rgb.r - src.mean.r) / src.std.r};
+    }
     return {(rgb.r - src.mean.r) / src.std.r,
             (rgb.g - src.mean.g) / src.std.g,
             (rgb.b - src.mean.b) / src.std.b};
@@ -571,7 +576,7 @@ float tolerance(Dtype type) {
 }
 
 size_t outputIndex(const ImageOpDesc &dst, size_t x, size_t y, size_t channel) {
-    if (dst.kind == DataKind::ImageRgbChw)
+    if (dst.kind == DataKind::ImageRgbChw || dst.kind == DataKind::ImageBgrChw)
         return channel * dst.surfaceWidth * dst.surfaceHeight + y * dst.surfaceWidth + x;
     return (y * dst.surfaceWidth + x) * dst.getChannelCount() + channel;
 }
@@ -608,8 +613,15 @@ void checkOutput(const Fixture &fixture,
     }
 }
 
-int runCase(const Fixture &fixture, const Variant &variant, const ConversionCase &test) {
+int runCase(const Fixture &fixture,
+            const Variant &variant,
+            const ConversionCase &test,
+            bool normalize = true) {
     auto src = sourceDesc(fixture, test.sourceRect, test.matrix, test.range);
+    if (!normalize) {
+        src.mean = {0, 0, 0, 0};
+        src.std = {1, 1, 1, 1};
+    }
     ImageOpDesc dst;
     dst.surfaceWidth = test.dstWidth;
     dst.surfaceHeight = test.dstHeight;
@@ -643,8 +655,11 @@ int runStandardCases(const Fixture &fixture, const std::vector<Variant> &formatV
     };
     int cases = 0;
     for (const auto &variant : formatVariants) {
-        for (const auto &test : tests)
+        for (const auto &test : tests) {
             cases += runCase(fixture, variant, test);
+            if (variant.kind == DataKind::ImageBgrChw)
+                cases += runCase(fixture, variant, test, false);
+        }
     }
     return cases;
 }
@@ -721,7 +736,11 @@ int main() {
     int cases = 0;
     for (const auto format : formats) {
         const auto fixture = makeFixture(format);
-        const auto formatVariants = variants(format);
+        auto formatVariants = variants(format);
+        auto bgr = formatVariants.front();
+        bgr.name = "bgr-chw-f32";
+        bgr.kind = DataKind::ImageBgrChw;
+        formatVariants.push_back(bgr);
         cases += runStandardCases(fixture, formatVariants);
         cases += runYuvMatrixCases(fixture, formatVariants);
         cases += rejectUndersizedPlane(fixture, formatVariants.front());

@@ -68,9 +68,10 @@ pipeline. The exact target value `none` disables all asynchronous log output.
 ## Model activation
 
 Focused presets enable their model or complete detector cascade. The
-`full-onnx` presets register all supported ONNX models in dependency-safe order
+`full-onnx` presets register the YOLO26, UltraFace, NITEC and MobileGaze models in dependency-safe order
 with YOLO26n-320 active by default. The remaining models can be enabled from the
 Open Perception Kit web UI's **Model Selector** panel.
+For RetinaFace and Gaze ResNet34/50, use [retinaface-gaze-onnx](retinaface-gaze-onnx.json).
 
 Setting `active=false` skips per-frame inference only. Each `opkinfer` still
 loads its OpChain and model during startup, so every artifact referenced by the
@@ -78,16 +79,21 @@ selected pipeline must be present.
 
 ## Available presets
 
-Full catalog presets:
+ONNX selection presets:
 
-- `full-onnx` — all supported ONNX models on bundled video.
-- `full-onnx-raspicam` — all supported ONNX models on a Raspberry Pi camera.
-- `full-onnx-usb-cam` — all supported ONNX models on a USB camera at `/dev/video0`.
-- `full-onnx-yuv` — all supported ONNX models on bundled video while preserving the
+- `full-onnx` — model selection on bundled video.
+- `full-onnx-raspicam` — model selection on a Raspberry Pi camera.
+- `full-onnx-usb-cam` — model selection on a USB camera at `/dev/video0`.
+- `full-onnx-yuv` — model selection on bundled video while preserving the
   decoded pixel format, with an OPKOSD overlay.
 
 Focused detector and cascade presets:
 
+- [retinaface-gaze-onnx](retinaface-gaze-onnx.json) — switch between RetinaFace/Gaze combinations in the web UI; enable one detector and one gaze model at a time.
+- [retinaface-1080x1080-gaze-resnet34](retinaface-1080x1080-gaze-resnet34.json) — 1080×1080 RetinaFace with Gaze ResNet34.
+- [retinaface-1080x1080-gaze-resnet50](retinaface-1080x1080-gaze-resnet50.json) — 1080×1080 RetinaFace with Gaze ResNet50.
+- [retinaface-1920x1080-gaze-resnet34](retinaface-1920x1080-gaze-resnet34.json) — 1920×1080 RetinaFace with Gaze ResNet34.
+- [retinaface-1920x1080-gaze-resnet50](retinaface-1920x1080-gaze-resnet50.json) — 1920×1080 RetinaFace with Gaze ResNet50.
 - `mlwl-vgf-demo` — YOLO26n-320 and UltraFace RFB-320 FP32 detection through
   MLWL on bundled video. Both start enabled; toggle each in the web UI.
 - `pp-ocrv6-tiny` — text detection and recognition.
@@ -117,7 +123,7 @@ Run `./scripts/run.sh mlwl-vgf-demo`. The models run
 sequentially, so enabling both increases per-frame latency.
 
 Use `full-onnx-raspicam` or `full-onnx-usb-cam` for live camera input with the
-web UI. Sample-media ONNX and full catalog presets include `alternative-source-*`
+web UI. Presets such as [full-onnx](full-onnx.json) include `alternative-source-*`
 and `alternative-sink-*` examples for adapting image, video, camera, recording,
 and audio paths.
 

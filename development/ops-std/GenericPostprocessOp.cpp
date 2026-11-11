@@ -38,6 +38,7 @@
 #include "postproc/PaddleOcrRecognitionParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
+#include "postproc/RetinaFaceParser.h"
 #include "postproc/RvmParser.h"
 #include "postproc/ScrfdParser.h"
 #include "postproc/SileroVadParser.h"
@@ -73,6 +74,7 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
         {"PaddleOcrDetectionParser", make<opk::stdop::postproc::PaddleOcrDetectionParser>()},
         {"PaddleOcrRecognitionParser", make<opk::stdop::postproc::PaddleOcrRecognitionParser>()},
         {"PersonClassificationParser", make<opk::stdop::postproc::PersonClassificationParser>()},
+        {"RetinaFaceParser", make<opk::stdop::postproc::RetinaFaceParser>()},
         {"RvmParser", make<opk::stdop::postproc::RvmParser>()},
         {"ScrfdParser", make<opk::stdop::postproc::ScrfdParser>()},
         {"SileroVadParser", make<opk::stdop::postproc::SileroVadParser>()},

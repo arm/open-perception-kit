@@ -236,12 +236,16 @@ If it does not match an existing postprocessor, you will usually need to add you
 
 The checked-in pipeline presets live under `config/pipelines/`. Common presets include:
 
-- `full-onnx.json` - all supported ONNX releases on bundled video.
-- `full-onnx-raspicam.json` - all supported ONNX releases on a Raspberry Pi camera.
-- `full-onnx-usb-cam.json` - all supported ONNX releases on a USB camera at `/dev/video0`.
-- `full-onnx-yuv.json` - all supported ONNX releases on bundled video with the decoded pixel format preserved.
+- `full-onnx.json` - ONNX model selection on bundled video.
+- `full-onnx-raspicam.json` - ONNX model selection on a Raspberry Pi camera.
+- `full-onnx-usb-cam.json` - ONNX model selection on a USB camera at `/dev/video0`.
+- `full-onnx-yuv.json` - ONNX model selection on bundled video with the decoded pixel format preserved.
+
 - `yolo26n-320.json` - YOLO26n-320 on bundled video.
 - The remaining focused presets run one release or its required detector cascade.
+
+The `full-onnx` presets offer YOLO26, UltraFace, NITEC and MobileGaze. For
+RetinaFace and Gaze ResNet34/50, use `retinaface-gaze-onnx.json`.
 
 Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default sample media to a camera, video file, or different sink.
 

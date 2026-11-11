@@ -122,6 +122,27 @@ class ContentDependencyPipelineTest(unittest.TestCase):
             self.assertTrue(self.elements[name].get_property("active"), name)
         self.assertFalse(self.elements["unrelated"].get_property("active"))
 
+    def test_manual_provider_selection_survives_startup_and_reactivation(self) -> None:
+        self.create_pipeline(initially_active={"contact", "face-a"},
+                             is_live=False, source_name="source")
+        contact = self.elements["contact"]
+        self.assertTrue(contact.get_property("auto-activate-dependencies"))
+        contact.set_property("auto-activate-dependencies", False)
+        self.assertFalse(contact.get_property("auto-activate-dependencies"))
+        self.start_pipeline()
+        self.assertEqual(self.pipeline.get_by_name("source").emit(
+            "push-buffer", self.Gst.Buffer.new_allocate(None, 16 * 16 * 4, None)),
+            self.Gst.FlowReturn.OK)
+        state_change, current_state, _ = self.pipeline.get_state(self.Gst.SECOND)
+        self.assertEqual(state_change, self.Gst.StateChangeReturn.SUCCESS)
+        self.assertEqual(current_state, self.Gst.State.PLAYING)
+        for _ in range(2):
+            self.assertTrue(contact.get_property("active"))
+            self.assertTrue(self.elements["face-a"].get_property("active"))
+            self.assertFalse(self.elements["face-b"].get_property("active"))
+            contact.set_property("active", False)
+            contact.set_property("active", True)
+
     def test_model_can_be_activated_before_pipeline_start(self) -> None:
         self.create_pipeline()
 

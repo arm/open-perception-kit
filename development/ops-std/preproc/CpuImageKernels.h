@@ -26,12 +26,13 @@ namespace opk::stdop::preproc {
  * @brief CPU image conversion kernels for packed BGRA and RGB source frames.
  */
 struct ImageOps {
+    // Float32 CHW kernels follow dst.kind; src.mean/std stay in RGB colour order.
 
     // ---
     /**
-     * @brief Stretch-blits BGRA8 HWC full-frame input into RGB float32 CHW full-frame output.
+     * @brief Stretch-blits BGRA8 HWC full-frame input into RGB/BGR float32 CHW full-frame output.
      * @param src Source descriptor (BGRA8 HWC, full-frame rect expected).
-     * @param dst Destination descriptor (RGB float32 CHW, full-frame rect expected).
+     * @param dst Destination descriptor (RGB/BGR float32 CHW, full-frame rect expected).
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
@@ -40,9 +41,9 @@ struct ImageOps {
                                                            Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits BGRA8 HWC source rect into RGB float32 CHW destination rect.
+     * @brief Stretch-blits BGRA8 HWC source rect into RGB/BGR float32 CHW destination rect.
      * @param src Source descriptor (BGRA8 HWC); src.mean/src.std are applied when non-default.
-     * @param dst Destination descriptor (RGB float32 CHW).
+     * @param dst Destination descriptor (RGB/BGR float32 CHW).
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
@@ -183,7 +184,7 @@ struct ImageOps {
                                                         Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 HWC full-frame input into RGB float32 CHW full-frame output.
+     * @brief Stretch-blits RGB8 HWC full-frame input into RGB/BGR float32 CHW full-frame output.
      * @param src Source image descriptor.
      * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
@@ -194,7 +195,7 @@ struct ImageOps {
                                                           Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 HWC source rect into RGB float32 CHW destination rect.
+     * @brief Stretch-blits RGB8 HWC source rect into RGB/BGR float32 CHW destination rect.
      * @param src Source image descriptor.
      * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.

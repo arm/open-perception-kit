@@ -38,6 +38,7 @@ TEST(StandardContentTypes, ParsersAdvertiseTheirFrameResultsContent) {
         std::pair{"ObjectEmbeddingParser", "objectEmbedding"},
         std::pair{"PaddleOcrDetectionParser", "segmentation"},
         std::pair{"PersonClassificationParser", "personClassification"},
+        std::pair{"RetinaFaceParser", "humanFace"},
         std::pair{"RvmParser", "segmentation"},
         std::pair{"ScrfdParser", "humanFace"},
         std::pair{"SileroVadParser", "voiceActivity"},
@@ -106,6 +107,27 @@ TEST(StandardContentTypes, OpChainCollectsUniqueNonEmptyContentTypes) {
 
     EXPECT_EQ(chain.getProvidedContentTypes(), std::vector<std::string_view>{"genericObject"});
     EXPECT_EQ(chain.getRequiredContentTypes(), std::vector<std::string_view>{"humanFace"});
+}
+
+TEST(StandardContentTypes, OpChainOnlyRequiresContentNotAlreadyProvided) {
+    for (const bool provideFirst : std::array{false, true}) {
+        opk::op::OpRef detector;
+        opk::op::OpRef controller;
+        ASSERT_TRUE(detector.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
+        ASSERT_TRUE(controller.bind(OPK_STDOPS_PATH, "InferenceController"));
+        opk::AttributeMap attributes;
+        ASSERT_TRUE(detector->configure(attributes.set("parser", "RetinaFaceParser")));
+        attributes.clear();
+        ASSERT_TRUE(controller->configure(attributes.set("contentType", "humanFace")));
+
+        opk::op::OpChain chain;
+        chain.add(provideFirst ? detector : controller);
+        chain.add(provideFirst ? controller : detector);
+        ASSERT_TRUE(chain.bind());
+        EXPECT_EQ(chain.getRequiredContentTypes(),
+                  provideFirst ? std::vector<std::string_view>{}
+                               : std::vector<std::string_view>{"humanFace"});
+    }
 }
 
 } // namespace

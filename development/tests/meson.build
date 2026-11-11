@@ -271,6 +271,27 @@ rvm_parser_tests = executable(
   link_with : [common],
 )
 
+retinaface_parser_tests = executable(
+  'retinaface_parser_tests',
+  ['retinaface_parser_test.cpp', '../ops-std/postproc/RetinaFaceParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+bgr_image_preprocess_tests = executable(
+  'bgr_image_preprocess_tests',
+  ['bgr_image_preprocess_test.cpp', '../ops-std/preproc/GenericImageTensorBuilder.cpp',
+   '../ops-std/preproc/CpuImageKernels.cpp', '../ops-std/preproc/CpuImageKernelsI420.cpp',
+   '../ops-std/preproc/CpuImageKernelsNv12.cpp', '../ops-std/preproc/CpuImageKernelsYuy2.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('retinaface_parser_tests', retinaface_parser_tests)
+test('bgr_image_preprocess_tests', bgr_image_preprocess_tests)
+
 gaze_detection_parser_tests = executable(
   'gaze_detection_parser_tests',
   ['gaze_detection_parser_test.cpp', '../ops-std/postproc/GazeDetectionParser.cpp'],

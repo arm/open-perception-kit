@@ -18,10 +18,10 @@ limitations under the License.
 # Model catalog
 
 This directory contains the supported ONNX, ExecuTorch and VGF model configurations.
-The quick-start development container downloads model artifacts from pinned
-Hugging Face revisions. Binaries are neither committed
+The quick-start development container downloads model artifacts from sources pinned
+in model descriptors and the [asset manifest](../model-assets.json). Binaries are neither committed
 nor included in release archives or deployment/Cairn images. The `opk-demo` Debian
-package includes downloaded model binaries. See
+package includes selected downloaded model binaries. See
 [Download models](../../docs/public/getting-started/binary-release.md#download-models)
 for using the existing downloader with a binary release.
 
@@ -36,3 +36,6 @@ for using the existing downloader with a binary release.
 - [YOLO26s INT8, 640 pixels](https://huggingface.co/Arm/yolo26s-640-int8-onnx-raspberrypi5)
 - NITEC ResNet-18 INT8: [ONNX](https://huggingface.co/Arm/nitec-resnet-18-int8-onnx), [ExecuTorch/XNNPACK](https://huggingface.co/Arm/nitec-resnet-18-int8-xnnpack-executorch)
 - MobileGaze MobileNetV2 INT8: [ONNX](https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-onnx), [ExecuTorch/XNNPACK](https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-xnnpack-executorch)
+- [RetinaFace ResNet34 FP32 / ONNX, 1080×1080 and 1920×1080](retinaface-resnet34/index.md)
+- [Gaze ResNet34 FP32 / ONNX](gaze-resnet34/index.md)
+- [Gaze ResNet50 FP32 / ONNX](gaze-resnet50/index.md)

@@ -116,7 +116,7 @@ negotiation; `videoconvert` performs conversion when needed.
 
 | Element | Properties | Supported change and effects |
 | --- | --- | --- |
-| `opkinfer` | `opchain-path`, `infer-id`, `audio-hop-samples`, `copy-input` | NULL or READY. Returning to READY stops the OpChain and clears audio/QoS state. The next start loads the model and renegotiates media/memory. Identity must remain stable while processing. |
+| `opkinfer` | `opchain-path`, `infer-id`, `audio-hop-samples`, `copy-input`, `auto-activate-dependencies` | NULL or READY. Returning to READY stops the OpChain and clears audio/QoS state. The next start loads the model and renegotiates media/memory. Identity must remain stable while processing. |
 | `opkinfer` | `active`, `qos-enabled` | Live. Changes affect subsequent inference decisions; an execution already in progress can finish. Activation can enable upstream content providers. Disabling QoS resets skipping. |
 | `opktracker` | `content-type`, `embedding-content-type`, `infer-id` | NULL or READY. Restart clears tracking history so identities from different sources cannot mix. |
 | `opktracker` | All other writable properties | Live. Each frame takes a synchronized configuration snapshot. Initial Kalman covariance only affects newly created tracks; existing state is retained. See [tracker](https://github.com/arm/open-perception-kit/blob/main/docs/arch/elements/opktracker.md#properties). |
