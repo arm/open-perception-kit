@@ -26,6 +26,19 @@ env:
   CCACHE_SCHEMA_VERSION: v2
 
 jobs:
+  health-report:
+    name: Health report
+    if: always()
+    needs: [prepare, quick-start-smoke, sdk-tests, meson-tests, valgrind, coverage, formatting, docs, build, sbom-source, artifactory, github-release, publish-docs, perception-crates-io-publish, latest-release-tag]
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/health-report.yml
+    with:
+      kind: release
+      source_commit: ${{ needs.prepare.outputs.commit || github.sha }}
+      needs_json: ${{ toJSON(needs) }}
+
   prepare:
     name: Resolve release source
     runs-on: ubuntu-24.04
@@ -73,9 +86,17 @@ jobs:
     name: Meson tests
     uses: ./.github/workflows/meson-tests.yml
 
+  valgrind:
+    name: Valgrind
+    uses: ./.github/workflows/valgrind-tests.yml
+
   coverage:
     name: Code coverage
     uses: ./.github/workflows/coverage.yml
+
+  formatting:
+    name: Formatting
+    uses: ./.github/workflows/formatting.yml
 
   docs:
     name: Documentation validation
