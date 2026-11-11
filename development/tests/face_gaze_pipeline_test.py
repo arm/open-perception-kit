@@ -138,31 +138,35 @@ class FaceGazePipeline(unittest.TestCase):
                 element = element.get_static_pad("src").get_peer().get_parent_element()
                 infer.append(element)
             self.assertEqual([element.get_property("active") for element in infer],
-                             [True, False, False, False])
+                             [True, False, True, False])
             try:
                 pipeline.set_state(gst.State.PLAYING)
                 # Return to the first combination to exercise reactivation, too.
                 for frame, selected in enumerate((0, 1, 2, 3, 0)):
                     with self.subTest(combination=selected, frame=frame):
+                        detector, gaze = selected // 2, 2 + selected % 2
                         if frame:
                             for element in infer:
                                 element.set_property("active", False)
-                            infer[selected].set_property("active", True)
+                            infer[detector].set_property("active", True)
+                            infer[gaze].set_property("active", True)
                         self.assertEqual([element.get_property("active") for element in infer],
-                                         [index == selected for index in range(4)])
+                                         [index in (detector, gaze) for index in range(4)])
                         buffer = sample.get_buffer().copy_deep()
                         buffer.pts = frame * gst.SECOND
                         buffer.duration = gst.SECOND
                         self.assertEqual(source.emit("push-buffer", buffer), gst.FlowReturn.OK)
                         envelope = self.read_result(output, frame + 1)
                         self.assert_linked_gaze(envelope)
+                        self.assertEqual([element.get_property("active") for element in infer],
+                                         [index in (detector, gaze) for index in range(4)])
                         width, backbone = [(w, b) for w in (1080, 1920) for b in (34, 50)][selected]
-                        for kind, model in (
-                                (BoxDetectionsT, f"retinaface-resnet34-{width}x1080-fp32"),
-                                (PoseEstimationsT, f"gaze-resnet{backbone}-448-fp32")):
+                        for kind, model, producer in (
+                                (BoxDetectionsT, f"retinaface-resnet34-{width}x1080-fp32", detector),
+                                (PoseEstimationsT, f"gaze-resnet{backbone}-448-fp32", gaze)):
                             layers = list(envelope.for_each(kind))
                             self.assertEqual({layer.layer.inferElementId for layer in layers},
-                                             {infer[selected].get_name().encode()})
+                                             {infer[producer].get_name().encode()})
                             self.assertEqual({layer.layer.model for layer in layers}, {model.encode()})
                         print(f"shared pipeline: combination {selected}, frame {frame} passed", flush=True)
                 self.assertEqual(source.emit("end-of-stream"), gst.FlowReturn.OK)

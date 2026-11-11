@@ -89,7 +89,7 @@ ONNX selection presets:
 
 Focused detector and cascade presets:
 
-- [retinaface-gaze-onnx](retinaface-gaze-onnx.json) — switch between RetinaFace/Gaze combinations in the web UI; enable one at a time.
+- [retinaface-gaze-onnx](retinaface-gaze-onnx.json) — switch between RetinaFace/Gaze combinations in the web UI; enable one detector and one gaze model at a time.
 - [retinaface-1080x1080-gaze-resnet34](retinaface-1080x1080-gaze-resnet34.json) — 1080×1080 RetinaFace with Gaze ResNet34.
 - [retinaface-1080x1080-gaze-resnet50](retinaface-1080x1080-gaze-resnet50.json) — 1080×1080 RetinaFace with Gaze ResNet50.
 - [retinaface-1920x1080-gaze-resnet34](retinaface-1920x1080-gaze-resnet34.json) — 1920×1080 RetinaFace with Gaze ResNet34.
@@ -123,7 +123,7 @@ Run `./scripts/run.sh mlwl-vgf-demo`. The models run
 sequentially, so enabling both increases per-frame latency.
 
 Use `full-onnx-raspicam` or `full-onnx-usb-cam` for live camera input with the
-web UI. Sample-media ONNX and ONNX selection presets include `alternative-source-*`
+web UI. Presets such as [full-onnx](full-onnx.json) include `alternative-source-*`
 and `alternative-sink-*` examples for adapting image, video, camera, recording,
 and audio paths.
 

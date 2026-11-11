@@ -23,13 +23,16 @@ normalized with ImageNet mean/std. Output: yaw and pitch logits, each `[1,90]`.
 
 The pinned ONNX file records PyTorch 2.8.0 as its producer, IR version 9
 and the standard ONNX opset 20. Validated with ONNX Runtime 1.31.1
-on Linux x86_64 CPU.
+on Linux x86_64 CPU at OPK revision
+[`afb6c6b7`](https://github.com/arm/open-perception-kit/commit/afb6c6b72a936417a24483400cff56840cbbb1ab).
 
 The existing `GazeDetectionParser` uses `angleBinWidthDeg: 4`, matching
 `sum(softmax(logits) * bin) * 4 - 180` degrees. The existing face-crop loop links
 each gaze result to its RetinaFace detection. This model has distinct weights
 from the already integrated MobileGaze MobileNetV2; it reuses that parser and
 loop structure.
+
+The model-local [OpChain](opchain.json) consumes upstream `humanFace` boxes.
 
 See [RetinaFace pipelines](../retinaface-resnet34/index.md) for both detector
 resolutions. Downloads are pinned in [model-assets.json](../../model-assets.json).

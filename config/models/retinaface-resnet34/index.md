@@ -28,7 +28,8 @@ secondary inference. The landmark output is checked but is not published.
 
 The pinned ONNX file records PyTorch 2.4.0 as its producer, IR version 6
 and the standard ONNX opset 11. Validated with ONNX Runtime 1.31.1
-on Linux x86_64 CPU.
+on Linux x86_64 CPU at OPK revision
+[`afb6c6b7`](https://github.com/arm/open-perception-kit/commit/afb6c6b72a936417a24483400cff56840cbbb1ab).
 
 The [model asset manifest](../../model-assets.json) pins the upstream URL and
 SHA-256; `scripts/download-models.py` downloads it once. The MIT licence is
@@ -41,9 +42,11 @@ in the WebUI with:
 ./scripts/run.sh retinaface-gaze-onnx
 ```
 
-Use the Model selector to disable the current combination and enable the next.
-Keep one combination active at a time. Add Bounding boxes and Gaze in Overlays;
-select the active model outputs when changing the detector size or gaze backbone.
+Use the Model selector to choose one face detector and one gaze model. Disable
+the previous detector or gaze model when changing that selection. The shared
+preset loads each detector resolution and gaze backbone once; gaze activation
+leaves the detector selection unchanged. Add Bounding boxes and Gaze in Overlays
+and select the active outputs when changing the detector size or gaze backbone.
 
 To run a single combination:
 

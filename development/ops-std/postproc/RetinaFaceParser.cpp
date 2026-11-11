@@ -30,20 +30,28 @@ namespace {
 constexpr size_t kPreNmsTopK = 5000;
 constexpr size_t kKeepTopK = 750;
 
-struct Candidate {
+struct ScoredAnchor {
     size_t index;
+    float score;
+};
+
+struct Candidate {
     float score, left, top, right, bottom;
 };
 
-float intersectionOverUnion(const Candidate &a, const Candidate &b) {
-    // Match the upstream RetinaFace inclusive-pixel NMS convention.
-    const float width =
-        std::max(0.0f, std::min(a.right, b.right) - std::max(a.left, b.left) + 1.0f);
-    const float height =
-        std::max(0.0f, std::min(a.bottom, b.bottom) - std::max(a.top, b.top) + 1.0f);
-    const float intersection = width * height;
-    const float areaA = (a.right - a.left + 1.0f) * (a.bottom - a.top + 1.0f);
-    const float areaB = (b.right - b.left + 1.0f) * (b.bottom - b.top + 1.0f);
+double intersectionOverUnion(const Candidate &a, const Candidate &b) {
+    // Match the upstream RetinaFace inclusive-pixel NMS convention without float overflow.
+    const double width = std::max(
+        0.0, static_cast<double>(std::min(a.right, b.right)) - std::max(a.left, b.left) + 1.0);
+    const double height = std::max(
+        0.0, static_cast<double>(std::min(a.bottom, b.bottom)) - std::max(a.top, b.top) + 1.0);
+    if (width == 0.0 || height == 0.0)
+        return 0.0;
+    const double intersection = width * height;
+    const double areaA = (static_cast<double>(a.right) - a.left + 1.0) *
+                         (static_cast<double>(a.bottom) - a.top + 1.0);
+    const double areaB = (static_cast<double>(b.right) - b.left + 1.0) *
+                         (static_cast<double>(b.bottom) - b.top + 1.0);
     return intersection / (areaA + areaB - intersection);
 }
 
@@ -73,8 +81,8 @@ opk::Result<void> RetinaFaceParser::parse(const opk::TensorParser::Input &input,
     for (const size_t stride : strides)
         count += 2 * ((image.modelWidth + stride - 1) / stride) *
                  ((image.modelHeight + stride - 1) / stride);
-    constexpr std::array<int, 3> columns = {4, 2, 10};
-    for (size_t i = 0; i < columns.size(); ++i) {
+    constexpr std::array<int, 3> headWidths = {4, 2, 10};
+    for (size_t i = 0; i < headWidths.size(); ++i) {
         const auto *const tensor = input.tensors[i];
         if (!tensor || !tensor->isValid()) {
             return tl::unexpected(
@@ -83,7 +91,7 @@ opk::Result<void> RetinaFaceParser::parse(const opk::TensorParser::Input &input,
         }
         const auto shape = tensor->getShape();
         if (shape.rank != 3 || shape.dims[0] != 1 || shape.dims[1] <= 0 ||
-            static_cast<size_t>(shape.dims[1]) != count || shape.dims[2] != columns[i]) {
+            static_cast<size_t>(shape.dims[1]) != count || shape.dims[2] != headWidths[i]) {
             return tl::unexpected(OPK_ERROR(
                 opk::ErrorFlag::InvalidData,
                 "RetinaFaceParser expects [1,N,4], [1,N,2], [1,N,10] matching the anchor count"));
@@ -92,57 +100,59 @@ opk::Result<void> RetinaFaceParser::parse(const opk::TensorParser::Input &input,
 
     const auto &boxes = *input.tensors[0];
     const auto &scores = *input.tensors[1];
-    std::vector<Candidate> candidates;
-    size_t index = 0;
-    for (size_t level = 0; level < strides.size(); ++level) {
-        const size_t stride = strides[level];
-        for (size_t y = 0; y < (image.modelHeight + stride - 1) / stride; ++y) {
-            for (size_t x = 0; x < (image.modelWidth + stride - 1) / stride; ++x) {
-                for (const float size : sizes[level]) {
-                    const size_t current = index++;
-                    const float score = scores.get(2 * current + 1);
-                    if (!std::isfinite(score) || score <= threshold || score > 1.0f)
-                        continue;
-                    const float centerX =
-                        (static_cast<float>(x) + 0.5f) * static_cast<float>(stride) +
-                        boxes.get(4 * current) * 0.1f * size;
-                    const float centerY =
-                        (static_cast<float>(y) + 0.5f) * static_cast<float>(stride) +
-                        boxes.get(4 * current + 1) * 0.1f * size;
-                    const float width = size * std::exp(boxes.get(4 * current + 2) * 0.2f);
-                    const float height = size * std::exp(boxes.get(4 * current + 3) * 0.2f);
-                    const Candidate candidate{current,
-                                              score,
-                                              centerX - width / 2,
-                                              centerY - height / 2,
-                                              centerX + width / 2,
-                                              centerY + height / 2};
-                    if (width > 0 && height > 0 && std::isfinite(candidate.left) &&
-                        std::isfinite(candidate.top) && std::isfinite(candidate.right) &&
-                        std::isfinite(candidate.bottom))
-                        candidates.push_back(candidate);
-                }
-            }
-        }
+    std::vector<ScoredAnchor> anchors;
+    for (size_t index = 0; index < count; ++index) {
+        const float score = scores.get(2 * index + 1);
+        if (std::isfinite(score) && score > threshold && score <= 1.0f)
+            anchors.push_back({index, score});
     }
-    const auto compare = [](const Candidate &a, const Candidate &b) {
-        return a.score == b.score ? a.index < b.index : a.score > b.score;
+    const auto lowerPriority = [](const ScoredAnchor &a, const ScoredAnchor &b) {
+        return a.score == b.score ? a.index > b.index : a.score < b.score;
     };
-    if (candidates.size() > kPreNmsTopK) {
-        std::ranges::partial_sort(candidates, candidates.begin() + kPreNmsTopK, compare);
-        candidates.resize(kPreNmsTopK);
-    } else {
-        std::ranges::sort(candidates, compare);
-    }
+    std::ranges::make_heap(anchors, lowerPriority);
     std::vector<Candidate> kept;
-    for (const auto &candidate : candidates) {
+    size_t decoded = 0;
+    while (!anchors.empty() && decoded < kPreNmsTopK && kept.size() < kKeepTopK) {
+        std::ranges::pop_heap(anchors, lowerPriority);
+        const auto anchor = anchors.back();
+        anchors.pop_back();
+        size_t offset = anchor.index;
+        size_t level = 0;
+        size_t columnsInLevel = 0;
+        for (; level < strides.size(); ++level) {
+            columnsInLevel = (image.modelWidth + strides[level] - 1) / strides[level];
+            const size_t anchorsInLevel =
+                2 * columnsInLevel * ((image.modelHeight + strides[level] - 1) / strides[level]);
+            if (offset < anchorsInLevel)
+                break;
+            offset -= anchorsInLevel;
+        }
+        const size_t cell = offset / 2;
+        const size_t x = cell % columnsInLevel;
+        const size_t y = cell / columnsInLevel;
+        const float size = sizes[level][offset % 2];
+        const float centerX = (static_cast<float>(x) + 0.5f) * static_cast<float>(strides[level]) +
+                              boxes.get(4 * anchor.index) * 0.1f * size;
+        const float centerY = (static_cast<float>(y) + 0.5f) * static_cast<float>(strides[level]) +
+                              boxes.get(4 * anchor.index + 1) * 0.1f * size;
+        const float width = size * std::exp(boxes.get(4 * anchor.index + 2) * 0.2f);
+        const float height = size * std::exp(boxes.get(4 * anchor.index + 3) * 0.2f);
+        const Candidate candidate{anchor.score,
+                                  centerX - width / 2,
+                                  centerY - height / 2,
+                                  centerX + width / 2,
+                                  centerY + height / 2};
+        if (!(width > 0 && height > 0 && std::isfinite(candidate.left) &&
+              std::isfinite(candidate.top) && std::isfinite(candidate.right) &&
+              std::isfinite(candidate.bottom)))
+            continue;
+        // Invalid boxes do not consume the pre-NMS limit.
+        ++decoded;
         if (std::ranges::any_of(kept, [&](const Candidate &other) {
                 return intersectionOverUnion(candidate, other) > iouThreshold;
             }))
             continue;
         kept.push_back(candidate);
-        if (kept.size() == kKeepTopK)
-            break;
     }
 
     open_perception_kit::metadata::BoxDetectionsT payload;

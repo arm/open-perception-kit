@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -75,6 +76,8 @@ TEST(RetinaFaceParser, DecodesBoxesSuppressesDuplicatesAndScalesToFrame) {
     ASSERT_TRUE(result);
     const auto &detections = result.value().value().detections;
     ASSERT_EQ(detections.size(), 1);
+    ASSERT_TRUE(detections[0]->object);
+    EXPECT_EQ(detections[0]->object->parent_id, 42);
     EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
     EXPECT_FLOAT_EQ(detections[0]->box->x, 8);
     EXPECT_FLOAT_EQ(detections[0]->box->y, 12);
@@ -107,7 +110,7 @@ TEST(RetinaFaceParser, SupportsBothRequestedAnchorCounts) {
 }
 
 TEST(RetinaFaceParser, PreservesScoreAndAnchorOrderAtCandidateLimit) {
-    for (const int count : {4999, 5000, 5001}) {
+    for (const size_t count : {4999U, 5000U, 5001U}) {
         for (const float lastScore : {0.9f, 0.95f}) {
             SCOPED_TRACE(count);
             SCOPED_TRACE(lastScore);
@@ -115,14 +118,17 @@ TEST(RetinaFaceParser, PreservesScoreAndAnchorOrderAtCandidateLimit) {
             fixture.input.inferenceInfo.image.width = 1080;
             fixture.input.inferenceInfo.image.height = 1080;
             // Overlapping boxes leave one distinct final anchor to expose the cutoff and ties.
-            for (int index = 0; index < count; ++index) {
+            for (size_t index = 0; index < count; ++index) {
                 const float size = index % 2 == 0 ? 16.0f : 32.0f;
                 const float center = index == count - 1 ? 300.0f : 100.0f;
                 fixture.scores[2 * index + 1] = index == count - 1 ? lastScore : 0.9f;
+                const size_t cell = index / 2;
+                const size_t x = cell % 135;
+                const size_t y = cell / 135;
                 fixture.boxes[4 * index] =
-                    (center - (static_cast<float>((index / 2) % 135) + 0.5f) * 8) / (0.1f * size);
+                    (center - (static_cast<float>(x) + 0.5f) * 8) / (0.1f * size);
                 fixture.boxes[4 * index + 1] =
-                    (center - (static_cast<float>((index / 2) / 135) + 0.5f) * 8) / (0.1f * size);
+                    (center - (static_cast<float>(y) + 0.5f) * 8) / (0.1f * size);
                 fixture.boxes[4 * index + 2] = std::log(16.0f / size) / 0.2f;
                 fixture.boxes[4 * index + 3] = std::log(16.0f / size) / 0.2f;
             }
@@ -135,6 +141,73 @@ TEST(RetinaFaceParser, PreservesScoreAndAnchorOrderAtCandidateLimit) {
             EXPECT_NEAR(detections[0]->box->x, lastScore == 0.9f ? 92.0f : 292.0f, 1e-3f);
             if (detections.size() == 2)
                 EXPECT_NEAR(detections[1]->box->x, lastScore == 0.9f ? 292.0f : 92.0f, 1e-3f);
+            fixture.boxes[2] = std::numeric_limits<float>::infinity();
+            open_perception_kit::FrameResults filtered;
+            ASSERT_TRUE(fixture.parser.parse(fixture.input, filtered));
+            const auto filteredResult =
+                filtered.get<open_perception_kit::metadata::BoxDetectionsT>();
+            ASSERT_TRUE(filteredResult);
+            EXPECT_EQ(filteredResult.value().value().detections.size(), 2);
+        }
+    }
+}
+
+TEST(RetinaFaceParser, SuppressesHugeFiniteOverlappingBoxes) {
+    RetinaFaceFixture fixture;
+    for (const size_t index : {0U, 2U}) {
+        fixture.scores[2 * index + 1] = index == 0 ? 0.9f : 0.8f;
+        fixture.boxes[4 * index + 2] = 225.0f;
+        fixture.boxes[4 * index + 3] = 225.0f;
+    }
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, fixture.output));
+    const auto result = fixture.output.get<open_perception_kit::metadata::BoxDetectionsT>();
+    ASSERT_TRUE(result);
+    const auto &detections = result.value().value().detections;
+    ASSERT_EQ(detections.size(), 1);
+    EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
+    EXPECT_FLOAT_EQ(detections[0]->box->width, 64);
+    EXPECT_FLOAT_EQ(detections[0]->box->height, 96);
+}
+
+TEST(RetinaFaceParser, UsesInclusivePixelIoUForPartialOverlap) {
+    RetinaFaceFixture fixture;
+    // [0,0,2,2] and [1,0,3,2]: inclusive IoU is 0.5; continuous IoU is 1/3.
+    for (const size_t index : {0U, 2U}) {
+        fixture.scores[2 * index + 1] = index == 0 ? 0.9f : 0.8f;
+        fixture.boxes[4 * index] = index == 0 ? -3.0f / 1.6f : -10.0f / 1.6f;
+        fixture.boxes[4 * index + 1] = -3.0f / 1.6f;
+        fixture.boxes[4 * index + 2] = std::log(2.0f / 16.0f) / 0.2f;
+        fixture.boxes[4 * index + 3] = std::log(2.0f / 16.0f) / 0.2f;
+    }
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, fixture.output));
+    const auto result = fixture.output.get<open_perception_kit::metadata::BoxDetectionsT>();
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result.value().value().detections.size(), 1);
+    EXPECT_FLOAT_EQ(result.value().value().detections[0]->confidence, 0.9f);
+}
+
+TEST(RetinaFaceParser, CapsKeptBoxesAndPreservesAnchorOrder) {
+    for (const size_t count : {749U, 750U, 751U}) {
+        SCOPED_TRACE(count);
+        RetinaFaceFixture fixture(320, 320, 4200);
+        fixture.input.inferenceInfo.image.width = 320;
+        fixture.input.inferenceInfo.image.height = 320;
+        for (size_t index = 0; index < count; ++index) {
+            const size_t anchor = 2 * index;
+            fixture.scores[2 * anchor + 1] = 0.9f;
+            fixture.boxes[4 * anchor + 2] = std::log(1.0f / 16.0f) / 0.2f;
+            fixture.boxes[4 * anchor + 3] = std::log(1.0f / 16.0f) / 0.2f;
+        }
+        ASSERT_TRUE(fixture.parser.parse(fixture.input, fixture.output));
+        const auto result = fixture.output.get<open_perception_kit::metadata::BoxDetectionsT>();
+        ASSERT_TRUE(result);
+        const auto &detections = result.value().value().detections;
+        ASSERT_EQ(detections.size(), std::min(count, size_t{750}));
+        for (size_t index = 0; index < detections.size(); ++index) {
+            const size_t x = index % 40;
+            const size_t y = index / 40;
+            EXPECT_FLOAT_EQ(detections[index]->box->x, 8.0f * static_cast<float>(x) + 3.5f);
+            EXPECT_FLOAT_EQ(detections[index]->box->y, 8.0f * static_cast<float>(y) + 3.5f);
         }
     }
 }
