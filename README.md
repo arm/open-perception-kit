@@ -17,6 +17,8 @@ limitations under the License.
 
 # Open Perception Kit CLI quick start
 
+[![Nightly builds](https://github.com/arm/open-perception-kit/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/arm/open-perception-kit/actions/workflows/nightly.yml?query=branch%3Amain)
+
 The Open Perception Kit is aimed at Arm Linux developers, providing a fast path for early application development including vision inference without needing to build your perception stack from scratch by combining:
 
 - GStreamer-based media pipeline integration.

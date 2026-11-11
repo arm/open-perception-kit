@@ -21,7 +21,7 @@ export COVERAGE_FILE="${COVERAGE_FILE:-$PWD/.coverage}"
 
 python -m coverage erase
 python -m coverage run -m unittest scripts.release.TestReleaseTool
-for directory in scripts/testing scripts/testing/valgrind scripts/private/tests scripts/private/executorch tools/opk-ci/tests; do
+for directory in scripts/testing scripts/testing/valgrind scripts/private/tests scripts/private/executorch scripts/health-report tools/opk-ci/tests; do
     python -m coverage run -m unittest discover -s "$directory" -p 'test_*.py'
 done
 python -m coverage combine

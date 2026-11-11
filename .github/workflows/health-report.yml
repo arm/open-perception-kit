@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Health report
+
+on:
+  workflow_call:
+    inputs:
+      kind:
+        required: true
+        type: string
+      source_commit:
+        required: true
+        type: string
+      needs_json:
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  report:
+    name: Publish health report
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout report generator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install YAML dependency
+        run: |
+          python3 -m venv "$RUNNER_TEMP/health-report-venv"
+          "$RUNNER_TEMP/health-report-venv/bin/pip" install "$(grep '^PyYAML==' requirements/sdk.txt)"
+      - name: Download test logs
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: ${{ inputs.kind == 'nightly' && 'nightly-development-logs-*' || 'meson-test-logs' }}
+          path: health-test-logs
+      - name: Download Valgrind logs
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: valgrind-test-logs
+          path: health-valgrind-logs
+      - name: Download coverage results
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: health-*-coverage
+          path: health-coverage
+      - name: Collect job results and generate YAML
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEALTH_REPORT_NEEDS: ${{ inputs.needs_json }}
+          REPORT_KIND: ${{ inputs.kind }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest&per_page=100" > "$RUNNER_TEMP/health-jobs.json"
+          if ! gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/health-releases.json"; then
+            echo null > "$RUNNER_TEMP/health-releases.json"
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/actions/workflows/nightly.yml/runs?branch=main&event=schedule&status=completed&per_page=30" > "$RUNNER_TEMP/health-nightlies.json"; then
+            echo null > "$RUNNER_TEMP/health-nightlies.json"
+          fi
+          "$RUNNER_TEMP/health-report-venv/bin/python" scripts/health-report/generate.py \
+            --kind "$REPORT_KIND" --source-commit "$SOURCE_COMMIT" \
+            --jobs "$RUNNER_TEMP/health-jobs.json" --logs-dir health-test-logs \
+            --valgrind-dir health-valgrind-logs \
+            --coverage-dir health-coverage \
+            --releases "$RUNNER_TEMP/health-releases.json" \
+            --nightlies "$RUNNER_TEMP/health-nightlies.json" \
+            --output health-report.yaml
+      - name: Upload health report
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ inputs.kind }}-health-report-${{ github.run_attempt }}
+          path: health-report.yaml
+          if-no-files-found: error
+          retention-days: 14
+      - name: Link health report
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          printf '[Download the YAML health report](%s)\n' "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
