@@ -874,6 +874,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
   LC_ALL=C.UTF-8 \
   GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
+  OPK_PLUGIN_PATH=/work/development/build/meson-out \
   LD_LIBRARY_PATH=/opt/opk-deps/onnxruntime/lib:/work/development/build/meson-out \
   OPK_PYTHON_RUNTIME_VENV=/opt/opk-venvs/python-ops-runtime \
   OPK_PIPELINE=${OPK_PIPELINE}
