@@ -17,6 +17,10 @@ permissions:
   contents: read
 
 jobs:
+  coverage:
+    name: Code coverage
+    uses: ./.github/workflows/coverage.yml
+
   development:
     name: Development build
     uses: ./.github/workflows/nightly-development.yml
