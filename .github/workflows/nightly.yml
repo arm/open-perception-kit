@@ -137,7 +137,7 @@ jobs:
           echo "HF_DOWNLOAD_CACHEBUST=$cache_key" >> "$GITHUB_ENV"
           python3 -c 'from pathlib import Path; from scripts.release.ReleaseTool import read_version; print("OPK_VERSION=" + read_version(Path.cwd()))' >> "$GITHUB_ENV"
           bash scripts/private/executorch/fetch-released-deb.sh "$DEB_ARCH" var 2>&1 | tee nightly-logs/executorch.txt
-      - name: Build deployment image and archive
+      - name: Build deployment image and release tarball
         if: matrix.kind == 'archive'
         run: |
           docker buildx build --load --progress=plain --target opk-deployment-base \
@@ -158,7 +158,7 @@ jobs:
           for model in ultraface-rfb-320 nitec-resnet-18-executorch; do
             docker cp "$model_container_id:/work/config/models/$model/." "nightly-models/$model/"
           done
-      - name: Build Debian packages
+      - name: Build runtime and demo DEB packages
         if: matrix.kind == 'debian'
         run: |
           docker buildx build --progress=plain --target opk-debian-packages \
@@ -168,19 +168,22 @@ jobs:
             --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
             --output type=local,dest=nightly-packages . \
             2>&1 | tee nightly-logs/debian-packages.txt
-      - name: Test packages in a clean Debian container
+      # Both formats use the same clean Debian base and common runtime checks.
+      # The script installs the DEBs or extracts the tarball according to the matrix.
+      - name: ${{ matrix.kind == 'debian' && 'Install and test DEB packages in a clean container' || 'Extract and test release tarball in a clean container' }}
         env:
           PACKAGE_KIND: ${{ matrix.kind }}
         run: |
           docker run --rm \
             -v "$PWD/nightly-packages:/artifacts:ro" -v "$PWD:/source:ro" \
             -v "$PWD/nightly-models:/models:ro" \
-            debian:trixie-slim bash /source/scripts/testing/nightly-package-smoke.sh "$PACKAGE_KIND" \
-            2>&1 | tee nightly-logs/package-smoke.txt
-      - name: Test deployment entrypoint
+            debian:trixie-slim bash /source/scripts/testing/nightly-deb-and-archive-smoke.sh "$PACKAGE_KIND" \
+            2>&1 | tee "nightly-logs/${PACKAGE_KIND}-package-smoke.txt"
+      # The archive job already built the deployment image; the DEB job does not.
+      - name: Run deployment image entrypoint (archive job)
         if: matrix.kind == 'archive'
         run: |
-          bash scripts/testing/nightly-deployment-smoke.sh \
+          bash scripts/testing/nightly-deployment-entrypoint-smoke.sh \
             opk-nightly-deployment nightly-models nightly-logs
       - name: Report remaining nightly coverage
         if: always()

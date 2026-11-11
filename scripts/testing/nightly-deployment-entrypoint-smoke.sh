@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Run the deployment image's real entrypoint; this image is built in archive jobs.
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then

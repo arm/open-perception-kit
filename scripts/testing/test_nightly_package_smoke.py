@@ -22,8 +22,8 @@ from pathlib import Path
 
 from scripts.testing.nightly_image_pipeline import image_pipeline
 
-SCRIPT = Path(__file__).with_name("nightly-package-smoke.sh")
-DEPLOYMENT_SCRIPT = Path(__file__).with_name("nightly-deployment-smoke.sh")
+SCRIPT = Path(__file__).with_name("nightly-deb-and-archive-smoke.sh")
+DEPLOYMENT_SCRIPT = Path(__file__).with_name("nightly-deployment-entrypoint-smoke.sh")
 DEPLOYMENT_PIPELINE = Path(__file__).with_name("nightly-deployment-pipeline.json")
 
 
