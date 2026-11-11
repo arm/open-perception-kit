@@ -33,6 +33,46 @@ from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import 
 
 
 class FaceGazePipeline(unittest.TestCase):
+    def setUp(self):
+        self.build = Path(sys.argv[1]).resolve()
+        self.image = Path(sys.argv[2]).resolve()
+        self.root = Path(__file__).resolve().parents[2]
+        self.libraries = [ctypes.CDLL(str(self.build / name)) for name in
+                          ("opk-std-ops.so", "opk-onnx-ops.so")]
+        self.gst = load_gstreamer_plugins([self.build / "libopkinfer.so", self.build / "libopkcomm.so"])
+
+    def read_result(self, output, count):
+        deadline = time.monotonic() + 180
+        while True:
+            lines = output.read_text().splitlines(keepends=True) if output.exists() else []
+            if len(lines) >= count and lines[count - 1].endswith("\n"):
+                self.assertEqual(len(lines), count)
+                record = json.loads(lines[-1])
+                envelope = decode(base64.b64decode(record["frame_results_packet_b64"], validate=True))
+                self.assertTrue(envelope.valid(), envelope.error())
+                return envelope
+            self.assertLess(time.monotonic(), deadline, "opkcomm output timed out")
+            time.sleep(0.01)
+
+    def assert_linked_gaze(self, envelope):
+        boxes = [box for layer in envelope.for_each(BoxDetectionsT) for box in layer.detections]
+        poses = [pose for layer in envelope.for_each(PoseEstimationsT) for pose in layer.poses]
+        self.assertGreater(len(boxes), 0, "test image must contain detectable faces")
+        self.assertEqual(len(poses), len(boxes))
+        face_ids = {box.object.id for box in boxes}
+        self.assertEqual(len(face_ids), len(boxes))
+        self.assertNotIn(0, face_ids)
+        self.assertEqual({pose.object.parentId for pose in poses}, face_ids)
+        for box in boxes:
+            self.assertGreater(box.box.width, 0)
+            self.assertGreater(box.box.height, 0)
+        for pose in poses:
+            for angle in (pose.yaw, pose.pitch):
+                self.assertTrue(math.isfinite(angle))
+                self.assertGreaterEqual(angle, -180)
+                self.assertLessEqual(angle, 176)
+        return boxes, poses
+
     def run_pipeline(self, gst, chain, source):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "results.ndjson"
@@ -48,54 +88,90 @@ class FaceGazePipeline(unittest.TestCase):
                 if message.type == gst.MessageType.ERROR:
                     self.fail(str(message.parse_error()))
                 self.assertEqual(message.type, gst.MessageType.EOS)
-                deadline = time.monotonic() + 5
-                while not output.exists() or not output.read_bytes().endswith(b"\n"):
-                    self.assertLess(time.monotonic(), deadline, "opkcomm output timed out")
-                    time.sleep(0.01)
-                records = [json.loads(line) for line in output.read_text().splitlines()]
-                self.assertEqual(len(records), 1)
-                envelope = decode(base64.b64decode(records[0]["frame_results_packet_b64"], validate=True))
-                self.assertTrue(envelope.valid(), envelope.error())
-                boxes = [box for layer in envelope.for_each(BoxDetectionsT) for box in layer.detections]
-                poses = [pose for layer in envelope.for_each(PoseEstimationsT) for pose in layer.poses]
-                return boxes, poses
+                return self.read_result(output, 1)
             finally:
                 release_pipeline(pipeline, gst)
 
     def test_original_models_produce_faces_and_linked_gaze(self):
-        build = Path(sys.argv[1]).resolve()
-        image = Path(sys.argv[2]).resolve()
-        root = Path(__file__).resolve().parents[2]
-        self.libraries = [ctypes.CDLL(str(build / name)) for name in
-                          ("opk-std-ops.so", "opk-onnx-ops.so")]
-        gst = load_gstreamer_plugins([build / "libopkinfer.so", build / "libopkcomm.so"])
+        gst, root, image = self.gst, self.root, self.image
         for width in (1080, 1920):
             for backbone in (34, 50):
                 name = f"retinaface-{width}x1080-gaze-resnet{backbone}"
                 chain = root / "config/opchains" / name / "opchain.json"
                 with self.subTest(pipeline=name):
-                    boxes, poses = self.run_pipeline(gst, chain, f'filesrc location="{image}" ! decodebin')
-                    self.assertGreater(len(boxes), 0, "test image must contain detectable faces")
-                    self.assertEqual(len(poses), len(boxes))
-                    face_ids = {box.object.id for box in boxes}
-                    self.assertEqual(len(face_ids), len(boxes))
-                    self.assertNotIn(0, face_ids)
-                    self.assertEqual({pose.object.parentId for pose in poses}, face_ids)
-                    for box in boxes:
-                        self.assertGreater(box.box.width, 0)
-                        self.assertGreater(box.box.height, 0)
-                    for pose in poses:
-                        for angle in (pose.yaw, pose.pitch):
-                            self.assertTrue(math.isfinite(angle))
-                            self.assertGreaterEqual(angle, -180)
-                            self.assertLessEqual(angle, 176)
+                    envelope = self.run_pipeline(gst, chain, f'filesrc location="{image}" ! decodebin')
+                    boxes, poses = self.assert_linked_gaze(envelope)
                     print(f"{name}: {len(boxes)} faces, {len(poses)} linked gaze results", flush=True)
         chain = root / "config/opchains/retinaface-1080x1080-gaze-resnet34/opchain.json"
-        boxes, poses = self.run_pipeline(
+        envelope = self.run_pipeline(
             gst, chain, "videotestsrc num-buffers=1 pattern=black ! video/x-raw,width=640,height=480")
-        self.assertEqual(boxes, [])
-        self.assertEqual(poses, [])
+        self.assertFalse(any(layer.detections for layer in envelope.for_each(BoxDetectionsT)))
+        self.assertFalse(any(layer.poses for layer in envelope.for_each(PoseEstimationsT)))
         print("black frame: no face or gaze results", flush=True)
+
+    def test_switch_combinations_in_shared_pipeline(self):
+        gst = self.gst
+        decoder = gst.parse_launch(
+            f'filesrc location="{self.image}" ! decodebin ! videoconvert ! '
+            'video/x-raw,format=BGRA ! appsink name=decoded sync=false')
+        try:
+            decoder.set_state(gst.State.PLAYING)
+            sample = decoder.get_by_name("decoded").emit("try-pull-sample", 30 * gst.SECOND)
+            self.assertIsNotNone(sample, "could not decode test image")
+        finally:
+            release_pipeline(decoder, gst)
+
+        preset = json.loads((self.root / "config/pipelines/retinaface-gaze-onnx.json").read_text())
+        stages = [stage.replace("${OPK_PROJECT_ROOT:-/work}", str(self.root))
+                  for stage in preset["pipeline"] if stage.startswith("opkinfer ")]
+        self.assertEqual(len(stages), 4)
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "results.ndjson"
+            pipeline = gst.parse_launch(
+                'appsrc name=source format=time ! ' + ' '.join(stages) +
+                f' opkcomm method=file file-name="{output}" ! fakesink sync=false')
+            source = pipeline.get_by_name("source")
+            source.set_property("caps", sample.get_caps())
+            infer = []
+            element = source
+            for _ in stages:
+                element = element.get_static_pad("src").get_peer().get_parent_element()
+                infer.append(element)
+            self.assertEqual([element.get_property("active") for element in infer],
+                             [True, False, False, False])
+            try:
+                pipeline.set_state(gst.State.PLAYING)
+                # Return to the first combination to exercise reactivation, too.
+                for frame, selected in enumerate((0, 1, 2, 3, 0)):
+                    with self.subTest(combination=selected, frame=frame):
+                        if frame:
+                            for element in infer:
+                                element.set_property("active", False)
+                            infer[selected].set_property("active", True)
+                        self.assertEqual([element.get_property("active") for element in infer],
+                                         [index == selected for index in range(4)])
+                        buffer = sample.get_buffer().copy_deep()
+                        buffer.pts = frame * gst.SECOND
+                        buffer.duration = gst.SECOND
+                        self.assertEqual(source.emit("push-buffer", buffer), gst.FlowReturn.OK)
+                        envelope = self.read_result(output, frame + 1)
+                        self.assert_linked_gaze(envelope)
+                        width, backbone = [(w, b) for w in (1080, 1920) for b in (34, 50)][selected]
+                        for kind, model in (
+                                (BoxDetectionsT, f"retinaface-resnet34-{width}x1080-fp32"),
+                                (PoseEstimationsT, f"gaze-resnet{backbone}-448-fp32")):
+                            layers = list(envelope.for_each(kind))
+                            self.assertEqual({layer.layer.inferElementId for layer in layers},
+                                             {infer[selected].get_name().encode()})
+                            self.assertEqual({layer.layer.model for layer in layers}, {model.encode()})
+                        print(f"shared pipeline: combination {selected}, frame {frame} passed", flush=True)
+                self.assertEqual(source.emit("end-of-stream"), gst.FlowReturn.OK)
+                message = pipeline.get_bus().timed_pop_filtered(
+                    30 * gst.SECOND, gst.MessageType.ERROR | gst.MessageType.EOS)
+                self.assertIsNotNone(message, "shared pipeline timed out")
+                self.assertEqual(message.type, gst.MessageType.EOS)
+            finally:
+                release_pipeline(pipeline, gst)
 
 
 if __name__ == "__main__":

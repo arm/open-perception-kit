@@ -59,10 +59,11 @@ Each uses the bundled gaze demo video. Change the source in the matching
 through OPK's existing nearest-neighbour image preprocessing.
 
 For a headless integration check with the downloaded models and a local image
-containing faces, run inside the development container:
+containing faces, run inside the development container. Include the distro
+GStreamer bindings in the devtools Python's import path:
 
 ```sh
-PYTHONPATH=generated/open_perception_kit/python/src \
+PYTHONPATH=/usr/lib/python3/dist-packages:generated/open_perception_kit/python/src \
   python3 development/tests/face_gaze_pipeline_test.py \
   development/build-active/meson-out /path/to/faces.jpg
 ```
