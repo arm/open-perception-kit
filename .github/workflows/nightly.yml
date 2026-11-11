@@ -21,6 +21,10 @@ jobs:
     name: Code coverage
     uses: ./.github/workflows/coverage.yml
 
+  docs:
+    name: Documentation validation
+    uses: ./.github/workflows/docs-validate.yml
+
   development:
     name: Development build
     uses: ./.github/workflows/nightly-development.yml
