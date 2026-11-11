@@ -1,6 +1,6 @@
 {
-  "version": "1.0.4",
-  "description": "All supported ONNX models on bundled video with the decoded pixel format preserved.",
+  "version": "1.0.5",
+  "description": "Selectable ONNX models on bundled video with the decoded pixel format preserved.",
   "sourceInfo": "bundled video file",
   "loop": true,
   "pipeline": [

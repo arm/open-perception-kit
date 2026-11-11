@@ -222,9 +222,12 @@ constexpr KernelMapping kKernelMappings[] = {
 bool matches(const KernelMapping &mapping,
              const opk::ImageOpDesc &source,
              const opk::ImageOpDesc &destination) {
+    const auto kind =
+        destination.kind == opk::DataKind::ImageBgrChw && destination.type == opk::Dtype::Float32
+            ? opk::DataKind::ImageRgbChw
+            : destination.kind;
     return mapping.sourceFormat == source.format && mapping.sourceType == source.type &&
-           mapping.destinationKind == destination.kind &&
-           mapping.destinationType == destination.type;
+           mapping.destinationKind == kind && mapping.destinationType == destination.type;
 }
 
 std::string describeConversion(const opk::ImageOpDesc &source,
@@ -240,34 +243,19 @@ std::string describeConversion(const opk::ImageOpDesc &source,
 
 opk::Result<void>
 opk::stdop::preproc::GenericImageTensorBuilder::build(const TensorBuilder::Setup &setup) {
+    auto source = setup.imageSourceDesc;
     if (setup.imageDestinationDesc.kind == opk::DataKind::ImageBgrChw &&
         setup.imageDestinationDesc.type == opk::Dtype::Float32) {
-        auto rgbSetup = setup;
-        rgbSetup.imageDestinationDesc.kind = opk::DataKind::ImageRgbChw;
-        std::swap(rgbSetup.imageSourceDesc.mean.r, rgbSetup.imageSourceDesc.mean.b);
-        std::swap(rgbSetup.imageSourceDesc.std.r, rgbSetup.imageSourceDesc.std.b);
-        const auto &destination = setup.imageDestinationDesc;
-        if (!destination.rectIsFullSurface()) {
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InvalidData,
-                          "ImageBgrChw preprocessing requires a full destination surface"));
-        }
-        auto result = build(rgbSetup);
-        if (!result)
-            return result;
-        // Reuse the existing format-specific RGB kernels and normalization.
-        auto *const data = opk::mutablePlaneData<float>(destination.planes[0]);
-        const size_t planeSize = destination.surfaceWidth * destination.surfaceHeight;
-        std::swap_ranges(data, data + planeSize, data + 2 * planeSize);
-        return {};
+        // Kernels normalize by colour; model parameters follow output channel order.
+        std::swap(source.mean.r, source.mean.b);
+        std::swap(source.std.r, source.std.b);
     }
     for (const auto &mapping : kKernelMappings) {
-        if (!matches(mapping, setup.imageSourceDesc, setup.imageDestinationDesc)) {
+        if (!matches(mapping, source, setup.imageDestinationDesc)) {
             continue;
         }
 
-        if (mapping.kernel(
-                setup.imageSourceDesc, setup.imageDestinationDesc, opk::Sampling::Nearest)) {
+        if (mapping.kernel(source, setup.imageDestinationDesc, opk::Sampling::Nearest)) {
             return {};
         }
 

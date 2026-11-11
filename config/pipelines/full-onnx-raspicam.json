@@ -1,6 +1,6 @@
 {
-  "version": "1.0.3",
-  "description": "All supported ONNX models on a Raspberry Pi camera, with YOLO26n-320 enabled by default.",
+  "version": "1.0.4",
+  "description": "Selectable ONNX models on a Raspberry Pi camera, with YOLO26n-320 enabled by default.",
   "sourceInfo": "Raspberry Pi camera required",
   "pipeline": [
     "libcamerasrc !",

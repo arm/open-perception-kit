@@ -27,6 +27,9 @@
 namespace opk::stdop::postproc {
 namespace {
 
+constexpr size_t kPreNmsTopK = 5000;
+constexpr size_t kKeepTopK = 750;
+
 struct Candidate {
     size_t index;
     float score, left, top, right, bottom;
@@ -122,11 +125,15 @@ opk::Result<void> RetinaFaceParser::parse(const opk::TensorParser::Input &input,
             }
         }
     }
-    std::ranges::sort(candidates, [](const Candidate &a, const Candidate &b) {
+    const auto compare = [](const Candidate &a, const Candidate &b) {
         return a.score == b.score ? a.index < b.index : a.score > b.score;
-    });
-    if (candidates.size() > 5000)
-        candidates.resize(5000);
+    };
+    if (candidates.size() > kPreNmsTopK) {
+        std::ranges::partial_sort(candidates, candidates.begin() + kPreNmsTopK, compare);
+        candidates.resize(kPreNmsTopK);
+    } else {
+        std::ranges::sort(candidates, compare);
+    }
     std::vector<Candidate> kept;
     for (const auto &candidate : candidates) {
         if (std::ranges::any_of(kept, [&](const Candidate &other) {
@@ -134,7 +141,7 @@ opk::Result<void> RetinaFaceParser::parse(const opk::TensorParser::Input &input,
             }))
             continue;
         kept.push_back(candidate);
-        if (kept.size() == 750)
+        if (kept.size() == kKeepTopK)
             break;
     }
 

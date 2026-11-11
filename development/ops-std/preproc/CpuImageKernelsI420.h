@@ -26,8 +26,9 @@ namespace opk::stdop::preproc {
  * @brief CPU image conversion kernels for planar I420 source frames.
  */
 struct ImageOpsI420 {
+    // Float32 CHW kernels follow dst.kind; src.mean/std stay in RGB colour order.
     /**
-     * @brief Stretch-blits I420 full-frame input into RGB float32 CHW full-frame output.
+     * @brief Stretch-blits I420 full-frame input into RGB/BGR float32 CHW full-frame output.
      * @param src Source image descriptor.
      * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
@@ -38,7 +39,7 @@ struct ImageOpsI420 {
                                                       Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits I420 source rect into RGB float32 CHW destination rect.
+     * @brief Stretch-blits I420 source rect into RGB/BGR float32 CHW destination rect.
      * @param src Source image descriptor.
      * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.

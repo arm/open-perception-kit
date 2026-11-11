@@ -156,6 +156,8 @@ bool makeLetterboxDestination(const opk::ImageOpDesc &src,
 void fillRgbF32Chw(const opk::ImageOpDesc &dst, const opk::Colorf &mean, const opk::Colorf &std) {
     auto *out = opk::mutablePlaneData<float>(dst.planes[0]);
     const size_t planeSize = dst.surfaceWidth * dst.surfaceHeight;
+    const size_t redOffset = dst.kind == opk::DataKind::ImageBgrChw ? 2 * planeSize : 0;
+    const size_t blueOffset = 2 * planeSize - redOffset;
     auto rgb = letterboxRgb(dst);
     if (!opk::MeanStd::isDefaultMean(mean) || !opk::MeanStd::isDefaultStd(std)) {
         rgb = applyMeanStd(rgb, mean, std);
@@ -166,9 +168,9 @@ void fillRgbF32Chw(const opk::ImageOpDesc &dst, const opk::Colorf &mean, const o
         for (size_t x = 0; x < dst.rect.width; ++x) {
             const size_t dxi = dst.rect.x + x;
             const size_t hw = dyi * dst.surfaceWidth + dxi;
-            out[0 * planeSize + hw] = rgb.r;
+            out[redOffset + hw] = rgb.r;
             out[1 * planeSize + hw] = rgb.g;
-            out[2 * planeSize + hw] = rgb.b;
+            out[blueOffset + hw] = rgb.b;
         }
     }
 }
@@ -308,6 +310,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src
 
     constexpr float inv255 = 1.0f / 255.0f;
     const size_t planeSize = dstWidth * dstHeight;
+    const size_t redOffset = dst.kind == opk::DataKind::ImageBgrChw ? 2 * planeSize : 0;
+    const size_t blueOffset = 2 * planeSize - redOffset;
 
     if (opk::MeanStd::isDefaultMean(mean) && opk::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
@@ -315,9 +319,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src
             for (size_t x = 0; x < dstWidth; ++x) {
                 const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 const size_t hw = y * dstWidth + x;
-                dstPtr[0 * planeSize + hw] = p[2] * inv255;
+                dstPtr[redOffset + hw] = p[2] * inv255;
                 dstPtr[1 * planeSize + hw] = p[1] * inv255;
-                dstPtr[2 * planeSize + hw] = p[0] * inv255;
+                dstPtr[blueOffset + hw] = p[0] * inv255;
             }
         }
     } else {
@@ -341,9 +345,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src
                 const float g01 = p[1] * inv255;
                 const float b01 = p[0] * inv255;
 
-                dstPtr[0 * planeSize + hw] = (r01 - meanR) * invStdR;
+                dstPtr[redOffset + hw] = (r01 - meanR) * invStdR;
                 dstPtr[1 * planeSize + hw] = (g01 - meanG) * invStdG;
-                dstPtr[2 * planeSize + hw] = (b01 - meanB) * invStdB;
+                dstPtr[blueOffset + hw] = (b01 - meanB) * invStdB;
             }
         }
     }
@@ -390,6 +394,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
     const size_t W = dstWidth;
 
     const size_t planeSize = H * W;
+    const size_t redOffset = dst.kind == opk::DataKind::ImageBgrChw ? 2 * planeSize : 0;
+    const size_t blueOffset = 2 * planeSize - redOffset;
 
     // nearest-neighbour sampling stretch from srcRect to dstRect, CHW layout
 
@@ -410,9 +416,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
                 // CHW destination
                 const size_t hwIndex = dyi * W + dxi;
 
-                out[0 * planeSize + hwIndex] = p[2] * inv255; // R channel
+                out[redOffset + hwIndex] = p[2] * inv255;     // R channel
                 out[1 * planeSize + hwIndex] = p[1] * inv255; // G channel
-                out[2 * planeSize + hwIndex] = p[0] * inv255; // B channel
+                out[blueOffset + hwIndex] = p[0] * inv255;    // B channel
             }
         }
     } else {
@@ -445,9 +451,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
                 const float g01 = p[1] * inv255; //        G
                 const float b01 = p[0] * inv255; //        B
 
-                out[0 * planeSize + hwIndex] = (r01 - meanR) * invStdR;
+                out[redOffset + hwIndex] = (r01 - meanR) * invStdR;
                 out[1 * planeSize + hwIndex] = (g01 - meanG) * invStdG;
-                out[2 * planeSize + hwIndex] = (b01 - meanB) * invStdB;
+                out[blueOffset + hwIndex] = (b01 - meanB) * invStdB;
             }
         }
     }
@@ -1262,6 +1268,8 @@ bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
 
     constexpr float inv255 = 1.0f / 255.0f;
     const size_t planeSize = dstWidth * dstHeight;
+    const size_t redOffset = dst.kind == opk::DataKind::ImageBgrChw ? 2 * planeSize : 0;
+    const size_t blueOffset = 2 * planeSize - redOffset;
 
     if (opk::MeanStd::isDefaultMean(mean) && opk::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
@@ -1269,9 +1277,9 @@ bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
             for (size_t x = 0; x < dstWidth; ++x) {
                 const uint8_t *p = srcRow + x * RgbBytesPerPixel;
                 const size_t hw = y * dstWidth + x;
-                dstPtr[0 * planeSize + hw] = p[0] * inv255;
+                dstPtr[redOffset + hw] = p[0] * inv255;
                 dstPtr[1 * planeSize + hw] = p[1] * inv255;
-                dstPtr[2 * planeSize + hw] = p[2] * inv255;
+                dstPtr[blueOffset + hw] = p[2] * inv255;
             }
         }
     } else {
@@ -1295,9 +1303,9 @@ bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
                 const float g01 = p[1] * inv255;
                 const float b01 = p[2] * inv255;
 
-                dstPtr[0 * planeSize + hw] = (r01 - meanR) * invStdR;
+                dstPtr[redOffset + hw] = (r01 - meanR) * invStdR;
                 dstPtr[1 * planeSize + hw] = (g01 - meanG) * invStdG;
-                dstPtr[2 * planeSize + hw] = (b01 - meanB) * invStdB;
+                dstPtr[blueOffset + hw] = (b01 - meanB) * invStdB;
             }
         }
     }
@@ -1344,6 +1352,8 @@ bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
     const size_t W = dstWidth;
 
     const size_t planeSize = H * W;
+    const size_t redOffset = dst.kind == opk::DataKind::ImageBgrChw ? 2 * planeSize : 0;
+    const size_t blueOffset = 2 * planeSize - redOffset;
 
     if (opk::MeanStd::isDefaultMean(mean) && opk::MeanStd::isDefaultStd(std)) {
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
@@ -1359,9 +1369,9 @@ bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
 
                 const size_t hwIndex = dyi * W + dxi;
 
-                out[0 * planeSize + hwIndex] = p[0] * inv255;
+                out[redOffset + hwIndex] = p[0] * inv255;
                 out[1 * planeSize + hwIndex] = p[1] * inv255;
-                out[2 * planeSize + hwIndex] = p[2] * inv255;
+                out[blueOffset + hwIndex] = p[2] * inv255;
             }
         }
     } else {
@@ -1392,9 +1402,9 @@ bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
                 const float g01 = p[1] * inv255;
                 const float b01 = p[2] * inv255;
 
-                out[0 * planeSize + hwIndex] = (r01 - meanR) * invStdR;
+                out[redOffset + hwIndex] = (r01 - meanR) * invStdR;
                 out[1 * planeSize + hwIndex] = (g01 - meanG) * invStdG;
-                out[2 * planeSize + hwIndex] = (b01 - meanB) * invStdB;
+                out[blueOffset + hwIndex] = (b01 - meanB) * invStdB;
             }
         }
     }

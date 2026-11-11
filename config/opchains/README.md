@@ -24,5 +24,12 @@ MobileGaze and NITEC provide ONNX and ExecuTorch/XNNPACK variants. Both
 variants use UltraFace ONNX for face detection before running the selected
 face-level backend.
 
+RetinaFace ResNet34 and Gaze ResNet34/50 provide FP32 ONNX face-and-gaze chains:
+
+- [1080×1080 RetinaFace + Gaze ResNet34](retinaface-1080x1080-gaze-resnet34/opchain.json)
+- [1080×1080 RetinaFace + Gaze ResNet50](retinaface-1080x1080-gaze-resnet50/opchain.json)
+- [1920×1080 RetinaFace + Gaze ResNet34](retinaface-1920x1080-gaze-resnet34/opchain.json)
+- [1920×1080 RetinaFace + Gaze ResNet50](retinaface-1920x1080-gaze-resnet50/opchain.json)
+
 [PP-OCRv6 tiny](pp-ocrv6-tiny/opchain.json) combines the local text detector and
 recognizer artifacts, with one recognition pass per detected text region.

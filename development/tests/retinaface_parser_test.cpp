@@ -106,6 +106,39 @@ TEST(RetinaFaceParser, SupportsBothRequestedAnchorCounts) {
     }
 }
 
+TEST(RetinaFaceParser, PreservesScoreAndAnchorOrderAtCandidateLimit) {
+    for (const int count : {4999, 5000, 5001}) {
+        for (const float lastScore : {0.9f, 0.95f}) {
+            SCOPED_TRACE(count);
+            SCOPED_TRACE(lastScore);
+            RetinaFaceFixture fixture(1080, 1080, 48010);
+            fixture.input.inferenceInfo.image.width = 1080;
+            fixture.input.inferenceInfo.image.height = 1080;
+            // Overlapping boxes leave one distinct final anchor to expose the cutoff and ties.
+            for (int index = 0; index < count; ++index) {
+                const float size = index % 2 == 0 ? 16.0f : 32.0f;
+                const float center = index == count - 1 ? 300.0f : 100.0f;
+                fixture.scores[2 * index + 1] = index == count - 1 ? lastScore : 0.9f;
+                fixture.boxes[4 * index] =
+                    (center - (static_cast<float>((index / 2) % 135) + 0.5f) * 8) / (0.1f * size);
+                fixture.boxes[4 * index + 1] =
+                    (center - (static_cast<float>((index / 2) / 135) + 0.5f) * 8) / (0.1f * size);
+                fixture.boxes[4 * index + 2] = std::log(16.0f / size) / 0.2f;
+                fixture.boxes[4 * index + 3] = std::log(16.0f / size) / 0.2f;
+            }
+            ASSERT_TRUE(fixture.parser.parse(fixture.input, fixture.output));
+            const auto result = fixture.output.get<open_perception_kit::metadata::BoxDetectionsT>();
+            ASSERT_TRUE(result);
+            const auto &detections = result.value().value().detections;
+            ASSERT_EQ(detections.size(), count > 5000 && lastScore == 0.9f ? 1 : 2);
+            EXPECT_FLOAT_EQ(detections[0]->confidence, lastScore);
+            EXPECT_NEAR(detections[0]->box->x, lastScore == 0.9f ? 92.0f : 292.0f, 1e-3f);
+            if (detections.size() == 2)
+                EXPECT_NEAR(detections[1]->box->x, lastScore == 0.9f ? 292.0f : 92.0f, 1e-3f);
+        }
+    }
+}
+
 TEST(RetinaFaceParser, RejectsWrongHeadOrderAndMissingLandmarks) {
     RetinaFaceFixture fixture;
     std::swap(fixture.input.tensors[0], fixture.input.tensors[1]);
