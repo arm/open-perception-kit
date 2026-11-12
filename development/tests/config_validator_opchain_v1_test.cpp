@@ -329,6 +329,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         "RetinaFaceParser",
         "RvmParser",
         "ScrfdParser",
+        "SileroVadParser",
         "UltrafaceParser",
         "YoloParser",
         "YoloXParser",

@@ -218,11 +218,11 @@ readers before adopting it. Voice-activity decoding requires explicit activation
 output selection and decision parameters; see the
 [voice-activity contract](../../arch/perception.md#voice-activity-results).
 
-The unreleased `SileroVadParser` from source checkouts is retired in favor of
-`VoiceActivityParser`. This is a specific pre-release compatibility exception:
-old parser configurations must be migrated, while the OpChain v1 format and
-general versioning rules remain unchanged. No compatibility alias is provided.
-In Silero postprocessing, set:
+`SileroVadParser`, shipped in OPK 0.1.3, remains supported for existing v1
+configurations. It retains its `[1,1]` probability input, defaults and producer
+identity, and delegates decisions to the shared voice-activity implementation.
+New profiles use `VoiceActivityParser`. To migrate an existing Silero
+postprocessor, set:
 
 ```json
 {
@@ -241,7 +241,7 @@ Preserve any explicitly tuned thresholds and delays; the values above replace
 the former defaults when those fields were omitted. Increment the edited file's
 patch version and rebuild the runtime. Both checked-in Silero chains use this
 configuration, preserving their PCM context, inference cadence and VAD policy.
-Results retain the `voiceActivity` content type and model identity; their
+Migrated results retain the `voiceActivity` content type and model identity; their
 producer implementation is now `VoiceActivityParser`.
 
 Model reader schema `1.2.0` adds Float32 `ImageBgrChw` inputs with

@@ -41,6 +41,7 @@ TEST(StandardContentTypes, ParsersAdvertiseTheirFrameResultsContent) {
         std::pair{"RetinaFaceParser", "humanFace"},
         std::pair{"RvmParser", "segmentation"},
         std::pair{"ScrfdParser", "humanFace"},
+        std::pair{"SileroVadParser", "voiceActivity"},
         std::pair{"VoiceActivityParser", "voiceActivity"},
         std::pair{"SmartTurnParser", "turnDetection"},
         std::pair{"UltrafaceParser", "humanFace"},
@@ -64,6 +65,84 @@ TEST(StandardContentTypes, ParsersAdvertiseTheirFrameResultsContent) {
                                   : std::vector<std::string_view>{contentType};
         EXPECT_EQ(postprocessor->getProvidedContentTypes(), expected) << parser;
     }
+}
+
+TEST(GenericPostprocess, PreservesPublishedSileroDefaultsAndProducerIdentity) {
+    opk::op::OpRef op;
+    ASSERT_TRUE(op.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
+    opk::AttributeMap attributes;
+    ASSERT_TRUE(op->configure(attributes.set("parser", "SileroVadParser")));
+    float probability = 0.9f;
+    opk::op::OpChainContext context;
+    context.inferenceOutputTensorCount = 1;
+    context.inferenceOutputTensors[0] = opk::TensorView(
+        &probability, sizeof(probability), opk::Shape(1, 1), opk::Dtype::Float32, 1, 0);
+    context.inferenceInfo.modelName = "silero-vad";
+    context.inferenceInfo.inferElementId = "voice";
+    context.inferenceInfo.audio.hopSampleCount = 320;
+    const std::array expected{false, false, true, true, true, false};
+    for (size_t index = 0; index < expected.size(); ++index) {
+        if (index == 3)
+            probability = 0.1f;
+        auto &audio = context.inferenceInfo.audio;
+        audio.windowStartSample = index * audio.hopSampleCount;
+        audio.windowEndSample = audio.windowStartSample + audio.hopSampleCount;
+        open_perception_kit::FrameResults results;
+        context.frameResults = &results;
+        ASSERT_TRUE(op->process(context));
+        size_t count = 0;
+        results.for_each<open_perception_kit::metadata::VoiceActivityDetectionsT>(
+            [&](const auto &payload) {
+                ++count;
+                ASSERT_TRUE(payload.layer);
+                ASSERT_TRUE(payload.layer->producer);
+                EXPECT_EQ(payload.layer->producer->implementation, "SileroVadParser");
+                EXPECT_EQ(payload.layer->content_type, "voiceActivity");
+                EXPECT_EQ(payload.layer->model, "silero-vad");
+                ASSERT_EQ(payload.detections.size(), 1u);
+                EXPECT_EQ(payload.detections[0]->speech_active, expected[index]);
+                EXPECT_FLOAT_EQ(payload.detections[0]->speech_probability, probability);
+            });
+        EXPECT_EQ(count, 1u);
+    }
+    attributes.set("attackMs", int64_t{0});
+    attributes.set("releaseMs", int64_t{0});
+    attributes.set("thresholdOn", 0.95);
+    attributes.set("thresholdOff", 0.85);
+    ASSERT_TRUE(op->configure(attributes));
+    for (const auto &[score, active] :
+         std::array{std::pair{0.9f, false}, std::pair{0.96f, true}, std::pair{0.8f, false}}) {
+        probability = score;
+        context.inferenceInfo.audio.windowStartSample += 320;
+        context.inferenceInfo.audio.windowEndSample += 320;
+        open_perception_kit::FrameResults results;
+        context.frameResults = &results;
+        ASSERT_TRUE(op->process(context));
+        ASSERT_EQ(results.size(), 1u);
+        results.for_each<open_perception_kit::metadata::VoiceActivityDetectionsT>(
+            [&](const auto &payload) { EXPECT_EQ(payload.detections[0]->speech_active, active); });
+    }
+}
+
+TEST(GenericPostprocess, EnforcesPublishedSileroTensorShape) {
+    opk::op::OpRef op;
+    ASSERT_TRUE(op.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
+    opk::AttributeMap attributes;
+    attributes.set("parser", "SileroVadParser");
+    ASSERT_TRUE(op->configure(attributes));
+    std::array<float, 2> probabilities{0.9f, 0.1f};
+    opk::op::OpChainContext context;
+    context.inferenceOutputTensorCount = 1;
+    context.inferenceInfo.audio.hopSampleCount = 320;
+    context.inferenceInfo.audio.windowEndSample = 320;
+    open_perception_kit::FrameResults results;
+    context.frameResults = &results;
+    for (const auto &shape : {opk::Shape(2), opk::Shape(1, 2), opk::Shape(1, 1, 1)}) {
+        context.inferenceOutputTensors[0] = opk::TensorView(
+            probabilities.data(), sizeof(probabilities), shape, opk::Dtype::Float32, 1, 0);
+        EXPECT_FALSE(op->process(context));
+    }
+    EXPECT_EQ(results.size(), 0u);
 }
 
 TEST(StandardContentTypes, InferenceControllerAdvertisesOptionalRequirement) {

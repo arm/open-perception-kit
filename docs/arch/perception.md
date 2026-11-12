@@ -215,6 +215,12 @@ Float32 value from any fixed tensor shape; `none` requires a probability in
 0 <= off <= on <= 1; attack/release are nonnegative integer milliseconds.
 Invalid input must not change state or append a partial payload.
 
+`GenericPostprocess` also accepts the `SileroVadParser` name published in OPK
+0.1.3. This compatibility path preserves its Float32 `[1,1]` probability input,
+defaults of 0.60 on / 0.45 off and 50 ms attack/release, and the
+`SileroVadParser` producer implementation. It supplies fixed tensor selection
+and delegates to `VoiceActivityParser` rather than duplicating hysteresis.
+
 The Silero standalone and VAD/SmartTurn chains use this same parser with
 `activation: "none"`, `outputTensorIndex: 0` and `scoreIndex: 0` for their
 `[1,1]` probability output. Their explicit thresholds remain 0.60 on / 0.45 off,
