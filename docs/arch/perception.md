@@ -215,7 +215,8 @@ at window boundaries; a 50 ms threshold with a 512-sample hop takes two calls
 (64 ms). The parser rejects the obsolete `windowMs` attribute and resets its
 state on `inferenceInfo.audio.discontinuity`. Each parser instance owns its counters.
 
-This payload is an additive schema change requiring OPK/SDK 0.2.0 (MINOR).
+This additive payload is included in OPK/SDK 0.1.3 under the approved
+release-specific version exception ([EXPKITS-1570](https://jira.arm.com/browse/EXPKITS-1570)).
 Existing payload roots and their identities are unchanged. Older SDKs cannot
 provide typed access to `VoiceActivityDetections`; consumers need the regenerated
 SDK. The generic envelope's unknown-payload behavior remains unchanged. No
@@ -247,9 +248,8 @@ fallback and STT submission. Neither this payload nor the parser implements
 those policies. Plumber normalizes and compares turn assessments using their
 decision, audio bounds, timestamps and probability.
 
-This new root is an additive schema change requiring a MINOR OPK release
-(at least 0.2.0 from 0.1.x); product versions are updated during release
-preparation. Existing payload roots and identities are unchanged. Typed access
+This additive root is included in OPK/SDK 0.1.3 under the same release-specific
+version exception. Existing payload roots and identities are unchanged. Typed access
 requires the regenerated C++, Python, Rust or TypeScript SDK; older SDKs retain
 their generic unknown-payload behavior. No mixed-version typed compatibility is
 claimed. Construction and serialization tests cover positive/negative results,

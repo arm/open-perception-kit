@@ -48,7 +48,7 @@ use crate::flowdata_internal::internalfb as wire;
 /// Generated SDK name written into serialized producer identity metadata.
 pub const OPEN_PERCEPTION_KIT_NAME: &str = "open_perception_kit";
 /// Generated SDK version written into serialized producer identity metadata.
-pub const OPEN_PERCEPTION_KIT_VERSION: &str = "0.1.2";
+pub const OPEN_PERCEPTION_KIT_VERSION: &str = "0.1.3";
 /// SHA-256 identity of the complete schema set used for generation.
 pub const SCHEMA_SET_SHA256: &str =
     "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
