@@ -55,7 +55,8 @@ YoloParser handles the dense center/size plus class-score output and applies NMS
 Change both descriptor shapes for another model resolution/class count.
 No model or runtime binary is downloaded automatically by this example.
 
-The provider is enabled by default (`-Dor_runtime=false` disables it). It negotiates
+The provider is opt-in: configure Meson with `-Dor_runtime=true` to build it.
+It is not included in the Debian packages. It negotiates
 runtime-owned, host-accessible, direct pointer allocations for each tensor,
 binds once and validates the full binding set. OPK preprocessing fills the
 runtime input storage. Each frame calls synchronous inference and checks its

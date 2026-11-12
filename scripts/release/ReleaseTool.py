@@ -103,7 +103,7 @@ OP_MODULE_NAMES = {
     "opk-python-ops.so",
     "opk-std-ops.so",
 }
-OPTIONAL_OP_MODULE_NAMES = {"opk-gpu-ops.so", "opk-mlwl-ops.so"}
+OPTIONAL_OP_MODULE_NAMES = {"opk-gpu-ops.so", "opk-mlwl-ops.so", "opk-or-ops.so"}
 PYTHON_RUNTIME_DISTRIBUTIONS = {"open-perception-kit"}
 PYTHON_RUNTIME_ROOT = Path("share/opk/python")
 PYTHON_RUNTIME_MANIFEST = "opk-runtime.json"
