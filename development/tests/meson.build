@@ -566,6 +566,11 @@ test(
   ],
   timeout : 60,
 )
+test(
+  'dependency_patch_tests',
+  python,
+  args : [opk_repository_root / 'scripts/private/tests/test_dependency_patches.py'],
+)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
