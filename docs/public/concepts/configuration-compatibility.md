@@ -213,6 +213,37 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+OpChain reader schema `1.10.0` adds `VoiceActivityParser`. Rebuild or upgrade
+readers before adopting it. Voice-activity decoding requires explicit activation,
+output selection and decision parameters; see the
+[voice-activity contract](../../arch/perception.md#voice-activity-results).
+
+The unreleased `SileroVadParser` from source checkouts is retired in favor of
+`VoiceActivityParser`. This is a specific pre-release compatibility exception:
+old parser configurations must be migrated, while the OpChain v1 format and
+general versioning rules remain unchanged. No compatibility alias is provided.
+In Silero postprocessing, set:
+
+```json
+{
+  "parser": "VoiceActivityParser",
+  "outputTensorIndex": 0,
+  "scoreIndex": 0,
+  "activation": "none",
+  "thresholdOn": 0.6,
+  "thresholdOff": 0.45,
+  "attackMs": 50,
+  "releaseMs": 50
+}
+```
+
+Preserve any explicitly tuned thresholds and delays; the values above replace
+the former defaults when those fields were omitted. Increment the edited file's
+patch version and rebuild the runtime. Both checked-in Silero chains use this
+configuration, preserving their PCM context, inference cadence and VAD policy.
+Results retain the `voiceActivity` content type and model identity; their
+producer implementation is now `VoiceActivityParser`.
+
 Model reader schema `1.2.0` adds Float32 `ImageBgrChw` inputs with
 `[1,3,H,W]` shapes. Declare normalization `mean` and `std` in B, G, R
 tensor-channel order. OpChain reader schema `1.7.0` adds
@@ -243,16 +274,16 @@ bounded retries. `SmartTurnParser` publishes model assessments; the application
 owns final turn confirmation and silence timeouts. Existing chains remain valid,
 with a warning when their minor version differs from the reader's.
 
-OpChain `1.2.0` adds `GenericAudioPreprocess` and `SileroVadParser` attributes.
-Set the OpChain version to `"1.2.0"` when adopting audio preprocessing or VAD
-postprocessing, and rebuild or upgrade the runtime before using them. Older
+OpChain `1.2.0` adds `GenericAudioPreprocess` attributes. For current VAD
+postprocessing use `VoiceActivityParser` as described above. Rebuild or upgrade
+the runtime before adopting these features. Older
 runtimes can reject these additions after warning about the minor mismatch.
 Existing video and ONNX thread-tuning chains remain valid at their declared
 versions, with a warning if their minor differs from the reader's.
 Use an unlooped audio chain; scheduling belongs to `opkinfer`.
 `contextSampleCount` optionally prepends retained PCM history; the scheduled
 window excludes that context. Silero uses 64 context samples plus 512 fresh
-samples and a single `[1,1]` probability output (no `speechClassIndex`).
+samples and a single `[1,1]` probability output.
 
 Model `1.1.0` adds Float32 `AudioPcm` inputs. Audio models use mono 16 kHz
 samples with a positive final sample dimension and singleton leading dimensions.

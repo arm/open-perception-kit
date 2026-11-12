@@ -817,15 +817,6 @@ test(
   depends : [gstopkinfer, audio_window_op],
 )
 
-silero_vad_parser_tests = executable(
-  'silero_vad_parser_tests',
-  ['silero_vad_parser_test.cpp', '../ops-std/postproc/SileroVadParser.cpp'],
-  include_directories : [common_include, include_directories('../ops-std')],
-  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
-  link_with : [common],
-)
-test('silero_vad_parser_tests', silero_vad_parser_tests)
-
 turn_detector_tests = executable(
   'turn_detector_tests',
   ['turn_detector_test.cpp', '../ops-std/TurnDetectorOp.cpp'],
@@ -873,3 +864,12 @@ ultraface_parser_tests = executable(
   link_with : [common],
 )
 test('ultraface_parser_tests', ultraface_parser_tests, workdir : opk_repository_root)
+
+audio_parser_tests = executable(
+  'audio_parser_tests',
+  ['audio_parser_test.cpp', '../ops-std/postproc/VoiceActivityParser.cpp'],
+  include_directories: [common_include, include_directories('../ops-std')],
+  dependencies: [gtest_main_dep, gtest_dep, opk_deps],
+  link_with: [common],
+)
+test('audio_parser_tests', audio_parser_tests)

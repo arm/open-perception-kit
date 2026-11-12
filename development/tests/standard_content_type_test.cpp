@@ -41,7 +41,7 @@ TEST(StandardContentTypes, ParsersAdvertiseTheirFrameResultsContent) {
         std::pair{"RetinaFaceParser", "humanFace"},
         std::pair{"RvmParser", "segmentation"},
         std::pair{"ScrfdParser", "humanFace"},
-        std::pair{"SileroVadParser", "voiceActivity"},
+        std::pair{"VoiceActivityParser", "voiceActivity"},
         std::pair{"SmartTurnParser", "turnDetection"},
         std::pair{"UltrafaceParser", "humanFace"},
         std::pair{"YoloParser", "genericObject"},

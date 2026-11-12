@@ -41,9 +41,9 @@
 #include "postproc/RetinaFaceParser.h"
 #include "postproc/RvmParser.h"
 #include "postproc/ScrfdParser.h"
-#include "postproc/SileroVadParser.h"
 #include "postproc/SmartTurnParser.h"
 #include "postproc/UltrafaceParser.h"
+#include "postproc/VoiceActivityParser.h"
 #include "postproc/Yolo26InstanceSegmentationParser.h"
 #include "postproc/Yolo26SemanticSegmentationParser.h"
 #include "postproc/YoloParser.h"
@@ -77,9 +77,9 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
         {"RetinaFaceParser", make<opk::stdop::postproc::RetinaFaceParser>()},
         {"RvmParser", make<opk::stdop::postproc::RvmParser>()},
         {"ScrfdParser", make<opk::stdop::postproc::ScrfdParser>()},
-        {"SileroVadParser", make<opk::stdop::postproc::SileroVadParser>()},
         {"SmartTurnParser", make<opk::stdop::postproc::SmartTurnParser>()},
         {"UltrafaceParser", make<opk::stdop::postproc::UltraFaceParser>()},
+        {"VoiceActivityParser", make<opk::stdop::postproc::VoiceActivityParser>()},
         {"Yolo26InstanceSegmentationParser",
          make<opk::stdop::postproc::Yolo26InstanceSegmentationParser>()},
         {"Yolo26SemanticSegmentationParser",

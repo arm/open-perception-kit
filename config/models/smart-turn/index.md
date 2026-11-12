@@ -6,7 +6,8 @@ Normalization and log-mel extraction are embedded in the ONNX model. OPK supplie
 raw PCM; short histories are padded with zeros at the front. The output is one
 turn-completion probability, thresholded at 0.5 for the `turn_complete` model hint.
 
-`opchain-vad.json` runs Silero VAD every 512 fresh samples, then `TurnDetector`
+`opchain-vad.json` runs Silero VAD every 512 fresh samples and decodes its
+probability with the configurable `VoiceActivityParser`, then `TurnDetector`
 retains an eight-second history and prepares SmartTurn's input after speech has
 been followed by 700 ms of VAD-inactive audio. This delay follows Silero's own
 release delay. There is no evaluation during initial silence or active speech.

@@ -481,37 +481,55 @@
         }
       ]
     },
-    "sileroVad": {
+    "voiceActivity": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "parser"
+        "parser",
+        "outputTensorIndex",
+        "scoreIndex",
+        "activation",
+        "thresholdOn",
+        "thresholdOff",
+        "attackMs",
+        "releaseMs"
       ],
       "properties": {
         "parser": {
-          "const": "SileroVadParser"
+          "const": "VoiceActivityParser"
         },
         "thresholdOn": {
           "type": "number",
           "minimum": 0,
-          "maximum": 1,
-          "default": 0.6
+          "maximum": 1
         },
         "thresholdOff": {
           "type": "number",
           "minimum": 0,
-          "maximum": 1,
-          "default": 0.45
+          "maximum": 1
         },
         "attackMs": {
           "type": "integer",
-          "minimum": 0,
-          "default": 50
+          "minimum": 0
         },
         "releaseMs": {
           "type": "integer",
+          "minimum": 0
+        },
+        "outputTensorIndex": {
+          "type": "integer",
           "minimum": 0,
-          "default": 50
+          "maximum": 15
+        },
+        "scoreIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "activation": {
+          "enum": [
+            "sigmoid",
+            "none"
+          ]
         }
       }
     },
@@ -613,7 +631,7 @@
             "$ref": "#/$defs/yoloX"
           },
           {
-            "$ref": "#/$defs/sileroVad"
+            "$ref": "#/$defs/voiceActivity"
           },
           {
             "$ref": "#/$defs/smartTurn"

@@ -312,3 +312,27 @@ TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
         }
     }
 }
+
+TEST(OpChainDescriptor, ValidatesVoiceActivityIntegerNotationBeforeStartup) {
+    auto value = descriptor("model.json");
+    value["ops"] = {{{"id", "opk-std-ops/GenericPostprocess"},
+                     {"attributes",
+                      {{"parser", "VoiceActivityParser"},
+                       {"outputTensorIndex", 1},
+                       {"scoreIndex", 2},
+                       {"activation", "none"},
+                       {"thresholdOn", 0.7},
+                       {"thresholdOff", 0.3},
+                       {"attackMs", 30},
+                       {"releaseMs", 60}}}}};
+    ASSERT_TRUE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    for (const auto *const attribute :
+         {"outputTensorIndex", "scoreIndex", "attackMs", "releaseMs"}) {
+        value["ops"][0]["attributes"][attribute] = 0.0;
+        const auto rejected = opk::op::OpChainDescriptor::fromJson(value.dump());
+        ASSERT_FALSE(rejected);
+        EXPECT_NE(rejected.error().info.find("opchain.v1.audio-parser-integer"), std::string::npos);
+        value["ops"][0]["attributes"][attribute] = 0;
+        EXPECT_TRUE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    }
+}

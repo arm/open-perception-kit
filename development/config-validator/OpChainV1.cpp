@@ -392,6 +392,30 @@ void validateThresholds(ValidationReport &report,
     }
 }
 
+void validateAudioParserIntegers(ValidationReport &report,
+                                 const opk::op::OpChainDescriptor &descriptor,
+                                 const std::string_view source) {
+    for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
+        const auto &op = descriptor.ops[index];
+        if (op.id != Postprocess)
+            continue;
+        const auto parser = stringAttribute(op.attributes, "parser");
+        if (parser != "VoiceActivityParser")
+            continue;
+        for (const auto *const attribute :
+             {"outputTensorIndex", "scoreIndex", "attackMs", "releaseMs"}) {
+            if (!op.attributes.contains(attribute) || op.attributes.at(attribute).isInt())
+                continue;
+            report.issues.push_back(
+                makeIssue("opchain.v1.audio-parser-integer",
+                          ValidationPhase::Descriptor,
+                          source,
+                          std::format("/ops/{}/attributes/{}", index, attribute),
+                          std::format("{} must use integer notation", attribute)));
+        }
+    }
+}
+
 } // namespace
 
 ValidationReport validateOpChainV1(const opk::op::OpChainDescriptor &descriptor,
@@ -404,6 +428,7 @@ ValidationReport validateOpChainV1(const opk::op::OpChainDescriptor &descriptor,
     validateOnnxThreadCount(report, descriptor, source);
     validateTurnDetectorIntegers(report, descriptor, source);
     validateThresholds(report, descriptor, source);
+    validateAudioParserIntegers(report, descriptor, source);
     report.sort();
     return report;
 }
