@@ -496,6 +496,9 @@ TEST(ConfigValidator, AudioPcmRequiresFloat32AndPositiveSampleShape) {
     EXPECT_FALSE(opk::config::validateModelJson(document.dump()));
     document["inputTensors"][0]["shape"] = {1, 320};
     document["inputTensors"][0]["dataKind"] = "AudioLogMel";
+    document["inputTensors"][0]["shape"] = {1, 19, 64};
+    EXPECT_TRUE(opk::config::validateModelJson(document.dump()));
+    document["inputTensors"][0]["shape"] = {64};
     EXPECT_FALSE(opk::config::validateModelJson(document.dump()));
 }
 

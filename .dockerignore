@@ -118,6 +118,7 @@ __pycache__/
 **/*.hef
 **/*.onnx
 **/*.onnx.part
+**/*.onnx.data
 **/*.pte
 **/*.pte.part
 **/*.vgf

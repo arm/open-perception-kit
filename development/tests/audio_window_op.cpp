@@ -16,6 +16,8 @@
  */
 
 #include "op/Op.h"
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <limits>
@@ -26,6 +28,7 @@ namespace {
 class AudioWindowOp final : public opk::op::Op, public opk::op::OpInterfaceInference {
     opk::Model model_;
     std::string trace_;
+    mutable std::vector<float> input_;
 
   public:
     opk::Result<void> configure(const opk::AttributeMap &attributes) override {
@@ -42,7 +45,26 @@ class AudioWindowOp final : public opk::op::Op, public opk::op::OpInterfaceInfer
         input.shape.rank = 2;
         input.shape.dims[0] = static_cast<int>(batch);
         input.shape.dims[1] = static_cast<int>(window);
+        if (input.dataKind == opk::DataKind::AudioLogMel) {
+            input.shape = opk::Shape(1, 64);
+        }
+        if (attributes.getBoolOrDefault("preprocessed", false))
+            input_.assign(input.shape.getFullValueCount(), std::numeric_limits<float>::quiet_NaN());
         model_.inputs.push_back(input);
+        if (attributes.contains("additionalAudioShape")) {
+            std::vector<int64_t> dimensions;
+            for (const auto &dimension : attributes.getArray("additionalAudioShape")) {
+                if (!dimension.isInt() || dimension.asInt() < std::numeric_limits<int>::min() ||
+                    dimension.asInt() > std::numeric_limits<int>::max())
+                    return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                                    "Audio test dimensions exceed int range"));
+                dimensions.push_back(dimension.asInt());
+            }
+            if (!input.shape.setFrom(dimensions))
+                return tl::unexpected(
+                    OPK_ERROR(opk::ErrorFlag::InvalidData, "Audio test rank exceeds eight"));
+            model_.inputs.push_back(input);
+        }
         return {};
     }
     opk::Result<void> bind(size_t, const std::vector<opk::op::Op *> &) override {
@@ -52,12 +74,20 @@ class AudioWindowOp final : public opk::op::Op, public opk::op::OpInterfaceInfer
         return model_;
     }
     uint8_t *getTensorDataAddress(size_t) const override {
-        return nullptr;
+        return reinterpret_cast<uint8_t *>(input_.data());
     }
     opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &context) override {
         const auto *window = context.getPcmView("pipelineAudioData");
         if (!window || !context.frameResults)
             return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData, "Missing audio context"));
+        if (!input_.empty()) {
+            for (const float value : input_) {
+                if (!std::isfinite(value))
+                    return tl::unexpected(
+                        OPK_ERROR(opk::ErrorFlag::InvalidData, "Nonfinite preprocessed feature"));
+            }
+            std::fill(input_.begin(), input_.end(), std::numeric_limits<float>::quiet_NaN());
+        }
         std::vector<float> samples(window->size());
         if (!window->copyTo(samples))
             return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData, "Invalid window"));

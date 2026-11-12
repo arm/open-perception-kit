@@ -28,12 +28,14 @@ from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
 
 OP_PATH = Path(sys.argv[1]).resolve()
 PLUGIN_PATH = Path(sys.argv[2]).resolve()
+STD_OP_PATH = Path(sys.argv[3]).resolve()
 
 
 class AudioWindowTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.library = ctypes.CDLL(str(OP_PATH))
+        cls.std_library = ctypes.CDLL(str(STD_OP_PATH))
         cls.Gst = load_gstreamer_plugins([PLUGIN_PATH])
 
     def setUp(self):
@@ -47,9 +49,12 @@ class AudioWindowTest(unittest.TestCase):
         self.pts_base = 0
 
     def create(self, hop=0, window=512, rate=16000, extra=None, second_window=None, copy_input=False,
-               loop_id=None):
+               loop_id=None, preprocess=None):
         attributes = {"trace": str(self.trace), "window": window, **(extra or {})}
         ops = [{"id": "opk-test-audio-window/Window", "attributes": attributes}]
+        if preprocess is not None:
+            attributes["preprocessed"] = True
+            ops.insert(0, {"id": "opk-std-ops/GenericAudioPreprocess", "attributes": preprocess})
         if second_window is not None:
             ops.append({"id": "opk-test-audio-window/Window", "attributes": {
                 **attributes, "window": second_window}})
@@ -97,6 +102,61 @@ class AudioWindowTest(unittest.TestCase):
         self.assertEqual(len(self.rows()), 2)
         self.push(1)
         self.assertEqual(self.rows()[-1], [1024, 512, 1024, 1535, 0])
+
+    def create_logmel(self, additional_shape=None):
+        extra = {"logmel": True}
+        if additional_shape is not None:
+            extra["additionalAudioShape"] = additional_shape
+        self.create(hop=400, extra=extra, preprocess={"inputAudioTensorIndex": 0, "logMel": {
+            "windowSampleCount": 512, "fftSize": 512, "windowLengthSamples": 480,
+            "frameHopSamples": 400, "minFrequencyHz": 0, "maxFrequencyHz": 8000,
+            "logOffset": 1e-6, "layout": "time-major",
+            "normalization": {"kind": "rolling", "epsilon": 1e-8, "historyFrames": 100}}})
+
+    def test_logmel_burst_overlap_and_discontinuity(self):
+        self.create_logmel()
+        self.push(200)
+        self.assertEqual(self.rows(), [])
+        self.push(1112)
+        self.assertEqual(self.rows(), [[0, 512, 0, 511, 1], [400, 512, 400, 911, 0],
+                                       [800, 512, 800, 1311, 0]])
+        self.push(512, discontinuity=True)
+        self.assertEqual(self.rows()[-1], [0, 512, 1312, 1823, 1])
+
+    def test_preprocessed_pcm_schedules_fresh_samples_without_model_context(self):
+        self.create(window=576, extra={"additionalAudioShape": [1, 576]},
+                    preprocess={"contextSampleCount": 64, "inputAudioTensorIndex": 0})
+        self.push(512)
+        self.push(512)
+        self.assertEqual(self.rows(), [[0, 512, 0, 511, 1], [512, 512, 512, 1023, 0]])
+
+    def test_preprocessed_audio_validates_other_pcm_input_shapes(self):
+        self.create(window=576, extra={"additionalAudioShape": [2, 576]},
+                    preprocess={"contextSampleCount": 64, "inputAudioTensorIndex": 0})
+        self.push(512, wait=False)
+        message = self.pipeline.get_bus().timed_pop_filtered(
+            5 * self.Gst.SECOND, self.Gst.MessageType.ERROR)
+        self.assertIsNotNone(message)
+        self.assertEqual(self.rows(), [])
+
+    def test_preprocessed_logmel_accepts_valid_additional_audio_shape(self):
+        self.create_logmel(additional_shape=[1, 1, 64])
+        self.push(512)
+        self.assertEqual(self.rows(), [[0, 512, 0, 511, 1]])
+
+    def test_preprocessed_audio_validates_other_logmel_input_shapes(self):
+        for shape in ([2, 1, 64], [64], [0, 64], [1, 0], []):
+            with self.subTest(shape=shape):
+                try:
+                    self.create_logmel(additional_shape=shape)
+                    self.push(512, wait=False)
+                    message = self.pipeline.get_bus().timed_pop_filtered(
+                        5 * self.Gst.SECOND, self.Gst.MessageType.ERROR)
+                    self.assertIsNotNone(message)
+                    self.assertEqual(self.rows(), [])
+                finally:
+                    release_pipeline(self.pipeline, self.Gst)
+                    self.pipeline = None
 
     def test_copy_input_keeps_audio_scheduling(self):
         self.create(copy_input=True)
