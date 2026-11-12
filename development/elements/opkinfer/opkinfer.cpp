@@ -112,7 +112,7 @@ struct _GstOpkInfer {
     // Properties
     gchar *opChainPath;
     gboolean active;
-    gboolean autoActivateDependencies;
+    gboolean autoActivateModelDependencies;
     gboolean copyInput;
     gchar *inferId;
 
@@ -158,7 +158,7 @@ static std::shared_ptr<GstOpkInferMembers> gst_opkinfer_get_members(GstOpkInfer 
 }
 
 static void gst_opkinfer_emit_content_requirements(GstOpkInfer *self) {
-    if (!g_atomic_int_get(&self->autoActivateDependencies))
+    if (!g_atomic_int_get(&self->autoActivateModelDependencies))
         return;
     const auto members = gst_opkinfer_get_members(self);
     if (members == nullptr)
@@ -917,7 +917,7 @@ enum class PropertyId : guint {
     QosAcceptedEventsDebug,
     CopyInput,
     AudioHopSamples,
-    AutoActivateDependencies,
+    AutoActivateModelDependencies,
 };
 
 } // namespace
@@ -941,8 +941,8 @@ static void gst_opkinfer_set_property(GObject *selfInParentType,
         self->opChainPath = g_value_dup_string(value);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PropertyId::AutoActivateDependencies:
-        g_atomic_int_set(&self->autoActivateDependencies, g_value_get_boolean(value));
+    case PropertyId::AutoActivateModelDependencies:
+        g_atomic_int_set(&self->autoActivateModelDependencies, g_value_get_boolean(value));
         break;
     case PropertyId::ModelActive: {
         gboolean activeChanged = FALSE;
@@ -998,8 +998,8 @@ static void gst_opkinfer_get_property(GObject *selfInParentType,
         g_value_set_string(value, self->opChainPath);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PropertyId::AutoActivateDependencies:
-        g_value_set_boolean(value, g_atomic_int_get(&self->autoActivateDependencies));
+    case PropertyId::AutoActivateModelDependencies:
+        g_value_set_boolean(value, g_atomic_int_get(&self->autoActivateModelDependencies));
         break;
     case PropertyId::ModelActive:
         g_value_set_boolean(value, gst_opkinfer_is_active(self));
@@ -1074,9 +1074,9 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(PropertyId::AutoActivateDependencies),
-        g_param_spec_boolean("auto-activate-dependencies",
-                             "Auto-activate dependencies",
+        static_cast<guint>(PropertyId::AutoActivateModelDependencies),
+        g_param_spec_boolean("auto-activate-model-dependencies",
+                             "Auto-activate model dependencies",
                              "Activate upstream content providers when enabled"
                              "; Disable for manual provider selection; Set in NULL or READY",
                              true,
@@ -1184,7 +1184,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 static void gst_opkinfer_init(GstOpkInfer *self) {
     self->opChainPath = nullptr;
     self->active = true;
-    self->autoActivateDependencies = true;
+    self->autoActivateModelDependencies = true;
     self->copyInput = false;
     std::construct_at(&self->runtimeMembers);
     self->inferId = nullptr;
