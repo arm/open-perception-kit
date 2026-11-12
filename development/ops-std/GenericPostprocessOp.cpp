@@ -32,6 +32,7 @@
 #include "postproc/DummyParser.h"
 #include "postproc/GazeDetectionParser.h"
 #include "postproc/ImageNetClassificationParser.h"
+#include "postproc/KeywordClassificationParser.h"
 #include "postproc/ModNetSegmentationParser.h"
 #include "postproc/ObjectEmbeddingParser.h"
 #include "postproc/PaddleOcrDbDetectionParser.h"
@@ -68,6 +69,7 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
         {"GazeDetectionParser", make<opk::stdop::postproc::GazeDetectionParser>()},
         {"ImageNetClassificationParser",
          make<opk::stdop::postproc::ImageNetClassificationParser>()},
+        {"KeywordClassificationParser", make<opk::stdop::postproc::KeywordClassificationParser>()},
         {"ModNetSegmentationParser", make<opk::stdop::postproc::ModNetSegmentationParser>()},
         {"ObjectEmbeddingParser", make<opk::stdop::postproc::ObjectEmbeddingParser>()},
         {"PaddleOcrDbDetectionParser", make<opk::stdop::postproc::PaddleOcrDbDetectionParser>()},

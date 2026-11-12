@@ -603,6 +603,57 @@
           "default": 0.4
         }
       }
+    },
+    "keywordClassification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "outputTensorIndex",
+        "activation",
+        "confidenceThreshold",
+        "labels"
+      ],
+      "properties": {
+        "parser": {
+          "const": "KeywordClassificationParser"
+        },
+        "outputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "activation": {
+          "enum": [
+            "softmax",
+            "none"
+          ]
+        },
+        "confidenceThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "labels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contains": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
   },
   "if": {
@@ -675,6 +726,9 @@
           },
           {
             "$ref": "#/$defs/retinaface"
+          },
+          {
+            "$ref": "#/$defs/keywordClassification"
           }
         ]
       }

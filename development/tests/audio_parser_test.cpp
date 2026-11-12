@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "postproc/KeywordClassificationParser.h"
 #include "postproc/VoiceActivityParser.h"
 
 #include <array>
@@ -26,6 +27,7 @@ namespace {
 
 using Results = open_perception_kit::FrameResults;
 using VoicePayload = open_perception_kit::metadata::VoiceActivityDetectionsT;
+using KeywordPayload = open_perception_kit::metadata::ClassificationsT;
 
 struct VoiceFixture {
     opk::stdop::postproc::VoiceActivityParser parser;
@@ -376,6 +378,180 @@ TEST(VoiceActivityParser, RejectsInvalidAudioWindowsAndTimestamps) {
         EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
         EXPECT_EQ(results.size(), 0u);
     }
+}
+
+struct KeywordFixture {
+    opk::stdop::postproc::KeywordClassificationParser parser;
+    opk::AttributeMap attributes;
+    std::array<float, 4> scores{};
+    opk::TensorView tensor{
+        scores.data(), sizeof(scores), opk::Shape(1, 1, 4), opk::Dtype::Float32, 1, 0};
+    opk::TensorParser::Input input{attributes};
+
+    KeywordFixture() {
+        attributes.set("outputTensorIndex", int64_t{1});
+        attributes.set("activation", "softmax");
+        attributes.set("confidenceThreshold", 0.6);
+        attributes.setArray("labels", {"open", nullptr, "close", "hold"});
+        input.tensors[1] = &tensor;
+        input.inferenceInfo.modelName = "synthetic-command-scores";
+        input.inferenceInfo.inferElementId = "commands";
+        input.inferenceInfo.parentId = 29;
+        input.producerInfo.instance_id = "commands/post";
+        input.producerInfo.implementation = "KeywordClassificationParser";
+    }
+};
+
+TEST(KeywordClassificationParser, UsesArbitraryLabelsAndTheSelectedOutput) {
+    KeywordFixture fixture;
+    const std::array<const char *, 4> labels{"open", nullptr, "close", "hold"};
+    for (size_t winner = 0; winner < fixture.scores.size(); ++winner) {
+        fixture.scores.fill(1000);
+        fixture.scores[winner] = 1010;
+        Results results;
+        ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
+        EXPECT_EQ(results.size(), winner == 1 ? 0u : 1u);
+        results.for_each<KeywordPayload>([&](const auto &payload) {
+            EXPECT_EQ(payload.layer->model, "synthetic-command-scores");
+            EXPECT_EQ(payload.layer->infer_element_id, "commands");
+            EXPECT_EQ(payload.layer->content_type, "keyword");
+            ASSERT_TRUE(payload.layer->producer);
+            EXPECT_EQ(payload.layer->producer->instance_id, "commands/post");
+            EXPECT_EQ(payload.layer->producer->implementation, "KeywordClassificationParser");
+            ASSERT_EQ(payload.classifications.size(), 1u);
+            ASSERT_EQ(payload.classifications[0]->candidates.size(), 1u);
+            const auto &candidate = *payload.classifications[0]->candidates[0];
+            EXPECT_EQ(candidate.class_id, winner);
+            EXPECT_EQ(candidate.text, labels[winner]);
+            EXPECT_NEAR(candidate.confidence, 1.0 / (1.0 + 3.0 * std::exp(-10.0)), 1e-6);
+        });
+    }
+}
+
+TEST(KeywordClassificationParser, KeepsIgnoredClassesInTheCompetitionAndNormalization) {
+    KeywordFixture fixture;
+    fixture.attributes.set("confidenceThreshold", 0.3);
+    Results belowThreshold;
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, belowThreshold));
+    EXPECT_EQ(belowThreshold.size(), 0u); // All four classes share probability 0.25.
+    fixture.attributes.set("confidenceThreshold", 0.25);
+    Results tied;
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, tied));
+    ASSERT_EQ(tied.size(), 1u);
+    tied.for_each<KeywordPayload>([](const auto &payload) {
+        EXPECT_EQ(payload.classifications[0]->candidates[0]->class_id, 0);
+        EXPECT_FLOAT_EQ(payload.classifications[0]->candidates[0]->confidence, 0.25f);
+    });
+    fixture.attributes.set("confidenceThreshold", 0.0);
+    fixture.scores = {0, 5, 4, 0};
+    Results ignoredWinner;
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, ignoredWinner));
+    EXPECT_EQ(ignoredWinner.size(), 0u);
+    fixture.attributes.setArray("labels", {nullptr, "open", "close", "hold"});
+    fixture.scores.fill(0);
+    Results ignoredTie;
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, ignoredTie));
+    EXPECT_EQ(ignoredTie.size(), 0u);
+}
+
+TEST(KeywordClassificationParser, ReadsConfiguredProbabilitiesWithoutRenormalizing) {
+    KeywordFixture fixture;
+    fixture.attributes.set("activation", "none");
+    fixture.attributes.set("confidenceThreshold", 0.7);
+    fixture.attributes.setArray("labels", {"activate", "standby", nullptr, "dismiss"});
+    fixture.scores = {0.1f, 0.7f, 0.2f, 0.4f};
+    Results results;
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
+    ASSERT_EQ(results.size(), 1u);
+    results.for_each<KeywordPayload>([](const auto &payload) {
+        const auto &candidate = *payload.classifications[0]->candidates[0];
+        EXPECT_EQ(candidate.class_id, 1);
+        EXPECT_EQ(candidate.text, "standby");
+        EXPECT_FLOAT_EQ(candidate.confidence, 0.7f);
+    });
+    fixture.attributes.setArray("labels", {"single-command"});
+    fixture.attributes.set("confidenceThreshold", 0.1);
+    fixture.tensor = opk::TensorView(
+        fixture.scores.data(), sizeof(fixture.scores), opk::Shape(1), opk::Dtype::Float32, 1, 0);
+    Results single;
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, single));
+    EXPECT_EQ(single.size(), 1u);
+}
+
+TEST(KeywordClassificationParser, RejectsMissingOrInvalidConfiguration) {
+    KeywordFixture fixture;
+    const auto complete = fixture.attributes.cloneDeep();
+    for (const auto *const name :
+         {"outputTensorIndex", "activation", "confidenceThreshold", "labels"}) {
+        SCOPED_TRACE(name);
+        fixture.attributes = complete.cloneDeep();
+        fixture.attributes.raw().erase(name);
+        Results results;
+        EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+        EXPECT_EQ(results.size(), 0u);
+    }
+    const auto invalidAttributes = std::to_array<std::pair<const char *, opk::AttributeValue>>(
+        {{"outputTensorIndex", -1},
+         {"outputTensorIndex", 16},
+         {"outputTensorIndex", 1.0},
+         {"activation", "sigmoid"},
+         {"activation", 1},
+         {"confidenceThreshold", -0.1},
+         {"confidenceThreshold", 1.1},
+         {"confidenceThreshold", "0.6"},
+         {"confidenceThreshold", std::numeric_limits<double>::quiet_NaN()},
+         {"labels", "open"}});
+    for (const auto &[name, value] : invalidAttributes) {
+        SCOPED_TRACE(name);
+        fixture.attributes = complete.cloneDeep();
+        fixture.attributes[name] = value;
+        Results results;
+        EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+        EXPECT_EQ(results.size(), 0u);
+    }
+    const std::array<opk::AttributeValue::Array, 5> invalidLabels{
+        opk::AttributeValue::Array{},
+        opk::AttributeValue::Array{nullptr, nullptr, nullptr, nullptr},
+        opk::AttributeValue::Array{"open", "", "close", nullptr},
+        opk::AttributeValue::Array{"open", 3, "close", nullptr},
+        opk::AttributeValue::Array{"open", "close"}};
+    for (const auto &labels : invalidLabels) {
+        fixture.attributes = complete.cloneDeep();
+        fixture.attributes.setArray("labels", labels);
+        Results results;
+        EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+        EXPECT_EQ(results.size(), 0u);
+    }
+}
+
+TEST(KeywordClassificationParser, RejectsInvalidScoresAndTensorShapes) {
+    KeywordFixture fixture;
+    fixture.attributes.set("activation", "none");
+    for (const float score : {-0.1f,
+                              1.1f,
+                              std::numeric_limits<float>::quiet_NaN(),
+                              std::numeric_limits<float>::infinity()}) {
+        fixture.scores = {0.9f, score, 0, 0};
+        Results results;
+        EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+        EXPECT_EQ(results.size(), 0u);
+    }
+    fixture.scores.fill(0);
+    Results results;
+    fixture.input.tensors[1] = nullptr;
+    EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+    fixture.input.tensors[1] = &fixture.tensor;
+    fixture.attributes.setArray("labels", {"first", "second"});
+    fixture.tensor = opk::TensorView(
+        fixture.scores.data(), sizeof(fixture.scores), opk::Shape(2, 2), opk::Dtype::Float32, 1, 0);
+    EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+    fixture.tensor = opk::TensorView(
+        fixture.scores.data(), sizeof(float), opk::Shape(4), opk::Dtype::Float32, 1, 0);
+    EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+    fixture.tensor = opk::TensorView(
+        fixture.scores.data(), sizeof(fixture.scores), opk::Shape(4), opk::Dtype::Int8, 1, 0);
+    EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+    EXPECT_EQ(results.size(), 0u);
 }
 
 } // namespace

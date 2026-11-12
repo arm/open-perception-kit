@@ -230,6 +230,11 @@ OpChain reader schema `1.12.0` adds `TurnDetector.inputWindowSampleCount`,
 which lets a turn detector retain overlapping
 VAD windows once; omission retains its previous hop-sized window behavior.
 
+OpChain reader schema `1.13.0` adds `KeywordClassificationParser`. It requires
+explicit output selection, activation,
+confidence threshold and labels. Configure ignored classes as null labels; see
+the [keyword contract](../../arch/audio-log-mel.md#model-independent-output-parsers).
+
 `SileroVadParser`, shipped in OPK 0.1.3, remains supported for existing v1
 configurations. It retains its `[1,1]` probability input, defaults and producer
 identity, and delegates decisions to the shared voice-activity implementation.
