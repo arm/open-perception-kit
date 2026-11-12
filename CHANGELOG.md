@@ -23,6 +23,59 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.3]
+
+This release includes new functionality under the approved 0.1.3 version
+exception for [EXPKITS-1570](https://jira.arm.com/browse/EXPKITS-1570).
+The general Semantic Versioning policy remains unchanged.
+
+### Added
+
+- Browser microphone and webcam input through `opksrc`, with independent capture
+  controls.
+- PCM audio inference, Silero voice activity detection, SmartTurn turn assessment,
+  and a voice pipeline example, with generated SDK payloads for audio results.
+- Linear DMA-BUF camera input and forwarding, plus optional Vulkan image
+  preprocessing.
+- Optional ML Workload Library inference for VGF models, with UltraFace and YOLO26
+  examples and a CPU emulation quick start.
+- YOLO26 semantic and instance segmentation postprocessors, FrameResults payloads,
+  and configurable browser overlays.
+- PP-OCRv6 text detection and recognition, pinned model and dictionary downloads,
+  and model-independent OCR overlays.
+- RetinaFace face detection and ResNet34/50 gaze estimation pipelines on ONNX
+  Runtime CPU.
+- Configurable WebUI overlays for detections, tracking, movement trails,
+  classification, gaze, camera contact, performance, and background replacement.
+- Runtime and demo Debian packages for `amd64` and `arm64`, published alongside
+  the architecture archives to Artifactory and GitHub Releases.
+
+### Changed
+
+- Define supported mutation states for GStreamer properties, retain live controls,
+  and document when a restart is required; remove the ineffective
+  `opkinfer.format` property.
+- Make ONNX intra-op and inter-op thread counts configurable, tune Raspberry Pi
+  presets, and cap default thread counts by available CPUs.
+- Update ONNX Runtime to 1.31.1, refresh other dependencies and their licence
+  inventory, and include MLWL in release packages.
+- Allow deployment compile-job overrides and improve x86-to-ARM64
+  cross-compilation and emulated ARM64 builds.
+
+### Fixed
+
+- Synchronize browser overlays with displayed WebRTC video frames, including
+  metadata that arrives after its video frame.
+- Allow transient ICE disconnections to recover before reconnecting, improve
+  WebRTC diagnostics, and refresh stale TURN addresses in devcontainers.
+- Discover metadata WebSocket ports and endpoints from the pipeline, with an
+  explicit port override.
+- Reduce VP8 encoding CPU usage on Raspberry Pi 5.
+- Release inactive browser microphone sessions and previous devcontainer port
+  bindings.
+- Preserve OpChain setup and execution failure details in GStreamer bus errors.
+- Reject request bodies on bodyless HTTP routes.
+
 ## [0.1.2]
 
 ### Changed

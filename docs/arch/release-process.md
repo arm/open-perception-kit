@@ -50,9 +50,10 @@ additionally require the ExecuTorch notices.
 SDK bundle verification also requires
 the licence page, `LICENSE` and `NOTICE`.
 
-Before publication, download both built archives, the SDK packages, and
-`opk-sbom-source.json` from the Release workflow run's Actions artifact named
-`opk-sbom-source-<run_id>-<attempt>`. Compare them with the
+Before publication, download both built architecture archives, the Debian
+packages, and the SDK packages from the Release workflow run's Actions artifacts.
+Download `opk-sbom-source.json` from its Actions artifact named
+`opk-sbom-source-<run_id>-<attempt>`. Compare the artifacts with the
 [maintained inventory](../third-party-licenses.md) and confirm the shipped
 components, versions, licences, notices, and any corresponding-source
 obligations. The source SBOM scans the checkout; the built artifacts establish
@@ -60,10 +61,10 @@ what is actually distributed.
 Update the [Apache-2.0 release evidence](apache-2.0-release-evidence.md) for
 the selected commit and built artifacts before answering the licence check.
 
-The protected `release` environment now pauses the first publishing job after
-the archives and source SBOM are built. Its reviewer must inspect those
-artifacts, complete the inventory review, and verify the intellectual property
-review link in EXPKITS-1229 before approving publication.
+The protected `release` environment pauses the first publishing job after
+the archives, Debian packages, SDK packages, and source SBOM are built. Its
+reviewer must inspect those artifacts, complete the inventory review, and verify
+the intellectual property review link in EXPKITS-1229 before approving publication.
 
 ### Reference strategy
 
@@ -184,8 +185,9 @@ the Python wheel and prepares the Rust crate for publication.
 
 The same native jobs build the existing `opk-runtime-deb` and `opk-demo-deb`
 Meson targets. The demo package includes model binaries downloaded by
-`opk-models`. The `.deb` files stay in Actions artifacts named
-`opk-debian-<architecture>-<run_id>-<attempt>` and are not published.
+`opk-models`. The `.deb` files are uploaded as Actions artifacts named
+`opk-debian-<architecture>-<run_id>-<attempt>` for `amd64` and `arm64`, then
+published unchanged to Artifactory and the GitHub Release.
 Demo videos are not included; provide your own video input.
 
 For product version `<version>`, the release produces:
@@ -194,8 +196,8 @@ For product version `<version>`, the release produces:
 | --- | --- |
 | `opk-<version>-linux-x86_64.tar.gz` | Actions, Artifactory, GitHub Release |
 | `opk-<version>-linux-aarch64.tar.gz` | Actions, Artifactory, GitHub Release |
-| `opk-runtime_<version>-1_<architecture>.deb` | Actions |
-| `opk-demo_<version>-1_<architecture>.deb` | Actions |
+| `opk-runtime_<version>-1_<architecture>.deb` (`amd64`, `arm64`) | Actions, Artifactory, GitHub Release |
+| `opk-demo_<version>-1_<architecture>.deb` (`amd64`, `arm64`) | Actions, Artifactory, GitHub Release |
 | `open_perception_kit-<version>-py3-none-any.whl` | Actions and Artifactory publisher input |
 | `open_perception_kit-<version>.crate` | Actions, Artifactory publisher input, and crates.io |
 | `opk-sbom-source.json` | Actions and GitHub Release |
@@ -216,16 +218,17 @@ published as a site.
    destinations for the version. Native builds and source SBOM generation follow.
    Quick-start smoke, SDK tests, and Meson tests also run.
 2. `artifactory` waits for the builds, the source SBOM, and all required test
-   workflows. It collects the architecture archives, the wheel, and the crate in
+   workflows. It collects the architecture archives, the Debian packages for
+   `amd64` and `arm64`, the wheel, and the crate in
    `opk-release-artifacts`, then calls `upload-to-artifactory.yaml` in
    `Arm-Debug/open-perception-kit-publisher`. It waits for success and retrieves the
    published download URLs.
 3. `perception-crates-io-publish` verifies the crate, generates its SBOM, and
    publishes it to crates.io.
 4. `github-release` waits for both publishers, checks again for an existing
-   `v<version>` release, and publishes the architecture archives and SBOMs at
-   the selected commit. Release notes include the changelog entry, source
-   commit, archive SHA-256 values, and Artifactory links.
+   `v<version>` release, and publishes the architecture archives, Debian packages,
+   and SBOMs at the selected commit. Release notes include the changelog entry,
+   source commit, archive and Debian package SHA-256 values, and Artifactory links.
 5. `publish-docs` calls
    [Publish Docs (Production)](../../.github/workflows/docs-publish-production.yml)
    with the release commit to validate and publish the production site.

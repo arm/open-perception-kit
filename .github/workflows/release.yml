@@ -345,6 +345,13 @@ jobs:
           path: ${{ runner.temp }}/opk-release-artifacts
           merge-multiple: true
 
+      - name: Download Debian packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: opk-debian-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opk-release-artifacts
+          merge-multiple: true
+
       - name: Download open-perception-kit input
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -363,7 +370,7 @@ jobs:
             "$ARTIFACTS_DIR/"
           cp "$SDK_DIR/open_perception_kit-$CARGO_PACKAGE_VERSION.crate" "$ARTIFACTS_DIR/"
 
-      - name: Accept exactly two archives and two language packages
+      - name: Accept expected release packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/opk-release-artifacts
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -374,6 +381,10 @@ jobs:
           expected=(
             "opk-$VERSION-linux-x86_64.tar.gz"
             "opk-$VERSION-linux-aarch64.tar.gz"
+            "opk-runtime_$VERSION-1_amd64.deb"
+            "opk-runtime_$VERSION-1_arm64.deb"
+            "opk-demo_$VERSION-1_amd64.deb"
+            "opk-demo_$VERSION-1_arm64.deb"
             "open_perception_kit-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
             "open_perception_kit-$CARGO_PACKAGE_VERSION.crate"
           )
@@ -469,6 +480,13 @@ jobs:
           path: release
           merge-multiple: true
 
+      - name: Download Debian packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: opk-debian-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release
+          merge-multiple: true
+
       - name: Download Artifactory links
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -489,16 +507,18 @@ jobs:
           COMMIT: ${{ needs.prepare.outputs.commit }}
         run: |
           set -euo pipefail
-          mapfile -t archives < <(find release -maxdepth 1 -type f -name "*.tar.gz" | sort)
-          test "${#archives[@]}" -eq 2
+          mapfile -t packages < <(
+            find release -maxdepth 1 -type f \( -name "*.tar.gz" -o -name "*.deb" \) | sort
+          )
+          test "${#packages[@]}" -eq 6
           mapfile -t sboms < <(find release -maxdepth 1 -type f -name "opk-sbom-*.json" | sort)
           test "${#sboms[@]}" -eq 2
-          hashes="$(sha256sum "${archives[@]}")"
+          hashes="$(sha256sum "${packages[@]}")"
           sed -n "/^## \\[$VERSION\\]/,/^## \\[/p" CHANGELOG.md |
             sed "\$d" > release-body.md
           {
             # shellcheck disable=SC2016
-            printf '\nSource commit: `%s`\n\n### Archives\n\n' "$COMMIT"
+            printf '\nSource commit: `%s`\n\n### Packages\n\n' "$COMMIT"
             while read -r hash file; do
               # shellcheck disable=SC2016
               printf -- '- `%s` — `%s`\n' "$(basename "$file")" "$hash"
@@ -519,7 +539,7 @@ jobs:
           fi
           gh release create "v$VERSION" --draft --target "$COMMIT" \
             --title "OPK $VERSION" --notes-file release-body.md
-          gh release upload "v$VERSION" "${archives[@]}" "${sboms[@]}"
+          gh release upload "v$VERSION" "${packages[@]}" "${sboms[@]}"
           gh release edit "v$VERSION" --draft=false
 
   publish-docs:
