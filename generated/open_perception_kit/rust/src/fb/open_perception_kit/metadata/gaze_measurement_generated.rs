@@ -25,15 +25,15 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-pub enum PoseEstimationOffset {}
+pub enum GazeMeasurementOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct PoseEstimation<'a> {
+pub struct GazeMeasurement<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
 
-impl<'a> flatbuffers::Follow<'a> for PoseEstimation<'a> {
-    type Inner = PoseEstimation<'a>;
+impl<'a> flatbuffers::Follow<'a> for GazeMeasurement<'a> {
+    type Inner = GazeMeasurement<'a>;
     #[inline]
     unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
         Self {
@@ -42,41 +42,47 @@ impl<'a> flatbuffers::Follow<'a> for PoseEstimation<'a> {
     }
 }
 
-impl<'a> PoseEstimation<'a> {
+impl<'a> GazeMeasurement<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
-    pub const VT_CONFIDENCE: flatbuffers::VOffsetT = 6;
-    pub const VT_YAW: flatbuffers::VOffsetT = 8;
-    pub const VT_PITCH: flatbuffers::VOffsetT = 10;
+    pub const VT_SUBJECT_ID: flatbuffers::VOffsetT = 6;
+    pub const VT_ANGLES: flatbuffers::VOffsetT = 8;
+    pub const VT_CONFIDENCE: flatbuffers::VOffsetT = 10;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        PoseEstimation { _tab: table }
+        GazeMeasurement { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
-        args: &'args PoseEstimationArgs<'args>,
-    ) -> flatbuffers::WIPOffset<PoseEstimation<'bldr>> {
-        let mut builder = PoseEstimationBuilder::new(_fbb);
-        builder.add_pitch(args.pitch);
-        builder.add_yaw(args.yaw);
-        builder.add_confidence(args.confidence);
+        args: &'args GazeMeasurementArgs<'args>,
+    ) -> flatbuffers::WIPOffset<GazeMeasurement<'bldr>> {
+        let mut builder = GazeMeasurementBuilder::new(_fbb);
+        if let Some(x) = args.subject_id {
+            builder.add_subject_id(x);
+        }
+        if let Some(x) = args.confidence {
+            builder.add_confidence(x);
+        }
+        if let Some(x) = args.angles {
+            builder.add_angles(x);
+        }
         if let Some(x) = args.object {
             builder.add_object(x);
         }
         builder.finish()
     }
 
-    pub fn unpack(&self) -> PoseEstimationT {
+    pub fn unpack(&self) -> GazeMeasurementT {
         let object = self.object().map(|x| Box::new(x.unpack()));
+        let subject_id = self.subject_id();
+        let angles = self.angles().map(|x| Box::new(x.unpack()));
         let confidence = self.confidence();
-        let yaw = self.yaw();
-        let pitch = self.pitch();
-        PoseEstimationT {
+        GazeMeasurementT {
             object,
+            subject_id,
+            angles,
             confidence,
-            yaw,
-            pitch,
         }
     }
 
@@ -87,45 +93,36 @@ impl<'a> PoseEstimation<'a> {
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<flatbuffers::ForwardsUOffset<ObjectMeta>>(PoseEstimation::VT_OBJECT, None)
+                .get::<flatbuffers::ForwardsUOffset<ObjectMeta>>(GazeMeasurement::VT_OBJECT, None)
         }
     }
     #[inline]
-    pub fn confidence(&self) -> f32 {
+    pub fn subject_id(&self) -> Option<u64> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe { self._tab.get::<u64>(GazeMeasurement::VT_SUBJECT_ID, None) }
+    }
+    #[inline]
+    pub fn angles(&self) -> Option<GazeAngles<'a>> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<f32>(PoseEstimation::VT_CONFIDENCE, Some(0.0))
-                .unwrap()
+                .get::<flatbuffers::ForwardsUOffset<GazeAngles>>(GazeMeasurement::VT_ANGLES, None)
         }
     }
     #[inline]
-    pub fn yaw(&self) -> f32 {
+    pub fn confidence(&self) -> Option<f32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<f32>(PoseEstimation::VT_YAW, Some(0.0))
-                .unwrap()
-        }
-    }
-    #[inline]
-    pub fn pitch(&self) -> f32 {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<f32>(PoseEstimation::VT_PITCH, Some(0.0))
-                .unwrap()
-        }
+        unsafe { self._tab.get::<f32>(GazeMeasurement::VT_CONFIDENCE, None) }
     }
 }
 
-impl flatbuffers::Verifiable for PoseEstimation<'_> {
+impl flatbuffers::Verifiable for GazeMeasurement<'_> {
     #[inline]
     fn run_verifier(
         v: &mut flatbuffers::Verifier,
@@ -138,119 +135,127 @@ impl flatbuffers::Verifiable for PoseEstimation<'_> {
                 Self::VT_OBJECT,
                 false,
             )?
+            .visit_field::<u64>("subject_id", Self::VT_SUBJECT_ID, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<GazeAngles>>(
+                "angles",
+                Self::VT_ANGLES,
+                false,
+            )?
             .visit_field::<f32>("confidence", Self::VT_CONFIDENCE, false)?
-            .visit_field::<f32>("yaw", Self::VT_YAW, false)?
-            .visit_field::<f32>("pitch", Self::VT_PITCH, false)?
             .finish();
         Ok(())
     }
 }
-pub struct PoseEstimationArgs<'a> {
+pub struct GazeMeasurementArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
-    pub confidence: f32,
-    pub yaw: f32,
-    pub pitch: f32,
+    pub subject_id: Option<u64>,
+    pub angles: Option<flatbuffers::WIPOffset<GazeAngles<'a>>>,
+    pub confidence: Option<f32>,
 }
-impl<'a> Default for PoseEstimationArgs<'a> {
+impl<'a> Default for GazeMeasurementArgs<'a> {
     #[inline]
     fn default() -> Self {
-        PoseEstimationArgs {
+        GazeMeasurementArgs {
             object: None,
-            confidence: 0.0,
-            yaw: 0.0,
-            pitch: 0.0,
+            subject_id: None,
+            angles: None,
+            confidence: None,
         }
     }
 }
 
-pub struct PoseEstimationBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+pub struct GazeMeasurementBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
     fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> PoseEstimationBuilder<'a, 'b, A> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GazeMeasurementBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_object(&mut self, object: flatbuffers::WIPOffset<ObjectMeta<'b>>) {
         self.fbb_
             .push_slot_always::<flatbuffers::WIPOffset<ObjectMeta>>(
-                PoseEstimation::VT_OBJECT,
+                GazeMeasurement::VT_OBJECT,
                 object,
+            );
+    }
+    #[inline]
+    pub fn add_subject_id(&mut self, subject_id: u64) {
+        self.fbb_
+            .push_slot_always::<u64>(GazeMeasurement::VT_SUBJECT_ID, subject_id);
+    }
+    #[inline]
+    pub fn add_angles(&mut self, angles: flatbuffers::WIPOffset<GazeAngles<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<GazeAngles>>(
+                GazeMeasurement::VT_ANGLES,
+                angles,
             );
     }
     #[inline]
     pub fn add_confidence(&mut self, confidence: f32) {
         self.fbb_
-            .push_slot::<f32>(PoseEstimation::VT_CONFIDENCE, confidence, 0.0);
-    }
-    #[inline]
-    pub fn add_yaw(&mut self, yaw: f32) {
-        self.fbb_.push_slot::<f32>(PoseEstimation::VT_YAW, yaw, 0.0);
-    }
-    #[inline]
-    pub fn add_pitch(&mut self, pitch: f32) {
-        self.fbb_
-            .push_slot::<f32>(PoseEstimation::VT_PITCH, pitch, 0.0);
+            .push_slot_always::<f32>(GazeMeasurement::VT_CONFIDENCE, confidence);
     }
     #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-    ) -> PoseEstimationBuilder<'a, 'b, A> {
+    ) -> GazeMeasurementBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
-        PoseEstimationBuilder {
+        GazeMeasurementBuilder {
             fbb_: _fbb,
             start_: start,
         }
     }
     #[inline]
-    pub fn finish(self) -> flatbuffers::WIPOffset<PoseEstimation<'a>> {
+    pub fn finish(self) -> flatbuffers::WIPOffset<GazeMeasurement<'a>> {
         let o = self.fbb_.end_table(self.start_);
         flatbuffers::WIPOffset::new(o.value())
     }
 }
 
-impl core::fmt::Debug for PoseEstimation<'_> {
+impl core::fmt::Debug for GazeMeasurement<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let mut ds = f.debug_struct("PoseEstimation");
+        let mut ds = f.debug_struct("GazeMeasurement");
         ds.field("object", &self.object());
+        ds.field("subject_id", &self.subject_id());
+        ds.field("angles", &self.angles());
         ds.field("confidence", &self.confidence());
-        ds.field("yaw", &self.yaw());
-        ds.field("pitch", &self.pitch());
         ds.finish()
     }
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
-pub struct PoseEstimationT {
+pub struct GazeMeasurementT {
     pub object: Option<Box<ObjectMetaT>>,
-    pub confidence: f32,
-    pub yaw: f32,
-    pub pitch: f32,
+    pub subject_id: Option<u64>,
+    pub angles: Option<Box<GazeAnglesT>>,
+    pub confidence: Option<f32>,
 }
-impl Default for PoseEstimationT {
+impl Default for GazeMeasurementT {
     fn default() -> Self {
         Self {
             object: None,
-            confidence: 0.0,
-            yaw: 0.0,
-            pitch: 0.0,
+            subject_id: None,
+            angles: None,
+            confidence: None,
         }
     }
 }
-impl PoseEstimationT {
+impl GazeMeasurementT {
     pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
         &self,
         _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
-    ) -> flatbuffers::WIPOffset<PoseEstimation<'b>> {
+    ) -> flatbuffers::WIPOffset<GazeMeasurement<'b>> {
         let object = self.object.as_ref().map(|x| x.pack(_fbb));
+        let subject_id = self.subject_id;
+        let angles = self.angles.as_ref().map(|x| x.pack(_fbb));
         let confidence = self.confidence;
-        let yaw = self.yaw;
-        let pitch = self.pitch;
-        PoseEstimation::create(
+        GazeMeasurement::create(
             _fbb,
-            &PoseEstimationArgs {
+            &GazeMeasurementArgs {
                 object,
+                subject_id,
+                angles,
                 confidence,
-                yaw,
-                pitch,
             },
         )
     }

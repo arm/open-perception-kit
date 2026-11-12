@@ -44,8 +44,9 @@ import {FrameRateT} from '../../../generated/open_perception_kit/ts/dist/open_pe
 import {ScopeTimingT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.js';
 import {ImageSpaceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/image-space.js';
 import {CoordinateUnits} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/coordinate-units.js';
-import {PoseEstimationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js';
-import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
+import {GazeAnglesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-angles.js';
+import {GazeMeasurementT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurement.js';
+import {GazeMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.js';
 import {SegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {SemanticSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.js';
@@ -129,11 +130,11 @@ function encodedFixture() {
             new CameraContactResultT(true, 0.8, 1), 20n,
         )],
     ));
-    envelope.add(new PoseEstimationsT(
+    envelope.add(new GazeMeasurementsT(
         1,
         0,
         layer('eyeYawPitch'),
-        [new PoseEstimationT(new ObjectMetaT(40n, 20n), 0.7, 5, -2)],
+        [new GazeMeasurementT(new ObjectMetaT(40n, 999n), 20n, new GazeAnglesT(5, -2), 0.7)],
     ));
     envelope.add(new TrackTracesT(
         1,
@@ -301,9 +302,30 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
         text: 'face',
     });
     const gaze = decoded.frame_results.layers.find((item) => item.contentType === 'eyeYawPitch');
-    assert.equal(gaze.detections[0].data.parentUuid, '20');
+    assert.equal(gaze.detections[0].data.angles.yawDegrees, 5);
+    assert.equal(gaze.detections[0].data.subjectUuid, '20');
+    assert.equal(gaze.detections[0].data.parentUuid, '999');
     assert.equal(findVideoFrame(decoded.frame_results).originalHeight, 480);
     assert.equal(indexFrame(decoded.frame_results).objects.get('20')[0].data.text, 'face');
+});
+
+test('gaze decoding preserves optional values, precise subject IDs and non-finite angles', () => {
+    const envelope = new Envelope();
+    envelope.add(new GazeMeasurementsT(1, 0, layer('custom-gaze'), [
+        new GazeMeasurementT(new ObjectMetaT(1n), null, null, null),
+        new GazeMeasurementT(new ObjectMetaT(2n), 9007199254740993n, new GazeAnglesT(0, 0), 0),
+        new GazeMeasurementT(new ObjectMetaT(3n), 20n, new GazeAnglesT(NaN, 15), .9),
+    ]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    const data = frame.layers.find(item => item.payloadType === 'GazeMeasurements').detections.map(item => item.data);
+    assert.equal(data[0].subjectUuid, null);
+    assert.equal(data[0].angles, null);
+    assert.equal(data[0].confidence, null);
+    assert.equal(data[1].subjectUuid, '9007199254740993');
+    assert.deepEqual(data[1].angles, {yawDegrees: 0, pitchDegrees: 0});
+    assert.equal(data[1].confidence, 0);
+    assert.ok(Number.isNaN(data[2].angles.yawDegrees));
 });
 
 test('retains detector and tracker outputs for independent overlay selection', () => {

@@ -26,7 +26,7 @@ from . import distance_rect as dr
 from . import distance_seg_map as dsm
 from . import distance_track_trace as dtt
 from . import distance_video_frame as dvf
-from . import distance_yaw_pitch as dyp
+from . import distance_gaze as dg
 from .frame_results_decode import FrameResultsFrame
 from .frame_results_normalize import PayloadKey, PayloadSnapshot, normalize_frame_results
 
@@ -45,7 +45,7 @@ DISTANCE_SPECS: dict[str, DistanceSpec] = {
     "AudioFrame": DistanceSpec(dvf.distance_video_frame, threshold=0.1, skip=True),
     "BoxDetection": DistanceSpec(dr.distance_rect, threshold=dr.GEOMETRY_THRESHOLD),
     "ObjectTrack": DistanceSpec(dr.distance_rect, threshold=dr.GEOMETRY_THRESHOLD),
-    "PoseEstimation": DistanceSpec(dyp.distance_yawpitch, threshold=0.01),
+    "GazeMeasurement": DistanceSpec(dg.distance_gaze, threshold=dg.ANGLE_DISTANCE_THRESHOLD),
     "SegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1, skip=True),
     "Classification": DistanceSpec(dc.distance_classification, threshold=0.0),
     "CameraContact": DistanceSpec(dc.distance_camera_contact, threshold=0.0),
@@ -72,7 +72,7 @@ def _item_parent(
 ) -> dict | None:
     if item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
         return item if item.get("data", {}).get("spatialValid") else None
-    if item.get("item_type") in ("Classification", "CameraContact", "PersonPresence"):
+    if item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
         return item.get("subject")
     parent_id = item.get("data", {}).get("parentId", 0)
     if parent_id == 0:
@@ -95,7 +95,7 @@ def _process_remaining_items(
 
     gt_parent_item = _item_parent(gt_item, gt_object_index)
     if gt_parent_item is None:
-        if gt_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence"):
+        if gt_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
             return False, "subject missing, ambiguous or invalid"
         if gt_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
             return False, "item has no valid spatial reference"
@@ -105,7 +105,7 @@ def _process_remaining_items(
     for j, out_item in enumerate(remaining):
         out_parent_item = _item_parent(out_item, out_object_index)
         if out_parent_item is None:
-            if out_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence"):
+            if out_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement"):
                 return False, "subject missing, ambiguous or invalid"
             if out_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
                 return False, "item has no valid spatial reference"

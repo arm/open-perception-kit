@@ -132,8 +132,8 @@ void printTypedPayloadText(const open_perception_kit::container::envelope &frame
                                                                        printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::PersonPresencesT>(frameResults,
                                                                         printedPayloads);
-    printPayloadBranch<open_perception_kit::metadata::PoseEstimationsT>(frameResults,
-                                                                        printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::GazeMeasurementsT>(frameResults,
+                                                                         printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::SegmentationMasksT>(frameResults,
                                                                           printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::ObjectEmbeddingsT>(frameResults,

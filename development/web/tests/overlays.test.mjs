@@ -202,6 +202,18 @@ test('saved performance selections retain their settings across the payload rena
     assert.equal(writes, 1);
 });
 
+test('saved gaze selections follow the typed root without changing their settings', () => {
+    const overlay = {featureId: 'gaze', selection: {primary: outputSource({payloadType: 'PoseEstimations', contentType: 'eyeYawPitch'})},
+        enabled: false, settings: {color: '#123456', opacity: .25}};
+    let raw = JSON.stringify({version: 2, overlays: [overlay]});
+    const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; }};
+    const loaded = loadOverlays(storage);
+    assert.equal(loaded.overlays[0].selection.primary.payloadType, 'GazeMeasurements');
+    assert.equal(loaded.overlays[0].enabled, false);
+    assert.deepEqual(loaded.overlays[0].settings, overlay.settings);
+    assert.deepEqual(loadOverlays(storage).overlays, loaded.overlays);
+});
+
 test('saved contact and presence selections follow the typed roots without changing their settings', () => {
     const entries = [
         ['camera-contact', 'cameraContact', 'CameraContacts'],
@@ -232,8 +244,8 @@ test('waiting overlays persist without invented provenance and bind only once to
     const restored = loadOverlays(storage).overlays;
     assert.deepEqual(restored, [overlay]);
     assert.equal(restored[0].selection.primary, null);
-    const source = outputSource({payloadType: 'PoseEstimations', contentType: 'eyeYawPitch', model: 'gaze'});
-    const invalid = {...source, contentType: 'bodyPose'};
+    const source = outputSource({payloadType: 'GazeMeasurements', contentType: 'eyeYawPitch', model: 'gaze'});
+    const invalid = {...source, payloadType: 'UnrelatedPayload'};
     const catalog = new Map([[sourceKey(invalid), invalid]]);
     assert.equal(bindPendingOverlays(restored, catalog), false);
     catalog.set(sourceKey(source), source);

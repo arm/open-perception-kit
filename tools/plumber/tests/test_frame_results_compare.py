@@ -26,6 +26,8 @@ sys.path.insert(0, str(ROOT / "tools" / "plumber"))
 from plumber.frame_results_compare import compare_frame_results_frame  # noqa: E402
 from plumber.frame_results_decode import FrameResultsFrame  # noqa: E402
 from plumber.frame_results_sdk import FrameResults  # noqa: E402
+from plumber.frame_results_normalize import normalize_frame_results  # noqa: E402
+from plumber.distance_gaze import distance_gaze  # noqa: E402
 
 from open_perception_kit.fb.open_perception_kit.metadata.BoundingBox import BoundingBoxT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetection import BoxDetectionT  # noqa: E402
@@ -52,6 +54,11 @@ from open_perception_kit.fb.open_perception_kit.metadata.CameraContactResult imp
 from open_perception_kit.fb.open_perception_kit.metadata.PersonPresences import PersonPresencesT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.PersonPresence import PersonPresenceT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.PersonPresenceResult import PersonPresenceResultT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeAngles import GazeAnglesT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement import GazeMeasurementT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectTrack import ObjectTrackT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str) -> LayerInfoT:
@@ -107,9 +114,90 @@ def frame_results_frame(frame_results: FrameResults) -> FrameResultsFrame:
     )
 
 
+def gaze_measurement(yaw=0, pitch=0, subject=2):
+    return GazeMeasurementT(object=ObjectMetaT(id=100 + (subject or 0), parentId=999),
+                            subjectId=subject, angles=GazeAnglesT(yawDegrees=yaw, pitchDegrees=pitch), confidence=0)
+
+
+def gaze_frame(measurements, subjects=None, tracks=False):
+    result = FrameResults()
+    result.add(frame_payload())
+    boxes = subjects if subjects is not None else box_payload((2, 10, 10, 20, 20), (3, 60, 10, 20, 20))
+    if tracks:
+        result.add(ObjectTracksT(layer=boxes.layer, tracks=[ObjectTrackT(object=item.object, box=item.box, trackId=77)
+                                                            for item in boxes.detections]))
+    else:
+        result.add(boxes)
+    result.add(GazeMeasurementsT(layer=layer("custom-gaze", "gaze"), measurements=measurements))
+    return frame_results_frame(FrameResults(result.serialize()))
+
+
 class FrameResultsCompareTests(unittest.TestCase):
     def setUp(self) -> None:
         self.args = SimpleNamespace(verbose=False)
+
+    def test_gaze_subjects_retain_detector_producer_identity(self):
+        def make(identity_field, swapped=False, offset=0, reverse=False):
+            result = frame_results_with_boxes()
+            measurements = []
+            for index in ((1, 0) if reverse else (0, 1)):
+                subject = 2 + index + offset
+                boxes = box_payload((subject, 10, 10, 20, 20))
+                boxes.layer.producer = ProducerInfoT(component="detector", instanceId="same")
+                setattr(boxes.layer.producer, identity_field, str(index))
+                result.add(boxes)
+                yaw = (-20 if index == 0 else 20) * (-1 if swapped else 1)
+                measurements.append(gaze_measurement(yaw=yaw, subject=subject))
+            result.add(GazeMeasurementsT(layer=layer("gaze", "secondary"), measurements=measurements))
+            return frame_results_frame(FrameResults(result.serialize()))
+        for identity_field in ("component", "instanceId"):
+            for swapped in (False, True):
+                ok, message = compare_frame_results_frame(self.args, make(identity_field),
+                                                          make(identity_field, swapped=swapped, offset=10, reverse=True))
+                self.assertEqual(ok, not swapped, message)
+
+    def test_gaze_uses_wrapped_degrees_and_keeps_the_existing_tolerance(self):
+        for left, right, matches in [((-180, 0), (179, 0), True), ((0, -180), (0, 179), True),
+                                     ((10, 15), (370, -345), True), ((-180, 0), (176, 0), False),
+                                     ((0, 0), (0, 0), True)]:
+            ok, message = compare_frame_results_frame(self.args, gaze_frame([gaze_measurement(*left)]),
+                                                      gaze_frame([gaze_measurement(*right)]))
+            self.assertEqual(ok, matches, message)
+        items = []
+        for yaw in (-180, 176):
+            snapshot = normalize_frame_results(gaze_frame([gaze_measurement(yaw)]).frame_results)
+            items.append(next(item for payload in snapshot.payloads.values() for item in payload.items
+                              if item["item_type"] == "GazeMeasurement"))
+        self.assertAlmostEqual(distance_gaze(items[0], items[1], items[0]["subject"], items[1]["subject"]), 4 / 180)
+
+    def test_gaze_rejects_unavailable_nonfinite_and_unresolved_subjects(self):
+        unavailable = gaze_measurement()
+        unavailable.angles = None
+        unavailable.confidence = None
+        for item in [unavailable, gaze_measurement(float("nan")), gaze_measurement(pitch=float("inf")),
+                     gaze_measurement(subject=None), gaze_measurement(subject=0), gaze_measurement(subject=77)]:
+            ok, message = compare_frame_results_frame(self.args, gaze_frame([gaze_measurement()]), gaze_frame([item]))
+            self.assertFalse(ok, message)
+        duplicate = box_payload((2, 10, 10, 20, 20), (2, 60, 10, 20, 20))
+        frame = gaze_frame([gaze_measurement()], duplicate)
+        ok, message = compare_frame_results_frame(self.args, frame, frame)
+        self.assertFalse(ok)
+        self.assertIn("ambiguous", message)
+        duplicate.detections[1].box = None
+        snapshot = normalize_frame_results(gaze_frame([gaze_measurement()], duplicate).frame_results)
+        item = next(item for payload in snapshot.payloads.values()
+                    for item in payload.items if item["item_type"] == "GazeMeasurement")
+        self.assertIsNone(item["subject"])
+
+    def test_gaze_matches_box_or_track_observations_without_swapping_subjects(self):
+        for tracks in (False, True):
+            expected = gaze_frame([gaze_measurement(30, subject=2), gaze_measurement(-30, subject=3)], tracks=tracks)
+            reordered = gaze_frame([gaze_measurement(-30, subject=3), gaze_measurement(30, subject=2)], tracks=tracks)
+            ok, message = compare_frame_results_frame(self.args, expected, reordered)
+            self.assertTrue(ok, message)
+            swapped = gaze_frame([gaze_measurement(-30, subject=2), gaze_measurement(30, subject=3)], tracks=tracks)
+            ok, message = compare_frame_results_frame(self.args, expected, swapped)
+            self.assertFalse(ok, message)
 
     def test_classification_uses_label_set_and_class_id(self):
         def make(label_set, class_id, text, kind=ClassificationKind.Categorical, confidence=.9):

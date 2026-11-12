@@ -30,23 +30,25 @@ namespace {
 
 // Soft-argmax over bins -> angle in degrees.
 // Also returns a confidence in [0,1] as max softmax probability.
-inline void logitsToAngleDegAndConfidence(const opk::TensorView *logits,
+inline bool logitsToAngleDegAndConfidence(const opk::TensorView *logits,
                                           float &outAngleDeg,
                                           float &outConfidence,
-                                          float angleBinWidthDeg = 0.0f) {
+                                          const float angleBinWidthDeg = 0.0f) {
     const size_t n = logits ? logits->getCount() : 0;
     if (!logits || n == 0) {
-        outAngleDeg = 0.0f;
-        outConfidence = 0.0f;
-        return;
+        return false;
     }
 
     // Find max for stable softmax.
     float maxLogit = logits->get(0);
-    for (size_t i = 1; i < n; ++i)
-        maxLogit = std::max(maxLogit, logits->get(i));
+    for (size_t i = 0; i < n; ++i) {
+        const float value = logits->get(i);
+        if (!std::isfinite(value))
+            return false;
+        maxLogit = std::max(maxLogit, value);
+    }
 
-    // Compute exp(logit-max) once.
+    // Accumulate the stable softmax and its expected bin index.
     float sum = 0.0f;
     float expected = 0.0f;
     float maxProb = 0.0f;
@@ -58,9 +60,7 @@ inline void logitsToAngleDegAndConfidence(const opk::TensorView *logits,
 
     // Avoid div-by-zero if all logits are -inf or sum underflows.
     if (!(sum > 0.0f) || !std::isfinite(sum)) {
-        outAngleDeg = 0.0f;
-        outConfidence = 0.0f;
-        return;
+        return false;
     }
 
     for (size_t i = 0; i < n; ++i) {
@@ -79,6 +79,7 @@ inline void logitsToAngleDegAndConfidence(const opk::TensorView *logits,
         outAngleDeg = expected * step - gazeRangeDeg;
     }
     outConfidence = std::clamp(maxProb, 0.0f, 1.0f);
+    return std::isfinite(outAngleDeg) && std::isfinite(outConfidence);
 }
 
 } // namespace
@@ -115,27 +116,35 @@ opk::Result<void> GazeDetectionParser::parse(const opk::TensorParser::Input &inp
     float pitch = 0.0f, pitchConf = 0.0f;
     const auto angleBinWidthDeg =
         static_cast<float>(input.attributes.getDoubleOrDefault("angleBinWidthDeg", 0.0));
+    if (input.attributes.contains("angleBinWidthDeg") &&
+        (!std::isfinite(angleBinWidthDeg) || angleBinWidthDeg <= 0.0f)) {
+        return tl::unexpected(
+            OPK_ERROR(ErrorFlag::InvalidData,
+                      "GazeDetectionParser: angleBinWidthDeg must be finite and positive"));
+    }
+    const bool yawAvailable =
+        logitsToAngleDegAndConfidence(input.tensors[0], yaw, yawConf, angleBinWidthDeg);
+    const bool pitchAvailable =
+        logitsToAngleDegAndConfidence(input.tensors[1], pitch, pitchConf, angleBinWidthDeg);
 
-    logitsToAngleDegAndConfidence(input.tensors[0], yaw, yawConf, angleBinWidthDeg);
-    logitsToAngleDegAndConfidence(input.tensors[1], pitch, pitchConf, angleBinWidthDeg);
-
-    auto result = std::make_unique<open_perception_kit::metadata::PoseEstimationT>();
+    auto result = std::make_unique<open_perception_kit::metadata::GazeMeasurementT>();
     result->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-    result->yaw = yaw;
-    result->pitch = pitch;
+    if (input.inferenceInfo.parentId != 0U)
+        result->subject_id = input.inferenceInfo.parentId;
+    if (yawAvailable && pitchAvailable) {
+        result->angles = std::make_unique<open_perception_kit::metadata::GazeAnglesT>();
+        result->angles->yaw_degrees = yaw;
+        result->angles->pitch_degrees = pitch;
+        result->confidence = std::min(yawConf, pitchConf);
+    }
 
-    // Store a single confidence for the pair.
-    // Common choices: min (conservative), average, or max.
-    // Using min makes it "both yaw and pitch must be confident".
-    result->confidence = std::min(yawConf, pitchConf);
-
-    open_perception_kit::metadata::PoseEstimationsT payload;
+    open_perception_kit::metadata::GazeMeasurementsT payload;
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
                                             .contentType = k_content_type,
                                             .producer = &input.producerInfo});
-    payload.poses.push_back(std::move(result));
+    payload.measurements.push_back(std::move(result));
     results.add(std::move(payload));
     return {};
 }
