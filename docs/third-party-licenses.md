@@ -96,7 +96,7 @@ and check the built artifacts before publication.
 | [onnxruntime](https://github.com/microsoft/onnxruntime) | [1.31.1](https://github.com/microsoft/onnxruntime/releases/tag/v1.31.1) | MIT and bundled terms | GitHub release |
 | [openai](https://github.com/openai/openai-python) | [2.44.0](https://pypi.org/project/openai/2.44.0/) | Apache-2.0 | PyPI |
 | [openai-agents](https://github.com/openai/openai-agents-python) | [0.17.7](https://pypi.org/project/openai-agents/0.17.7/) | MIT | PyPI |
-| [Optimized-Runtimes OR interface](https://github.com/arm/Optimized-Runtimes/tree/d0a619c88b5ef68171f9ecc0869307d144f545d0/interfaces/or) | [d0a619c88b5ef68171f9ecc0869307d144f545d0](https://github.com/arm/Optimized-Runtimes/tree/d0a619c88b5ef68171f9ecc0869307d144f545d0) (ABI 10) | [Apache-2.0](https://github.com/arm/Optimized-Runtimes/blob/d0a619c88b5ef68171f9ecc0869307d144f545d0/LICENSE) | Git submodule; provider headers and conformance tests |
+| [Optimized-Runtimes OR interface](https://github.com/arm/Optimized-Runtimes/tree/2f9423fe207b2a4bcbd1d610370ea42482d69744/interfaces/or) | [2f9423fe207b2a4bcbd1d610370ea42482d69744](https://github.com/arm/Optimized-Runtimes/tree/2f9423fe207b2a4bcbd1d610370ea42482d69744) (ABI 10) | [Apache-2.0](https://github.com/arm/Optimized-Runtimes/blob/2f9423fe207b2a4bcbd1d610370ea42482d69744/LICENSE) | Git submodule; provider headers and conformance tests |
 | [packaging](https://github.com/pypa/packaging) | [26.3](https://pypi.org/project/packaging/26.3/) | BSD-2-Clause AND Apache-2.0 | PyPI |
 | [Pillow](https://github.com/python-pillow/Pillow) | [13.0.0](https://pypi.org/project/pillow/13.0.0/) | CMU License | PyPI |
 | [pip](https://github.com/pypa/pip) | [25.1.1](https://pypi.org/project/pip/25.1.1/) | MIT | PyPI |
