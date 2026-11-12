@@ -560,13 +560,35 @@ USER dev
 # Documentation Image Lane
 # ==============================================================================
 
+FROM python:3.13-slim-trixie AS opk-docs-prepare
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Keep diagram output and the versioned JAR path used by gen-doc.sh, setup.sh and VS Code aligned.
+ARG PLANTUML_VERSION=1.2026.2
+
+# ignore version pinning
+# hadolint ignore=DL3008
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  ca-certificates curl default-jre-headless graphviz fonts-dejavu-core
+
+RUN set -eux; \
+  mkdir -p /opt/opk-deps; \
+  plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
+  plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/opt/opk-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
+
+WORKDIR /work
+
 FROM opk-dev-base AS opk-docs
 
 # Container account name, not an authentication credential.
 # hadolint ignore=DL3064
 ARG USERNAME=dev
-# Keep diagram output and the versioned JAR path used by gen-doc.sh, setup.sh and VS Code aligned.
-ARG PLANTUML_VERSION=1.2026.2
 ARG ARM_DOCS_VERSION=0.12.1
 ARG PNPM_VERSION=12.21.0
 ARG NPM_REGISTRY=https://artifactory.arm.com/artifactory/api/npm/mirrors.npmjs_org
@@ -586,11 +608,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   doxygen graphviz \
   default-jdk fonts-dejavu-core
 
-RUN set -eux; \
-  mkdir -p /opt/opk-deps; \
-  plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
-  plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
-  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/opt/opk-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
+COPY --from=opk-docs-prepare /opt/opk-deps/ /opt/opk-deps/
 
 RUN npm install --global "pnpm@${PNPM_VERSION}"
 RUN set -eux; \

@@ -64,6 +64,9 @@ Development tooling lane
     --copy demo videos--> opk-dev
 
 Documentation lane
+  python:3.13-slim-trixie
+    -> opk-docs-prepare
+       --copy PlantUML JAR--> opk-docs
   opk-dev-base
     -> opk-docs
 
@@ -236,8 +239,10 @@ stages inherit everything from their parent unless noted otherwise.
   enabled, ensures an ARM64 ONNX Runtime path is available, and copies resolved
   model artifacts and demo videos into `/opt/opk-app` for first-run seeding. It
   does not copy the repository or prebuilt OPK binaries into the image.
+- `opk-docs-prepare`: prepares public Markdown and diagrams using Python, Java,
+  Graphviz, fonts, and the pinned PlantUML JAR, without development tooling.
 - `opk-docs`: adds the shared Arm renderer, pnpm, Java, Graphviz, fonts,
-  Doxygen, and the pinned PlantUML JAR to the development base.
+  and Doxygen to the development base, copying the JAR from `opk-docs-prepare`.
 - `opk-deployment-build`: inherits `opk-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson
   subprojects, copies model configurations from the checkout and demo
@@ -286,7 +291,8 @@ separate general-purpose CI image. The `opk-ci` Python tool remains installed
 in the development and pre-commit images.
 
 The `opk-docs` image reuses the development base and adds documentation
-generation tools. For release documentation
+generation tools. Publication source preparation uses the independent
+`opk-docs-prepare` image. For release documentation
 publishing, see [Publish From GitHub Actions](../README.md#publish-from-github-actions).
 
 The deployment lane combines build and runtime roles with shared artifact inputs.

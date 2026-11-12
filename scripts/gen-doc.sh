@@ -17,7 +17,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${OPK_PROJECT_ROOT:-$SCRIPT_DIR/..}"
+TOOLING_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd -P)"
+PROJECT_ROOT="${OPK_PROJECT_ROOT:-$TOOLING_ROOT}"
 if [[ "$PROJECT_ROOT" != /* || ! -d "$PROJECT_ROOT/docs/public" ]]; then
     echo "OPK_PROJECT_ROOT must be an absolute OPK checkout path." >&2
     exit 2
@@ -32,9 +33,13 @@ if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
 fi
 
 OUTPUT_DIRECTORY="$PROJECT_ROOT/docs/html"
+DOCS_TARGET=opk-docs
 for argument in "$@"; do
     case "$argument" in
-        --prepare-publish) OUTPUT_DIRECTORY="$PROJECT_ROOT/docs/prepared-public" ;;
+        --prepare-publish)
+            OUTPUT_DIRECTORY="$PROJECT_ROOT/docs/prepared-public"
+            DOCS_TARGET=opk-docs-prepare
+            ;;
         --with-api) ;;
         *)
             echo "Unknown argument: $argument. Use --help for usage." >&2
@@ -55,8 +60,8 @@ else
 fi
 
 if [[ -z "${DOCS_IMAGE:-}" ]]; then
-    DOCS_IMAGE=opk-docs:local
-    "$CONTAINER_ENGINE" build --build-arg NPM_REGISTRY --target opk-docs --tag "$DOCS_IMAGE" "$PROJECT_ROOT"
+    DOCS_IMAGE="$DOCS_TARGET:local"
+    "$CONTAINER_ENGINE" build --build-arg NPM_REGISTRY --target "$DOCS_TARGET" --tag "$DOCS_IMAGE" "$TOOLING_ROOT"
 fi
 mkdir -p "$OUTPUT_DIRECTORY" "$PROJECT_ROOT/.cache/docs"
 PUBLISHED_COMMIT="$(git -C "$PROJECT_ROOT" rev-parse HEAD)"
@@ -65,6 +70,7 @@ exec "$CONTAINER_ENGINE" run --rm "${CONTAINER_USER_ARGS[@]}" \
     --env PNPM_CONFIG_STORE_DIR=/tmp/.local/share/pnpm/store \
     --env PNPM_CONFIG_CACHE_DIR=/tmp/.local/share/pnpm/cache \
     --volume "$PROJECT_ROOT:/source:ro" \
+    --volume "$TOOLING_ROOT/scripts/private:/tooling:ro" \
     --volume "$OUTPUT_DIRECTORY:/output" \
     --volume "$PROJECT_ROOT/.cache/docs:/tmp/.local/share/pnpm" \
-    "$DOCS_IMAGE" python3 /source/scripts/private/generate_docs.py "$@"
+    "$DOCS_IMAGE" python3 /tooling/generate_docs.py "$@"

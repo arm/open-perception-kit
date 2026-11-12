@@ -19,8 +19,9 @@ limitations under the License.
 
 Public documentation lives in `docs/public`; developer architecture documentation
 lives in `docs/arch`. PlantUML sources live in `docs/plantuml`. The common generator
-uses the pinned `opk-docs` container and the shared Arm site renderer for local
-viewing and publication. Generation never modifies tracked sources.
+uses the pinned `opk-docs` container and the released Arm site renderer for local
+viewing. Publication uses the existing Arm actions with the same prepared
+Markdown and diagram assets. Generation never modifies tracked sources.
 
 ## Generate and view locally
 
@@ -46,7 +47,8 @@ External links still require access to their destinations.
 `OPK_PROJECT_ROOT` can select another checkout and must be an absolute path.
 `DOCS_PORT` changes the serving port. `DOCS_IMAGE` selects an already-built
 compatible documentation image; otherwise `gen-doc.sh` builds the checked-in
-`opk-docs` target. Set `NPM_REGISTRY` to override the image's default Arm npm mirror,
+`opk-docs` target from the checkout containing the script. Set `NPM_REGISTRY` to
+override the image's default Arm npm mirror,
 for example `NPM_REGISTRY=https://registry.npmjs.org ./scripts/gen-doc.sh` outside
 the Arm network.
 
@@ -94,97 +96,44 @@ decision under EXPKITS-1554.
 
 ## Publish From GitHub Actions
 
-The publishing workflows are adapted from
-[Arm-Debug/amp-dev-forge](https://github.com/Arm-Debug/amp-dev-forge/blob/6153af0407c823ea3d0eb9b54b89cce2b3422fc0/.github/workflows/docs-publish.yml).
-
 | Workflow | Automatic trigger | Destination |
 | --- | --- | --- |
-| [Publish Docs (Staging)](../.github/workflows/docs-publish.yml) | Every push to `main` | [QA site](https://qa.developer.arm.com/dev-docs/open-perception-kit/) |
-| [Publish Docs (Production)](../.github/workflows/docs-publish-production.yml) | Published stable GitHub Releases and the release CI call | [Public site](https://developer.arm.com/dev-docs/open-perception-kit/) |
+| [Publish Docs (Staging)](../.github/workflows/docs-publish.yml) | Push to `main` | [QA site](https://qa.developer.arm.com/dev-docs/open-perception-kit/) |
+| [Publish Docs (Production)](../.github/workflows/docs-publish-production.yml) | Release workflow | [Public site](https://developer.arm.com/dev-docs/open-perception-kit/) |
 
-Staging can also run manually from `main`, with an optional `publish_ref`.
-Production's manual trigger requires an explicit commit SHA or ref in
-`publish_ref` and makes that documentation publicly available without requiring
-a product release. Manual runs must select `main` as the workflow branch. Before
-running any documentation scripts, production verifies that the checked-out
-commit is in `main`'s history; unmerged commits are rejected, while older commits
-already on `main` remain eligible. This ancestry check does not verify that a
-human reviewed the staging site. Merging workflow
-changes into `main` does not publish to production. Draft releases and prerelease
-events do not publish to production.
+Both workflows support selecting a source revision manually. Production requires
+that revision to be contained in `main`. Use an immutable commit SHA and review
+its staging output before manually publishing it to production.
 
-The [Release workflow](../.github/workflows/release.yml) calls the production
-workflow after GitHub release publication succeeds, passing the exact release
-commit. This covers automated releases, whose `GITHUB_TOKEN` events do not
-trigger another workflow. A reusable caller must grant `contents: read` and
-`id-token: write`. Direct release-event runs use the release's tagged commit.
+Prepare public Markdown and diagram assets for the existing publishing actions:
 
-Both workflows inject the checked-out commit into the existing build-info markers
-in `docs/public/index.md` and validate the site before publishing. They use
-[`ARM-software/docs-action` v0.5.0](https://github.com/ARM-software/docs-action/tree/3c5412fd76d4b2d67fd42d69d350abf29a6241c2).
-The publish action's `staging` and `production` presets own each destination,
-CloudFront invalidation, and analytics settings. The action does not expose a
-site URL output, so each workflow summary uses its destination URL directly.
+```bash
+./scripts/gen-doc.sh --prepare-publish
+```
 
-Both workflows pin their actions to full commit SHAs. Version v0.5.0 still contains
-a nested tagged `actions/setup-node` reference, which conflicts with this
-repository's SHA-pinning policy. Its `pnpm/action-setup` dependency is also blocked
-by the repository's action allowlist. These issues must be resolved before either
-workflow can publish.
+This uses the small `opk-docs-prepare` image with Python, Java, Graphviz, and
+PlantUML; it does not install the development or HTML renderer toolchains.
+It writes `docs/prepared-public`, including rendered diagram SVGs and the
+selected commit stamp, leaving local HTML output unchanged. It does not upload
+anything. The workflows use preparation tools from their own workflow revision
+against the selected source revision, including older commits whose scripts
+predate this preparation mode. They pass the prepared directory to the existing
+`docs-action/validate` and `docs-action/publish` actions. Those actions perform
+their own HTML builds; the publisher owns the destination URL and analytics
+settings. OPK consumes these released tools without modifying them.
 
-### Publish a Docs Fix Without a Product Release
+The Release workflow supplies its exact release commit to the production docs
+workflow. Existing release assets and their scope remain unchanged. Diagrams
+come from that revision's PlantUML sources and the common pinned renderer.
 
-1. Merge the documentation fix or publisher update into `main`. Keep shared docs
-   action versions aligned in both workflows when updating the publisher.
-2. Wait for **Publish Docs (Staging)** to succeed and review the QA site.
-3. Copy **Published commit** from that staging run's summary.
-4. Open **Actions → Publish Docs (Production) → Run workflow**, select `main`,
-   and enter that full commit SHA as `publish_ref`.
-5. Run the workflow to publish the reviewed source to the public site. This does
-   not run the product release pipeline or create a GitHub Release.
-
-Both workflows also support manual publication of a chosen source revision. Use
-the same immutable commit SHA for staging and production rather than a moving
-branch name, and review the QA run again after any publisher changes. Each run's
-summary records the actual checked-out commit and its destination URL.
-
-### AWS Roles
-
-The role name is the same, but the AWS accounts and role ARNs are different:
+AWS authentication remains GitHub OIDC in `eu-west-1`, using the existing roles:
 
 - QA: `arn:aws:iam::529607359382:role/Proj-GHA-open-perception-kit-s3-upload`.
 - Production: `arn:aws:iam::930800959236:role/Proj-GHA-open-perception-kit-s3-upload`.
 
-Both workflows use `eu-west-1` and verify that the credentials belong to their
-expected account. Authentication uses GitHub OIDC. QA must trust `main`;
-production must trust `main` for manual publication, the release workflow's ref,
-and release-tag subjects for direct release events.
-
-### Dependencies
-
-- Repository inputs: `docs/public/`, including `docs-config.json` and `static/`,
-  and `scripts/private/inject_docs_build_info.py`. The config and helper already
-  match the source repository; no duplicate copies are needed.
-- Actions: `actions/checkout` v7, `ARM-software/docs-action` v0.5.0
-  (`validate` and `publish`), and `aws-actions/configure-aws-credentials` v6.
-- The shared docs actions install Node.js 24, pnpm 10.33.3, and
-  `arm-docs-github-action=0.9.0` from `https://artifacts.tools.arm.com/tools-deb`.
-  The publisher package supplies the shared site generator. The job does not use
-  the local preview image or `scripts/gen-doc.sh`.
-- AWS: the separate QA and production roles described above. Publishing
-  destinations come from the corresponding shared action preset.
-
-### Validate Without Publishing
-
-With the Node.js, pnpm, and publisher versions above installed, run from the
-repository root:
-
-```bash
-arm-docs validate --docs-root docs/public --site-id open-perception-kit
-```
-
-This builds the site without AWS credentials or uploads. `--docs-root` must be
-relative to the repository root.
+Publication checks the expected account and retains the shared action's bucket
+and CloudFront invalidation policy. Local generation and serving require no AWS
+credentials.
 
 ## Asset paths and validation
 
