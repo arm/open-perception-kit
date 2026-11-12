@@ -79,7 +79,7 @@ choices fail during configuration rather than silently changing memory paths.
 The runtime library is executable code and must be trusted, just like an OPK plugin.
 
 Build with OPK's existing arm64 Meson cross file / deployment Docker workflow;
-`development/ops-or/opk-or-ops.so` is built with the other inference providers.
+`development/build-active/meson-out/opk-or-ops.so` is built with the other inference providers.
 This OR integration was verified with an AArch64 cross-build and single-image
 OPK inference at resolution 320 under QEMU user-mode emulation. Other resolutions
 were not rerun, and physical Pi hardware and performance were not tested.
