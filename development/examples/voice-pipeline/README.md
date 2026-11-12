@@ -61,6 +61,11 @@ building turn history. Set `inputWindowSampleCount` to the VAD context and
 `hopSampleCount` to the inference cadence; see
 [the audio preprocessing contract](../../../docs/arch/audio-log-mel.md#conversation-audio-and-metadata).
 
+Custom pipelines can add an independently scheduled microphone inference branch
+named `keywords`. The console prints `KEYWORD <label> (<probability>%)` for its
+accepted classifications. These are rolling model assessments, so the same word
+may appear repeatedly; they do not start or stop the conversation state machine.
+
 The application applies this policy:
 
 - Speech opens an utterance. Initial silence produces nothing.
@@ -78,8 +83,8 @@ are conveyed by VAD's discontinuity flag.
 
 To use another model or cadence, copy a pipeline preset and change its OpChain
 path and `audio-hop-samples`, then pass that file with `--pipeline`. Keep the
-VAD/turn inference element named `voice`; the app routes its existing perception
-payloads by identity.
+VAD/turn inference element named `voice`, and an optional keyword element named
+`keywords`; the app routes their existing perception payloads by identity.
 For checkout paths outside `/work`, set `OPK_PROJECT_ROOT`.
 `OPK_PLUGIN_PATH` can override the default `development/build-active/meson-out`
 plugin directory.

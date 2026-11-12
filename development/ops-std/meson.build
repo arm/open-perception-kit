@@ -38,6 +38,7 @@ stdops = shared_module(
     'postproc/GazeDetectionParser.cpp',
     'postproc/CameraContactParser.cpp',
     'postproc/VoiceActivityParser.cpp',
+    'postproc/KeywordClassificationParser.cpp',
     'postproc/SmartTurnParser.cpp',
     'postproc/PersonClassificationParser.cpp',
     'postproc/ImageNetClassificationParser.cpp',

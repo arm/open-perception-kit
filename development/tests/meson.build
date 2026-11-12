@@ -876,7 +876,8 @@ test('cpu_log_mel_spectrogram_tests', cpu_log_mel_spectrogram_tests)
 
 audio_parser_tests = executable(
   'audio_parser_tests',
-  ['audio_parser_test.cpp', '../ops-std/postproc/VoiceActivityParser.cpp'],
+  ['audio_parser_test.cpp', '../ops-std/postproc/VoiceActivityParser.cpp',
+   '../ops-std/postproc/KeywordClassificationParser.cpp'],
   include_directories: [common_include, include_directories('../ops-std')],
   dependencies: [gtest_main_dep, gtest_dep, opk_deps],
   link_with: [common],

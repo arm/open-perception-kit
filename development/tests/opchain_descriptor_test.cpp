@@ -364,3 +364,23 @@ TEST(OpChainDescriptor, ValidatesVoiceActivityIntegerNotationBeforeStartup) {
         EXPECT_TRUE(opk::op::OpChainDescriptor::fromJson(value.dump()));
     }
 }
+
+TEST(OpChainDescriptor, ValidatesKeywordLabelsAndExplicitDecoding) {
+    auto value = descriptor("model.json");
+    value["ops"] = {{{"id", "opk-std-ops/GenericPostprocess"},
+                     {"attributes",
+                      {{"parser", "KeywordClassificationParser"},
+                       {"outputTensorIndex", 1},
+                       {"activation", "none"},
+                       {"confidenceThreshold", 0.65},
+                       {"labels", {"open", nullptr, "close"}}}}}};
+    ASSERT_TRUE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    auto &attributes = value["ops"][0]["attributes"];
+    attributes["labels"] = {nullptr, nullptr};
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    attributes["labels"] = {"open", ""};
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    attributes["labels"] = {"open", "close"};
+    attributes.erase("confidenceThreshold");
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+}
