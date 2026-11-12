@@ -409,7 +409,8 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         }}]};
         const mask = {payloadType: 'SemanticSegmentationMasks', contentType: 'semanticSegmentation',
             model: 'semantic', labelFamily: 'example-classes', detections: [{type: 'SemanticSegmentationMask', data: {
-                parentUuid: '42', width: 3, height: 1, valueType: 'Uint8', pixels: new Uint8Array([0, 18, 0]),
+                parentUuid: 'unrelated', width: 3, height: 1, encoding: 1, pixels: new Uint8Array([0, 18, 0]), labelSet: 'test:classes',
+                space: {frameId: 42n, width: 3, height: 1, originX: 0, originY: 0, extentWidth: 3, extentHeight: 1},
             }}]};
         emit([parent, mask]);
         assert.match(legend.textContent, /Waiting for matching video metadata/);
@@ -454,7 +455,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.equal(class1Name['aria-description'], 'Unavailable', 'missing metadata is not evidence of absence');
         window.fire('video-frame-results', {detail: {layers: [parent, {...mask, detections: []}]}});
         assert.match(legend.textContent, /No class map/);
-        assert.equal(class1Name['aria-description'], 'Unavailable', 'an empty semantic payload has no class map');
+        assert.equal(class1Name['aria-description'], 'Not in frame', 'an explicit empty result is distinct from missing metadata');
         match();
         assert.equal(class1Name['aria-description'], 'Not in frame', 'valid metadata restores known absence');
         assert.equal(find(legendList.children[2], element => element.className === 'overlay-class-name')['aria-description'], 'In frame');

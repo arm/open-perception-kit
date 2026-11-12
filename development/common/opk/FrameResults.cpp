@@ -19,8 +19,11 @@
 
 #include "opk/Tools.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <format>
+#include <limits>
 #include <utility>
 
 namespace open_perception_kit {
@@ -68,14 +71,131 @@ makeBoundingBox(float x, float y, float width, float height) {
     return box;
 }
 
-std::unique_ptr<metadata::BitmapDataT> makeBitmapData(const opk::Bitmap &bitmap) {
+std::unique_ptr<metadata::BitmapDataT> makeBitmapData(const opk::Bitmap &bitmap,
+                                                      const opk::ImageInferenceMetadata &image) {
+    if ((bitmap.getType() != opk::Bitmap::Type::Uint8 &&
+         bitmap.getType() != opk::Bitmap::Type::Uint32) ||
+        bitmap.getWidth() > std::numeric_limits<uint32_t>::max() ||
+        bitmap.getHeight() > std::numeric_limits<uint32_t>::max())
+        return nullptr;
     auto data = std::make_unique<metadata::BitmapDataT>();
     data->width = static_cast<uint32_t>(bitmap.getWidth());
     data->height = static_cast<uint32_t>(bitmap.getHeight());
-    data->value_type = bitmap.getType() == opk::Bitmap::Type::Uint32 ? "Uint32" : "Uint8";
-    auto pixels = bitmap.getPixels();
+    data->encoding = bitmap.getType() == opk::Bitmap::Type::Uint32
+                         ? metadata::BitmapEncoding::Uint32LE
+                         : metadata::BitmapEncoding::Uint8;
+    const auto pixels = bitmap.getPixels();
     data->pixels.assign(pixels.begin(), pixels.end());
+    data->space = makeImageSpace(image);
+    if (!validBitmapData(data.get()))
+        return nullptr;
+    if (data->encoding == metadata::BitmapEncoding::Uint32LE) {
+        for (size_t y = 0; y < data->height; ++y) {
+            for (size_t x = 0; x < data->width; ++x) {
+                const auto offset = (y * data->width + x) * 4;
+                uint32_t value = 0;
+                std::memcpy(&value, bitmap.getData() + offset, sizeof(value));
+                for (size_t byte = 0; byte < 4; ++byte)
+                    data->pixels[offset + byte] = static_cast<uint8_t>(value >> (8 * byte));
+            }
+        }
+    }
     return data;
+}
+
+std::unique_ptr<metadata::BitmapDataT>
+makeModelMaskBitmapData(const opk::Bitmap &bitmap, const opk::ImageInferenceMetadata &image) {
+    auto data = makeBitmapData(bitmap, image);
+    if (!data || data->encoding != metadata::BitmapEncoding::Uint8 || image.modelWidth == 0 ||
+        image.modelHeight == 0 || image.letterboxLeft >= image.modelWidth ||
+        image.letterboxRight >= image.modelWidth - image.letterboxLeft ||
+        image.letterboxTop >= image.modelHeight ||
+        image.letterboxBottom >= image.modelHeight - image.letterboxTop)
+        return nullptr;
+    if (image.letterboxLeft == 0 && image.letterboxRight == 0 && image.letterboxTop == 0 &&
+        image.letterboxBottom == 0)
+        return data;
+    const double left = static_cast<double>(image.letterboxLeft) * data->width / image.modelWidth;
+    const double top = static_cast<double>(image.letterboxTop) * data->height / image.modelHeight;
+    const double width =
+        static_cast<double>(image.modelWidth - image.letterboxLeft - image.letterboxRight) *
+        data->width / image.modelWidth;
+    const double height =
+        static_cast<double>(image.modelHeight - image.letterboxTop - image.letterboxBottom) *
+        data->height / image.modelHeight;
+    const auto outputWidth = static_cast<uint32_t>(std::max(1.0, std::round(width)));
+    const auto outputHeight = static_cast<uint32_t>(std::max(1.0, std::round(height)));
+    std::vector<uint8_t> pixels(static_cast<size_t>(outputWidth) * outputHeight);
+    for (size_t y = 0; y < outputHeight; ++y) {
+        const auto sy = std::min(static_cast<size_t>(top + (y + .5) * height / outputHeight),
+                                 static_cast<size_t>(data->height - 1));
+        for (size_t x = 0; x < outputWidth; ++x) {
+            const auto sx = std::min(static_cast<size_t>(left + (x + .5) * width / outputWidth),
+                                     static_cast<size_t>(data->width - 1));
+            pixels[y * outputWidth + x] = data->pixels[sy * data->width + sx];
+        }
+    }
+    data->width = outputWidth;
+    data->height = outputHeight;
+    data->pixels = std::move(pixels);
+    return data;
+}
+
+bool validBitmapData(const metadata::BitmapDataT *const bitmap) noexcept {
+    if (!bitmap || !validImageSpace(bitmap->space.get()) || bitmap->width == 0 ||
+        bitmap->height == 0)
+        return false;
+    const size_t bytes = bitmap->encoding == metadata::BitmapEncoding::Uint8      ? 1
+                         : bitmap->encoding == metadata::BitmapEncoding::Uint32LE ? 4
+                                                                                  : 0;
+    return bytes != 0 &&
+           bitmap->width <= std::numeric_limits<size_t>::max() / bytes / bitmap->height &&
+           bitmap->pixels.size() == static_cast<size_t>(bitmap->width) * bitmap->height * bytes;
+}
+
+bool validMask(const metadata::SegmentationMaskT &mask) noexcept {
+    return validBitmapData(mask.bitmap.get()) &&
+           mask.bitmap->encoding == metadata::BitmapEncoding::Uint8 &&
+           (mask.meaning == metadata::OpacityMeaning::BackgroundOpacity ||
+            mask.meaning == metadata::OpacityMeaning::RegionOpacity);
+}
+
+bool validMask(const metadata::SemanticSegmentationMaskT &mask) noexcept {
+    return validBitmapData(mask.bitmap.get()) && !mask.label_set.empty() &&
+           (!mask.void_value || mask.bitmap->encoding == metadata::BitmapEncoding::Uint32LE ||
+            *mask.void_value <= 255);
+}
+
+bool validMask(const metadata::InstanceSegmentationMaskT &mask) noexcept {
+    if (!validBitmapData(mask.bitmap.get()) ||
+        mask.bitmap->encoding != metadata::BitmapEncoding::Uint8 ||
+        (mask.class_id && mask.label_set.empty()) ||
+        (mask.confidence &&
+         (!std::isfinite(*mask.confidence) || *mask.confidence < 0 || *mask.confidence > 1)))
+        return false;
+    if (mask.box &&
+        (!projectBoundingBox(*mask.box, mask.bitmap->space->width, mask.bitmap->space->height) ||
+         mask.box->space->frame_id != mask.bitmap->space->frame_id ||
+         mask.box->space->width != mask.bitmap->space->width ||
+         mask.box->space->height != mask.bitmap->space->height))
+        return false;
+    return std::all_of(mask.bitmap->pixels.begin(),
+                       mask.bitmap->pixels.end(),
+                       [](const uint8_t value) { return value <= 1; });
+}
+
+std::optional<std::array<double, 4>> projectBitmap(const metadata::BitmapDataT &bitmap,
+                                                   const uint32_t targetWidth,
+                                                   const uint32_t targetHeight) noexcept {
+    if (!validBitmapData(&bitmap) || targetWidth == 0 || targetHeight == 0)
+        return std::nullopt;
+    const auto &space = *bitmap.space;
+    const double sx = static_cast<double>(targetWidth) / space.width;
+    const double sy = static_cast<double>(targetHeight) / space.height;
+    return std::array<double, 4>{space.origin_x * sx,
+                                 space.origin_y * sy,
+                                 space.extent_width * sx,
+                                 space.extent_height * sy};
 }
 
 std::unique_ptr<metadata::ImageSpaceT> makeImageSpace(const opk::ImageInferenceMetadata &image) {

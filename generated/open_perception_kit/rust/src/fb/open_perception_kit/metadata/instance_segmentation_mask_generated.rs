@@ -48,6 +48,7 @@ impl<'a> InstanceSegmentationMask<'a> {
     pub const VT_CLASS_ID: flatbuffers::VOffsetT = 8;
     pub const VT_CONFIDENCE: flatbuffers::VOffsetT = 10;
     pub const VT_BOX_: flatbuffers::VOffsetT = 12;
+    pub const VT_LABEL_SET: flatbuffers::VOffsetT = 14;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -59,11 +60,18 @@ impl<'a> InstanceSegmentationMask<'a> {
         args: &'args InstanceSegmentationMaskArgs<'args>,
     ) -> flatbuffers::WIPOffset<InstanceSegmentationMask<'bldr>> {
         let mut builder = InstanceSegmentationMaskBuilder::new(_fbb);
+        if let Some(x) = args.label_set {
+            builder.add_label_set(x);
+        }
         if let Some(x) = args.box_ {
             builder.add_box_(x);
         }
-        builder.add_confidence(args.confidence);
-        builder.add_class_id(args.class_id);
+        if let Some(x) = args.confidence {
+            builder.add_confidence(x);
+        }
+        if let Some(x) = args.class_id {
+            builder.add_class_id(x);
+        }
         if let Some(x) = args.bitmap {
             builder.add_bitmap(x);
         }
@@ -79,12 +87,14 @@ impl<'a> InstanceSegmentationMask<'a> {
         let class_id = self.class_id();
         let confidence = self.confidence();
         let box_ = self.box_().map(|x| Box::new(x.unpack()));
+        let label_set = self.label_set().map(|x| x.to_string());
         InstanceSegmentationMaskT {
             object,
             bitmap,
             class_id,
             confidence,
             box_,
+            label_set,
         }
     }
 
@@ -113,25 +123,23 @@ impl<'a> InstanceSegmentationMask<'a> {
         }
     }
     #[inline]
-    pub fn class_id(&self) -> i32 {
+    pub fn class_id(&self) -> Option<u32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<i32>(InstanceSegmentationMask::VT_CLASS_ID, Some(-1))
-                .unwrap()
+                .get::<u32>(InstanceSegmentationMask::VT_CLASS_ID, None)
         }
     }
     #[inline]
-    pub fn confidence(&self) -> f32 {
+    pub fn confidence(&self) -> Option<f32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<f32>(InstanceSegmentationMask::VT_CONFIDENCE, Some(0.0))
-                .unwrap()
+                .get::<f32>(InstanceSegmentationMask::VT_CONFIDENCE, None)
         }
     }
     #[inline]
@@ -142,6 +150,18 @@ impl<'a> InstanceSegmentationMask<'a> {
         unsafe {
             self._tab.get::<flatbuffers::ForwardsUOffset<BoundingBox>>(
                 InstanceSegmentationMask::VT_BOX_,
+                None,
+            )
+        }
+    }
+    #[inline]
+    pub fn label_set(&self) -> Option<&'a str> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                InstanceSegmentationMask::VT_LABEL_SET,
                 None,
             )
         }
@@ -166,9 +186,14 @@ impl flatbuffers::Verifiable for InstanceSegmentationMask<'_> {
                 Self::VT_BITMAP,
                 false,
             )?
-            .visit_field::<i32>("class_id", Self::VT_CLASS_ID, false)?
+            .visit_field::<u32>("class_id", Self::VT_CLASS_ID, false)?
             .visit_field::<f32>("confidence", Self::VT_CONFIDENCE, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<BoundingBox>>("box_", Self::VT_BOX_, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                "label_set",
+                Self::VT_LABEL_SET,
+                false,
+            )?
             .finish();
         Ok(())
     }
@@ -176,9 +201,10 @@ impl flatbuffers::Verifiable for InstanceSegmentationMask<'_> {
 pub struct InstanceSegmentationMaskArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
     pub bitmap: Option<flatbuffers::WIPOffset<BitmapData<'a>>>,
-    pub class_id: i32,
-    pub confidence: f32,
+    pub class_id: Option<u32>,
+    pub confidence: Option<f32>,
     pub box_: Option<flatbuffers::WIPOffset<BoundingBox<'a>>>,
+    pub label_set: Option<flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for InstanceSegmentationMaskArgs<'a> {
     #[inline]
@@ -186,9 +212,10 @@ impl<'a> Default for InstanceSegmentationMaskArgs<'a> {
         InstanceSegmentationMaskArgs {
             object: None,
             bitmap: None,
-            class_id: -1,
-            confidence: 0.0,
+            class_id: None,
+            confidence: None,
             box_: None,
+            label_set: None,
         }
     }
 }
@@ -215,14 +242,14 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> InstanceSegmentationMaskBuilder
             );
     }
     #[inline]
-    pub fn add_class_id(&mut self, class_id: i32) {
+    pub fn add_class_id(&mut self, class_id: u32) {
         self.fbb_
-            .push_slot::<i32>(InstanceSegmentationMask::VT_CLASS_ID, class_id, -1);
+            .push_slot_always::<u32>(InstanceSegmentationMask::VT_CLASS_ID, class_id);
     }
     #[inline]
     pub fn add_confidence(&mut self, confidence: f32) {
         self.fbb_
-            .push_slot::<f32>(InstanceSegmentationMask::VT_CONFIDENCE, confidence, 0.0);
+            .push_slot_always::<f32>(InstanceSegmentationMask::VT_CONFIDENCE, confidence);
     }
     #[inline]
     pub fn add_box_(&mut self, box_: flatbuffers::WIPOffset<BoundingBox<'b>>) {
@@ -231,6 +258,13 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> InstanceSegmentationMaskBuilder
                 InstanceSegmentationMask::VT_BOX_,
                 box_,
             );
+    }
+    #[inline]
+    pub fn add_label_set(&mut self, label_set: flatbuffers::WIPOffset<&'b str>) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            InstanceSegmentationMask::VT_LABEL_SET,
+            label_set,
+        );
     }
     #[inline]
     pub fn new(
@@ -257,6 +291,7 @@ impl core::fmt::Debug for InstanceSegmentationMask<'_> {
         ds.field("class_id", &self.class_id());
         ds.field("confidence", &self.confidence());
         ds.field("box_", &self.box_());
+        ds.field("label_set", &self.label_set());
         ds.finish()
     }
 }
@@ -265,18 +300,20 @@ impl core::fmt::Debug for InstanceSegmentationMask<'_> {
 pub struct InstanceSegmentationMaskT {
     pub object: Option<Box<ObjectMetaT>>,
     pub bitmap: Option<Box<BitmapDataT>>,
-    pub class_id: i32,
-    pub confidence: f32,
+    pub class_id: Option<u32>,
+    pub confidence: Option<f32>,
     pub box_: Option<Box<BoundingBoxT>>,
+    pub label_set: Option<String>,
 }
 impl Default for InstanceSegmentationMaskT {
     fn default() -> Self {
         Self {
             object: None,
             bitmap: None,
-            class_id: -1,
-            confidence: 0.0,
+            class_id: None,
+            confidence: None,
             box_: None,
+            label_set: None,
         }
     }
 }
@@ -290,6 +327,7 @@ impl InstanceSegmentationMaskT {
         let class_id = self.class_id;
         let confidence = self.confidence;
         let box_ = self.box_.as_ref().map(|x| x.pack(_fbb));
+        let label_set = self.label_set.as_ref().map(|x| _fbb.create_string(x));
         InstanceSegmentationMask::create(
             _fbb,
             &InstanceSegmentationMaskArgs {
@@ -298,6 +336,7 @@ impl InstanceSegmentationMaskT {
                 class_id,
                 confidence,
                 box_,
+                label_set,
             },
         )
     }

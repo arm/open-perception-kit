@@ -33,6 +33,11 @@ opk::Result<void> PaddleOcrDetectionParser::parse(const opk::TensorParser::Input
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.60f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.80f);
     const float gamma = (float)input.attributes.getDoubleOrDefault("gamma", 0.5f);
+    if (!std::isfinite(thresholdLow) || !std::isfinite(thresholdHigh) || !std::isfinite(gamma) ||
+        thresholdLow < 0 || thresholdHigh > 1 || thresholdLow >= thresholdHigh || gamma <= 0) {
+        return tl::unexpected(OPK_ERROR(
+            ErrorFlag::InvalidData, "PaddleOcrDetectionParser: invalid mask thresholds or gamma"));
+    }
 
     if (!input.tensors[0]) {
         return tl::unexpected(
@@ -45,7 +50,8 @@ opk::Result<void> PaddleOcrDetectionParser::parse(const opk::TensorParser::Input
             ErrorFlag::InvalidData,
             fmt::format("PaddleOcrDetectionParser: expected 4D tensor, got {}D", shape.rank)));
     }
-    if (shape.dims[1] != 1) {
+    if (shape.dims[0] != 1 || shape.dims[1] != 1 || shape.dims[2] <= 0 || shape.dims[3] <= 0 ||
+        !input.tensors[0]->isValid()) {
         return tl::unexpected(OPK_ERROR(
             ErrorFlag::InvalidData,
             fmt::format("PaddleOcrDetectionParser: expected 1 channel, got {}", shape.dims[1])));
@@ -67,7 +73,10 @@ opk::Result<void> PaddleOcrDetectionParser::parse(const opk::TensorParser::Input
 
     for (size_t i = 0; i < pixelCount; ++i) {
 
-        float logit = input.tensors[0]->get(i);
+        const float logit = input.tensors[0]->get(i);
+        if (!std::isfinite(logit))
+            return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData,
+                                            "PaddleOcrDetectionParser: non-finite mask logit"));
 
         // Sigmoid → probability
         float p = 1.0f / (1.0f + std::exp(-logit));
@@ -90,14 +99,17 @@ opk::Result<void> PaddleOcrDetectionParser::parse(const opk::TensorParser::Input
 
     auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
     mask->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-    mask->bitmap = open_perception_kit::makeBitmapData(bitmap);
+    mask->bitmap = open_perception_kit::makeModelMaskBitmapData(bitmap, input.inferenceInfo.image);
+    mask->meaning = open_perception_kit::metadata::OpacityMeaning::RegionOpacity;
+    if (!mask->bitmap)
+        return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData,
+                                        "PaddleOcrDetectionParser: invalid mask image space"));
 
     open_perception_kit::metadata::SegmentationMasksT payload;
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
                                             .contentType = k_content_type,
-                                            .compositingMode = "overlay",
                                             .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));

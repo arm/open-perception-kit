@@ -28,6 +28,7 @@ import {PerformanceMeasurementsT} from '../../../generated/open_perception_kit/t
 import {GazeMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
+import {maskData} from './mask-data.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 
 export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
@@ -256,45 +257,12 @@ export function decodeFrameResultsMessage(message) {
             },
         })), layers);
 
-    addPayloadLayers(envelope, SegmentationMasksT, 'SegmentationMasks', (payload) =>
-        payload.masks.map((item) => ({
-            type: 'SegmentationMask',
-            data: {
-                ...objectData(item.object),
-                width: Number(item.bitmap?.width || 0),
-                height: Number(item.bitmap?.height || 0),
-                valueType: text(item.bitmap?.valueType),
-                pixels: item.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
-            },
+    for (const [root, type] of [[SegmentationMasksT, 'SegmentationMask'],
+        [SemanticSegmentationMasksT, 'SemanticSegmentationMask'], [InstanceSegmentationMasksT, 'InstanceSegmentationMask']]) {
+        addPayloadLayers(envelope, root, type + 's', payload => payload.masks.map(item => ({
+            type, data: {...objectData(item?.object), ...maskData(item, type)},
         })), layers);
-
-    addPayloadLayers(envelope, SemanticSegmentationMasksT, 'SemanticSegmentationMasks', (payload) =>
-        payload.masks.map((item) => ({
-            type: 'SemanticSegmentationMask',
-            data: {
-                ...objectData(item?.object),
-                width: Number(item?.bitmap?.width || 0),
-                height: Number(item?.bitmap?.height || 0),
-                valueType: text(item?.bitmap?.valueType),
-                pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
-            },
-        })), layers);
-
-    addPayloadLayers(envelope, InstanceSegmentationMasksT, 'InstanceSegmentationMasks', (payload) =>
-        payload.masks.map((item) => ({
-            type: 'InstanceSegmentationMask',
-            data: {
-                ...objectData(item?.object),
-                width: Number(item?.bitmap?.width || 0),
-                height: Number(item?.bitmap?.height || 0),
-                valueType: text(item?.bitmap?.valueType),
-                pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
-                classId: Number(item?.classId ?? -1),
-                confidence: Number(item?.confidence),
-                box: item?.box ? {x: Number(item.box.x), y: Number(item.box.y),
-                    width: Number(item.box.width), height: Number(item.box.height)} : null,
-            },
-        })), layers);
+    }
 
     addPayloadLayers(envelope, ObjectEmbeddingsT, 'ObjectEmbeddings', (payload) =>
         payload.embeddings.map((item) => ({

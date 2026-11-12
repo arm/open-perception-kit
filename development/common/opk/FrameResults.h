@@ -74,7 +74,19 @@ std::optional<std::array<double, 4>> projectBoundingBox(const metadata::Bounding
                                                         const uint32_t targetWidth,
                                                         const uint32_t targetHeight) noexcept;
 
-std::unique_ptr<metadata::BitmapDataT> makeBitmapData(const opk::Bitmap &bitmap);
+// Source-aligned grid, or a model-space grid whose letterbox is removed first.
+// Return null for invalid geometry or storage; never infer a basis from parent_id.
+std::unique_ptr<metadata::BitmapDataT> makeBitmapData(const opk::Bitmap &bitmap,
+                                                      const opk::ImageInferenceMetadata &image);
+std::unique_ptr<metadata::BitmapDataT>
+makeModelMaskBitmapData(const opk::Bitmap &bitmap, const opk::ImageInferenceMetadata &image);
+bool validBitmapData(const metadata::BitmapDataT *const bitmap) noexcept;
+bool validMask(const metadata::SegmentationMaskT &mask) noexcept;
+bool validMask(const metadata::SemanticSegmentationMaskT &mask) noexcept;
+bool validMask(const metadata::InstanceSegmentationMaskT &mask) noexcept;
+std::optional<std::array<double, 4>> projectBitmap(const metadata::BitmapDataT &bitmap,
+                                                   const uint32_t targetWidth,
+                                                   const uint32_t targetHeight) noexcept;
 
 // Display-only rows; numeric consumers read PerformanceMeasurements directly.
 std::vector<std::pair<std::string, std::string>>

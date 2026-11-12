@@ -56,8 +56,10 @@ Supported paths include:
 - `PersonPresences`: centered person / non-person status from the explicit decision
 - `GazeMeasurements`: finite degree-angle pairs projected from the center of an explicitly referenced, unique box or track observation; missing/ambiguous subjects and unavailable angles are omitted
 - `CameraContacts`: contact status dot from the explicit outcome and unique box/track subject
-- `segmentation`: alpha-blended segmentation maps, or background replacement
-  when `LayerInfoT::compositingMode` requests it and `bg-image` is configured
+- `SegmentationMasks`: explicit `RegionOpacity` masks use the existing tint;
+  `BackgroundOpacity` masks use the existing background-replacement threshold
+  and optional `bg-image`. Encoding, exact byte count and `ImageSpace` are validated.
+  Mask meaning and placement are not inferred from content/compositing strings or parents.
 - `trackTrace`: tracker history lines
 - `PerformanceMeasurements`: numeric measurements from `opkperformance`, formatted for display
 
@@ -67,7 +69,8 @@ Derivation parents and persistent track IDs are not used as fallback subjects.
 ## Memory And Performance
 
 - Frames are modified in place.
-- No full-frame overlay canvas is allocated.
+- Full-frame opacity masks use their existing grid directly. Cropped opacity
+  masks use a temporary surface-sized byte plane with zero coverage outside the ROI.
 - Rendering is CPU-bound and assumes linear image memory.
 
 Treat `opkosd` as a debugging overlay rather than the long-term application UI

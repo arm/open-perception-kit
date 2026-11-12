@@ -17,6 +17,7 @@
 
 # namespace: metadata
 
+import open_perception_kit.fb.open_perception_kit.metadata.ImageSpace
 import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
@@ -56,11 +57,11 @@ class BitmapData(object):
         return 0
 
     # BitmapData
-    def ValueType(self):
+    def Encoding(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
+        return 0
 
     # BitmapData
     def Pixels(self, j):
@@ -89,9 +90,20 @@ class BitmapData(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
+    # BitmapData
+    def Space(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpace
+            obj = ImageSpace()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
 
 def BitmapDataStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 
 def Start(builder):
@@ -114,12 +126,12 @@ def AddHeight(builder, height):
     BitmapDataAddHeight(builder, height)
 
 
-def BitmapDataAddValueType(builder, valueType):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(valueType), 0)
+def BitmapDataAddEncoding(builder, encoding):
+    builder.PrependUint8Slot(2, encoding, 0)
 
 
-def AddValueType(builder, valueType):
-    BitmapDataAddValueType(builder, valueType)
+def AddEncoding(builder, encoding):
+    BitmapDataAddEncoding(builder, encoding)
 
 
 def BitmapDataAddPixels(builder, pixels):
@@ -138,6 +150,14 @@ def StartPixelsVector(builder, numElems):
     return BitmapDataStartPixelsVector(builder, numElems)
 
 
+def BitmapDataAddSpace(builder, space):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(space), 0)
+
+
+def AddSpace(builder, space):
+    BitmapDataAddSpace(builder, space)
+
+
 def BitmapDataEnd(builder):
     return builder.EndObject()
 
@@ -147,7 +167,7 @@ def End(builder):
 
 
 try:
-    from typing import List
+    from typing import List, Optional
 except:
     pass
 
@@ -159,13 +179,15 @@ class BitmapDataT(object):
         self,
         width=0,
         height=0,
-        valueType=None,
+        encoding=0,
         pixels=None,
+        space=None,
     ):
         self.width = width  # type: int
         self.height = height  # type: int
-        self.valueType = valueType  # type: Optional[str]
+        self.encoding = encoding  # type: int
         self.pixels = pixels  # type: Optional[List[int]]
+        self.space = space  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ImageSpace.ImageSpaceT]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -190,7 +212,7 @@ class BitmapDataT(object):
             return
         self.width = bitmapData.Width()
         self.height = bitmapData.Height()
-        self.valueType = bitmapData.ValueType()
+        self.encoding = bitmapData.Encoding()
         if not bitmapData.PixelsIsNone():
             if np is None:
                 self.pixels = []
@@ -198,11 +220,12 @@ class BitmapDataT(object):
                     self.pixels.append(bitmapData.Pixels(i))
             else:
                 self.pixels = bitmapData.PixelsAsNumpy()
+        if bitmapData.Space() is not None:
+            self.space = open_perception_kit.fb.open_perception_kit.metadata.ImageSpace.ImageSpaceT.InitFromObj(
+                bitmapData.Space())
 
     # BitmapDataT
     def Pack(self, builder):
-        if self.valueType is not None:
-            valueType = builder.CreateString(self.valueType)
         if self.pixels is not None:
             if np is not None and type(self.pixels) is np.ndarray:
                 pixels = builder.CreateNumpyVector(self.pixels)
@@ -211,12 +234,15 @@ class BitmapDataT(object):
                 for i in reversed(range(len(self.pixels))):
                     builder.PrependUint8(self.pixels[i])
                 pixels = builder.EndVector()
+        if self.space is not None:
+            space = self.space.Pack(builder)
         BitmapDataStart(builder)
         BitmapDataAddWidth(builder, self.width)
         BitmapDataAddHeight(builder, self.height)
-        if self.valueType is not None:
-            BitmapDataAddValueType(builder, valueType)
+        BitmapDataAddEncoding(builder, self.encoding)
         if self.pixels is not None:
             BitmapDataAddPixels(builder, pixels)
+        if self.space is not None:
+            BitmapDataAddSpace(builder, space)
         bitmapData = BitmapDataEnd(builder)
         return bitmapData

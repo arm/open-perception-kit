@@ -19,6 +19,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
 export { BitmapData, BitmapDataT } from './metadata/bitmap-data.js';
+export { BitmapEncoding } from './metadata/bitmap-encoding.js';
 export { BoundingBox, BoundingBoxT } from './metadata/bounding-box.js';
 export { CoordinateUnits } from './metadata/coordinate-units.js';
 export { ImageSpace, ImageSpaceT } from './metadata/image-space.js';

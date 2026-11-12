@@ -69,9 +69,16 @@ class SegmentationMask(object):
             return obj
         return None
 
+    # SegmentationMask
+    def Meaning(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
+        return 0
+
 
 def SegmentationMaskStart(builder):
-    builder.StartObject(2)
+    builder.StartObject(3)
 
 
 def Start(builder):
@@ -92,6 +99,14 @@ def SegmentationMaskAddBitmap(builder, bitmap):
 
 def AddBitmap(builder, bitmap):
     SegmentationMaskAddBitmap(builder, bitmap)
+
+
+def SegmentationMaskAddMeaning(builder, meaning):
+    builder.PrependUint8Slot(2, meaning, 0)
+
+
+def AddMeaning(builder, meaning):
+    SegmentationMaskAddMeaning(builder, meaning)
 
 
 def SegmentationMaskEnd(builder):
@@ -115,11 +130,13 @@ class SegmentationMaskT(object):
         self,
         object=None,
         bitmap=None,
+        meaning=0,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.BitmapData.BitmapDataT]
         self.bitmap = bitmap
+        self.meaning = meaning  # type: int
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -148,6 +165,7 @@ class SegmentationMaskT(object):
         if segmentationMask.Bitmap() is not None:
             self.bitmap = open_perception_kit.fb.open_perception_kit.metadata.BitmapData.BitmapDataT.InitFromObj(
                 segmentationMask.Bitmap())
+        self.meaning = segmentationMask.Meaning()
 
     # SegmentationMaskT
     def Pack(self, builder):
@@ -160,5 +178,6 @@ class SegmentationMaskT(object):
             SegmentationMaskAddObject(builder, object)
         if self.bitmap is not None:
             SegmentationMaskAddBitmap(builder, bitmap)
+        SegmentationMaskAddMeaning(builder, self.meaning)
         segmentationMask = SegmentationMaskEnd(builder)
         return segmentationMask
