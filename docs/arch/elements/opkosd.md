@@ -52,10 +52,10 @@ Supported paths include:
 
 - `genericObject`: bounding boxes and labels
 - `humanFace`: face-centered circular overlays
-- `classification`: top-k classification text
-- `personClassification`: centered person / non-person status text
+- `Classifications`: top-k text with an explicit categorical/recognized-text kind
+- `PersonPresences`: centered person / non-person status from the explicit decision
 - `eyeYawPitch`: gaze direction vectors anchored to parent faces
-- `cameraContact`: face-centered contact status dot
+- `CameraContacts`: contact status dot from the explicit outcome and unique box/track subject
 - `segmentation`: alpha-blended segmentation maps, or background replacement
   when `LayerInfoT::compositingMode` requests it and `bg-image` is configured
 - `trackTrace`: tracker history lines

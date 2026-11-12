@@ -43,12 +43,13 @@ class DistanceSpec:
 DISTANCE_SPECS: dict[str, DistanceSpec] = {
     "VideoFrame": DistanceSpec(dvf.distance_video_frame, threshold=0.1, skip=True),
     "AudioFrame": DistanceSpec(dvf.distance_video_frame, threshold=0.1, skip=True),
-    "BoxDetection": DistanceSpec(dr.distance_rect, threshold=0.01),
-    "ObjectTrack": DistanceSpec(dr.distance_rect, threshold=0.01),
+    "BoxDetection": DistanceSpec(dr.distance_rect, threshold=dr.GEOMETRY_THRESHOLD),
+    "ObjectTrack": DistanceSpec(dr.distance_rect, threshold=dr.GEOMETRY_THRESHOLD),
     "PoseEstimation": DistanceSpec(dyp.distance_yawpitch, threshold=0.01),
     "SegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1, skip=True),
-    "Classification": DistanceSpec(dc.distance_classification, threshold=0.2),
-    "PersonPresence": DistanceSpec(dc.distance_person_presence, threshold=0.2),
+    "Classification": DistanceSpec(dc.distance_classification, threshold=0.0),
+    "CameraContact": DistanceSpec(dc.distance_camera_contact, threshold=0.0),
+    "PersonPresence": DistanceSpec(dc.distance_person_presence, threshold=0.0),
     "VoiceActivityDetection": DistanceSpec(dc.distance_voice_activity, threshold=0.01),
     "TurnDetection": DistanceSpec(dc.distance_turn_detection, threshold=0.01),
     "TrackTrace": DistanceSpec(dtt.distance_track_trace, threshold=0.1, skip=False),
@@ -60,7 +61,8 @@ def _format_payload_key(key: PayloadKey) -> str:
     return (
         f"{key.payload_type}"
         f"[inferElementId={key.infer_element_id!r}, "
-        f"contentType={key.content_type!r}, model={key.model!r}]"
+        f"contentType={key.content_type!r}, model={key.model!r}, "
+        f"producerComponent={key.producer_component!r}, producerInstanceId={key.producer_instance_id!r}]"
     )
 
 
@@ -70,6 +72,8 @@ def _item_parent(
 ) -> dict | None:
     if item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
         return item if item.get("data", {}).get("spatialValid") else None
+    if item.get("item_type") in ("Classification", "CameraContact", "PersonPresence"):
+        return item.get("subject")
     parent_id = item.get("data", {}).get("parentId", 0)
     if parent_id == 0:
         return item
@@ -91,6 +95,8 @@ def _process_remaining_items(
 
     gt_parent_item = _item_parent(gt_item, gt_object_index)
     if gt_parent_item is None:
+        if gt_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence"):
+            return False, "subject missing, ambiguous or invalid"
         if gt_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
             return False, "item has no valid spatial reference"
         parent_id = gt_item.get("data", {}).get("parentId", 0)
@@ -99,6 +105,8 @@ def _process_remaining_items(
     for j, out_item in enumerate(remaining):
         out_parent_item = _item_parent(out_item, out_object_index)
         if out_parent_item is None:
+            if out_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence"):
+                return False, "subject missing, ambiguous or invalid"
             if out_item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):
                 return False, "item has no valid spatial reference"
             parent_id = out_item.get("data", {}).get("parentId", 0)

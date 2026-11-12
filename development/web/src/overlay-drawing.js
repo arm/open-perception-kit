@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import {contactOutcome, validCandidate, presenceOutcome} from './classification-results.js';
+
 export function createCoordinateMapper({canvasWidth, canvasHeight, videoWidth, videoHeight, perception}) {
   const frame = findVideoFrame(perception);
   const sourceWidth = positiveNumber(frame?.originalWidth) || positiveNumber(videoWidth) || canvasWidth;
@@ -145,7 +147,9 @@ export function drawClassification(
     );
   }
   candidates.forEach((candidate, index) => {
-    const text = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
+    if (!validCandidate(classification, candidate)) return;
+    const score = candidate.confidence == null ? '' : ` (${(candidate.confidence * 100).toFixed(1)}%)`;
+    const text = `#${index + 1}: ${candidate.text || (candidate.classId ?? '')}${score}`;
     drawTextChip(
       ctx,
       text,
@@ -179,11 +183,11 @@ export function classificationPanelHeight(candidateCount, heading) {
 }
 
 export function drawPersonClassification(ctx, personClassification, display, now, color) {
-  if (now % 1000 >= 800) {
+  const isPerson = presenceOutcome(personClassification);
+  if (now % 1000 >= 800 || isPerson === null) {
     return;
   }
 
-  const isPerson = Number(personClassification?.yesConfidence || 0) > Number(personClassification?.noConfidence || 0);
   const label = isPerson ? "PERSON" : "NON-PERSON";
   const fontSize = Math.max(28, Math.min(64, display.width / 12));
 
@@ -221,8 +225,8 @@ export function drawGazeVector(ctx, yp, parent, mapper, color) {
 }
 
 export function drawCameraContactMarker(ctx, classification, face, mapper, color) {
-  const candidate = classification?.candidates?.[0];
-  if (!candidate || !face) {
+  const hasContact = contactOutcome(classification);
+  if (hasContact === null || !face) {
     return;
   }
 
@@ -230,7 +234,6 @@ export function drawCameraContactMarker(ctx, classification, face, mapper, color
   if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  const hasContact = candidate.classId === 1;
   const radiusBase = Math.min(Math.abs(box.width), Math.abs(box.height)) * 0.5;
   const radius = hasContact ? clamp(radiusBase * 0.65, 18, 80) : clamp(radiusBase * 1.15, 28, 140);
 

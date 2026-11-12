@@ -18,6 +18,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 import * as flatbuffers from 'flatbuffers';
 import { ObjectMeta } from '../../open-perception-kit/metadata/object-meta.js';
+import { PersonPresenceResult } from '../../open-perception-kit/metadata/person-presence-result.js';
 export class PersonPresence {
     constructor() {
         this.bb = null;
@@ -39,13 +40,13 @@ export class PersonPresence {
         const offset = this.bb.__offset(this.bb_pos, 4);
         return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
     }
-    yesConfidence() {
+    result(obj) {
         const offset = this.bb.__offset(this.bb_pos, 6);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
+        return offset ? (obj || new PersonPresenceResult()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
     }
-    noConfidence() {
+    subjectId() {
         const offset = this.bb.__offset(this.bb_pos, 8);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
+        return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
     }
     static startPersonPresence(builder) {
         builder.startObject(3);
@@ -53,40 +54,39 @@ export class PersonPresence {
     static addObject(builder, objectOffset) {
         builder.addFieldOffset(0, objectOffset, 0);
     }
-    static addYesConfidence(builder, yesConfidence) {
-        builder.addFieldFloat32(1, yesConfidence, 0.0);
+    static addResult(builder, resultOffset) {
+        builder.addFieldOffset(1, resultOffset, 0);
     }
-    static addNoConfidence(builder, noConfidence) {
-        builder.addFieldFloat32(2, noConfidence, 0.0);
+    static addSubjectId(builder, subjectId) {
+        builder.addFieldInt64(2, subjectId, null);
     }
     static endPersonPresence(builder) {
         const offset = builder.endObject();
         return offset;
     }
-    static createPersonPresence(builder, objectOffset, yesConfidence, noConfidence) {
-        PersonPresence.startPersonPresence(builder);
-        PersonPresence.addObject(builder, objectOffset);
-        PersonPresence.addYesConfidence(builder, yesConfidence);
-        PersonPresence.addNoConfidence(builder, noConfidence);
-        return PersonPresence.endPersonPresence(builder);
-    }
     unpack() {
-        return new PersonPresenceT((this.object() !== null ? this.object().unpack() : null), this.yesConfidence(), this.noConfidence());
+        return new PersonPresenceT((this.object() !== null ? this.object().unpack() : null), (this.result() !== null ? this.result().unpack() : null), this.subjectId());
     }
     unpackTo(_o) {
         _o.object = (this.object() !== null ? this.object().unpack() : null);
-        _o.yesConfidence = this.yesConfidence();
-        _o.noConfidence = this.noConfidence();
+        _o.result = (this.result() !== null ? this.result().unpack() : null);
+        _o.subjectId = this.subjectId();
     }
 }
 export class PersonPresenceT {
-    constructor(object = null, yesConfidence = 0.0, noConfidence = 0.0) {
+    constructor(object = null, result = null, subjectId = null) {
         this.object = object;
-        this.yesConfidence = yesConfidence;
-        this.noConfidence = noConfidence;
+        this.result = result;
+        this.subjectId = subjectId;
     }
     pack(builder) {
         const object = (this.object !== null ? this.object.pack(builder) : 0);
-        return PersonPresence.createPersonPresence(builder, object, this.yesConfidence, this.noConfidence);
+        const result = (this.result !== null ? this.result.pack(builder) : 0);
+        PersonPresence.startPersonPresence(builder);
+        PersonPresence.addObject(builder, object);
+        PersonPresence.addResult(builder, result);
+        if (this.subjectId !== null)
+            PersonPresence.addSubjectId(builder, this.subjectId);
+        return PersonPresence.endPersonPresence(builder);
     }
 }

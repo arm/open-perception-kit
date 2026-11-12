@@ -85,3 +85,22 @@ export function resolveFaceParents(result, index, type) {
     if (missing) return {...resolved, state: 'partial', message: 'Waiting for parent face geometry.'};
     return resolved;
 }
+
+export function resolveBoxSubjects(result, index, type, available) {
+    const items = result.items.filter(item => item.type === type);
+    const resolved = {...result, items, attached: []};
+    let missing = false, ambiguous = false, unavailable = false;
+    for (const item of items) {
+        if (!available(item.data)) { unavailable = true; continue; }
+        const candidates = (index.objects.get(objectId(item.data.subjectUuid)) || []).filter(subject =>
+            ['BoxDetections', 'ObjectTracks'].includes(subject.source.payloadType) && subject.type === 'Rect');
+        if (candidates.length > 1) ambiguous = true;
+        else if (candidates.length === 1 && candidates[0].data.spatialValid !== false)
+            resolved.attached.push({data: item.data, parent: candidates[0].data});
+        else missing = true;
+    }
+    if (ambiguous) return {...resolved, state: 'ambiguous', message: 'Multiple subjects match; ambiguous markers are omitted.'};
+    if (missing) return {...resolved, state: 'partial', message: 'Subject geometry is missing or invalid.'};
+    if (unavailable) return {...resolved, state: 'partial', message: 'Measurement unavailable.'};
+    return resolved;
+}

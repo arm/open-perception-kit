@@ -202,6 +202,26 @@ test('saved performance selections retain their settings across the payload rena
     assert.equal(writes, 1);
 });
 
+test('saved contact and presence selections follow the typed roots without changing their settings', () => {
+    const entries = [
+        ['camera-contact', 'cameraContact', 'CameraContacts'],
+        ['classifications', 'personClassification', 'PersonPresences'],
+    ];
+    const originals = entries.map(([featureId, contentType]) => ({featureId,
+        selection: {primary: outputSource({payloadType: 'Classifications', contentType})},
+        enabled: false, settings: {color: '#123456', opacity: .25}}));
+    let raw = JSON.stringify({version: 2, overlays: originals});
+    const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; }};
+    const loaded = loadOverlays(storage);
+    assert.equal(loaded.notice, '');
+    loaded.overlays.forEach((entry, index) => {
+        assert.equal(entry.selection.primary.payloadType, entries[index][2]);
+        assert.equal(entry.enabled, originals[index].enabled);
+        assert.deepEqual(entry.settings, originals[index].settings);
+    });
+    assert.deepEqual(loadOverlays(storage).overlays, loaded.overlays);
+});
+
 test('waiting overlays persist without invented provenance and bind only once to a unique compatible source', () => {
     const overlay = createOverlay('gaze');
     overlay.enabled = false;
