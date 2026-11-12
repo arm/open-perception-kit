@@ -74,7 +74,11 @@ and `tools/opk-ci/opk_ci` using the tests listed in
 `scripts/health-report/python-coverage.sh`; the YAML lists the files actually
 measured. Coverage tools may omit unexecuted scripts that are not importable
 Python modules, so the Python figure is not coverage of every script in the
-repository. Missing inputs are marked unavailable. Release publication does
+repository. Minimum native and Python line coverage is configured in
+`.github/ci/baselines/health-thresholds.yml`. The report records the threshold
+and check result; coverage below the minimum or unavailable coverage fails the
+health-report job after the YAML artifact is uploaded. Compare the underlying
+counts without rounding when enforcing the thresholds. Release publication does
 not wait for the reporting, coverage, Valgrind, formatting, or documentation
 validation jobs; failures appear in the final workflow and report.
 

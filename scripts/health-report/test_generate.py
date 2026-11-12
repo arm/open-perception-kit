@@ -14,10 +14,17 @@
 # limitations under the License.
 
 import unittest
+import os
+import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from generate import build_report, coverage_results, nightly_success_rate
+import yaml
+
+from generate import apply_coverage_thresholds, build_report, coverage_results, nightly_success_rate
+
+THRESHOLDS = {"coverage": {"python": {"minimum_percent": 57}, "native": {"minimum_percent": 75}}}
 
 
 class GenerateReportTest(unittest.TestCase):
@@ -46,7 +53,7 @@ class GenerateReportTest(unittest.TestCase):
                 "nightly", "abc", "123", "1", "https://example.test/run",
                 {"build": {"result": "failure"}, "docs": {"result": "success"}},
                 pages, Path(temp_dir), None, Path(temp_dir), None,
-                Path(temp_dir),
+                Path(temp_dir), THRESHOLDS,
             )
 
         self.assertEqual(report["workflow_jobs"], {"build": "failure"})
@@ -74,7 +81,7 @@ class GenerateReportTest(unittest.TestCase):
                 "<valgrindoutput><error/><error/></valgrindoutput>", encoding="utf-8",
             )
             report = build_report("release", "abc", "123", "1", "url", {}, [], logs,
-                                  releases, logs, None, logs)
+                                  releases, logs, None, logs, THRESHOLDS)
 
         self.assertEqual(report["test_results"]["reports"][0], {
             "source": "testlog.junit.xml", "tests": 6,
@@ -114,6 +121,51 @@ class GenerateReportTest(unittest.TestCase):
         self.assertEqual(result["python"]["line_percent"], 75)
         self.assertEqual(result["python"]["files"], ["scripts/example.py"])
         self.assertEqual(result["native"]["line_percent"], 50)
+
+    def test_thresholds_compare_exact_counts_and_mark_missing_coverage(self):
+        coverage = {
+            "python": {"status": "available", "covered_lines": 56999, "executable_lines": 100000},
+            "native": {"status": "unavailable"},
+        }
+        apply_coverage_thresholds(coverage, THRESHOLDS)
+        self.assertEqual(coverage["python"]["threshold_status"], "failed")
+        self.assertEqual(coverage["native"]["threshold_status"], "unavailable")
+
+        coverage["python"]["covered_lines"] = 57000
+        coverage["native"] = {"status": "available", "covered_lines": 3, "executable_lines": 4}
+        apply_coverage_thresholds(coverage, THRESHOLDS)
+        self.assertEqual(coverage["python"]["threshold_status"], "passed")
+        self.assertEqual(coverage["native"]["threshold_status"], "passed")
+
+    def test_invalid_threshold_is_rejected(self):
+        coverage = {"python": {"status": "unavailable"}, "native": {"status": "unavailable"}}
+        with self.assertRaises(ValueError):
+            apply_coverage_thresholds(coverage, {"coverage": {
+                "python": {"minimum_percent": True}, "native": {"minimum_percent": 75},
+            }})
+
+    def test_generator_writes_report_and_failing_output_for_missing_coverage(self):
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for filename, contents in (("jobs.json", "[]"), ("releases.json", "null"),
+                                       ("nightlies.json", "null")):
+                (root / filename).write_text(contents, encoding="utf-8")
+            (root / "thresholds.yml").write_text(yaml.safe_dump(THRESHOLDS), encoding="utf-8")
+            env = dict(os.environ, GITHUB_RUN_ID="1", GITHUB_RUN_ATTEMPT="1",
+                       GITHUB_SERVER_URL="https://example.test", GITHUB_REPOSITORY="test/repo",
+                       HEALTH_REPORT_NEEDS="{}", GITHUB_STEP_SUMMARY=str(root / "summary"),
+                       GITHUB_OUTPUT=str(root / "output"))
+            subprocess.run([
+                sys.executable, str(Path(__file__).with_name("generate.py")), "--kind", "nightly",
+                "--source-commit", "abc", "--jobs", str(root / "jobs.json"),
+                "--logs-dir", str(root / "logs"), "--valgrind-dir", str(root / "valgrind"),
+                "--coverage-dir", str(root / "coverage"), "--releases", str(root / "releases.json"),
+                "--nightlies", str(root / "nightlies.json"), "--thresholds", str(root / "thresholds.yml"),
+                "--output", str(root / "report.yml"),
+            ], env=env, check=True)
+            report = yaml.safe_load((root / "report.yml").read_text(encoding="utf-8"))
+            self.assertEqual(report["coverage"]["python"]["threshold_status"], "unavailable")
+            self.assertEqual((root / "output").read_text(encoding="utf-8"), "coverage_passed=false\n")
 
 
 if __name__ == "__main__":
