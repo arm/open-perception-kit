@@ -23,6 +23,13 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class HealthReportWorkflowTest(unittest.TestCase):
+    def test_report_is_uploaded_before_enforcing_thresholds(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/health-report.yml").read_text())
+        steps = workflow["jobs"]["report"]["steps"]
+        names = [step.get("name") for step in steps]
+        self.assertLess(names.index("Upload health report"), names.index("Check coverage thresholds"))
+        self.assertLess(names.index("Link health report"), names.index("Check coverage thresholds"))
+
     def test_report_runs_after_all_workflow_jobs_even_on_failure(self):
         for name in ("nightly", "release"):
             with self.subTest(workflow=name):

@@ -64,6 +64,7 @@ jobs:
           pattern: health-*-coverage
           path: health-coverage
       - name: Collect job results and generate YAML
+        id: generate
         env:
           GH_TOKEN: ${{ github.token }}
           HEALTH_REPORT_NEEDS: ${{ inputs.needs_json }}
@@ -84,6 +85,7 @@ jobs:
             --coverage-dir health-coverage \
             --releases "$RUNNER_TEMP/health-releases.json" \
             --nightlies "$RUNNER_TEMP/health-nightlies.json" \
+            --thresholds .github/ci/baselines/health-thresholds.yml \
             --output health-report.yaml
       - name: Upload health report
         id: upload
@@ -98,3 +100,11 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         run: |
           printf '[Download the YAML health report](%s)\n' "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check coverage thresholds
+        env:
+          COVERAGE_PASSED: ${{ steps.generate.outputs.coverage_passed }}
+        run: |
+          if [[ "$COVERAGE_PASSED" != true ]]; then
+            echo '::error::Coverage is below the configured minimum or unavailable; see the health report.'
+            exit 1
+          fi

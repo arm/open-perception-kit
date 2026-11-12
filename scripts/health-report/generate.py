@@ -17,6 +17,7 @@
 
 import argparse
 import json
+import math
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -134,8 +135,30 @@ def coverage_results(coverage_dir):
     return results
 
 
+def apply_coverage_thresholds(coverage, thresholds):
+    if not isinstance(thresholds, dict) or set(thresholds) != {"coverage"}:
+        raise ValueError("Expected coverage thresholds")
+    if not isinstance(thresholds["coverage"], dict) or set(thresholds["coverage"]) != set(coverage):
+        raise ValueError("Expected thresholds for Python and native coverage")
+
+    for name, result in coverage.items():
+        settings = thresholds["coverage"][name]
+        if not isinstance(settings, dict) or set(settings) != {"minimum_percent"}:
+            raise ValueError(f"Invalid {name} coverage threshold")
+        minimum = settings["minimum_percent"]
+        if isinstance(minimum, bool) or not isinstance(minimum, (int, float)) or not math.isfinite(minimum) or not 0 <= minimum <= 100:
+            raise ValueError(f"Invalid {name} coverage minimum")
+        result["minimum_percent"] = minimum
+        if result["status"] != "available" or not result["executable_lines"]:
+            result["threshold_status"] = "unavailable"
+        elif 100 * result["covered_lines"] >= minimum * result["executable_lines"]:
+            result["threshold_status"] = "passed"
+        else:
+            result["threshold_status"] = "failed"
+
+
 def build_report(kind, source_commit, run_id, run_attempt, run_url, needs, pages, logs_dir,
-                 releases, valgrind_dir, nightlies, coverage_dir):
+                 releases, valgrind_dir, nightlies, coverage_dir, thresholds):
     jobs = []
     for page in pages:
         for job in page["jobs"]:
@@ -154,6 +177,8 @@ def build_report(kind, source_commit, run_id, run_attempt, run_url, needs, pages
             })
 
     jobs.sort(key=lambda job: job["name"])
+    coverage = coverage_results(coverage_dir)
+    apply_coverage_thresholds(coverage, thresholds)
     return {
         "schema_version": 1,
         "report": {
@@ -171,7 +196,7 @@ def build_report(kind, source_commit, run_id, run_attempt, run_url, needs, pages
         "valgrind": valgrind_results(valgrind_dir),
         "release_downloads": release_downloads(releases),
         "nightly_success_rate": nightly_success_rate(nightlies),
-        "coverage": coverage_results(coverage_dir),
+        "coverage": coverage,
     }
 
 
@@ -185,6 +210,7 @@ def main():
     parser.add_argument("--valgrind-dir", type=Path, required=True)
     parser.add_argument("--nightlies", type=Path, required=True)
     parser.add_argument("--coverage-dir", type=Path, required=True)
+    parser.add_argument("--thresholds", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -202,6 +228,7 @@ def main():
         args.valgrind_dir,
         json.loads(args.nightlies.read_text(encoding="utf-8")),
         args.coverage_dir,
+        yaml.safe_load(args.thresholds.read_text(encoding="utf-8")),
     )
     args.output.write_text(yaml.safe_dump(report, sort_keys=False), encoding="utf-8")
     with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
@@ -210,7 +237,14 @@ def main():
             summary.write(f"- {name}: {result}\n")
         if not report["workflow_jobs"]:
             summary.write("No failed or cancelled workflow jobs.\n")
+        for name, result in report["coverage"].items():
+            summary.write(f"- {name} coverage: {result['threshold_status']} "
+                          f"(minimum {result['minimum_percent']}%)\n")
         summary.write("\n")
+    if "GITHUB_OUTPUT" in os.environ:
+        passed = all(result["threshold_status"] == "passed" for result in report["coverage"].values())
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+            output.write(f"coverage_passed={str(passed).lower()}\n")
 
 
 if __name__ == "__main__":
