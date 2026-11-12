@@ -397,7 +397,10 @@ test('metadata connection reports disconnects and invalid packets clear the curr
         assert.ok(events.at(-1).detail.layers.length > 0);
         listeners.get('video-frame-metadata')({detail: null});
         assert.equal(events.at(-1).detail, null);
+        assert.equal(events.at(-2).type, 'video-frame-results');
         listeners.get('video-frame-metadata')({detail: {frame_results_encoding: 'invalid'}});
+        assert.equal(events.at(-2).type, 'video-frame-reset');
+        assert.equal(events.at(-1).type, 'video-frame-results');
         assert.equal(events.at(-1).detail, null);
     } finally {
         for (const [key, descriptor] of Object.entries(originals)) {

@@ -235,11 +235,16 @@ replaced on the next message and cleared on disconnect.
   chose. It is intentionally separate from semantic relationship keys.
 
 Rendering uses WebRTC metadata matched to the displayed frame's RTP timestamp.
-Missing, expired or invalid matched metadata clears the overlay; there is no
-fallback to the independently arriving metadata stream. Browsers without
+When frame metadata is missing, overlays retain their last matched results
+for up to 100 ms from the first missing frame; further misses do not extend this
+window. Fresh results replace them immediately, including valid empty detections.
+Invalid packets, video resets and source changes clear retained results. Legends
+follow the retained overlays. There is no fallback to the independently arriving
+metadata stream. Browsers without
 `requestVideoFrameCallback` do not render overlays. The independent metadata
 channel still supplies discovery and inspection before video is connected.
-UI and image-loading redraws reuse only the displayed frame's matched results. Geometry
+UI and image-loading redraws reuse the same drawing state, including any active
+overlay hold. Geometry
 prefers `FrameContext` video dimensions, otherwise received video dimensions. The
 mapper scales source-image coordinates into the contained video rectangle; it
 does not apply a new crop/letterbox transform. Producers must supply coordinates

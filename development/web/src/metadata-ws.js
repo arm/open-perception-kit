@@ -102,6 +102,7 @@ window.addEventListener('video-frame-metadata', (event) => {
             frame = decodeFrameResultsMessage(event.detail).frame_results;
         } catch (error) {
             console.warn('Invalid video frame metadata', error);
+            window.dispatchEvent(new CustomEvent('video-frame-reset', {detail: null}));
         }
     }
     window.dispatchEvent(new CustomEvent('video-frame-results', {detail: frame}));
