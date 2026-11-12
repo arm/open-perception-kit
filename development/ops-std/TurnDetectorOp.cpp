@@ -23,19 +23,21 @@ using namespace opk::stdop;
 
 opk::Result<void> TurnDetectorOp::configure(const opk::AttributeMap &attributes) {
     const auto hop = attributes.getIntOrDefault("hopSampleCount", 512);
+    const auto window = attributes.getIntOrDefault("inputWindowSampleCount", hop);
     const auto silenceMs = attributes.getIntOrDefault("silenceMs", 300);
     const auto retryMs = attributes.getIntOrDefault("retryMs", 500);
     const auto count = attributes.getIntOrDefault("maxAttempts", 3);
     inputAudioSourceName =
         attributes.getStringOrDefault("inputAudioSourceName", "pipelineAudioData");
     vadModel = attributes.getStringOrDefault("vadModel", "silero-vad");
-    if (hop <= 0 || hop > 960000 || silenceMs < 0 || silenceMs > 60000 || retryMs <= 0 ||
-        retryMs > 60000 || count <= 0 || count > 100 || inputAudioSourceName.empty() ||
-        vadModel.empty())
+    if (hop <= 0 || hop > 960000 || window < hop || window > 960000 || silenceMs < 0 ||
+        silenceMs > 60000 || retryMs <= 0 || retryMs > 60000 || count <= 0 || count > 100 ||
+        inputAudioSourceName.empty() || vadModel.empty())
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "TurnDetector: invalid configuration"));
 
     hopSampleCount = static_cast<size_t>(hop);
+    inputWindowSampleCount = static_cast<size_t>(window);
     silenceSamples = static_cast<uint64_t>(silenceMs) * opk::PcmRingBuffer::frequency / 1000;
     retrySamples = static_cast<uint64_t>(retryMs) * opk::PcmRingBuffer::frequency / 1000;
     maxAttempts = static_cast<size_t>(count);
@@ -48,7 +50,7 @@ opk::Result<void> TurnDetectorOp::configure(const opk::AttributeMap &attributes)
     return {};
 }
 
-opk::Result<void> TurnDetectorOp::bind(size_t index, const std::vector<opk::op::Op *> &ops) {
+opk::Result<void> TurnDetectorOp::bind(const size_t index, const std::vector<opk::op::Op *> &ops) {
     inference = nullptr;
     if (index == 0 || index >= ops.size() || ops.size() - index < 2 || !ops[index - 1] ||
         !ops[index + 1] || loopId != 0)
@@ -91,7 +93,7 @@ opk::Result<void> TurnDetectorOp::bind(size_t index, const std::vector<opk::op::
     return {};
 }
 
-void TurnDetectorOp::reset(uint64_t position) {
+void TurnDetectorOp::reset(const uint64_t position) {
     history->clear(position);
     nextPosition.reset();
     lastSpeechEnd.reset();
@@ -100,20 +102,8 @@ void TurnDetectorOp::reset(uint64_t position) {
     pendingDiscontinuity = true;
 }
 
-opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &context) {
-    using opk::op::OpSignal;
-    const auto invalid = [](const char *message) -> opk::Result<OpSignal> {
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData, message));
-    };
-    if (!inference || !history || !context.frameResults)
-        return invalid("TurnDetector is not bound or has no FrameResults");
-    const auto *window = context.getPcmView(inputAudioSourceName);
-    auto &audio = context.inferenceInfo.audio;
-    if (!window || window->size() != hopSampleCount || audio.hopSampleCount != hopSampleCount ||
-        audio.windowStartSample != window->beginPosition() ||
-        audio.windowEndSample != window->endPosition())
-        return invalid("TurnDetector requires contiguous, nonoverlapping PCM hops and timing");
-
+opk::Result<bool> TurnDetectorOp::findSpeech(const opk::op::OpChainContext &context) const {
+    const auto &audio = context.inferenceInfo.audio;
     // A GstBuffer may already contain earlier VAD windows. Match this exact window
     // and producer instead of reading the first/last voiceActivity payload blindly.
     std::optional<bool> speech;
@@ -132,30 +122,53 @@ opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &
             }
         });
     if (matches != 1 || !speech.has_value())
-        return invalid("TurnDetector requires exactly one VAD result for the current PCM hop");
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData,
+                      "TurnDetector requires exactly one VAD result for the current PCM window"));
+    return *speech;
+}
 
-    if (audio.discontinuity || !nextPosition || *nextPosition != window->beginPosition())
-        reset(window->beginPosition());
-    if (!history->append(window->first()) || !history->append(window->second()))
-        return invalid("TurnDetector could not retain PCM history");
-    nextPosition = window->endPosition();
+opk::Result<void> TurnDetectorOp::retainWindow(const opk::PcmRingBuffer::View &window,
+                                               const bool discontinuity) {
+    const bool restart = discontinuity || !nextPosition || *nextPosition != window.beginPosition();
+    if (restart)
+        reset(window.beginPosition());
+    const size_t retainedSamples = restart ? 0 : inputWindowSampleCount - hopSampleCount;
+    const auto first = window.first();
+    const auto second = window.second();
+    if (!history->append(first.subspan(std::min(retainedSamples, first.size()))) ||
+        !history->append(
+            second.subspan(retainedSamples > first.size() ? retainedSamples - first.size() : 0)))
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData, "TurnDetector could not retain PCM history"));
+    nextPosition = window.beginPosition() + hopSampleCount;
 
-    if (*speech) {
-        lastSpeechEnd = window->endPosition();
+    return {};
+}
+
+bool TurnDetectorOp::updateSpeechGate(const uint64_t windowEnd, const bool speech) {
+    if (speech) {
+        lastSpeechEnd = windowEnd;
         lastAttemptEnd.reset();
         attempts = 0;
-        return OpSignal::AbortChain;
+        return false;
     }
     if (!lastSpeechEnd || *lastSpeechEnd <= history->beginPosition() ||
-        window->endPosition() - *lastSpeechEnd < silenceSamples || attempts >= maxAttempts ||
-        (lastAttemptEnd && window->endPosition() - *lastAttemptEnd < retrySamples))
-        return OpSignal::AbortChain;
+        windowEnd - *lastSpeechEnd < silenceSamples || attempts >= maxAttempts ||
+        (lastAttemptEnd && windowEnd - *lastAttemptEnd < retrySamples))
+        return false;
 
+    return true;
+}
+
+opk::Result<opk::op::OpSignal> TurnDetectorOp::prepareAssessment(opk::op::OpChainContext &context) {
+    auto &audio = context.inferenceInfo.audio;
     auto *const destination = inference->getTensorDataAddress(0);
     const size_t bytes = history->capacity() * sizeof(float);
     if (!destination || !history->copyLatestPadded(std::span<uint8_t>{destination, bytes}))
-        return invalid("TurnDetector could not prepare the model PCM input");
-    lastAttemptEnd = window->endPosition();
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                        "TurnDetector could not prepare the model PCM input"));
+    lastAttemptEnd = audio.windowEndSample;
     ++attempts;
 
     context.inferenceInfo.modelName = inference->getModel().name;
@@ -175,5 +188,32 @@ opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &
         audio.windowStartTimestampNs.reset();
         audio.windowEndTimestampNs.reset();
     }
-    return OpSignal::Continue;
+    return opk::op::OpSignal::Continue;
+}
+
+opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &context) {
+    using opk::op::OpSignal;
+    const auto invalid = [](const char *const message) -> opk::Result<OpSignal> {
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData, message));
+    };
+    if (!inference || !history || !context.frameResults)
+        return invalid("TurnDetector is not bound or has no FrameResults");
+    const auto *const window = context.getPcmView(inputAudioSourceName);
+    const auto &audio = context.inferenceInfo.audio;
+    if (!window || window->size() != inputWindowSampleCount ||
+        audio.hopSampleCount != hopSampleCount ||
+        audio.windowStartSample != window->beginPosition() ||
+        audio.windowEndSample != window->endPosition())
+        return invalid("TurnDetector requires matching PCM window, hop and timing");
+    if (!audio.discontinuity && nextPosition && window->beginPosition() < *nextPosition)
+        return invalid("TurnDetector cannot consume duplicate or backward PCM windows");
+
+    const auto speech = findSpeech(context);
+    if (!speech)
+        return tl::unexpected(speech.error());
+    if (const auto retained = retainWindow(*window, audio.discontinuity); !retained)
+        return tl::unexpected(retained.error());
+    if (!updateSpeechGate(window->endPosition(), *speech))
+        return OpSignal::AbortChain;
+    return prepareAssessment(context);
 }

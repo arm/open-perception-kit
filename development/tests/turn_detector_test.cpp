@@ -70,6 +70,8 @@ class TurnDetector : public testing::Test {
     Inference inference;
     opk::stdop::TurnDetectorOp gate;
     opk::PcmRingBuffer source{37}; // Wrap inside hops to exercise both view spans.
+    size_t windowSampleCount = 16;
+    bool numberedSamples = false;
     open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     void SetUp() override {
@@ -87,17 +89,22 @@ class TurnDetector : public testing::Test {
         auto detection = std::make_unique<open_perception_kit::metadata::VoiceActivityDetectionT>();
         detection->speech_active = speech;
         detection->window_start_sample = begin;
-        detection->window_end_sample = begin + 16;
+        detection->window_end_sample = begin + windowSampleCount;
         payload.detections.push_back(std::move(detection));
         results.add(std::move(payload));
     }
     opk::Result<OpSignal> step(bool speech, bool reset = false, bool publish = true) {
-        std::array<float, 16> samples;
-        samples.fill(0.1f);
+        const size_t fresh =
+            source.size() < windowSampleCount ? windowSampleCount - source.size() : 16;
+        std::vector<float> samples(fresh, 0.1f);
+        if (numberedSamples) {
+            for (size_t i = 0; i < samples.size(); ++i)
+                samples[i] = static_cast<float>(source.endPosition() + i);
+        }
         EXPECT_TRUE(source.append(samples));
-        const auto window = source.latest(16);
+        const auto window = source.latest(windowSampleCount);
         if (!window.has_value()) {
-            ADD_FAILURE() << "Expected a complete 16-sample PCM window";
+            ADD_FAILURE() << "Expected a complete PCM window";
             return tl::unexpected(
                 OPK_ERROR(opk::ErrorFlag::InvalidData, "Test PCM window is missing"));
         }
@@ -106,7 +113,7 @@ class TurnDetector : public testing::Test {
         context.inferenceInfo.inferElementId = "vad";
         auto &audio = context.inferenceInfo.audio;
         audio.hopSampleCount = 16;
-        audio.windowStartSample = source.endPosition() - 16;
+        audio.windowStartSample = source.endPosition() - windowSampleCount;
         audio.windowEndSample = source.endPosition();
         audio.windowStartTimestampNs = audio.windowStartSample * 62500;
         audio.windowEndTimestampNs = audio.windowEndSample * 62500;
@@ -119,6 +126,17 @@ class TurnDetector : public testing::Test {
         const auto result = step(speech, reset);
         ASSERT_TRUE(result) << result.error().toString();
         EXPECT_EQ(*result, signal);
+    }
+    void configureOverlap() {
+        windowSampleCount = 32;
+        numberedSamples = true;
+        opk::AttributeMap attrs;
+        attrs.set("hopSampleCount", int64_t{16})
+            .set("inputWindowSampleCount", int64_t{32})
+            .set("silenceMs", int64_t{2})
+            .set("retryMs", int64_t{2});
+        ASSERT_TRUE(gate.configure(attrs));
+        ASSERT_TRUE(gate.bind(1, {&vad, &gate, &inference}));
     }
 };
 
@@ -242,6 +260,65 @@ TEST_F(TurnDetector, RejectsWrongHopAndMissingContext) {
     EXPECT_FALSE(gate.process(context));
 }
 
+TEST_F(TurnDetector, OverlappingVadWindowsRetainEachSampleOnceAcrossRingWraps) {
+    configureOverlap();
+    expectStep(true, OpSignal::AbortChain);
+    expectStep(false, OpSignal::AbortChain);
+    expectStep(false, OpSignal::Continue);
+    EXPECT_EQ(gate.getRequiredAudioSamples(), 32u);
+    for (size_t i = 0; i < inference.data.size(); ++i)
+        EXPECT_FLOAT_EQ(inference.data[i], i < 192 ? 0.0f : static_cast<float>(i - 192));
+    EXPECT_EQ(context.inferenceInfo.audio.windowStartSample, 0u);
+    EXPECT_EQ(context.inferenceInfo.audio.windowEndSample, 64u);
+    EXPECT_EQ(context.inferenceInfo.audio.windowStartTimestampNs, 0u);
+    EXPECT_EQ(context.inferenceInfo.audio.windowEndTimestampNs, 4000000u);
+    EXPECT_TRUE(context.inferenceInfo.audio.discontinuity);
+    expectStep(false, OpSignal::AbortChain);
+    expectStep(false, OpSignal::Continue);
+    EXPECT_FALSE(context.inferenceInfo.audio.discontinuity);
+    for (size_t i = 0; i < inference.data.size(); ++i)
+        EXPECT_FLOAT_EQ(inference.data[i], i < 160 ? 0.0f : static_cast<float>(i - 160));
+}
+
+TEST_F(TurnDetector, OverlappingWindowGapDiscardsSpeechAndRebuildsHistory) {
+    configureOverlap();
+    expectStep(true, OpSignal::AbortChain);
+    source.clear(1000);
+    expectStep(false, OpSignal::AbortChain);
+    expectStep(false, OpSignal::AbortChain);
+    expectStep(true, OpSignal::AbortChain);
+    expectStep(false, OpSignal::AbortChain);
+    expectStep(false, OpSignal::Continue);
+    EXPECT_EQ(context.inferenceInfo.audio.windowStartSample, 1000u);
+    EXPECT_EQ(context.inferenceInfo.audio.windowEndSample, 1096u);
+    EXPECT_TRUE(context.inferenceInfo.audio.discontinuity);
+    for (size_t i = 0; i < inference.data.size(); ++i)
+        EXPECT_FLOAT_EQ(inference.data[i], i < 160 ? 0.0f : static_cast<float>(1000 + i - 160));
+}
+
+TEST_F(TurnDetector, RejectsDuplicateBackwardAndMalformedWindows) {
+    configureOverlap();
+    expectStep(true, OpSignal::AbortChain);
+    EXPECT_FALSE(gate.process(context));
+    context.inferenceInfo.audio.windowEndSample += 1;
+    EXPECT_FALSE(gate.process(context));
+    source.clear(0);
+    EXPECT_FALSE(step(false));
+    source.clear(2000);
+    expectStep(false, OpSignal::AbortChain, true);
+    expectStep(true, OpSignal::AbortChain);
+    expectStep(false, OpSignal::AbortChain);
+    expectStep(false, OpSignal::Continue);
+    EXPECT_EQ(context.inferenceInfo.audio.windowStartSample, 2000u);
+    source.clear(10);
+    expectStep(true, OpSignal::AbortChain, true);
+    expectStep(false, OpSignal::AbortChain);
+    expectStep(false, OpSignal::Continue);
+    EXPECT_EQ(context.inferenceInfo.audio.windowStartSample, 10u);
+    EXPECT_EQ(context.inferenceInfo.audio.windowEndSample, 74u);
+    EXPECT_TRUE(context.inferenceInfo.audio.discontinuity);
+}
+
 TEST_F(TurnDetector, RejectsSilenceThatRoundsBeyondRetainedSpeech) {
     inference.model.inputs[0].shape = opk::Shape(1, 128000);
     opk::AttributeMap attrs;
@@ -293,9 +370,15 @@ TEST_F(TurnDetector, ValidatesConfigurationAndBinding) {
     inference.model.inputs[0].dataKind = opk::DataKind::AudioPcm;
     inference.model.inputs[0].shape = opk::Shape(2, 128);
     EXPECT_FALSE(gate.bind(1, {&vad, &gate, &inference}));
-    for (const auto *name : {"hopSampleCount", "retryMs", "maxAttempts"}) {
+    for (const auto *name :
+         {"hopSampleCount", "inputWindowSampleCount", "retryMs", "maxAttempts"}) {
         opk::AttributeMap attrs;
         attrs.set(name, int64_t{0});
+        EXPECT_FALSE(gate.configure(attrs));
+    }
+    for (const int64_t window : {15, 960001}) {
+        opk::AttributeMap attrs;
+        attrs.set("hopSampleCount", int64_t{16}).set("inputWindowSampleCount", window);
         EXPECT_FALSE(gate.configure(attrs));
     }
 }

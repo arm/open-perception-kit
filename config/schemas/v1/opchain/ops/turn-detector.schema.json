@@ -37,6 +37,12 @@
             "maximum": 960000,
             "default": 512
           },
+          "inputWindowSampleCount": {
+            "description": "Scheduled VAD window; omission uses hopSampleCount.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 960000
+          },
           "silenceMs": {
             "type": "integer",
             "minimum": 0,

@@ -2209,6 +2209,14 @@ function detectionSummary(detection) {
       meta: number(best?.confidence)
     };
   }
+  if (type === "VoiceActivityDetection" || type === "TurnDetection") {
+    const voiceActivity = type === "VoiceActivityDetection";
+    return {
+      title: voiceActivity ? data.speechActive ? "Speech active" : "Silence" : data.turnComplete ? "Turn assessment: complete" : "Turn assessment: ongoing",
+      detail: `audio samples [${data.windowStartSample}, ${data.windowEndSample})${data.discontinuity ? "; stream reset" : ""}`,
+      meta: number(voiceActivity ? data.speechProbability : data.turnProbability)
+    };
+  }
   if (type === "LocalizedText") {
     return {
       title: data.text || "Text",
@@ -7205,6 +7213,16 @@ function objectData(object) {
     creationTsNs: identifier(object?.creationTsNs)
   };
 }
+function audioData(item) {
+  return {
+    ...objectData(item.object),
+    windowStartSample: identifier(item.windowStartSample),
+    windowEndSample: identifier(item.windowEndSample),
+    windowStartTsNs: item.windowStartTsNs == null ? null : identifier(item.windowStartTsNs),
+    windowEndTsNs: item.windowEndTsNs == null ? null : identifier(item.windowEndTsNs),
+    discontinuity: Boolean(item.discontinuity)
+  };
+}
 function layerData(layer2) {
   const producer = layer2?.producer;
   return {
@@ -7346,6 +7364,22 @@ function decodeFrameResultsMessage(message) {
       }
     }))
   ], layers);
+  addPayloadLayers(envelope, VoiceActivityDetectionsT, "VoiceActivityDetections", (payload) => payload.detections.map((item) => ({
+    type: "VoiceActivityDetection",
+    data: {
+      ...audioData(item),
+      speechProbability: Number(item.speechProbability),
+      speechActive: Boolean(item.speechActive)
+    }
+  })), layers);
+  addPayloadLayers(envelope, TurnDetectionsT, "TurnDetections", (payload) => payload.detections.map((item) => ({
+    type: "TurnDetection",
+    data: {
+      ...audioData(item),
+      turnProbability: Number(item.turnProbability),
+      turnComplete: Boolean(item.turnComplete)
+    }
+  })), layers);
   addPayloadLayers(envelope, PoseEstimationsT, "PoseEstimations", (payload) => payload.poses.map((item) => ({
     type: "YawPitch",
     data: {
