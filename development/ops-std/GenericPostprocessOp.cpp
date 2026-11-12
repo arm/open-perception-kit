@@ -126,8 +126,8 @@ opk::Result<void> GenericPostprocessOp::configure(const opk::AttributeMap &attri
     return {};
 }
 
-std::vector<std::string_view> GenericPostprocessOp::getProvidedContentTypes() const {
-    return parser ? parser->getProvidedContentTypes() : std::vector<std::string_view>{};
+std::vector<opk::OutputCapability> GenericPostprocessOp::getProvidedOutputs() const {
+    return parser ? parser->getProvidedOutputs() : std::vector<opk::OutputCapability>{};
 }
 
 opk::Result<opk::op::OpSignal>

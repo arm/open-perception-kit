@@ -18,6 +18,7 @@
 #include "model_reg.h"
 
 #include "Log.h"
+#include "gst/ResultRequirementEvent.h"
 
 #include <nlohmann/json_fwd.hpp>
 
@@ -26,18 +27,10 @@ static std::string optional_string(const GstStructure *structure, const char *fi
     return value ? value : "";
 }
 
-static std::vector<std::string> content_types(const GstStructure *structure, const char *field) {
-    std::vector<std::string> result;
-    const GValue *values = gst_structure_get_value(structure, field);
-    if (values == nullptr)
-        return result;
-    if (!G_VALUE_HOLDS(values, G_TYPE_STRV))
-        return result;
-
-    if (const auto types = static_cast<const gchar *const *>(g_value_get_boxed(values));
-        types != nullptr)
-        for (const gchar *const *type = types; *type != nullptr; ++type)
-            result.emplace_back(*type);
+static nlohmann::json output_json(const std::vector<opk::OutputCapability> &outputs) {
+    auto result = nlohmann::json::array();
+    for (const auto &output : outputs)
+        result.push_back({{"payloadType", output.payloadType}, {"role", output.role}});
     return result;
 }
 
@@ -56,8 +49,8 @@ std::optional<ModelStatus> model_status_from_registration(const GstStructure *st
         .display_name = optional_string(structure, "display-name"),
         .task = optional_string(structure, "task"),
         .runtime = optional_string(structure, "runtime"),
-        .provided_content_types = content_types(structure, "provided-content-types"),
-        .required_content_types = content_types(structure, "required-content-types"),
+        .provided_outputs = opk::result_requirement_event::readList(structure, "provided-outputs"),
+        .required_outputs = opk::result_requirement_event::readList(structure, "required-outputs"),
     };
 }
 
@@ -104,8 +97,8 @@ nlohmann::json ModelRegistry::report() const {
             {"name", status.name},
             {"active", status.active},
             {"element_name", status.element_name},
-            {"providedContentTypes", status.provided_content_types},
-            {"requiredContentTypes", status.required_content_types},
+            {"providedOutputs", output_json(status.provided_outputs)},
+            {"requiredOutputs", output_json(status.required_outputs)},
         });
         if (!status.display_name.empty())
             model["displayName"] = status.display_name;

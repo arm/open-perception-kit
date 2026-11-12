@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "Conversation.h"
 #include "open_perception_kit.h"
 #include "runtime/Pipeline.h"
 
@@ -25,9 +26,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <poll.h>
+#include <set>
 #include <span>
 #include <termios.h>
 #include <unistd.h>
@@ -36,137 +39,14 @@
 
 namespace {
 
-using Vad = open_perception_kit::metadata::VoiceActivityDetectionT;
-using Turn = open_perception_kit::metadata::TurnDetectionT;
+using voice_example::Conversation;
 using Results = open_perception_kit::container::envelope;
 
-// All audio perceptions use mono 16 kHz sample positions, not wall-clock time.
-constexpr uint64_t kSilenceTimeoutSamples = 16000 * 2500 / 1000;
-constexpr unsigned kRequiredPositiveAssessments = 2;
 volatile std::sig_atomic_t interrupted = 0;
 
 void interrupt(int) {
     interrupted = 1;
 }
-
-struct Conversation {
-    bool utteranceOpen = false;
-    bool speechActive = false;
-    uint64_t lastSpeechEnd = 0;
-    std::optional<uint64_t> lastVadEnd;
-    std::optional<uint64_t> lastTurnEnd;
-    unsigned positiveAssessments = 0;
-
-    void complete(const char *const reason) {
-        // Re-arm only after new speech. The model's retries are one turn.
-        utteranceOpen = false;
-        positiveAssessments = 0;
-        // Replace the live status with a permanent event line.
-        std::printf("\r\033[2K\033[7mTURN (%s)\033[0m\n", reason);
-        std::fflush(stdout);
-    }
-
-    void showStatus() const {
-        // Redraw one line instead of filling the terminal with every VAD window.
-        std::printf("\r\033[2K\033[7m ESC \033[0m - Quit | ");
-        if (!lastVadEnd) {
-            std::printf("Waiting for audio...");
-        } else {
-            std::printf("Audio: %.1f s | ", static_cast<double>(*lastVadEnd) / 16000.0);
-            if (speechActive)
-                std::printf("Voice detected");
-            else if (utteranceOpen)
-                std::printf("Silence: %.1f s | Turn confirmation: %u/%u",
-                            static_cast<double>(*lastVadEnd - lastSpeechEnd) / 16000.0,
-                            positiveAssessments,
-                            kRequiredPositiveAssessments);
-            else
-                std::printf("Listening for speech...");
-        }
-        std::fflush(stdout);
-    }
-
-    void onVad(const Vad &vad) {
-        if (vad.window_end_sample <= vad.window_start_sample) {
-            *this = {};
-            return;
-        }
-        if (vad.discontinuity || (lastVadEnd && vad.window_start_sample > *lastVadEnd))
-            *this = {}; // Missing audio cannot count as continuous silence.
-        if (lastVadEnd && vad.window_end_sample <= *lastVadEnd)
-            return;
-
-        lastVadEnd = vad.window_end_sample;
-        speechActive = vad.speech_active;
-        if (speechActive) {
-            utteranceOpen = true;
-            lastSpeechEnd = vad.window_end_sample;
-            positiveAssessments = 0;
-            lastTurnEnd.reset();
-        } else if (utteranceOpen &&
-                   vad.window_end_sample - lastSpeechEnd >= kSilenceTimeoutSamples) {
-            complete("silence timeout");
-        }
-    }
-
-    void onTurn(const Turn &turn) {
-        if (!utteranceOpen || speechActive || !lastVadEnd ||
-            turn.window_end_sample <= turn.window_start_sample ||
-            turn.window_end_sample <= lastSpeechEnd || turn.window_end_sample > *lastVadEnd ||
-            (lastTurnEnd && turn.window_end_sample <= *lastTurnEnd))
-            return;
-
-        // SmartTurn's first assessment can carry a delayed reset marker.
-        // Reset its confirmations, while retaining speech already seen by VAD.
-        if (turn.discontinuity)
-            positiveAssessments = 0;
-        lastTurnEnd = turn.window_end_sample;
-        positiveAssessments = turn.turn_complete ? positiveAssessments + 1 : 0;
-        if (positiveAssessments >= kRequiredPositiveAssessments)
-            complete("turn detector decision");
-    }
-
-    void consume(const Results &results) {
-        // A buffer can carry several windows. Process them in audio order,
-        // with VAD before SmartTurn at the same endpoint. The pointers below
-        // remain valid while this decoded FrameResults object is alive.
-        struct Assessment {
-            uint64_t endSample;
-            const Vad *vad;
-            const Turn *turn;
-        };
-        std::vector<Assessment> assessments;
-        results.for_each<open_perception_kit::metadata::VoiceActivityDetectionsT>(
-            [&](const auto &payload) {
-                // This demo has one stream: opkinfer name=voice in the pipeline below.
-                if (!payload.layer || payload.layer->infer_element_id != "voice")
-                    return;
-                for (const auto &vad : payload.detections) {
-                    if (vad)
-                        assessments.push_back({vad->window_end_sample, vad.get(), nullptr});
-                }
-            });
-        results.for_each<open_perception_kit::metadata::TurnDetectionsT>([&](const auto &payload) {
-            if (!payload.layer || payload.layer->infer_element_id != "voice")
-                return;
-            for (const auto &turn : payload.detections) {
-                if (turn)
-                    assessments.push_back({turn->window_end_sample, nullptr, turn.get()});
-            }
-        });
-        std::stable_sort(assessments.begin(), assessments.end(), [](const auto &a, const auto &b) {
-            if (a.endSample != b.endSample)
-                return a.endSample < b.endSample;
-            return a.vad != nullptr && b.vad == nullptr;
-        });
-        for (const auto &assessment : assessments) {
-            if (assessment.vad)
-                onVad(*assessment.vad);
-            else
-                onTurn(*assessment.turn);
-        }
-    }
-};
 
 // Read ESC without Enter or keyboard echo; restore the terminal on every return.
 struct Keyboard {

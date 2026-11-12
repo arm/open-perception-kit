@@ -43,7 +43,7 @@ opk::op::OpChainDescriptor builtInStage() {
 TEST(ConfigValidator, SileroAudioPreservesOpChainVersion) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "1.9.0");
+    EXPECT_EQ(*supported, "1.10.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
@@ -287,6 +287,25 @@ TEST(ConfigValidator, OpChainValidatesPythonScriptAttributes) {
     EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
 }
 
+TEST(ConfigValidator, PythonOutputDeclarationsRequireTypedCapabilities) {
+    nlohmann::json document{
+        {"version", "1.10.0"},
+        {"name", "declared-output"},
+        {"description", "Typed Python capabilities"},
+        {"ops",
+         {{{"id", "opk-python-ops/PythonScript"},
+           {"attributes",
+            {{"script", "script.py"},
+             {"providedOutputs",
+              {{{"payloadType", "open_perception_kit.metadata.BoxDetections"},
+                {"role", "humanFace"}}}},
+             {"requiredOutputs",
+              {{{"payloadType", "open_perception_kit.metadata.VoiceActivityDetections"}}}}}}}}}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    document["ops"][0]["attributes"]["providedOutputs"][0]["payloadType"] = "humanFace";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+}
+
 TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
     opk::op::OpChainDescriptor::Op reused;
     reused.attributes.set("stale", true);
@@ -307,7 +326,7 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     const auto supportedVersion = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
-    EXPECT_EQ(*supportedVersion, "1.9.0");
+    EXPECT_EQ(*supportedVersion, "1.10.0");
 
     nlohmann::json document{
         {"version", "1.4.0"},

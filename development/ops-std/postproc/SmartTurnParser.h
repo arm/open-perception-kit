@@ -32,8 +32,9 @@ struct SmartTurnParser : public opk::TensorParser {
 
     /// @brief Reports the output content type for OpChain binding.
     /// @return A single entry containing k_content_type.
-    std::vector<std::string_view> getProvidedContentTypes() const override {
-        return {k_content_type};
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
+        return {
+            opk::outputCapability<open_perception_kit::metadata::TurnDetectionsT>(k_content_type)};
     }
 
     /// @brief Validates one probability and appends its turn-completion assessment.

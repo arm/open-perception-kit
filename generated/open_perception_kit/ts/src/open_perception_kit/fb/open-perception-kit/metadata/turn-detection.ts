@@ -46,14 +46,14 @@ object(obj?:ObjectMeta):ObjectMeta|null {
   return offset ? (obj || new ObjectMeta()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-turnProbability():number {
+turnProbability():number|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : null;
 }
 
-turnComplete():boolean {
+turnComplete():boolean|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : null;
 }
 
 windowStartSample():bigint {
@@ -90,11 +90,11 @@ static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
 }
 
 static addTurnProbability(builder:flatbuffers.Builder, turnProbability:number) {
-  builder.addFieldFloat32(1, turnProbability, 0.0);
+  builder.addFieldFloat32(1, turnProbability, null);
 }
 
 static addTurnComplete(builder:flatbuffers.Builder, turnComplete:boolean) {
-  builder.addFieldInt8(2, +turnComplete, +false);
+  builder.addFieldInt8(2, +turnComplete, null);
 }
 
 static addWindowStartSample(builder:flatbuffers.Builder, windowStartSample:bigint) {
@@ -122,11 +122,13 @@ static endTurnDetection(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createTurnDetection(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, turnProbability:number, turnComplete:boolean, windowStartSample:bigint, windowEndSample:bigint, windowStartTsNs:bigint|null, windowEndTsNs:bigint|null, discontinuity:boolean):flatbuffers.Offset {
+static createTurnDetection(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, turnProbability:number|null, turnComplete:boolean|null, windowStartSample:bigint, windowEndSample:bigint, windowStartTsNs:bigint|null, windowEndTsNs:bigint|null, discontinuity:boolean):flatbuffers.Offset {
   TurnDetection.startTurnDetection(builder);
   TurnDetection.addObject(builder, objectOffset);
-  TurnDetection.addTurnProbability(builder, turnProbability);
-  TurnDetection.addTurnComplete(builder, turnComplete);
+  if (turnProbability !== null)
+    TurnDetection.addTurnProbability(builder, turnProbability);
+  if (turnComplete !== null)
+    TurnDetection.addTurnComplete(builder, turnComplete);
   TurnDetection.addWindowStartSample(builder, windowStartSample);
   TurnDetection.addWindowEndSample(builder, windowEndSample);
   if (windowStartTsNs !== null)
@@ -166,8 +168,8 @@ unpackTo(_o: TurnDetectionT): void {
 export class TurnDetectionT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public turnProbability: number = 0.0,
-  public turnComplete: boolean = false,
+  public turnProbability: number|null = null,
+  public turnComplete: boolean|null = null,
   public windowStartSample: bigint = BigInt('0'),
   public windowEndSample: bigint = BigInt('0'),
   public windowStartTsNs: bigint|null = null,

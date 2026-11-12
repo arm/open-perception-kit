@@ -49,6 +49,7 @@ impl<'a> AudioFrameContext<'a> {
     pub const VT_ORIGINAL_SAMPLE_COUNT: flatbuffers::VOffsetT = 10;
     pub const VT_CUT_LEFT_SAMPLE_COUNT: flatbuffers::VOffsetT = 12;
     pub const VT_CUT_RIGHT_SAMPLE_COUNT: flatbuffers::VOffsetT = 14;
+    pub const VT_PRESENTATION_TS_NS: flatbuffers::VOffsetT = 16;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -60,6 +61,9 @@ impl<'a> AudioFrameContext<'a> {
         args: &'args AudioFrameContextArgs<'args>,
     ) -> flatbuffers::WIPOffset<AudioFrameContext<'bldr>> {
         let mut builder = AudioFrameContextBuilder::new(_fbb);
+        if let Some(x) = args.presentation_ts_ns {
+            builder.add_presentation_ts_ns(x);
+        }
         builder.add_cut_right_sample_count(args.cut_right_sample_count);
         builder.add_cut_left_sample_count(args.cut_left_sample_count);
         builder.add_original_sample_count(args.original_sample_count);
@@ -78,6 +82,7 @@ impl<'a> AudioFrameContext<'a> {
         let original_sample_count = self.original_sample_count();
         let cut_left_sample_count = self.cut_left_sample_count();
         let cut_right_sample_count = self.cut_right_sample_count();
+        let presentation_ts_ns = self.presentation_ts_ns();
         AudioFrameContextT {
             object,
             original_channels,
@@ -85,6 +90,7 @@ impl<'a> AudioFrameContext<'a> {
             original_sample_count,
             cut_left_sample_count,
             cut_right_sample_count,
+            presentation_ts_ns,
         }
     }
 
@@ -153,6 +159,16 @@ impl<'a> AudioFrameContext<'a> {
                 .unwrap()
         }
     }
+    #[inline]
+    pub fn presentation_ts_ns(&self) -> Option<u64> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<u64>(AudioFrameContext::VT_PRESENTATION_TS_NS, None)
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for AudioFrameContext<'_> {
@@ -185,6 +201,7 @@ impl flatbuffers::Verifiable for AudioFrameContext<'_> {
                 Self::VT_CUT_RIGHT_SAMPLE_COUNT,
                 false,
             )?
+            .visit_field::<u64>("presentation_ts_ns", Self::VT_PRESENTATION_TS_NS, false)?
             .finish();
         Ok(())
     }
@@ -196,6 +213,7 @@ pub struct AudioFrameContextArgs<'a> {
     pub original_sample_count: u64,
     pub cut_left_sample_count: u64,
     pub cut_right_sample_count: u64,
+    pub presentation_ts_ns: Option<u64>,
 }
 impl<'a> Default for AudioFrameContextArgs<'a> {
     #[inline]
@@ -207,6 +225,7 @@ impl<'a> Default for AudioFrameContextArgs<'a> {
             original_sample_count: 0,
             cut_left_sample_count: 0,
             cut_right_sample_count: 0,
+            presentation_ts_ns: None,
         }
     }
 }
@@ -265,6 +284,11 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> AudioFrameContextBuilder<'a, 'b
         );
     }
     #[inline]
+    pub fn add_presentation_ts_ns(&mut self, presentation_ts_ns: u64) {
+        self.fbb_
+            .push_slot_always::<u64>(AudioFrameContext::VT_PRESENTATION_TS_NS, presentation_ts_ns);
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> AudioFrameContextBuilder<'a, 'b, A> {
@@ -290,6 +314,7 @@ impl core::fmt::Debug for AudioFrameContext<'_> {
         ds.field("original_sample_count", &self.original_sample_count());
         ds.field("cut_left_sample_count", &self.cut_left_sample_count());
         ds.field("cut_right_sample_count", &self.cut_right_sample_count());
+        ds.field("presentation_ts_ns", &self.presentation_ts_ns());
         ds.finish()
     }
 }
@@ -302,6 +327,7 @@ pub struct AudioFrameContextT {
     pub original_sample_count: u64,
     pub cut_left_sample_count: u64,
     pub cut_right_sample_count: u64,
+    pub presentation_ts_ns: Option<u64>,
 }
 impl Default for AudioFrameContextT {
     fn default() -> Self {
@@ -312,6 +338,7 @@ impl Default for AudioFrameContextT {
             original_sample_count: 0,
             cut_left_sample_count: 0,
             cut_right_sample_count: 0,
+            presentation_ts_ns: None,
         }
     }
 }
@@ -326,6 +353,7 @@ impl AudioFrameContextT {
         let original_sample_count = self.original_sample_count;
         let cut_left_sample_count = self.cut_left_sample_count;
         let cut_right_sample_count = self.cut_right_sample_count;
+        let presentation_ts_ns = self.presentation_ts_ns;
         AudioFrameContext::create(
             _fbb,
             &AudioFrameContextArgs {
@@ -335,6 +363,7 @@ impl AudioFrameContextT {
                 original_sample_count,
                 cut_left_sample_count,
                 cut_right_sample_count,
+                presentation_ts_ns,
             },
         )
     }

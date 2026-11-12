@@ -30,7 +30,7 @@ namespace opk::stdop::postproc {
  * Used to investigate network output before implementing a real parser.
  */
 struct DummyParser : public opk::TensorParser {
-    std::vector<std::string_view> getProvidedContentTypes() const override {
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
         return {};
     }
 

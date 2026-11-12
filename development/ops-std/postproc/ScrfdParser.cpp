@@ -373,9 +373,7 @@ opk::stdop::postproc::ScrfdParser::parse(const opk::TensorParser::Input &input,
     for (auto &detection : detections) {
         payload.detections.push_back(std::make_unique<FaceDetection>(std::move(detection)));
     }
-    if (!payload.detections.empty()) {
-        results.add(std::move(payload));
-    }
+    results.add(std::move(payload));
 
     return {};
 }

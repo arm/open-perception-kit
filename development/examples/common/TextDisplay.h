@@ -25,6 +25,10 @@
 class TextDisplay {
   public:
     static void appendLines(std::vector<std::string> &lines,
+                            const open_perception_kit::metadata::VoiceActivityDetectionsT &payload);
+    static void appendLines(std::vector<std::string> &lines,
+                            const open_perception_kit::metadata::TurnDetectionsT &payload);
+    static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::FrameContextT &payload);
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::BoxDetectionsT &payload);

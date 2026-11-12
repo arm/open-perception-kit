@@ -30,7 +30,9 @@ namespace opk::python {
 
 class LoadedScript;
 
-class PythonScriptOp final : public opk::op::Op {
+class PythonScriptOp final : public opk::op::Op,
+                             public opk::op::OpInterfacePostprocessor,
+                             public opk::op::OpInterfaceResultConsumer {
   public:
     PythonScriptOp();
     ~PythonScriptOp() override;
@@ -38,11 +40,19 @@ class PythonScriptOp final : public opk::op::Op {
     opk::Result<void> configure(const opk::AttributeMap &attributes) override;
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
     opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &context) override;
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
+        return providedOutputs;
+    }
+    std::vector<opk::OutputCapability> getRequiredOutputs() const override {
+        return requiredOutputs;
+    }
 
   private:
     std::filesystem::path scriptPath;
     std::unique_ptr<LoadedScript> loadedScript;
     const opk::Model *model = nullptr;
+    std::vector<opk::OutputCapability> providedOutputs;
+    std::vector<opk::OutputCapability> requiredOutputs;
 };
 
 } // namespace opk::python

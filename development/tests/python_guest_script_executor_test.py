@@ -100,6 +100,36 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
             self.assertIn("must define callable process(env)", result.stderr)
             self.assertFalse(output.exists())
 
+    def test_audio_zero_false_and_unavailable_cross_the_live_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            imports = """
+                from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetection import VoiceActivityDetectionT
+                from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
+                from open_perception_kit.fb.open_perception_kit.metadata.TurnDetection import TurnDetectionT
+                from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
+            """
+            seed = self.write_script(directory, "seed_audio.py", textwrap.dedent(imports) + """
+def process(env):
+    env.add(VoiceActivityDetectionsT(detections=[VoiceActivityDetectionT(windowEndSample=512),
+        VoiceActivityDetectionT(speechProbability=0, speechActive=False, windowEndSample=512, windowStartTsNs=0, windowEndTsNs=32000000)]))
+    env.add(TurnDetectionsT(detections=[TurnDetectionT(windowEndSample=512),
+        TurnDetectionT(turnProbability=0, turnComplete=False, windowEndSample=512)]))
+""")
+            inspect = self.write_script(directory, "inspect_audio.py", textwrap.dedent(imports) + """
+def process(env):
+    vad = env.get(VoiceActivityDetectionsT).detections
+    assert vad[0].speechProbability is None and vad[0].speechActive is None
+    assert vad[1].speechProbability == 0 and vad[1].speechActive is False
+    assert vad[1].windowStartTsNs == 0 and vad[1].windowEndTsNs == 32000000
+    turns = env.get(TurnDetectionsT).detections
+    assert turns[0].turnProbability is None and turns[0].turnComplete is None
+    assert turns[1].turnProbability == 0 and turns[1].turnComplete is False
+""")
+            output = directory / OUTPUT_FILENAME
+            result = self.run_executor(output, seed, inspect)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_tracking_identity_samples_and_trace_history_cross_the_live_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)

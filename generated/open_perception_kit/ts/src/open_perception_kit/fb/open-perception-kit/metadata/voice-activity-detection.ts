@@ -46,14 +46,14 @@ object(obj?:ObjectMeta):ObjectMeta|null {
   return offset ? (obj || new ObjectMeta()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
-speechProbability():number {
+speechProbability():number|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : null;
 }
 
-speechActive():boolean {
+speechActive():boolean|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : null;
 }
 
 windowStartSample():bigint {
@@ -90,11 +90,11 @@ static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
 }
 
 static addSpeechProbability(builder:flatbuffers.Builder, speechProbability:number) {
-  builder.addFieldFloat32(1, speechProbability, 0.0);
+  builder.addFieldFloat32(1, speechProbability, null);
 }
 
 static addSpeechActive(builder:flatbuffers.Builder, speechActive:boolean) {
-  builder.addFieldInt8(2, +speechActive, +false);
+  builder.addFieldInt8(2, +speechActive, null);
 }
 
 static addWindowStartSample(builder:flatbuffers.Builder, windowStartSample:bigint) {
@@ -122,11 +122,13 @@ static endVoiceActivityDetection(builder:flatbuffers.Builder):flatbuffers.Offset
   return offset;
 }
 
-static createVoiceActivityDetection(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, speechProbability:number, speechActive:boolean, windowStartSample:bigint, windowEndSample:bigint, windowStartTsNs:bigint|null, windowEndTsNs:bigint|null, discontinuity:boolean):flatbuffers.Offset {
+static createVoiceActivityDetection(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, speechProbability:number|null, speechActive:boolean|null, windowStartSample:bigint, windowEndSample:bigint, windowStartTsNs:bigint|null, windowEndTsNs:bigint|null, discontinuity:boolean):flatbuffers.Offset {
   VoiceActivityDetection.startVoiceActivityDetection(builder);
   VoiceActivityDetection.addObject(builder, objectOffset);
-  VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
-  VoiceActivityDetection.addSpeechActive(builder, speechActive);
+  if (speechProbability !== null)
+    VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
+  if (speechActive !== null)
+    VoiceActivityDetection.addSpeechActive(builder, speechActive);
   VoiceActivityDetection.addWindowStartSample(builder, windowStartSample);
   VoiceActivityDetection.addWindowEndSample(builder, windowEndSample);
   if (windowStartTsNs !== null)
@@ -166,8 +168,8 @@ unpackTo(_o: VoiceActivityDetectionT): void {
 export class VoiceActivityDetectionT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public speechProbability: number = 0.0,
-  public speechActive: boolean = false,
+  public speechProbability: number|null = null,
+  public speechActive: boolean|null = null,
   public windowStartSample: bigint = BigInt('0'),
   public windowEndSample: bigint = BigInt('0'),
   public windowStartTsNs: bigint|null = null,

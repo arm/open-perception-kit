@@ -44,8 +44,8 @@ struct TurnDetectionsT;
 struct TurnDetectionT : public ::flatbuffers::NativeTable {
     typedef TurnDetection TableType;
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
-    float turn_probability = 0.0f;
-    bool turn_complete = false;
+    ::flatbuffers::Optional<float> turn_probability = ::flatbuffers::nullopt;
+    ::flatbuffers::Optional<bool> turn_complete = ::flatbuffers::nullopt;
     uint64_t window_start_sample = 0;
     uint64_t window_end_sample = 0;
     ::flatbuffers::Optional<uint64_t> window_start_ts_ns = ::flatbuffers::nullopt;
@@ -73,11 +73,11 @@ struct TurnDetection FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
     }
-    float turn_probability() const {
-        return GetField<float>(VT_TURN_PROBABILITY, 0.0f);
+    ::flatbuffers::Optional<float> turn_probability() const {
+        return GetOptional<float, float>(VT_TURN_PROBABILITY);
     }
-    bool turn_complete() const {
-        return GetField<uint8_t>(VT_TURN_COMPLETE, 0) != 0;
+    ::flatbuffers::Optional<bool> turn_complete() const {
+        return GetOptional<uint8_t, bool>(VT_TURN_COMPLETE);
     }
     uint64_t window_start_sample() const {
         return GetField<uint64_t>(VT_WINDOW_START_SAMPLE, 0);
@@ -122,11 +122,11 @@ struct TurnDetectionBuilder {
         fbb_.AddOffset(TurnDetection::VT_OBJECT, object);
     }
     void add_turn_probability(float turn_probability) {
-        fbb_.AddElement<float>(TurnDetection::VT_TURN_PROBABILITY, turn_probability, 0.0f);
+        fbb_.AddElement<float>(TurnDetection::VT_TURN_PROBABILITY, turn_probability);
     }
     void add_turn_complete(bool turn_complete) {
-        fbb_.AddElement<uint8_t>(
-            TurnDetection::VT_TURN_COMPLETE, static_cast<uint8_t>(turn_complete), 0);
+        fbb_.AddElement<uint8_t>(TurnDetection::VT_TURN_COMPLETE,
+                                 static_cast<uint8_t>(turn_complete));
     }
     void add_window_start_sample(uint64_t window_start_sample) {
         fbb_.AddElement<uint64_t>(TurnDetection::VT_WINDOW_START_SAMPLE, window_start_sample, 0);
@@ -157,8 +157,8 @@ struct TurnDetectionBuilder {
 inline ::flatbuffers::Offset<TurnDetection>
 CreateTurnDetection(::flatbuffers::FlatBufferBuilder &_fbb,
                     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                    float turn_probability = 0.0f,
-                    bool turn_complete = false,
+                    ::flatbuffers::Optional<float> turn_probability = ::flatbuffers::nullopt,
+                    ::flatbuffers::Optional<bool> turn_complete = ::flatbuffers::nullopt,
                     uint64_t window_start_sample = 0,
                     uint64_t window_end_sample = 0,
                     ::flatbuffers::Optional<uint64_t> window_start_ts_ns = ::flatbuffers::nullopt,
@@ -173,10 +173,14 @@ CreateTurnDetection(::flatbuffers::FlatBufferBuilder &_fbb,
     }
     builder_.add_window_end_sample(window_end_sample);
     builder_.add_window_start_sample(window_start_sample);
-    builder_.add_turn_probability(turn_probability);
+    if (turn_probability) {
+        builder_.add_turn_probability(*turn_probability);
+    }
     builder_.add_object(object);
     builder_.add_discontinuity(discontinuity);
-    builder_.add_turn_complete(turn_complete);
+    if (turn_complete) {
+        builder_.add_turn_complete(*turn_complete);
+    }
     return builder_.Finish();
 }
 

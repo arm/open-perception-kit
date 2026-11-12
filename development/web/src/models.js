@@ -52,15 +52,16 @@ function readableText(value) {
     return String(value ?? '').trim();
 }
 
-function contentTypes(value) {
-    return Array.isArray(value) ? value.map(readableText).filter(Boolean) : [];
+function outputs(value) {
+    return Array.isArray(value) ? value.filter(item => typeof item?.payloadType === 'string' && item.payloadType.length > 0 && typeof item.role === 'string') : [];
 }
 
 function dependencyProviderTasks(model, models) {
-    const required = new Set(contentTypes(model.requiredContentTypes));
+    const required = outputs(model.requiredOutputs);
     return [...new Set(models
         .filter((candidate) => candidate !== model &&
-            contentTypes(candidate.providedContentTypes).some((type) => required.has(type)))
+            outputs(candidate.providedOutputs).some(output => required.some(input =>
+                output.payloadType === input.payloadType && (!input.role || output.role === input.role))))
         .map((candidate) => readableText(candidate.task) || readableText(candidate.name))
         .filter(Boolean))];
 }
@@ -100,8 +101,8 @@ class ModelsManager {
             displayName: model.displayName || '',
             task: model.task || '',
             runtime: model.runtime || '',
-            providedContentTypes: contentTypes(model.providedContentTypes),
-            requiredContentTypes: contentTypes(model.requiredContentTypes),
+            providedOutputs: outputs(model.providedOutputs),
+            requiredOutputs: outputs(model.requiredOutputs),
         })));
         if (nextSignature === this._lastModelsSignature) {
             return;
@@ -153,13 +154,13 @@ class ModelsManager {
             modelCopy.appendChild(modelDetails);
         }
 
-        const requiredContentTypes = contentTypes(model.requiredContentTypes);
+        const requiredOutputs = outputs(model.requiredOutputs);
         modelInfo.appendChild(modelCopy);
 
         const modelActions = document.createElement('div');
         modelActions.className = 'model-actions';
 
-        if (requiredContentTypes.length > 0) {
+        if (requiredOutputs.length > 0) {
             const providerTasks = dependencyProviderTasks(model, models);
             const accessibleProviders = providerTasks.length > 0
                 ? providerTasks.join(', ')

@@ -39,9 +39,9 @@
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
-#include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
 #include "gst/PropertyGuard.h"
+#include "gst/ResultRequirementEvent.h"
 #include "gst/Tools.h"
 #include "mediaio/GstAudioFrame.h"
 #include "mediaio/GstVideoFrame.h"
@@ -157,51 +157,35 @@ static std::shared_ptr<GstOpkInferMembers> gst_opkinfer_get_members(GstOpkInfer 
     return self->runtimeMembers;
 }
 
-static void gst_opkinfer_emit_content_requirements(GstOpkInfer *self) {
+static void gst_opkinfer_emit_result_requirements(GstOpkInfer *self) {
     if (!g_atomic_int_get(&self->autoActivateDependencies))
         return;
     const auto members = gst_opkinfer_get_members(self);
     if (members == nullptr)
         return;
 
-    for (const auto contentType : members->opChain.getRequiredContentTypes()) {
-        const std::string contentTypeString(contentType);
-        GstStructure *structure =
-            gst_structure_new(opk::content_requirement_event::k_name.data(),
-                              opk::content_requirement_event::k_content_type_field.data(),
-                              G_TYPE_STRING,
-                              contentTypeString.c_str(),
-                              nullptr);
+    for (const auto &required : members->opChain.getRequiredOutputs()) {
+        GstStructure *structure = opk::result_requirement_event::structure(
+            opk::result_requirement_event::k_name, required);
         gst_pad_push_event(GST_BASE_TRANSFORM_SINK_PAD(self),
                            gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure));
     }
 }
 
-static bool gst_opkinfer_provides_content_type(GstOpkInfer *self, std::string_view contentType) {
+static bool gst_opkinfer_provides_result(GstOpkInfer *self, const opk::OutputCapability &required) {
     const auto members = gst_opkinfer_get_members(self);
     if (members == nullptr)
         return false;
-    const auto providedContentTypes = members->opChain.getProvidedContentTypes();
-    return std::ranges::find(providedContentTypes, contentType) != providedContentTypes.end();
+    const auto outputs = members->opChain.getProvidedOutputs();
+    return std::ranges::any_of(outputs,
+                               [&](const auto &output) { return opk::provides(output, required); });
 }
 
-static void gst_opkinfer_activate_for_content_requirement(GstOpkInfer *self) {
+static void gst_opkinfer_activate_for_result_requirement(GstOpkInfer *self) {
     if (gst_opkinfer_is_active(self))
-        gst_opkinfer_emit_content_requirements(self);
+        gst_opkinfer_emit_result_requirements(self);
     else
         g_object_set(self, "active", TRUE, nullptr);
-}
-
-static void gst_opkinfer_set_content_types(GstStructure *structure,
-                                           std::string_view field,
-                                           const std::vector<std::string_view> &contentTypes) {
-    std::vector<std::string> strings(contentTypes.begin(), contentTypes.end());
-    std::vector<const gchar *> values;
-    values.reserve(strings.size() + 1);
-    for (const auto &contentType : strings)
-        values.push_back(contentType.c_str());
-    values.push_back(nullptr);
-    gst_structure_set(structure, field.data(), G_TYPE_STRV, values.data(), nullptr);
 }
 
 static void gst_opkinfer_push_model_registration(GstOpkInfer *self) {
@@ -239,10 +223,10 @@ static void gst_opkinfer_push_model_registration(GstOpkInfer *self) {
         gst_structure_set(
             structure, "runtime", G_TYPE_STRING, members->opChain.getRuntime().c_str(), nullptr);
     }
-    gst_opkinfer_set_content_types(
-        structure, "provided-content-types", members->opChain.getProvidedContentTypes());
-    gst_opkinfer_set_content_types(
-        structure, "required-content-types", members->opChain.getRequiredContentTypes());
+    opk::result_requirement_event::writeList(
+        structure, "provided-outputs", members->opChain.getProvidedOutputs());
+    opk::result_requirement_event::writeList(
+        structure, "required-outputs", members->opChain.getRequiredOutputs());
     gst_pad_push_event(sourcePad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure));
     gst_object_unref(sourcePad);
 }
@@ -343,7 +327,7 @@ static GstStateChangeReturn gst_opkinfer_change_state(GstElement *selfInParentTy
         GST_ELEMENT_CLASS(gst_opkinfer_parent_class)->change_state(selfInParentType, transition);
     if (result != GST_STATE_CHANGE_FAILURE && transition == GST_STATE_CHANGE_PAUSED_TO_PLAYING &&
         gst_opkinfer_is_active(GST_OPKINFER(selfInParentType))) {
-        gst_opkinfer_emit_content_requirements(GST_OPKINFER(selfInParentType));
+        gst_opkinfer_emit_result_requirements(GST_OPKINFER(selfInParentType));
     }
     return result;
 }
@@ -446,11 +430,10 @@ static gboolean gst_opkinfer_src_event(GstBaseTransform *selfInParentType, GstEv
     if (eventType == GST_EVENT_CUSTOM_UPSTREAM) {
         const GstStructure *structure = gst_event_get_structure(event);
         if (structure != nullptr &&
-            gst_structure_has_name(structure, opk::content_requirement_event::k_name.data())) {
-            const gchar *contentType = gst_structure_get_string(
-                structure, opk::content_requirement_event::k_content_type_field.data());
-            if (contentType != nullptr && gst_opkinfer_provides_content_type(self, contentType))
-                gst_opkinfer_activate_for_content_requirement(self);
+            gst_structure_has_name(structure, opk::result_requirement_event::k_name)) {
+            const auto required = opk::result_requirement_event::read(structure);
+            if (required && gst_opkinfer_provides_result(self, *required))
+                gst_opkinfer_activate_for_result_requirement(self);
         }
     }
 
@@ -521,7 +504,7 @@ static gboolean gst_opkinfer_sink_event(GstBaseTransform *selfInParentType, GstE
             members->inputIsLive.reset();
         }
         if (gst_opkinfer_is_active(GST_OPKINFER(selfInParentType)))
-            gst_opkinfer_emit_content_requirements(GST_OPKINFER(selfInParentType));
+            gst_opkinfer_emit_result_requirements(GST_OPKINFER(selfInParentType));
         break;
     case GST_EVENT_SEGMENT:
     case GST_EVENT_GAP:
@@ -757,6 +740,30 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
                                         std::make_shared<open_perception_kit::FrameResults>()))
             return GST_FLOW_ERROR;
     }
+    // Source context describes this original buffer, not a model window that may
+    // span several buffers. It remains useful when no complete window ran yet.
+    const auto sourceContext =
+        opk::FrameResultsMeta::mutate<GstFlowReturn>(buffer, [&](auto &results) {
+            open_perception_kit::metadata::FrameContextT payload;
+            const auto producer = open_perception_kit::makeProducerInfo(
+                GST_OBJECT_NAME(self), "gstreamer/opkinfer", "audio-source");
+            payload.layer = open_perception_kit::makeLayerInfo(
+                {.inferElementId = gst_opkinfer_get_effective_inferId(self),
+                 .contentType = "frameContext",
+                 .producer = producer.get()});
+            payload.audio = std::make_unique<open_perception_kit::metadata::AudioFrameContextT>();
+            payload.audio->object = open_perception_kit::makeObjectMeta();
+            payload.audio->original_channels = GST_AUDIO_INFO_CHANNELS(&self->audioInfo);
+            payload.audio->original_frequency = sampleRate;
+            payload.audio->original_sample_count = sourceFrames;
+            if (GST_BUFFER_PTS_IS_VALID(buffer))
+                payload.audio->presentation_ts_ns = GST_BUFFER_PTS(buffer);
+            results.add(std::move(payload));
+            return GST_FLOW_OK;
+        });
+    if (!std::holds_alternative<GstFlowReturn>(sourceContext) ||
+        std::get<GstFlowReturn>(sourceContext) != GST_FLOW_OK)
+        return GST_FLOW_ERROR;
     // Consume complete windows in order, including multiple windows from one input buffer.
     // Audio scheduling deliberately bypasses the video QoS frame-dropping policy.
     while (pcmBuffer.endPosition() - members.nextAudioPosition >= members.audioWindowSamples) {
@@ -951,7 +958,7 @@ static void gst_opkinfer_set_property(GObject *selfInParentType,
         if (activeChanged)
             gst_opkinfer_push_model_registration(self);
         if (emitContentRequirements)
-            gst_opkinfer_emit_content_requirements(self);
+            gst_opkinfer_emit_result_requirements(self);
         break;
     }
     case PROP_INFER_ID:

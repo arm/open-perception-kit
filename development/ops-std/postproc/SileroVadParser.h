@@ -25,8 +25,9 @@ namespace opk::stdop::postproc {
 /// Attack/release durations use 16 kHz audio sample counts, never wall time.
 struct SileroVadParser : public opk::TensorParser {
     static constexpr std::string_view k_content_type = "voiceActivity";
-    std::vector<std::string_view> getProvidedContentTypes() const override {
-        return {k_content_type};
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
+        return {opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>(
+            k_content_type)};
     }
     opk::Result<void> parse(const opk::TensorParser::Input &input,
                             open_perception_kit::FrameResults &results) override;

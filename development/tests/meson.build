@@ -86,6 +86,13 @@ metadata_text_display_tests = executable(
 )
 test('metadata_text_display_tests', metadata_text_display_tests)
 
+voice_conversation_tests = executable(
+  'voice_conversation_tests', ['voice_conversation_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, open_perception_kit_dep],
+)
+test('voice_conversation_tests', voice_conversation_tests)
+
 gst_meta_wrapper_tests = executable(
   'gst_meta_wrapper_tests',
   ['gst_meta_wrapper_test.cpp'],
@@ -127,9 +134,9 @@ opk_menu_discover_tests = executable(
   link_with : [common],
 )
 
-standard_content_type_tests = executable(
-  'standard_content_type_tests',
-  ['standard_content_type_test.cpp'],
+output_capability_tests = executable(
+  'output_capability_tests',
+  ['output_capability_test.cpp'],
   include_directories : [common_include],
   cpp_args : ['-DOPK_STDOPS_PATH="' + stdops.full_path() + '"'],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
@@ -514,7 +521,7 @@ test(
 )
 test('opchain_descriptor_tests', opchain_descriptor_tests)
 test('opk_menu_discover_tests', opk_menu_discover_tests)
-test('standard_content_type_tests', standard_content_type_tests, depends : stdops)
+test('output_capability_tests', output_capability_tests, depends : stdops)
 if python_ops_enabled
   test('python_script_op_tests', python_script_op_tests)
   test(
@@ -874,6 +881,15 @@ test(
   gst_python,
   args : [files('audio_window_pipeline_test.py'), audio_window_op.full_path(), gstopkinfer.full_path()],
   depends : [gstopkinfer, audio_window_op],
+)
+
+test(
+  'audio_metadata_pipeline_tests',
+  python,
+  args : [files('audio_metadata_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+  env : python_guest_script_test_env,
+  depends : [audio_window_op, gstopkinfer, opkcomm],
+  timeout : 60,
 )
 
 silero_vad_parser_tests = executable(

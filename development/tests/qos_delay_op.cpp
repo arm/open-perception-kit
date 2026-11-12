@@ -47,7 +47,7 @@ void releaseHandle(DelayOpHandle *handle) {
 // frame become stale, exercising opkinfer's proactive skip policy without loading a model.
 class DelayOp final : public opk::op::Op,
                       public opk::op::OpInterfacePostprocessor,
-                      public opk::op::OpInterfaceContentConsumer {
+                      public opk::op::OpInterfaceResultConsumer {
   public:
     ~DelayOp() override {
         if (handle_ != nullptr) {
@@ -58,8 +58,10 @@ class DelayOp final : public opk::op::Op,
     }
 
     opk::Result<void> configure(const opk::AttributeMap &attributes) override {
-        providedContentType_ = attributes.getStringOrDefault("provided-content-type", "");
-        requiredContentType_ = attributes.getStringOrDefault("required-content-type", "");
+        provided_ = {attributes.getStringOrDefault("provided-payload-type", ""),
+                     attributes.getStringOrDefault("provided-role", "")};
+        required_ = {attributes.getStringOrDefault("required-payload-type", ""),
+                     attributes.getStringOrDefault("required-role", "")};
         if (attributes.contains("control-handle")) {
             handle_ = reinterpret_cast<DelayOpHandle *>(
                 static_cast<std::uintptr_t>(attributes.getInt("control-handle")));
@@ -89,14 +91,14 @@ class DelayOp final : public opk::op::Op,
         return opk::op::OpSignal::Continue;
     }
 
-    std::vector<std::string_view> getProvidedContentTypes() const override {
-        return providedContentType_.empty() ? std::vector<std::string_view>{}
-                                            : std::vector<std::string_view>{providedContentType_};
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
+        return provided_.payloadType.empty() ? std::vector<opk::OutputCapability>{}
+                                             : std::vector<opk::OutputCapability>{provided_};
     }
 
-    std::vector<std::string_view> getRequiredContentTypes() const override {
-        return requiredContentType_.empty() ? std::vector<std::string_view>{}
-                                            : std::vector<std::string_view>{requiredContentType_};
+    std::vector<opk::OutputCapability> getRequiredOutputs() const override {
+        return required_.payloadType.empty() ? std::vector<opk::OutputCapability>{}
+                                             : std::vector<opk::OutputCapability>{required_};
     }
 
     void setDelay(std::uint64_t milliseconds) {
@@ -124,8 +126,8 @@ class DelayOp final : public opk::op::Op,
     }
 
   private:
-    std::string providedContentType_;
-    std::string requiredContentType_;
+    opk::OutputCapability provided_;
+    opk::OutputCapability required_;
     DelayOpHandle *handle_ = nullptr;
     std::atomic<std::uint64_t> delayMilliseconds_{50};
     std::mutex gateMutex_;

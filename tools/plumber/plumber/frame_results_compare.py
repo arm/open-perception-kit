@@ -83,6 +83,10 @@ def _item_parent(
         return item if item.get("data", {}).get("spatialValid") else None
     if item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):
         return item.get("subject")
+    if item.get("item_type") in ("VoiceActivityDetection", "TurnDetection"):
+        # Audio comparisons use producer-scoped window bounds and measurements.
+        # A derivation parent may belong to an earlier buffer and need not be retained.
+        return item
     parent_id = item.get("data", {}).get("parentId", 0)
     if parent_id == 0:
         return item
@@ -217,6 +221,8 @@ def _compare_payload_snapshot(
 
 
 def compare_frame_results_frame(args, gt_frame: FrameResultsFrame, out_frame: FrameResultsFrame) -> Tuple[bool, str]:
+    if not gt_frame.frame_results.valid() or not out_frame.frame_results.valid():
+        return False, "invalid FrameResults envelope"
     if args.verbose:
         print(
             "====================== comparing frame: "
@@ -225,6 +231,8 @@ def compare_frame_results_frame(args, gt_frame: FrameResultsFrame, out_frame: Fr
 
     gt_snapshot = normalize_frame_results(gt_frame.frame_results, gt_frame.frame_counter)
     out_snapshot = normalize_frame_results(out_frame.frame_results, out_frame.frame_counter)
+    if gt_snapshot.unhandled_payloads or out_snapshot.unhandled_payloads:
+        return False, "unsupported or malformed payload entries cannot establish a comparison"
 
     gt_keys = set(gt_snapshot.payloads.keys())
     out_keys = set(out_snapshot.payloads.keys())
