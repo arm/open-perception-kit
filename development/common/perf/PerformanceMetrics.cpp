@@ -436,13 +436,17 @@ using ScopeNameHierarchy = std::vector<std::string_view>;
 
 bool buildScopeNameHierarchy(const PerformanceMetrics::Snapshot &snapshot,
                              const PerformanceMetrics::MetricRecord &metric,
-                             ScopeNameHierarchy &scopeNameHierarchy) {
+                             ScopeNameHierarchy &scopeNameHierarchy,
+                             bool &completeNames) {
     scopeNameHierarchy.clear();
+    completeNames = true;
     const auto *currentHierarchyMetric = &metric;
 
     for (std::size_t hierarchyDepth = 0; hierarchyDepth <= snapshot.metrics.size();
          ++hierarchyDepth) {
         scopeNameHierarchy.push_back(currentHierarchyMetric->getName());
+        completeNames = completeNames && !currentHierarchyMetric->nameTruncated &&
+                        !currentHierarchyMetric->getName().empty();
         if (currentHierarchyMetric->parentId == PerformanceMetrics::InvalidMetricId) {
             std::ranges::reverse(scopeNameHierarchy);
             return true;
@@ -466,8 +470,10 @@ calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartS
     std::map<ScopeNameHierarchy, const PerformanceMetrics::MetricRecord *>
         intervalStartMetricsByScopeHierarchy;
     ScopeNameHierarchy scopeNameHierarchy;
+    bool completeNames;
     for (const auto &metric : intervalStartSnapshot.metrics) {
-        if (buildScopeNameHierarchy(intervalStartSnapshot, metric, scopeNameHierarchy)) {
+        if (buildScopeNameHierarchy(
+                intervalStartSnapshot, metric, scopeNameHierarchy, completeNames)) {
             intervalStartMetricsByScopeHierarchy.try_emplace(scopeNameHierarchy, &metric);
         }
     }
@@ -475,7 +481,8 @@ calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartS
     std::vector<ScopeIntervalMetrics> scopeIntervalMetrics;
     scopeIntervalMetrics.reserve(intervalEndSnapshot.metrics.size());
     for (const auto &metric : intervalEndSnapshot.metrics) {
-        if (!buildScopeNameHierarchy(intervalEndSnapshot, metric, scopeNameHierarchy)) {
+        if (!buildScopeNameHierarchy(
+                intervalEndSnapshot, metric, scopeNameHierarchy, completeNames)) {
             continue;
         }
 
@@ -495,10 +502,18 @@ calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartS
 
         const auto completedScopeCount = metric.count - intervalStartCount;
         const auto totalDurationNs = metric.totalNs - intervalStartTotalNs;
+        std::string scopeId;
+        if (completeNames) {
+            for (const auto name : scopeNameHierarchy) {
+                scopeId += std::to_string(name.size()) + ":";
+                scopeId += name;
+            }
+        }
         scopeIntervalMetrics.emplace_back(std::string(metric.getName()),
                                           completedScopeCount,
                                           totalDurationNs,
-                                          totalDurationNs / completedScopeCount);
+                                          totalDurationNs / completedScopeCount,
+                                          std::move(scopeId));
     }
     return scopeIntervalMetrics;
 }

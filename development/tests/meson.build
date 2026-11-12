@@ -591,6 +591,14 @@ test(
   depends : logging_environment_probe,
 )
 test('performance_metrics_tests', performance_metrics_tests)
+test(
+  'performance_pipeline_tests',
+  python,
+  args : [files('performance_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+  env : python_guest_script_test_env,
+  depends : [gstopkperformance, opkcomm],
+  timeout : 60,
+)
 test('opktracker_matching_tests', opktracker_matching_tests)
 test('opktracker_tracking_output_tests', opktracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)

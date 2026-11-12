@@ -103,7 +103,7 @@ The currently generated payload roots are:
 - `ObjectEmbeddings` for embedding vectors
 - `ObjectTracks` for tracker output and predicted detections
 - `TrackTraces` for tracker history points
-- `PerformanceOverlay` for displayable performance lines
+- `PerformanceMeasurements` for numeric scope timings and pipeline frame rate
 
 Each payload family has a stable identity derived from its fully qualified root
 name. Compatible field additions preserve that identity. Consumers accept matching

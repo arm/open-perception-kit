@@ -242,6 +242,49 @@ TEST(PerformanceMetrics, DefaultRecorderReturnsSingleton) {
     EXPECT_EQ(&opk::perf::defaultPerformanceMetrics(), &opk::perf::defaultPerformanceMetrics());
 }
 
+TEST(PerformanceMetrics, IntervalIdentityUsesCompleteUnambiguousNamePaths) {
+    const std::array<std::array<std::string_view, 2>, 4> paths = {
+        {{"chain-A", "model"}, {"chain-B", "model"}, {"A/B", "C"}, {"A", "B/C"}}};
+    const auto snapshot = [&paths](const bool reversed) {
+        PerformanceMetrics::Snapshot result;
+        for (std::size_t offset = 0; offset < paths.size(); ++offset) {
+            const auto index = reversed ? paths.size() - 1 - offset : offset;
+            const auto parent = result.metrics.size();
+            for (std::size_t depth = 0; depth < 2; ++depth) {
+                auto &metric = result.metrics.emplace_back();
+                metric.id = result.metrics.size() - 1;
+                metric.parentId = depth == 0 ? PerformanceMetrics::InvalidMetricId : parent;
+                std::ranges::copy(paths[index][depth], metric.name.begin());
+                metric.count = 1;
+                metric.totalNs = (index + 1) * 10000000;
+            }
+        }
+        return result;
+    };
+    const auto first = opk::perf::calculateScopeIntervalMetrics({}, snapshot(false));
+    const auto reordered = opk::perf::calculateScopeIntervalMetrics({}, snapshot(true));
+    ASSERT_EQ(first.size(), 8U);
+    EXPECT_EQ(first[1].name, first[3].name);
+    EXPECT_NE(first[1].scopeId, first[3].scopeId);
+    EXPECT_NE(first[5].scopeId, first[7].scopeId); // Slash-joined paths would collide.
+    for (const auto &metric : first) {
+        EXPECT_FALSE(metric.scopeId.empty());
+        const auto matching =
+            std::ranges::find(reordered, metric.scopeId, &opk::perf::ScopeIntervalMetrics::scopeId);
+        ASSERT_NE(matching, reordered.end());
+        EXPECT_EQ(metric.name, matching->name);
+        EXPECT_EQ(metric.averageDurationNs, matching->averageDurationNs);
+    }
+    auto truncated = snapshot(false);
+    truncated.metrics[0].nameTruncated = true;
+    const auto incomplete = opk::perf::calculateScopeIntervalMetrics({}, truncated);
+    ASSERT_EQ(incomplete.size(), first.size());
+    EXPECT_TRUE(incomplete[0].scopeId.empty());
+    EXPECT_TRUE(incomplete[1].scopeId.empty());
+    EXPECT_EQ(incomplete[1].averageDurationNs, first[1].averageDurationNs);
+    EXPECT_EQ(incomplete[3].scopeId, first[3].scopeId);
+}
+
 TEST(PerformanceMetrics, ScopeIntervalMetricsIgnoreMalformedHierarchies) {
     PerformanceMetrics::Snapshot invalidParentSnapshot;
     invalidParentSnapshot.metrics.emplace_back();

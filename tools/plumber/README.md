@@ -162,8 +162,8 @@ ObjectTracksT
 TrackTracesT
 ```
 
-`PerformanceOverlayT` is ignored by comparison because it is diagnostic runtime
-text rather than stable model output.
+`PerformanceMeasurementsT` is ignored by comparison because it is diagnostic runtime
+measurements rather than stable model output.
 
 External opaque payloads, when present in the packet, are decoded by the generated SDK as
 external byte payloads. Plumber's current regression comparison intentionally normalizes

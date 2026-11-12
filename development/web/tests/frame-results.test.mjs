@@ -32,7 +32,9 @@ import {InstanceSegmentationMaskT} from '../../../generated/open_perception_kit/
 import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {ObjectTrackT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
-import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
+import {PerformanceMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js';
+import {FrameRateT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.js';
+import {ScopeTimingT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.js';
 import {PoseEstimationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {SegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js';
@@ -44,8 +46,8 @@ import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
 import {decodeFrameResultsMessage, FRAME_RESULTS_ENCODING, FrameResultsDecodeError} from '../src/frame-results.js';
 import {findVideoFrame} from '../src/overlay-drawing.js';
-import {indexFrame, outputSource} from '../src/overlay-sources.js';
-import {createOverlay} from '../src/overlays.js';
+import {collectOutputs, indexFrame, outputSource} from '../src/overlay-sources.js';
+import {createOverlay, loadOverlays, saveOverlays} from '../src/overlays.js';
 import {resolveOverlay} from '../src/overlay-features.js';
 
 function layer(contentType) {
@@ -60,6 +62,33 @@ function layer(contentType) {
         new ProducerInfoT('infer/parser', 'opk-std-ops/GenericPostprocess', 'FixtureParser'),
     );
 }
+
+test('performance wire producers remain distinct in live and saved overlay selections', () => {
+    const publisher = (id, fps, component = 'opkperformance') => new PerformanceMeasurementsT(
+        1, 0, 'BGRA', [], new FrameRateT(fps), new ProducerInfoT(id, component, ''));
+    const frame = (...payloads) => {
+        const envelope = new Envelope();
+        for (const payload of payloads) envelope.add(payload);
+        return decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+            frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    };
+    const first = publisher('first', 30), second = publisher('second', 60);
+    const decoded = frame(first, second);
+    assert.equal(collectOutputs(decoded).size, 2);
+    assert.equal(decoded.layers[0].producer.instanceId, 'first');
+    const overlay = createOverlay('performance', outputSource(decoded.layers[0]));
+    let saved;
+    const storage = {getItem: () => saved, setItem: (_key, value) => { saved = value; }};
+    assert.equal(saveOverlays(storage, [overlay]), '');
+    const restored = loadOverlays(storage).overlays[0];
+    const resolved = resolveOverlay(indexFrame(frame(second, first)), restored);
+    assert.equal(resolved.state, 'ready');
+    assert.equal(resolved.items.length, 1);
+    assert.equal(resolved.items[0].data.frameRate.fps, 30);
+    for (const replacement of [publisher('replacement', 30), publisher('first', 30, 'other')]) {
+        assert.equal(resolveOverlay(indexFrame(frame(second, replacement)), restored).state, 'waiting');
+    }
+});
 
 function encodedFixture() {
     const envelope = new Envelope();
@@ -102,7 +131,7 @@ function encodedFixture() {
         layer('trackTrace'),
         [new TrackTraceT(new ObjectMetaT(50n), 7n, [new Point2fT(1, 2), new Point2fT(3, 4)])],
     ));
-    envelope.add(new PerformanceOverlayT(1, 0, ['Pipeline: 30 FPS']));
+    envelope.add(new PerformanceMeasurementsT(1, 0, null, [], new FrameRateT(30)));
     return Buffer.from(envelope.serialize()).toString('base64');
 }
 
@@ -154,7 +183,7 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
     });
 
     assert.equal(decoded.frame_counter, 42);
-    assert.equal(decoded.frame_results.perfdata[0], 'Pipeline: 30 FPS');
+    assert.equal(decoded.frame_results.performance[0].frameRate.fps, 30);
     const video = decoded.frame_results.layers.find((item) => item.contentType === 'videoFrame');
     assert.equal(video.detections[0].data.originalWidth, 640);
     const face = decoded.frame_results.layers.find((item) => item.contentType === 'humanFace');
@@ -210,7 +239,8 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
     envelope.add(new SegmentationMasksT(1, 0, maskLayer, [
         new SegmentationMaskT(new ObjectMetaT(1n), new BitmapDataT(2, 2, 'Uint8', [0, 64, 128, 255])),
     ]));
-    envelope.add(new PerformanceOverlayT(1, 0, ['Pipeline: 30 FPS']));
+    envelope.add(new PerformanceMeasurementsT(1, 0, 'BGRA', [new ScopeTimingT('Inference', 0, 2.5, 'infer')],
+        new FrameRateT(null), new ProducerInfoT('metrics', 'opkperformance', '')));
     const {frame_results: frame} = decodeFrameResultsMessage({
         frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64'),
@@ -222,8 +252,12 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
     assert.ok(mask.detections[0].data.pixels instanceof Uint8Array);
     assert.deepEqual([...mask.detections[0].data.pixels], mask.payload.masks[0].bitmap.pixels);
     assert.equal(resolveOverlay(indexFrame(frame), createOverlay('background-replacement', outputSource(mask))).state, 'ready');
-    const performance = frame.layers.find((item) => item.payloadType === 'PerformanceOverlay');
-    assert.equal(performance.detections[0].data.text, frame.perfdata[0]);
+    const performance = frame.layers.find((item) => item.payloadType === 'PerformanceMeasurements');
+    assert.deepEqual(performance.detections[0].data, {
+        pixelFormat: 'BGRA', producer: {instanceId: 'metrics', component: 'opkperformance', implementation: ''},
+        timings: [{scopeId: 'infer', name: 'Inference', meanMs: 0, p95Ms: 2.5}], frameRate: {fps: null},
+    });
+    assert.deepEqual(frame.performance[0], performance.detections[0].data);
 });
 
 test('decodes semantic class maps separately from alpha masks, preserving zero and provenance', () => {
@@ -398,6 +432,9 @@ test('metadata connection reports disconnects and invalid packets clear the curr
             frame_results_packet_b64: encodedFixture(),
         })});
         assert.ok(events.at(-1).detail.frame_results.layers.length > 0);
+        assert.deepEqual(events.at(-1).detail.performance, {measurements: [
+            {pixelFormat: '', producer: null, timings: [], frameRate: {fps: 30}},
+        ]});
         socket.onmessage({data: JSON.stringify({frame_results_encoding: 'unsupported'})});
         assert.equal(events.at(-1).detail.frame_results, null);
         assert.ok(events.at(-1).detail.decode_error);

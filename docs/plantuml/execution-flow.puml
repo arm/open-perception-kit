@@ -90,7 +90,7 @@ while ("Source emits another video buffer?") is (yes)
 
   partition "Downstream Open Perception Kit processing and output\nafter inference and opchain execution" {
     :`opktracker` appends tracking payloads\nwith IDs and traces;
-    :`opkperformance` takes an aggregate snapshot,\nderives interval averages, and appends\n`PerformanceOverlayT`;
+    :`opkperformance` takes an aggregate snapshot,\nderives interval averages, and appends\n`PerformanceMeasurementsT`;
     :`opkosd` reads `FrameResultsMeta`\nand draws raster overlays\nonto the frame;
     :`opksink` encodes VP8/Opus,\nkeeps drain branches alive,\nserves HTTP + WebRTC + control WS,\nand streams the result to the browser;
   }
