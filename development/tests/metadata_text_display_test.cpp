@@ -42,3 +42,18 @@ TEST(MetadataTextDisplay, PresenceShowsRawScoresRatherThanInventedProbabilities)
     EXPECT_NE(text.find("outcome=person"), std::string::npos);
     EXPECT_NE(text.find("raw_yes=2.000 raw_no=-1.000"), std::string::npos);
 }
+
+TEST(MetadataTextDisplay, EmbeddingsExposeComparisonSpaceAndExplicitSubject) {
+    open_perception_kit::metadata::ObjectEmbeddingsT payload;
+    auto value = std::make_unique<open_perception_kit::metadata::ObjectEmbeddingT>();
+    value->subject_id = 7;
+    value->values = {1, 0};
+    value->space = std::make_unique<open_perception_kit::metadata::EmbeddingSpaceT>();
+    value->space->id = "test:space:v1";
+    value->space->dimensions = 2;
+    value->space->metric = open_perception_kit::metadata::EmbeddingMetric::Cosine;
+    payload.embeddings.push_back(std::move(value));
+    const auto text = TextDisplay::formatText(payload);
+    EXPECT_NE(text.find("subject=7 space=test:space:v1 dimensions=2 metric=Cosine usable=true"),
+              std::string::npos);
+}

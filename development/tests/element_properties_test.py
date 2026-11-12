@@ -102,6 +102,12 @@ class ElementPropertiesTest(unittest.TestCase):
                     element.set_property(prop.name, current)
             if factory == "opkinfer":
                 self.assertIsNone(element.find_property("format"))
+            if factory == "opktracker":
+                self.assertIsNone(element.find_property("embedding-content-type"))
+                for name in ("embedding-space-id", "embedding-producer-id"):
+                    self.assertTrue(element.find_property(name).flags & self.Gst.PARAM_MUTABLE_READY)
+                    element.set_property(name, None)
+                    self.assertEqual(element.get_property(name), "")
 
     def test_ready_only_properties_reject_during_processing_and_apply_after_stop(self):
         pipeline = self.Gst.parse_launch(

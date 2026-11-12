@@ -37,13 +37,22 @@ makeDetection(uint64_t id, float x, float y, float width, float height) {
 opk::tracker::TrackState
 makeTrack(opk::tracker::TrackId trackId,
           const open_perception_kit::metadata::BoxDetectionT &lastDetection,
-          const std::vector<float> &embedding) {
+          const open_perception_kit::metadata::ObjectEmbeddingT &embedding) {
     opk::tracker::TrackState track;
     track.trackId = trackId;
     track.lastDetection = lastDetection;
     track.lastEmbedding = embedding;
-    track.hasEmbedding = true;
     return track;
+}
+
+open_perception_kit::metadata::ObjectEmbeddingT makeEmbedding() {
+    open_perception_kit::metadata::ObjectEmbeddingT result;
+    result.values = {1, 0};
+    result.space = std::make_unique<open_perception_kit::metadata::EmbeddingSpaceT>();
+    result.space->id = "test:matching:v1";
+    result.space->dimensions = 2;
+    result.space->metric = open_perception_kit::metadata::EmbeddingMetric::Cosine;
+    return result;
 }
 
 opk::tracker::Config matchingConfig(opk::tracker::AssociationMode mode) {
@@ -58,7 +67,7 @@ opk::tracker::Config matchingConfig(opk::tracker::AssociationMode mode) {
 } // namespace
 
 TEST(OpkTrackerMatching, HybridRejectsNonOverlappingEmbeddingOnlyAssignment) {
-    const std::vector<float> embedding{1.0f, 0.0f};
+    const auto embedding = makeEmbedding();
     const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
     const auto detectionRect = makeDetection(2, 100.0f, 100.0f, 10.0f, 10.0f);
 
@@ -81,7 +90,7 @@ TEST(OpkTrackerMatching, HybridRejectsNonOverlappingEmbeddingOnlyAssignment) {
 }
 
 TEST(OpkTrackerMatching, HybridAcceptsAssignmentWhenIoUPassesThreshold) {
-    const std::vector<float> embedding{1.0f, 0.0f};
+    const auto embedding = makeEmbedding();
     const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
     const auto detectionRect = makeDetection(2, 1.0f, 1.0f, 10.0f, 10.0f);
 
@@ -105,7 +114,7 @@ TEST(OpkTrackerMatching, HybridAcceptsAssignmentWhenIoUPassesThreshold) {
 }
 
 TEST(OpkTrackerMatching, EmbeddingModeAcceptsNonOverlappingEmbeddingAssignment) {
-    const std::vector<float> embedding{1.0f, 0.0f};
+    const auto embedding = makeEmbedding();
     const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
     const auto detectionRect = makeDetection(2, 100.0f, 100.0f, 10.0f, 10.0f);
 

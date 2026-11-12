@@ -52,6 +52,10 @@ import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist
 import {SemanticSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.js';
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {BitmapEncoding, OpacityMeaning, validMask, maskData} from '../src/mask-data.js';
+import {ObjectEmbeddingT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.js';
+import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
+import {EmbeddingSpaceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-space.js';
+import {EmbeddingMetric} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-metric.js';
 import {TrackTraceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
@@ -558,6 +562,29 @@ test('box and track category IDs preserve absence and zero, and confidence is no
     const tracked = frame.layers.find(item => item.payloadType === 'ObjectTracks').detections[0].data;
     assert.equal(tracked.classId, null);
     assert.ok(Number.isNaN(tracked.confidence));
+});
+
+test('embeddings preserve space, subject, multiple outputs and unusable values', () => {
+    const envelope = new Envelope();
+    const space = new EmbeddingSpaceT('test:a', 2, EmbeddingMetric.Cosine);
+    envelope.add(new ObjectEmbeddingsT(1, 0, layer('custom'), [
+        new ObjectEmbeddingT(new ObjectMetaT(10n, 999n), [3, 4], space, 7n),
+        new ObjectEmbeddingT(null, [1, 0], new EmbeddingSpaceT('test:b', 2, EmbeddingMetric.Cosine), 7n),
+        new ObjectEmbeddingT(new ObjectMetaT(12n, 7n), [1, 0]),
+        new ObjectEmbeddingT(null, [0, 0], space),
+        new ObjectEmbeddingT(null, [NaN, 1], space),
+        new ObjectEmbeddingT(null, [1, 0], new EmbeddingSpaceT('test:a', 3, EmbeddingMetric.Cosine)),
+        new ObjectEmbeddingT(null, [1, 0], new EmbeddingSpaceT('test:a', 2, EmbeddingMetric.Unspecified)),
+    ]));
+    const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    const values = frame.layers[0].detections.map(item => item.data);
+    assert.deepEqual(values.map(item => item.usable), [true, true, false, false, false, false, false]);
+    assert.equal(values[0].subjectUuid, '7');
+    assert.equal(values[0].parentUuid, '999');
+    assert.equal(values[2].subjectUuid, null);
+    assert.equal(values[1].space.id, 'test:b');
+    assert.deepEqual(values[0].values, [3, 4]);
 });
 
 test('rejects a packet from an incompatible producer identity', () => {

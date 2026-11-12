@@ -17,6 +17,7 @@
 
 #include "TextDisplay.h"
 #include "opk/ClassificationScores.h"
+#include "opk/Embedding.h"
 #include "opk/FrameResults.h"
 
 #include <fmt/core.h>
@@ -411,10 +412,18 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  embedding #{}: {} values={}",
-                                    index,
-                                    objectLabel(embedding->object.get()),
-                                    embedding->values.size()));
+        lines.push_back(fmt::format(
+            "  embedding #{}: {} subject={} space={} dimensions={} metric={} usable={} values={}",
+            index,
+            objectLabel(embedding->object.get()),
+            embedding->subject_id ? std::to_string(*embedding->subject_id) : "unspecified",
+            embedding->space ? embedding->space->id : "unspecified",
+            embedding->space ? embedding->space->dimensions : 0,
+            embedding->space
+                ? open_perception_kit::metadata::EnumNameEmbeddingMetric(embedding->space->metric)
+                : "Unspecified",
+            opk::embedding::valid(*embedding),
+            embedding->values.size()));
     }
 }
 

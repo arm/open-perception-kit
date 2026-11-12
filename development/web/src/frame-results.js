@@ -29,6 +29,7 @@ import {GazeMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {maskData} from './mask-data.js';
+import {usableEmbedding} from './embedding-data.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 
 export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
@@ -265,10 +266,12 @@ export function decodeFrameResultsMessage(message) {
     }
 
     addPayloadLayers(envelope, ObjectEmbeddingsT, 'ObjectEmbeddings', (payload) =>
-        payload.embeddings.map((item) => ({
-            type: 'ObjectEmbedding',
-            data: {...objectData(item.object), values: [...item.values]},
-        })), layers);
+        payload.embeddings.map((item) => {
+            const data = {...objectData(item?.object), values: [...(item?.values || [])],
+                space: item?.space ? {id: text(item.space.id), dimensions: item.space.dimensions, metric: item.space.metric} : null,
+                subjectUuid: item?.subjectId == null ? null : identifier(item.subjectId)};
+            return {type: 'ObjectEmbedding', data: {...data, usable: usableEmbedding(data)}};
+        }), layers);
 
     for (const payload of envelope.for_each(PerformanceMeasurementsT)) {
         const data = {
