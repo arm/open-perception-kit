@@ -43,8 +43,8 @@ class PythonScriptOp final : public opk::op::Op,
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
         return providedOutputs;
     }
-    std::vector<opk::OutputCapability> getRequiredOutputs() const override {
-        return requiredOutputs;
+    std::vector<opk::InputReference> getRequiredInputs() const override {
+        return requiredInputs;
     }
 
   private:
@@ -52,7 +52,7 @@ class PythonScriptOp final : public opk::op::Op,
     std::unique_ptr<LoadedScript> loadedScript;
     const opk::Model *model = nullptr;
     std::vector<opk::OutputCapability> providedOutputs;
-    std::vector<opk::OutputCapability> requiredOutputs;
+    std::vector<opk::InputReference> requiredInputs;
 };
 
 } // namespace opk::python

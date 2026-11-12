@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "GazeResNet50FP32",
   "displayName": "Gaze ResNet50 FP32",
   "task": "Gaze estimation",
@@ -7,9 +7,9 @@
   "description": "Estimates gaze direction from human-face crops.",
   "execution": {"preprocessing": "cpu"},
   "ops": [
-    {"id": "opk-std-ops/InferenceController", "loopId": 1, "attributes": {"contentType": "humanFace"}},
+    {"id": "opk-std-ops/InferenceController", "instanceId": "opk-std-ops-InferenceController-0", "loopId": 1, "attributes": {"sourceProducer": ""}},
     {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 1, "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
     {"id": "opk-onnx-ops/Inference", "loopId": 1, "attributes": {"modelDescriptor": "model.json", "intraOpNumThreads": 3, "interOpNumThreads": 1}},
-    {"id": "opk-std-ops/GenericPostprocess", "loopId": 1, "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}}
+    {"id": "opk-std-ops/GenericPostprocess", "instanceId": "opk-std-ops-GenericPostprocess-0", "loopId": 1, "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}}
   ]
 }

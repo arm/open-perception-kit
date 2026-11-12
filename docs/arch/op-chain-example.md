@@ -41,7 +41,7 @@ into typed `FrameResults` payloads when needed.
 
 ## Loop Semantics
 
-`InferenceController` selects source detections by `contentType`, converts their
+`InferenceController` selects `BoxDetections` from its explicitly connected producer, converts their
 rectangles into crop regions, stores those crops and parent UUIDs in
 `OpChainContext`, and activates the loop. One crop is consumed per iteration.
 Looping stops when the crop list is empty.
@@ -63,7 +63,7 @@ detected face.
 
 ```json
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "GazeDetectionWithUltraface",
   "description": "Detect faces, then estimate gaze for each face.",
   "displayName": "UltraFace + L2CS MobileGaze",
@@ -89,6 +89,7 @@ detected face.
     },
     {
       "id": "opk-std-ops/GenericPostprocess",
+      "instanceId": "faces",
       "attributes": {
         "parser": "UltrafaceParser",
         "normalizeOutputCoordinates": false,
@@ -100,7 +101,7 @@ detected face.
       "id": "opk-std-ops/InferenceController",
       "loopId": 1,
       "attributes": {
-        "contentType": "humanFace"
+        "sourceOp": "faces"
       }
     },
     {

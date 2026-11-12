@@ -77,7 +77,7 @@ tl::expected<std::string, ValidationReport> supportedOpChainVersion() {
 
 ValidationReport validateOpChainSemantics(const opk::op::OpChainDescriptor &descriptor,
                                           std::string_view source) {
-    return detail::validateOpChainV1(descriptor, source);
+    return detail::validateOpChainV2(descriptor, source);
 }
 
 } // namespace opk::config

@@ -48,9 +48,8 @@ impl<'a> LayerInfo<'a> {
     pub const VT_TAGS: flatbuffers::VOffsetT = 8;
     pub const VT_INFER_ELEMENT_ID: flatbuffers::VOffsetT = 10;
     pub const VT_LABEL_FAMILY: flatbuffers::VOffsetT = 12;
-    pub const VT_CONTENT_TYPE: flatbuffers::VOffsetT = 14;
-    pub const VT_COMPOSITING_MODE: flatbuffers::VOffsetT = 16;
-    pub const VT_PRODUCER: flatbuffers::VOffsetT = 18;
+    pub const VT_COMPOSITING_MODE: flatbuffers::VOffsetT = 14;
+    pub const VT_PRODUCER: flatbuffers::VOffsetT = 16;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -67,9 +66,6 @@ impl<'a> LayerInfo<'a> {
         }
         if let Some(x) = args.compositing_mode {
             builder.add_compositing_mode(x);
-        }
-        if let Some(x) = args.content_type {
-            builder.add_content_type(x);
         }
         if let Some(x) = args.label_family {
             builder.add_label_family(x);
@@ -95,7 +91,6 @@ impl<'a> LayerInfo<'a> {
         let tags = self.tags().map(|x| x.to_string());
         let infer_element_id = self.infer_element_id().map(|x| x.to_string());
         let label_family = self.label_family().map(|x| x.to_string());
-        let content_type = self.content_type().map(|x| x.to_string());
         let compositing_mode = self.compositing_mode().map(|x| x.to_string());
         let producer = self.producer().map(|x| Box::new(x.unpack()));
         LayerInfoT {
@@ -104,7 +99,6 @@ impl<'a> LayerInfo<'a> {
             tags,
             infer_element_id,
             label_family,
-            content_type,
             compositing_mode,
             producer,
         }
@@ -161,16 +155,6 @@ impl<'a> LayerInfo<'a> {
         }
     }
     #[inline]
-    pub fn content_type(&self) -> Option<&'a str> {
-        // Safety:
-        // Created from valid Table for this object
-        // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<flatbuffers::ForwardsUOffset<&str>>(LayerInfo::VT_CONTENT_TYPE, None)
-        }
-    }
-    #[inline]
     pub fn compositing_mode(&self) -> Option<&'a str> {
         // Safety:
         // Created from valid Table for this object
@@ -214,11 +198,6 @@ impl flatbuffers::Verifiable for LayerInfo<'_> {
                 false,
             )?
             .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
-                "content_type",
-                Self::VT_CONTENT_TYPE,
-                false,
-            )?
-            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
                 "compositing_mode",
                 Self::VT_COMPOSITING_MODE,
                 false,
@@ -238,7 +217,6 @@ pub struct LayerInfoArgs<'a> {
     pub tags: Option<flatbuffers::WIPOffset<&'a str>>,
     pub infer_element_id: Option<flatbuffers::WIPOffset<&'a str>>,
     pub label_family: Option<flatbuffers::WIPOffset<&'a str>>,
-    pub content_type: Option<flatbuffers::WIPOffset<&'a str>>,
     pub compositing_mode: Option<flatbuffers::WIPOffset<&'a str>>,
     pub producer: Option<flatbuffers::WIPOffset<ProducerInfo<'a>>>,
 }
@@ -251,7 +229,6 @@ impl<'a> Default for LayerInfoArgs<'a> {
             tags: None,
             infer_element_id: None,
             label_family: None,
-            content_type: None,
             compositing_mode: None,
             producer: None,
         }
@@ -293,13 +270,6 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> LayerInfoBuilder<'a, 'b, A> {
         );
     }
     #[inline]
-    pub fn add_content_type(&mut self, content_type: flatbuffers::WIPOffset<&'b str>) {
-        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-            LayerInfo::VT_CONTENT_TYPE,
-            content_type,
-        );
-    }
-    #[inline]
     pub fn add_compositing_mode(&mut self, compositing_mode: flatbuffers::WIPOffset<&'b str>) {
         self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
             LayerInfo::VT_COMPOSITING_MODE,
@@ -337,7 +307,6 @@ impl core::fmt::Debug for LayerInfo<'_> {
         ds.field("tags", &self.tags());
         ds.field("infer_element_id", &self.infer_element_id());
         ds.field("label_family", &self.label_family());
-        ds.field("content_type", &self.content_type());
         ds.field("compositing_mode", &self.compositing_mode());
         ds.field("producer", &self.producer());
         ds.finish()
@@ -351,7 +320,6 @@ pub struct LayerInfoT {
     pub tags: Option<String>,
     pub infer_element_id: Option<String>,
     pub label_family: Option<String>,
-    pub content_type: Option<String>,
     pub compositing_mode: Option<String>,
     pub producer: Option<Box<ProducerInfoT>>,
 }
@@ -363,7 +331,6 @@ impl Default for LayerInfoT {
             tags: None,
             infer_element_id: None,
             label_family: None,
-            content_type: None,
             compositing_mode: None,
             producer: None,
         }
@@ -382,7 +349,6 @@ impl LayerInfoT {
             .as_ref()
             .map(|x| _fbb.create_string(x));
         let label_family = self.label_family.as_ref().map(|x| _fbb.create_string(x));
-        let content_type = self.content_type.as_ref().map(|x| _fbb.create_string(x));
         let compositing_mode = self
             .compositing_mode
             .as_ref()
@@ -396,7 +362,6 @@ impl LayerInfoT {
                 tags,
                 infer_element_id,
                 label_family,
-                content_type,
                 compositing_mode,
                 producer,
             },

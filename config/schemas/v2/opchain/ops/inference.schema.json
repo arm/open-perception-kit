@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:inference-op:v1",
-  "title": "Inference Op v1",
+  "$id": "urn:arm:opk:schema:inference-op:v2",
+  "title": "Inference Op v2",
   "if": {
     "properties": {
       "id": {
@@ -25,7 +25,7 @@
         ],
         "properties": {
           "modelDescriptor": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/localPath"
+            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/localPath"
           },
           "interOpNumThreads": {
             "description": "ONNX Runtime inter-op thread count: omission or one keeps sequential execution; zero selects ORT automatic parallel execution; larger counts set the parallel pool size.",

@@ -44,7 +44,7 @@ void validateTensorSizes(ValidationReport &report,
     for (std::size_t index = 0; index < tensors.size(); ++index) {
         if (!shapeByteSizeOverflows(tensors[index]))
             continue;
-        report.issues.push_back(makeIssue("model.v1.tensor-size",
+        report.issues.push_back(makeIssue("model.v2.tensor-size",
                                           ValidationPhase::Descriptor,
                                           source,
                                           std::format("/{}/{}/shape", arrayName, index),
@@ -54,16 +54,16 @@ void validateTensorSizes(ValidationReport &report,
 
 } // namespace
 
-ValidationReport validateModelV1(const opk::ModelDescriptor &descriptor, std::string_view source) {
+ValidationReport validateModelV2(const opk::ModelDescriptor &descriptor, std::string_view source) {
     ValidationReport report;
     validateControlFreeString(report, descriptor.name, source, "/name", "common.v1.name-control");
     validateControlFreeString(
-        report, descriptor.modelFile, source, "/modelFile", "model.v1.model-file-control");
+        report, descriptor.modelFile, source, "/modelFile", "model.v2.model-file-control");
     validateControlFreeString(report,
                               descriptor.runtimeLibrary,
                               source,
                               "/runtimeLibrary",
-                              "model.v1.runtime-library-control");
+                              "model.v2.runtime-library-control");
     validateTensorSizes(report, descriptor.inputTensors, "inputTensors", source);
     validateTensorSizes(report, descriptor.outputTensors, "outputTensors", source);
 
@@ -73,7 +73,7 @@ ValidationReport validateModelV1(const opk::ModelDescriptor &descriptor, std::st
         const std::string base = std::format("/tensorFeedbacks/{}", index);
 
         if (feedback.toInputTensorIndex >= descriptor.inputTensors.size()) {
-            report.issues.push_back(makeIssue("model.v1.feedback-destination",
+            report.issues.push_back(makeIssue("model.v2.feedback-destination",
                                               ValidationPhase::Descriptor,
                                               source,
                                               base + "/toInputTensorIndex",
@@ -85,7 +85,7 @@ ValidationReport validateModelV1(const opk::ModelDescriptor &descriptor, std::st
             firstDestination.try_emplace(feedback.toInputTensorIndex, index);
         if (!inserted) {
             report.issues.push_back(
-                makeIssue("model.v1.feedback-destination",
+                makeIssue("model.v2.feedback-destination",
                           ValidationPhase::Descriptor,
                           source,
                           base + "/toInputTensorIndex",
@@ -97,7 +97,7 @@ ValidationReport validateModelV1(const opk::ModelDescriptor &descriptor, std::st
         const auto &destination = descriptor.inputTensors[feedback.toInputTensorIndex];
         if (destination.dataKind != opk::DataKind::RawTensorData) {
             report.issues.push_back(
-                makeIssue("model.v1.feedback-destination",
+                makeIssue("model.v2.feedback-destination",
                           ValidationPhase::Descriptor,
                           source,
                           base + "/toInputTensorIndex",
@@ -108,7 +108,7 @@ ValidationReport validateModelV1(const opk::ModelDescriptor &descriptor, std::st
             continue;
 
         if (feedback.fromOutputTensorIndex >= descriptor.outputTensors.size()) {
-            report.issues.push_back(makeIssue("model.v1.feedback-source",
+            report.issues.push_back(makeIssue("model.v2.feedback-source",
                                               ValidationPhase::Descriptor,
                                               source,
                                               base + "/fromOutputTensorIndex",
@@ -119,7 +119,7 @@ ValidationReport validateModelV1(const opk::ModelDescriptor &descriptor, std::st
         const auto &sourceTensor = descriptor.outputTensors[feedback.fromOutputTensorIndex];
         if (sourceTensor.dtype != destination.dtype || !(sourceTensor.shape == destination.shape)) {
             report.issues.push_back(
-                makeIssue("model.v1.feedback-compatible",
+                makeIssue("model.v2.feedback-compatible",
                           ValidationPhase::Descriptor,
                           source,
                           base,

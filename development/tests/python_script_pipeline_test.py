@@ -71,7 +71,7 @@ class PythonScriptPipelineTest(unittest.TestCase):
             opchain.write_text(
                 json.dumps(
                     {
-                        "version": "1.0.0",
+                        "version": "2.0.0",
                         "name": "Terminal PythonScript test",
                         "displayName": "Terminal PythonScript test",
                         "task": "Test",

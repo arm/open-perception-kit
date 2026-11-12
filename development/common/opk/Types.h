@@ -280,7 +280,6 @@ struct AudioInferenceMetadata {
  */
 struct InferenceInfo {
     uint64_t parentId = 0;        ///< Object ID of the parent FrameResults item.
-    std::string contentType;      ///< MIME-style content type identifier.
     std::string modelName;        ///< Model descriptor name.
     std::string inferElementId;   ///< GStreamer element id of the originating opkinfer.
     ImageInferenceMetadata image; ///< Image geometry for this inference.

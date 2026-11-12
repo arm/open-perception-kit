@@ -29,7 +29,7 @@ namespace {
 void write_model_descriptor(const std::filesystem::path &path, const std::string &model_file) {
     std::filesystem::create_directories(path.parent_path());
     std::ofstream(path) << nlohmann::json{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "test"},
         {"modelFile", model_file},
         {"dynamicOutput", true},
@@ -59,7 +59,7 @@ TEST(OpkMenuDiscover, FindsUniqueSupportedModelFilesFromOpChain) {
 
     const auto opchain_path = opchain_directory / "opchain.json";
     std::ofstream(opchain_path) << nlohmann::json{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "discover"},
         {"description", "Discover model files."},
         {"ops",

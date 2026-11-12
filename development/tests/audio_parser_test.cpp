@@ -100,7 +100,6 @@ TEST(VoiceActivityParser, SelectsConfiguredFlatScoreAndPreservesAudioIdentity) {
         ++count;
         EXPECT_EQ(payload.layer->model, "synthetic-speech-scores");
         EXPECT_EQ(payload.layer->infer_element_id, "speech-stream");
-        EXPECT_EQ(payload.layer->content_type, "voiceActivity");
         ASSERT_TRUE(payload.layer->producer);
         EXPECT_EQ(payload.layer->producer->instance_id, "speech-stream/post");
         EXPECT_EQ(payload.layer->producer->implementation, "VoiceActivityParser");
@@ -386,7 +385,6 @@ TEST(KeywordClassificationParser, UsesArbitraryLabelsAndTheSelectedOutput) {
         results.for_each<KeywordPayload>([&](const auto &payload) {
             EXPECT_EQ(payload.layer->model, "synthetic-command-scores");
             EXPECT_EQ(payload.layer->infer_element_id, "commands");
-            EXPECT_EQ(payload.layer->content_type, "keyword");
             ASSERT_TRUE(payload.layer->producer);
             EXPECT_EQ(payload.layer->producer->instance_id, "commands/post");
             EXPECT_EQ(payload.layer->producer->implementation, "KeywordClassificationParser");

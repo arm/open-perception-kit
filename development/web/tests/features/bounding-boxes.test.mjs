@@ -21,7 +21,7 @@ import {featureFor} from '../../src/overlay-features.js';
 import {outputSource, sourceKey} from '../../src/overlay-sources.js';
 import {render, select, trackerFixture} from '../overlay-test-utils.mjs';
 
-test('bounding boxes accepts detector/tracker regions, excludes faces, and isolates sources', () => {
+test('bounding boxes accepts all typed regions and isolates concrete sources', () => {
     const {tracks, trails} = trackerFixture();
     const detector = {...tracks, payloadType: 'BoxDetections'};
     const other = {...detector, producer: {...detector.producer, instanceId: 'other'}};
@@ -32,6 +32,6 @@ test('bounding boxes accepts detector/tracker regions, excludes faces, and isola
     const selected = select('bounding-boxes', detector, {color: '#123456', opacity: 0.4});
     assert.deepEqual(render({layers: [detector, tracks, other, trails]}, [selected]).calls,
         [{rect: [20, 30, 40, 50], color: '#123456', alpha: 0.4}]);
-    assert.equal(render({layers: [faces]}, [select('bounding-boxes', faces)]).calls.length, 0);
+    assert.ok(render({layers: [faces]}, [select('bounding-boxes', faces)]).calls.length > 0);
     assert.equal(render({layers: [tracks, trails]}, [select('bounding-boxes', tracks)]).calls.filter((call) => call.stroke).length, 0);
 });

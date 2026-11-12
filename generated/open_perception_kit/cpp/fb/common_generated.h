@@ -275,7 +275,6 @@ struct LayerInfoT : public ::flatbuffers::NativeTable {
     std::string tags{};
     std::string infer_element_id{};
     std::string label_family{};
-    std::string content_type{};
     std::string compositing_mode{};
     std::unique_ptr<open_perception_kit::metadata::ProducerInfoT> producer{};
     LayerInfoT() = default;
@@ -293,9 +292,8 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         VT_TAGS = 8,
         VT_INFER_ELEMENT_ID = 10,
         VT_LABEL_FAMILY = 12,
-        VT_CONTENT_TYPE = 14,
-        VT_COMPOSITING_MODE = 16,
-        VT_PRODUCER = 18
+        VT_COMPOSITING_MODE = 14,
+        VT_PRODUCER = 16
     };
     const ::flatbuffers::String *engine() const {
         return GetPointer<const ::flatbuffers::String *>(VT_ENGINE);
@@ -312,9 +310,6 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     const ::flatbuffers::String *label_family() const {
         return GetPointer<const ::flatbuffers::String *>(VT_LABEL_FAMILY);
     }
-    const ::flatbuffers::String *content_type() const {
-        return GetPointer<const ::flatbuffers::String *>(VT_CONTENT_TYPE);
-    }
     const ::flatbuffers::String *compositing_mode() const {
         return GetPointer<const ::flatbuffers::String *>(VT_COMPOSITING_MODE);
     }
@@ -328,7 +323,6 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
                verifier.VerifyString(tags()) && VerifyOffset(verifier, VT_INFER_ELEMENT_ID) &&
                verifier.VerifyString(infer_element_id()) &&
                VerifyOffset(verifier, VT_LABEL_FAMILY) && verifier.VerifyString(label_family()) &&
-               VerifyOffset(verifier, VT_CONTENT_TYPE) && verifier.VerifyString(content_type()) &&
                VerifyOffset(verifier, VT_COMPOSITING_MODE) &&
                verifier.VerifyString(compositing_mode()) && VerifyOffset(verifier, VT_PRODUCER) &&
                verifier.VerifyTable(producer()) && verifier.EndTable();
@@ -361,9 +355,6 @@ struct LayerInfoBuilder {
     void add_label_family(::flatbuffers::Offset<::flatbuffers::String> label_family) {
         fbb_.AddOffset(LayerInfo::VT_LABEL_FAMILY, label_family);
     }
-    void add_content_type(::flatbuffers::Offset<::flatbuffers::String> content_type) {
-        fbb_.AddOffset(LayerInfo::VT_CONTENT_TYPE, content_type);
-    }
     void add_compositing_mode(::flatbuffers::Offset<::flatbuffers::String> compositing_mode) {
         fbb_.AddOffset(LayerInfo::VT_COMPOSITING_MODE, compositing_mode);
     }
@@ -387,13 +378,11 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                 ::flatbuffers::Offset<::flatbuffers::String> tags = 0,
                 ::flatbuffers::Offset<::flatbuffers::String> infer_element_id = 0,
                 ::flatbuffers::Offset<::flatbuffers::String> label_family = 0,
-                ::flatbuffers::Offset<::flatbuffers::String> content_type = 0,
                 ::flatbuffers::Offset<::flatbuffers::String> compositing_mode = 0,
                 ::flatbuffers::Offset<open_perception_kit::metadata::ProducerInfo> producer = 0) {
     LayerInfoBuilder builder_(_fbb);
     builder_.add_producer(producer);
     builder_.add_compositing_mode(compositing_mode);
-    builder_.add_content_type(content_type);
     builder_.add_label_family(label_family);
     builder_.add_infer_element_id(infer_element_id);
     builder_.add_tags(tags);
@@ -409,7 +398,6 @@ inline ::flatbuffers::Offset<LayerInfo> CreateLayerInfoDirect(
     const char *tags = nullptr,
     const char *infer_element_id = nullptr,
     const char *label_family = nullptr,
-    const char *content_type = nullptr,
     const char *compositing_mode = nullptr,
     ::flatbuffers::Offset<open_perception_kit::metadata::ProducerInfo> producer = 0) {
     auto engine__ = engine ? _fbb.CreateString(engine) : 0;
@@ -417,7 +405,6 @@ inline ::flatbuffers::Offset<LayerInfo> CreateLayerInfoDirect(
     auto tags__ = tags ? _fbb.CreateString(tags) : 0;
     auto infer_element_id__ = infer_element_id ? _fbb.CreateString(infer_element_id) : 0;
     auto label_family__ = label_family ? _fbb.CreateString(label_family) : 0;
-    auto content_type__ = content_type ? _fbb.CreateString(content_type) : 0;
     auto compositing_mode__ = compositing_mode ? _fbb.CreateString(compositing_mode) : 0;
     return open_perception_kit::metadata::CreateLayerInfo(_fbb,
                                                           engine__,
@@ -425,7 +412,6 @@ inline ::flatbuffers::Offset<LayerInfo> CreateLayerInfoDirect(
                                                           tags__,
                                                           infer_element_id__,
                                                           label_family__,
-                                                          content_type__,
                                                           compositing_mode__,
                                                           producer);
 }
@@ -899,8 +885,7 @@ CreateProducerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
 
 inline LayerInfoT::LayerInfoT(const LayerInfoT &o)
     : engine(o.engine), model(o.model), tags(o.tags), infer_element_id(o.infer_element_id),
-      label_family(o.label_family), content_type(o.content_type),
-      compositing_mode(o.compositing_mode),
+      label_family(o.label_family), compositing_mode(o.compositing_mode),
       producer((o.producer) ? new open_perception_kit::metadata::ProducerInfoT(*o.producer)
                             : nullptr) {}
 
@@ -910,7 +895,6 @@ inline LayerInfoT &LayerInfoT::operator=(LayerInfoT o) FLATBUFFERS_NOEXCEPT {
     std::swap(tags, o.tags);
     std::swap(infer_element_id, o.infer_element_id);
     std::swap(label_family, o.label_family);
-    std::swap(content_type, o.content_type);
     std::swap(compositing_mode, o.compositing_mode);
     std::swap(producer, o.producer);
     return *this;
@@ -950,11 +934,6 @@ inline void LayerInfo::UnPackTo(LayerInfoT *_o,
         auto _e = label_family();
         if (_e)
             _o->label_family = _e->str();
-    }
-    {
-        auto _e = content_type();
-        if (_e)
-            _o->content_type = _e->str();
     }
     {
         auto _e = compositing_mode();
@@ -1001,7 +980,6 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _infer_element_id =
         _o->infer_element_id.empty() ? 0 : _fbb.CreateString(_o->infer_element_id);
     auto _label_family = _o->label_family.empty() ? 0 : _fbb.CreateString(_o->label_family);
-    auto _content_type = _o->content_type.empty() ? 0 : _fbb.CreateString(_o->content_type);
     auto _compositing_mode =
         _o->compositing_mode.empty() ? 0 : _fbb.CreateString(_o->compositing_mode);
     auto _producer = _o->producer ? CreateProducerInfo(_fbb, _o->producer.get(), _rehasher) : 0;
@@ -1011,7 +989,6 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                                                           _tags,
                                                           _infer_element_id,
                                                           _label_family,
-                                                          _content_type,
                                                           _compositing_mode,
                                                           _producer);
 }

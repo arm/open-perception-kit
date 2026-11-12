@@ -24,8 +24,8 @@ import {defineFeature, STYLE_CONTROLS} from '../src/overlay-feature.js';
 // The historical IDs also exercise migration of existing browser preferences.
 export function fixtureFeatures() {
     return [
-        defineFeature({id: 'bounding-boxes', label: 'Bounding boxes', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType) && s.contentType !== 'humanFace', render() {}}),
-        defineFeature({id: 'face-circles', label: 'Face circles', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType) && s.contentType === 'humanFace', render() {}}),
+        defineFeature({id: 'bounding-boxes', label: 'Bounding boxes', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType), render() {}}),
+        defineFeature({id: 'face-circles', label: 'Circular markers', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType), render() {}}),
         defineFeature({id: 'gaze', label: 'Gaze', accepts: (s) => s.payloadType === 'GazeMeasurements', render() {}}),
         defineFeature({id: 'camera-contact', label: 'Camera contact', accepts: (s) => s.payloadType === 'CameraContacts', render() {}}),
         defineFeature({id: 'test-unsupported', label: 'Unsupported fixture', accepts: (s) => s.payloadType === 'TestUnsupportedPayload', reason: 'Fixture rendering is not supported.'}),

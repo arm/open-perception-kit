@@ -27,7 +27,10 @@
 #include "opk/ImageOpDesc.h"
 
 #include <cstdint>
+#include <optional>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace opk::osd {
 
@@ -60,6 +63,11 @@ struct DebugOverlaySurface {
 struct DebugOverlayOptions {
     /** @brief Draw PerformanceMeasurementsT payloads when present. */
     bool performanceOverlayEnabled = true;
+
+    /** Concrete producers displayed with circular markers rather than rectangles. */
+    std::vector<std::string> circleProducers;
+    /** Rectangle sources: absent means all other typed boxes; empty means none. */
+    std::optional<std::vector<std::string>> boxProducers;
 
     /** @brief Optional BGRA replacement image used by segmentation background replacement. */
     const opk::Bitmap *backgroundImage = nullptr;

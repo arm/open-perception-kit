@@ -62,7 +62,7 @@ test('saved preferences round trip independently of live frames and availability
 });
 
 test('corrupt, unsupported, and unavailable storage cannot break the editor', () => {
-    for (const raw of ['{', 'null', '{"version":3,"overlays":[]}', '{"version":2,"overlays":{}}']) {
+    for (const raw of ['{', 'null', '{"version":4,"overlays":[]}', '{"version":3,"overlays":{}}']) {
         const restored = loadOverlays({getItem: () => raw});
         assert.deepEqual(restored.overlays, []);
         assert.ok(restored.notice);
@@ -74,7 +74,7 @@ test('corrupt, unsupported, and unavailable storage cannot break the editor', ()
         {...valid, settings: {color: 'red', opacity: 1}},
         {...valid, settings: {color: '#abcdef', opacity: 2}},
         {...valid, settings: {color: '#abcdef', opacity: '0.5'}}];
-    const result = loadOverlays({getItem: () => JSON.stringify({version: 2, overlays: [...invalid, valid]})});
+    const result = loadOverlays({getItem: () => JSON.stringify({version: 3, overlays: [...invalid, valid]})});
     assert.deepEqual(result.overlays, [valid]);
     assert.ok(result.notice);
 });
@@ -89,7 +89,7 @@ test('source presentation uses model or producer metadata without altering ident
     assert.equal(sourceLabel(outputSource({payloadType: 'BoxDetections'})), 'Unspecified source');
     assert.equal(sourceLabel(outputSource({payloadType: 'PerformanceMeasurements'})), 'Pipeline performance');
     assert.deepEqual(Object.fromEntries(sourceDetails(source)), {
-        'Payload type': 'BoxDetections', 'Content type': 'genericObject', Engine: 'Not provided',
+        'Payload type': 'BoxDetections', Engine: 'Not provided',
         Model: 'YOLO26n', 'Inference element': 'infer', 'Label family': 'Not provided',
         'Producer instance': 'infer/parser', Component: 'parser', Implementation: 'Yolo',
     });
@@ -125,60 +125,32 @@ test('missing and delimiter-containing metadata are displayed honestly and remai
     assert.equal(new Set(sourceLabels(unusual).values()).size, 2);
 });
 
-test('v1 migration preserves selection, order and styling and makes prior trail overrides explicit', () => {
-    const tracks = outputSource({...layer, payloadType: 'ObjectTracks'});
-    const trails = {...tracks, payloadType: 'TrackTraces', contentType: 'trackTrace'};
-    const legacy = [
-        {source: tracks, enabled: true, settings: {color: '#123456', opacity: 0.4}},
-        {source: trails, enabled: false, settings: {color: '#abcdef', opacity: 0.8}},
-        {source: outputSource(layer), enabled: false, settings: {color: '#654321', opacity: 0.5}},
-    ];
-    const old = JSON.stringify({version: 1, overlays: legacy});
-    const records = new Map([['opk-overlays:v1', old]]);
-    const storage = {getItem: (key) => records.get(key) ?? null, setItem: (key, value) => records.set(key, value)};
+test('v2 migration preserves explicit renderer, source, order and settings and drops retired selectors', () => {
+    const originals = [createOverlay('face-circles', outputSource(layer)),
+        createOverlay('tracked-objects', outputSource({...layer, payloadType: 'ObjectTracks'})),
+        createOverlay('gaze', outputSource({...layer, payloadType: 'GazeMeasurements'}))];
+    originals[0].enabled = false;
+    originals[0].settings = {color: '#123456', opacity: 0.4};
+    const old = JSON.stringify({version: 2, overlays: originals.map(overlay => ({...overlay,
+        selection: {primary: {...overlay.selection.primary, contentType: 'humanFace'}}}))});
+    const records = new Map([['opk-overlays:v2', old]]);
+    const storage = {getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value)};
     const migrated = loadOverlays(storage);
-    assert.equal(migrated.notice, '');
-    assert.deepEqual(migrated.overlays.map((overlay) => overlay.featureId), ['tracked-objects', 'movement-trails', 'bounding-boxes']);
-    migrated.overlays.forEach((overlay, i) => {
-        assert.deepEqual(overlay.selection.primary, legacy[i].source);
-        assert.equal(overlay.enabled, legacy[i].enabled);
-        assert.equal(overlay.settings.color, legacy[i].settings.color);
-        assert.equal(overlay.settings.opacity, legacy[i].settings.opacity);
-    });
-    assert.equal(migrated.overlays[0].settings.boxes, true);
-    assert.equal(migrated.overlays[0].settings.trails, false);
-    assert.equal(records.get('opk-overlays:v1'), old);
-    assert.equal(JSON.parse(records.get(OVERLAY_STORAGE_KEY)).version, 2);
-    assert.deepEqual(loadOverlays(storage).overlays, migrated.overlays);
-    migrated.overlays[0].settings.trails = true;
-    saveOverlays(storage, migrated.overlays);
-    assert.equal(loadOverlays(storage).overlays[0].settings.trails, true);
-
-    records.delete(OVERLAY_STORAGE_KEY);
-    records.set('opk-overlays:v1', JSON.stringify({version: 1, overlays: [legacy[0], {...legacy[1], enabled: 'invalid'}]}));
-    assert.equal(loadOverlays(storage).overlays[0].settings.trails, true);
-});
-
-test('migration survives write failure and all legacy semantic features map without losing source identity', () => {
-    const contents = [
-        ['Classifications', 'cameraContact', 'camera-contact'],
-        ['Classifications', 'classification', 'classifications'],
-        ['PoseEstimations', 'eyeYawPitch', 'gaze'],
-        ['PerformanceOverlay', '', 'performance'],
-    ];
-    const raw = JSON.stringify({version: 1, overlays: contents.map(([payloadType, contentType]) => ({
-        source: outputSource({payloadType, contentType}), enabled: true, settings: {color: '#123456', opacity: 0.2},
-    }))});
-    const result = loadOverlays({getItem: (key) => key === 'opk-overlays:v1' ? raw : null,
+    assert.match(migrated.notice, /migrated/);
+    assert.deepEqual(migrated.overlays, originals);
+    assert.equal(records.get('opk-overlays:v2'), old);
+    assert.equal(JSON.parse(records.get(OVERLAY_STORAGE_KEY)).version, 3);
+    assert.deepEqual(loadOverlays(storage).overlays, originals);
+    const failedWrite = loadOverlays({getItem: key => key === 'opk-overlays:v2' ? old : null,
         setItem() { throw new Error('denied'); }});
-    assert.deepEqual(result.overlays.map((overlay) => overlay.featureId), contents.map((item) => item[2]));
-    assert.match(result.notice, /could not be saved/);
+    assert.deepEqual(failedWrite.overlays, originals);
+    assert.match(failedWrite.notice, /could not be saved/);
 });
 
 test('feature-specific settings are validated, while unknown feature records survive round trips', () => {
     const record = createOverlay('tracked-objects', outputSource({...layer, payloadType: 'ObjectTracks'}));
     assert.equal(record.settings.trails, true);
-    let raw = JSON.stringify({version: 2, overlays: [{...record, settings: {...record.settings, trails: 'yes'}}]});
+    let raw = JSON.stringify({version: 3, overlays: [{...record, settings: {...record.settings, trails: 'yes'}}]});
     const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; }};
     assert.equal(loadOverlays(storage).overlays.length, 0);
     const future = {...record, featureId: 'future-view', settings: {mode: 'new-style'}};
@@ -186,52 +158,14 @@ test('feature-specific settings are validated, while unknown feature records sur
     assert.deepEqual(loadOverlays(storage).overlays, [future]);
 });
 
-test('saved performance selections retain their settings across the payload rename', () => {
-    const overlay = {featureId: 'performance', selection: {primary: outputSource({payloadType: 'PerformanceOverlay'})},
-        enabled: false, settings: {color: '#123456', opacity: 0.25}};
-    let raw = JSON.stringify({version: 2, overlays: [overlay]});
-    let writes = 0;
-    const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; writes++; }};
-    const loaded = loadOverlays(storage);
-    assert.equal(loaded.notice, '');
-    assert.equal(loaded.overlays[0].selection.primary.payloadType, 'PerformanceMeasurements');
-    assert.deepEqual(loaded.overlays[0].settings, overlay.settings);
-    assert.equal(loaded.overlays[0].enabled, false);
-    assert.equal(writes, 1);
-    assert.deepEqual(loadOverlays(storage).overlays, loaded.overlays);
-    assert.equal(writes, 1);
-});
-
-test('saved gaze selections follow the typed root without changing their settings', () => {
-    const overlay = {featureId: 'gaze', selection: {primary: outputSource({payloadType: 'PoseEstimations', contentType: 'eyeYawPitch'})},
-        enabled: false, settings: {color: '#123456', opacity: .25}};
-    let raw = JSON.stringify({version: 2, overlays: [overlay]});
+test('saved typed roots survive without subtype-based relabelling', () => {
+    const entries = [['performance', 'PerformanceMeasurements'], ['gaze', 'GazeMeasurements'],
+        ['camera-contact', 'CameraContacts'], ['classifications', 'PersonPresences']];
+    const originals = entries.map(([featureId, payloadType]) => createOverlay(featureId, outputSource({payloadType})));
+    let raw = null;
     const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; }};
-    const loaded = loadOverlays(storage);
-    assert.equal(loaded.overlays[0].selection.primary.payloadType, 'GazeMeasurements');
-    assert.equal(loaded.overlays[0].enabled, false);
-    assert.deepEqual(loaded.overlays[0].settings, overlay.settings);
-    assert.deepEqual(loadOverlays(storage).overlays, loaded.overlays);
-});
-
-test('saved contact and presence selections follow the typed roots without changing their settings', () => {
-    const entries = [
-        ['camera-contact', 'cameraContact', 'CameraContacts'],
-        ['classifications', 'personClassification', 'PersonPresences'],
-    ];
-    const originals = entries.map(([featureId, contentType]) => ({featureId,
-        selection: {primary: outputSource({payloadType: 'Classifications', contentType})},
-        enabled: false, settings: {color: '#123456', opacity: .25}}));
-    let raw = JSON.stringify({version: 2, overlays: originals});
-    const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; }};
-    const loaded = loadOverlays(storage);
-    assert.equal(loaded.notice, '');
-    loaded.overlays.forEach((entry, index) => {
-        assert.equal(entry.selection.primary.payloadType, entries[index][2]);
-        assert.equal(entry.enabled, originals[index].enabled);
-        assert.deepEqual(entry.settings, originals[index].settings);
-    });
-    assert.deepEqual(loadOverlays(storage).overlays, loaded.overlays);
+    assert.equal(saveOverlays(storage, originals), '');
+    assert.deepEqual(loadOverlays(storage).overlays, originals);
 });
 
 test('waiting overlays persist without invented provenance and bind only once to a unique compatible source', () => {
@@ -274,36 +208,31 @@ test('waiting selections do not guess between multiple producers or bind unsuppo
     assert.equal(bindPendingOverlays([unsupported], new Map([[sourceKey(source), source]])), false);
 });
 
-test('saved face bounding overlays are relabelled once without changing their source or appearance', () => {
+test('saved bounding overlays keep their explicit renderer regardless of retired tags', () => {
     const faces = ['BoxDetections', 'ObjectTracks'].map((payloadType) => ({
-        ...createOverlay('bounding-boxes', outputSource({...layer, payloadType, contentType: 'humanFace'})),
+        ...createOverlay('bounding-boxes', outputSource({...layer, payloadType})),
         enabled: false, settings: {color: '#654321', opacity: 0.37},
     }));
     const objectBox = createOverlay('bounding-boxes', outputSource(layer));
     const waiting = createOverlay('bounding-boxes');
-    let raw = JSON.stringify({version: 2, overlays: [...faces, objectBox, waiting]});
+    let raw = JSON.stringify({version: 3, overlays: [...faces, objectBox, waiting]});
     let writes = 0;
     const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; writes++; }};
     const restored = loadOverlays(storage);
     assert.equal(restored.notice, '');
     assert.deepEqual(restored.overlays, [
-        ...faces.map((overlay) => ({...overlay, featureId: 'face-circles'})), objectBox, waiting,
+        ...faces, objectBox, waiting,
     ]);
-    assert.equal(writes, 1);
+    assert.equal(writes, 0);
     assert.deepEqual(loadOverlays(storage).overlays, restored.overlays);
-    assert.equal(writes, 1);
-
-    const legacy = {source: faces[0].selection.primary, enabled: false, settings: faces[0].settings};
-    const records = new Map([['opk-overlays:v1', JSON.stringify({version: 1, overlays: [legacy]})]]);
-    const oldStorage = {getItem: (key) => records.get(key) ?? null, setItem: (key, value) => records.set(key, value)};
-    assert.equal(loadOverlays(oldStorage).overlays[0].featureId, 'face-circles');
+    assert.equal(writes, 0);
 });
 
-test('a waiting face-circle overlay binds to faces while bounding boxes keeps waiting for objects', () => {
+test('circle and rectangular presentations can select the same typed box producer', () => {
     const face = outputSource({...layer, contentType: 'humanFace'});
     const circle = createOverlay('face-circles');
     const boxes = createOverlay('bounding-boxes');
     assert.equal(bindPendingOverlays([circle, boxes], new Map([[sourceKey(face), face]])), true);
     assert.deepEqual(circle.selection.primary, face);
-    assert.equal(boxes.selection.primary, null);
+    assert.deepEqual(boxes.selection.primary, face);
 });

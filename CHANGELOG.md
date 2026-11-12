@@ -38,8 +38,8 @@ follow [Semantic Versioning](https://semver.org/).
   embedding spaces, and track identity/history explicit in metadata.
 - Publish structured performance measurements with producer/scope identity and
   independent measurement availability.
-- Route model dependencies by payload root and optional role. Allow trusted Python
-  Ops to declare typed inputs and outputs through the OpChain v1.10 reader extension.
+- Connect model inputs to concrete producers, using SDK payload roots for compatibility.
+  Allow explicit live input selection and typed Python input/output declarations.
 - Preserve successful empty results separately from unavailable output. Expose audio
   source buffers and typed VAD/turn assessments across shared inspection and comparison.
 - Integrate semantic/instance segmentation and OCR overlay controls with the 1.0
@@ -69,6 +69,10 @@ follow [Semantic Versioning](https://semver.org/).
   implicit string/parent-based interpretation rather than adding compatibility adapters.
 - Replace string-only capability interfaces and control messages with typed output
   declarations. Custom Op libraries and WebUI clients must be upgraded together.
+- Remove `LayerInfo.content_type`, Model `contentType`, semantic capability roles
+  and subtype-based ROI/tracker/rendering selection. Model and OpChain formats move
+  to `2.0.0`; migrate sources explicitly and rebuild intermediate SDK 1.0 snapshots
+  together. See [explicit result inputs](docs/arch/explicit-input-connections.md).
 - Keep development package versions until stable release preparation is complete. See the
   [SDK 1.0 verification record](docs/arch/sdk-1.0-verification.md) for scope and limits;
   this entry does not authorize publication.

@@ -37,7 +37,7 @@ semantics.
    - raw serialized envelope bytes
    - an embedded Python guest bridge
    - an application-specific transport such as a Cairn service
-4. Identify which payload types and `LayerInfo.content_type` values the
+4. Identify which SDK payload types and concrete producer instances the
    application actually needs.
 5. Define whether the application is a strict typed consumer or a transparent
    relay that must preserve unknown payloads.
@@ -150,7 +150,7 @@ identities, and tested application semantics.
 
 ## Consume Payload Semantics Safely
 
-- Select payloads by generated type and fields such as `content_type`, not by
+- Select payloads by generated type and explicit producer references, not by
   array or envelope position.
 - Treat generated table pointers and optional nested objects as nullable.
 - Use `FrameContext` for coordinate-space and crop or letterbox interpretation.
@@ -182,7 +182,7 @@ Add focused tests for:
 - malformed Base64 and invalid FlatBuffers envelopes
 - every producer identity mismatch status
 - required payload missing and repeated-payload behavior
-- semantic routing by payload type and `content_type`
+- typed interpretation and explicit producer selection
 - unknown-payload preservation when the application acts as a relay
 - CMake or Meson configuration against the extracted C++ tree
 - Python installation from the bundle without network access

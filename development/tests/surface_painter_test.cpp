@@ -246,7 +246,6 @@ makeSegmentationFrameResults(const char *compositingMode = nullptr) {
     open_perception_kit::metadata::SegmentationMasksT payload;
 
     open_perception_kit::LayerInfoDescriptor layerDescriptor;
-    layerDescriptor.contentType = "segmentation";
     if (compositingMode != nullptr) {
         layerDescriptor.compositingMode = compositingMode;
     }
@@ -301,7 +300,6 @@ open_perception_kit::FrameResults makeGenericObjectFrameResults() {
     open_perception_kit::metadata::BoxDetectionsT payload;
 
     open_perception_kit::LayerInfoDescriptor layerDescriptor;
-    layerDescriptor.contentType = "genericObject";
     payload.layer = open_perception_kit::makeLayerInfo(layerDescriptor);
 
     auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
@@ -326,8 +324,9 @@ open_perception_kit::FrameResults makeHumanFaceAndGazeFrameResults(float yaw = 2
     open_perception_kit::metadata::BoxDetectionsT facePayload;
 
     open_perception_kit::LayerInfoDescriptor faceLayerDescriptor;
-    faceLayerDescriptor.contentType = "humanFace";
     facePayload.layer = open_perception_kit::makeLayerInfo(faceLayerDescriptor);
+    facePayload.layer->producer =
+        open_perception_kit::makeProducerInfo("face-source", "fixture", "");
 
     auto face = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     face->object = open_perception_kit::makeObjectMeta(7U);
@@ -343,7 +342,6 @@ open_perception_kit::FrameResults makeHumanFaceAndGazeFrameResults(float yaw = 2
     open_perception_kit::metadata::GazeMeasurementsT gazePayload;
 
     open_perception_kit::LayerInfoDescriptor gazeLayerDescriptor;
-    gazeLayerDescriptor.contentType = "eyeYawPitch";
     gazePayload.layer = open_perception_kit::makeLayerInfo(gazeLayerDescriptor);
 
     auto gaze = std::make_unique<open_perception_kit::metadata::GazeMeasurementT>();
@@ -367,8 +365,9 @@ makeCameraContactFrameResults(const bool inContact = true,
     open_perception_kit::metadata::BoxDetectionsT facePayload;
 
     open_perception_kit::LayerInfoDescriptor faceLayerDescriptor;
-    faceLayerDescriptor.contentType = "humanFace";
     facePayload.layer = open_perception_kit::makeLayerInfo(faceLayerDescriptor);
+    facePayload.layer->producer =
+        open_perception_kit::makeProducerInfo("face-source", "fixture", "");
 
     auto face = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     face->object = open_perception_kit::makeObjectMeta(11U);
@@ -384,7 +383,6 @@ makeCameraContactFrameResults(const bool inContact = true,
     open_perception_kit::metadata::CameraContactsT contactPayload;
 
     open_perception_kit::LayerInfoDescriptor contactLayerDescriptor;
-    contactLayerDescriptor.contentType = "cameraContact";
     contactPayload.layer = open_perception_kit::makeLayerInfo(contactLayerDescriptor);
 
     auto classification = std::make_unique<open_perception_kit::metadata::CameraContactT>();
@@ -409,7 +407,6 @@ open_perception_kit::FrameResults makePersonClassificationFrameResults(const flo
     open_perception_kit::metadata::PersonPresencesT payload;
 
     open_perception_kit::LayerInfoDescriptor layerDescriptor;
-    layerDescriptor.contentType = "personClassification";
     payload.layer = open_perception_kit::makeLayerInfo(layerDescriptor);
 
     auto presence = std::make_unique<open_perception_kit::metadata::PersonPresenceT>();
@@ -438,7 +435,6 @@ open_perception_kit::FrameResults makeImageClassificationFrameResults() {
     open_perception_kit::metadata::ClassificationsT leftPayload;
     auto leftProducer = open_perception_kit::makeProducerInfo("left", "test", "cpp-classifier");
     open_perception_kit::LayerInfoDescriptor leftLayerDescriptor;
-    leftLayerDescriptor.contentType = "customClassification";
     leftLayerDescriptor.producer = leftProducer.get();
     leftPayload.layer = open_perception_kit::makeLayerInfo(leftLayerDescriptor);
 
@@ -451,7 +447,6 @@ open_perception_kit::FrameResults makeImageClassificationFrameResults() {
     open_perception_kit::metadata::ClassificationsT rightPayload;
     auto rightProducer = open_perception_kit::makeProducerInfo("right", "test", "python-script");
     open_perception_kit::LayerInfoDescriptor rightLayerDescriptor;
-    rightLayerDescriptor.contentType = "customClassification";
     rightLayerDescriptor.compositingMode = "bottomRight";
     rightLayerDescriptor.producer = rightProducer.get();
     rightPayload.layer = open_perception_kit::makeLayerInfo(rightLayerDescriptor);
@@ -840,6 +835,7 @@ TEST(DebugOverlayRendererTest, DrawsHumanFaceCirclesAndGazeVectorsInAllSupported
         request.surface.height = surface.height;
         request.surface.planes = planeSpan(surface);
         request.frameResults = &frameResults;
+        request.options.circleProducers = {"face-source"};
 
         EXPECT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
@@ -902,8 +898,6 @@ TEST(DebugOverlayRendererTest, GazeUsesUniqueBoxOrTrackSubjectsAndRejectsUnavail
             [&](const auto &p) { boxes = p; });
         base.for_each<open_perception_kit::metadata::GazeMeasurementsT>(
             [&](const auto &p) { gazes = p; });
-        boxes.layer->content_type = "unlabelled-subject";
-        gazes.layer->content_type = "custom-gaze";
         auto &gaze = *gazes.measurements[0];
         gaze.object->parent_id = 7; // A derivation parent must not rescue a missing subject.
         if (variant == 2 || variant == 3) {
@@ -954,6 +948,7 @@ TEST(DebugOverlayRendererTest, GazeUsesUniqueBoxOrTrackSubjectsAndRejectsUnavail
         request.surface.height = surface.height;
         request.surface.planes = planeSpan(surface);
         request.frameResults = &results;
+        request.options.boxProducers.emplace();
         ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
         EXPECT_EQ(activeAreaChanged(surface),
                   variant == 0 || variant == 1 || variant == 10 || variant == 12)
@@ -1152,7 +1147,6 @@ TEST(DebugOverlayRendererTest, ContactUsesTheFullSubjectBoxBeforeRasterClipping)
             open_perception_kit::FrameResults results;
             base.for_each<open_perception_kit::metadata::BoxDetectionsT>([&](const auto &payload) {
                 auto boxes = payload;
-                boxes.layer->content_type = "subject";
                 auto &box = *boxes.detections[0]->box;
                 box.x = value.x;
                 box.y = value.y;
@@ -1170,6 +1164,7 @@ TEST(DebugOverlayRendererTest, ContactUsesTheFullSubjectBoxBeforeRasterClipping)
             request.surface.height = actual.height;
             request.surface.planes = planeSpan(actual);
             request.frameResults = &results;
+            request.options.boxProducers.emplace();
             ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
             SurfacePainter painter(
                 expected.format, expected.width, expected.height, planeSpan(expected));
@@ -1189,8 +1184,8 @@ TEST(DebugOverlayRendererTest, MaskMeaningAndCropOverridePresentationAndDerivati
     auto actual = makeSurface(RawImagePixelFormat::Bgra, 8, 8);
     auto expected = makeSurface(RawImagePixelFormat::Bgra, 8, 8);
     open_perception_kit::metadata::SegmentationMasksT payload;
-    payload.layer = open_perception_kit::makeLayerInfo(
-        {.contentType = "custom", .compositingMode = "backgroundReplacement"});
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.compositingMode = "backgroundReplacement"});
     auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
     mask->object = open_perception_kit::makeObjectMeta(2, 999);
     mask->meaning = open_perception_kit::metadata::OpacityMeaning::RegionOpacity;
@@ -1262,7 +1257,7 @@ TEST(DebugOverlayRendererTest, StructuredPerformancePreservesExistingPixels) {
 
 TEST(DebugOverlayRendererTest, StructuredTrackLabelPreservesExistingPixelsAndSkipsAmbiguousTrails) {
     open_perception_kit::metadata::ObjectTracksT tracks;
-    tracks.layer = open_perception_kit::makeLayerInfo({.contentType = "genericObject"});
+    tracks.layer = open_perception_kit::makeLayerInfo({});
     auto track = std::make_unique<open_perception_kit::metadata::ObjectTrackT>();
     track->identity = testTrackIdentity(1);
     track->sample = testTrackingSample(1);

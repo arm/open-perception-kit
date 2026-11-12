@@ -30,11 +30,9 @@ namespace opk::stdop::postproc {
  * Produces image classification results as a generated FrameResults payload.
  */
 struct ImageNetClassificationParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "classification";
 
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {
-            opk::outputCapability<open_perception_kit::metadata::ClassificationsT>(k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::ClassificationsT>()};
     }
 
     opk::Result<void> parse(const opk::TensorParser::Input &input,

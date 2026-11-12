@@ -42,7 +42,7 @@ TEST(ConfigValidator, RepositoryAllowsSharedNamesForBackendVariants) {
 
 TEST(ConfigValidator, RepositoryMetaValidatesLiveSchemaBundle) {
     TemporaryRepository repository;
-    const auto schemaPath = repository.root() / "config/schemas/v1/model.schema.json";
+    const auto schemaPath = repository.root() / "config/schemas/v2/model.schema.json";
     std::ifstream input(schemaPath);
     auto schema = nlohmann::json::parse(input);
     schema["$id"] = "urn:wrong:model";
@@ -55,7 +55,7 @@ TEST(ConfigValidator, RepositoryMetaValidatesLiveSchemaBundle) {
 
 TEST(ConfigValidator, RepositoryReportsMissingSchemaAndDescriptorDirectory) {
     TemporaryRepository repository;
-    std::filesystem::remove(repository.root() / "config/schemas/v1/model.schema.json");
+    std::filesystem::remove(repository.root() / "config/schemas/v2/model.schema.json");
     auto report = opk::config::detail::validateRepository(repository.root());
     EXPECT_TRUE(hasRule(report, "schema.read"));
 

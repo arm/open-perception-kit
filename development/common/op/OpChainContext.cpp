@@ -35,8 +35,8 @@ OpChainContext::videoFrameId(const std::string &name,
         return found->second;
     open_perception_kit::metadata::FrameContextT payload;
     const auto layerId = "rootLayer_" + inferenceInfo.inferElementId;
-    payload.layer = open_perception_kit::makeLayerInfo(
-        {.inferElementId = layerId, .contentType = "frameContext", .producer = &producer});
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.inferElementId = layerId, .producer = &producer});
     payload.video = std::make_unique<open_perception_kit::metadata::VideoFrameContextT>();
     payload.video->object = open_perception_kit::makeObjectMeta();
     payload.video->original_width = frame->width();

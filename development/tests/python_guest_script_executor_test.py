@@ -73,12 +73,12 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
 
             original = envelope.get(BoxDetectionsT, 0)
             transformed = envelope.get(BoxDetectionsT, 1)
-            self.assertEqual(text(original.layer.contentType), "test/input-boxes")
+            self.assertEqual(text(original.layer.model), "seed-boxes")
             self.assertEqual(original.detections[0].box.x, 10.0)
             self.assertEqual(original.detections[0].box.width, 30.0)
             self.assertEqual(text(original.detections[0].text), "seed")
 
-            self.assertEqual(text(transformed.layer.contentType), "test/scaled-boxes")
+            self.assertEqual(text(transformed.layer.model), "scale-boxes")
             self.assertEqual(transformed.detections[0].object.id, 7)
             self.assertEqual(transformed.detections[0].object.parentId, 7)
             self.assertEqual(transformed.detections[0].box.x, 20.0)

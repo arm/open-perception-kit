@@ -40,7 +40,6 @@ makeObjectMeta(uint64_t id = 0, uint64_t parentId = 0, uint64_t creationTsNs = 0
 struct LayerInfoDescriptor {
     std::string_view model{};
     std::string_view inferElementId{};
-    std::string_view contentType{};
     std::string_view engine{};
     std::string_view tags{};
     std::string_view labelFamily{};
@@ -67,7 +66,7 @@ makeImageBoundingBox(const opk::ImageInferenceMetadata &image,
                      const bool normalized = false);
 bool validImageSpace(const metadata::ImageSpaceT *const space) noexcept;
 // Resolves one box/track observation by ID; duplicates remain ambiguous even
-// when one observation has missing or invalid geometry. No content-type filter.
+// when one observation has missing or invalid geometry. Subject IDs are frame-scoped.
 const metadata::BoundingBoxT *findSubjectBox(const FrameResults &frameResults, const uint64_t id);
 // Returns x, y, width, height in the requested surface's pixels. No parent lookup.
 std::optional<std::array<double, 4>> projectBoundingBox(const metadata::BoundingBoxT &box,
@@ -93,12 +92,13 @@ std::vector<std::pair<std::string, std::string>>
 formatPerformanceRows(const metadata::PerformanceMeasurementsT &measurements);
 
 template <typename Fn>
-void forEachBoxDetectionWithContentType(const FrameResults &frameResults,
-                                        const std::string &contentType,
-                                        uint64_t id,
-                                        Fn &&fn) {
-    frameResults.for_each<metadata::BoxDetectionsT>([&contentType, id, &fn](const auto &payload) {
-        if (!payload.layer || payload.layer->content_type != contentType) {
+void forEachBoxDetectionFromProducer(const FrameResults &frameResults,
+                                     const std::string &producerId,
+                                     uint64_t id,
+                                     Fn &&fn) {
+    frameResults.for_each<metadata::BoxDetectionsT>([&producerId, id, &fn](const auto &payload) {
+        if (producerId.empty() || !payload.layer || !payload.layer->producer ||
+            payload.layer->producer->instance_id != producerId) {
             return;
         }
 
@@ -115,10 +115,10 @@ void forEachBoxDetectionWithContentType(const FrameResults &frameResults,
 }
 
 template <typename Fn>
-void forEachBoxDetectionWithContentType(const FrameResults &frameResults,
-                                        const std::string &contentType,
-                                        Fn &&fn) {
-    forEachBoxDetectionWithContentType(frameResults, contentType, 0U, std::forward<Fn>(fn));
+void forEachBoxDetectionFromProducer(const FrameResults &frameResults,
+                                     const std::string &producerId,
+                                     Fn &&fn) {
+    forEachBoxDetectionFromProducer(frameResults, producerId, 0U, std::forward<Fn>(fn));
 }
 
 std::vector<uint8_t> serialize(const FrameResults &frameResults);

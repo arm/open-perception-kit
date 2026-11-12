@@ -93,7 +93,7 @@ The shortest practical path is:
 6. add that source file to `development/ops-std/meson.build`
 7. register the parser name in `GenericPostprocessOp.cpp`
 8. reuse or add its closed local `$defs` entry in
-   `config/schemas/v1/opchain/ops/generic-postprocess.schema.json`
+   `config/schemas/v2/opchain/ops/generic-postprocess.schema.json`
 9. add that `$defs` entry to the schema's dispatcher `oneOf`
 10. reference that parser name from the relevant `opchain.json`
 11. run `opk-ci --config-schema-check` in the development container
@@ -117,7 +117,7 @@ That local change is usually a good sign that you are still within the intended 
 For embedding output, declare a versioned comparison-space identity. The generic
 parser can be configured with `{"parser":"ObjectEmbeddingParser",
 "embeddingSpaceId":"example:person-reid:weights-v1-preprocess-v1"}` using an
-OpChain v1 reader supporting `1.9.0`. It publishes the actual dimension and cosine
+OpChain format-2 reader. It publishes the actual dimension and cosine
 metric, normalizes valid nonzero values and sets the explicit subject from the
 inference source. Omitting the declaration preserves transport, but not matching.
 Custom SDK producers must supply `space` and `subject_id` themselves; equal vector
@@ -189,7 +189,7 @@ If you need a genuinely new runtime result because none of the existing schema p
 	- declare the parser that produces the new structure
 4. `development/ops-std/postproc/<YourParser>.cpp`
 	- create and fill the new generated payload
-	- set `payload.layer->content_type` to the content type you want downstream code to look for
+	- attach `input.producerInfo` to the layer and declare the generated payload type through `getProvidedOutputs()`
 5. `development/ops-std/meson.build`
 	- compile the new parser source file
 6. `development/ops-std/GenericPostprocessOp.cpp`
@@ -201,7 +201,7 @@ If you need a genuinely new runtime result because none of the existing schema p
 10. `opk-ci --config-schema-check`
 	- verify the new contract and every checked-in descriptor
 
-If another downstream element needs to understand the new `content_type`, you may also need to update that element. The common example is `development/elements/opkosd/DebugOverlayRenderer.cpp` for native overlay rendering.
+If a downstream element needs to understand a new SDK payload type, update that consumer. The common example is `development/elements/opkosd/DebugOverlayRenderer.cpp` for native overlay rendering.
 
 The generated FrameResults SDK also supports external opaque payloads for caller-owned
 byte protocols. That is useful for data whose schema is intentionally managed outside
@@ -211,9 +211,9 @@ be rendered, tracked, published, or compared should use known generated schema p
 So the routing path is usually:
 
 - parser implementation appends a generated FrameResults payload
-- `payload.layer->content_type` names the semantic result category where the payload has layer metadata
+- `payload.layer->producer` identifies the concrete producing Op instance
 - `GenericPostprocessOp` passes the active FrameResults to the parser
-- downstream elements such as `opkosd` or `opktracker` look for that content type
+- downstream consumers use the SDK payload type and their explicit producer connections
 
 If your model output already matches one of the built-in parsers, prefer reusing that parser instead of creating a new one.
 
@@ -229,7 +229,7 @@ That means the usual flow is:
 2. each object that needs lineage gets linked back to the current inference source through `parent_id`
 3. `GenericPostprocessOp` gives the parser the active `open_perception_kit::FrameResults`
 4. `FrameResultsMeta` carries that structured data downstream with the buffer
-5. when enabled, `opkosd` reads the resulting payloads and decides what to draw based on payload type and `layer.content_type`
+5. when enabled, `opkosd` renders supported payload types using explicit presentation settings
 
 The camera-contact parser publishes `CameraContactsT`; `opkosd` renders its
 explicit `in_contact` result as a green or red status dot for its `subject_id`.
@@ -258,7 +258,7 @@ In practice, “make the data make sense” means:
 - pick the right generated schema payload for the meaning of the output
 - fill its fields in normalized image coordinates or the expected runtime units
 - make sure the OpChain is feeding the correct source object so the parser can set `parent_id` correctly
-- choose a stable `layer.content_type` string that downstream code can match on
+- assign a stable Op `instanceId` for downstream connections
 
 Then, for visualization, choose the overlay style that matches the semantics of the data:
 
@@ -272,7 +272,7 @@ For a new visualization path, the file to extend is usually `development/element
 
 The usual pattern there is:
 
-1. check the payload type and `layer.content_type`
+1. check the SDK payload type and explicit source selection
 2. read the expected generated schema object from the payload
 3. find the parent region if the drawing depends on an earlier detection
 4. draw the overlay with the existing debug-overlay and `opk::raster` helpers
@@ -289,7 +289,7 @@ The usual chain shape is still:
 
 ```json
 {
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"name": "CameraContact",
 	"description": "Estimate camera contact for each detected face.",
 	"ops": [
@@ -297,7 +297,7 @@ The usual chain shape is still:
 			"id": "opk-std-ops/InferenceController",
 			"loopId": 1,
 			"attributes": {
-				"contentType": "humanFace"
+				"sourceProducer": "detector/faces"
 			}
 		},
 		{

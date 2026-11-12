@@ -132,7 +132,6 @@ opk::Result<void> ImageNetClassificationParser::parse(const opk::TensorParser::I
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
 
     auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();

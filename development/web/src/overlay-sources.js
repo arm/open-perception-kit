@@ -19,11 +19,11 @@ import {trackKey} from './tracking-data.js';
 export {trackKey};
 
 const SOURCE_FIELDS = [
-    'payloadType', 'contentType', 'engine', 'model', 'inferElementId', 'labelFamily',
+    'payloadType', 'engine', 'model', 'inferElementId', 'labelFamily',
     'producerInstanceId', 'producerComponent', 'producerImplementation',
 ];
 const SOURCE_FIELD_LABELS = {
-    payloadType: 'Payload type', contentType: 'Content type', engine: 'Engine', model: 'Model',
+    payloadType: 'Payload type', engine: 'Engine', model: 'Model',
     inferElementId: 'Inference element', labelFamily: 'Label family',
     producerInstanceId: 'Producer instance', producerComponent: 'Component', producerImplementation: 'Implementation',
 };
@@ -31,7 +31,6 @@ const SOURCE_FIELD_LABELS = {
 export function outputSource(layer) {
     return {
         payloadType: layer.payloadType || '',
-        contentType: layer.contentType || '',
         engine: layer.engine || '',
         model: layer.model || '',
         inferElementId: layer.inferElementId || '',
@@ -48,6 +47,10 @@ export function sourceKey(source) {
 
 export function validSource(source) {
     return SOURCE_FIELDS.every((field) => typeof source?.[field] === 'string') && source.payloadType.length > 0;
+}
+
+export function copySource(source) {
+    return Object.fromEntries(SOURCE_FIELDS.map(field => [field, source[field]]));
 }
 
 // Relationship identity is deliberately independent of model, engine, label

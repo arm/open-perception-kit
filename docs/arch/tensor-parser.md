@@ -62,7 +62,7 @@ Adding a parser normally means:
 1. Add a parser class implementing the `TensorParser` contract.
 2. Register it with `GenericPostprocessOp`.
 3. Reuse or add its closed local `$defs` entry and dispatcher `$ref` in
-   `config/schemas/v1/opchain/ops/generic-postprocess.schema.json`.
+   `config/schemas/v2/opchain/ops/generic-postprocess.schema.json`.
 4. Reference it from the model or OpChain configuration.
 5. Add focused tests using known output tensors and expected `FrameResults` payloads.
 6. Run `opk-ci --config-schema-check` in the development container.

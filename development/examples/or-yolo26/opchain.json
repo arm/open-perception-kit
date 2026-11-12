@@ -1,5 +1,5 @@
 {
-  "version": "1.1.2",
+  "version": "2.0.0",
   "name": "Yolo26nOR320",
   "displayName": "YOLO26n OR (320x320)",
   "task": "Object detection",
@@ -25,6 +25,7 @@
     },
     {
       "id": "opk-std-ops/GenericPostprocess",
+      "instanceId": "opk-std-ops-GenericPostprocess-0",
       "attributes": {
         "parser": "YoloParser",
         "outputFormat": "centerClassScores",

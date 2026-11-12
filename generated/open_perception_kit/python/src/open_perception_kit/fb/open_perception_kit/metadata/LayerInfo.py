@@ -78,22 +78,15 @@ class LayerInfo(object):
         return None
 
     # LayerInfo
-    def ContentType(self):
+    def CompositingMode(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
     # LayerInfo
-    def CompositingMode(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
-
-    # LayerInfo
     def Producer(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfo
@@ -104,7 +97,7 @@ class LayerInfo(object):
 
 
 def LayerInfoStart(builder):
-    builder.StartObject(8)
+    builder.StartObject(7)
 
 
 def Start(builder):
@@ -151,16 +144,8 @@ def AddLabelFamily(builder, labelFamily):
     LayerInfoAddLabelFamily(builder, labelFamily)
 
 
-def LayerInfoAddContentType(builder, contentType):
-    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(contentType), 0)
-
-
-def AddContentType(builder, contentType):
-    LayerInfoAddContentType(builder, contentType)
-
-
 def LayerInfoAddCompositingMode(builder, compositingMode):
-    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(compositingMode), 0)
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(compositingMode), 0)
 
 
 def AddCompositingMode(builder, compositingMode):
@@ -168,7 +153,7 @@ def AddCompositingMode(builder, compositingMode):
 
 
 def LayerInfoAddProducer(builder, producer):
-    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(producer), 0)
+    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(producer), 0)
 
 
 def AddProducer(builder, producer):
@@ -199,7 +184,6 @@ class LayerInfoT(object):
         tags=None,
         inferElementId=None,
         labelFamily=None,
-        contentType=None,
         compositingMode=None,
         producer=None,
     ):
@@ -208,7 +192,6 @@ class LayerInfoT(object):
         self.tags = tags  # type: Optional[str]
         self.inferElementId = inferElementId  # type: Optional[str]
         self.labelFamily = labelFamily  # type: Optional[str]
-        self.contentType = contentType  # type: Optional[str]
         self.compositingMode = compositingMode  # type: Optional[str]
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo.ProducerInfoT]
         self.producer = producer
@@ -239,7 +222,6 @@ class LayerInfoT(object):
         self.tags = layerInfo.Tags()
         self.inferElementId = layerInfo.InferElementId()
         self.labelFamily = layerInfo.LabelFamily()
-        self.contentType = layerInfo.ContentType()
         self.compositingMode = layerInfo.CompositingMode()
         if layerInfo.Producer() is not None:
             self.producer = open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo.ProducerInfoT.InitFromObj(
@@ -257,8 +239,6 @@ class LayerInfoT(object):
             inferElementId = builder.CreateString(self.inferElementId)
         if self.labelFamily is not None:
             labelFamily = builder.CreateString(self.labelFamily)
-        if self.contentType is not None:
-            contentType = builder.CreateString(self.contentType)
         if self.compositingMode is not None:
             compositingMode = builder.CreateString(self.compositingMode)
         if self.producer is not None:
@@ -274,8 +254,6 @@ class LayerInfoT(object):
             LayerInfoAddInferElementId(builder, inferElementId)
         if self.labelFamily is not None:
             LayerInfoAddLabelFamily(builder, labelFamily)
-        if self.contentType is not None:
-            LayerInfoAddContentType(builder, contentType)
         if self.compositingMode is not None:
             LayerInfoAddCompositingMode(builder, compositingMode)
         if self.producer is not None:

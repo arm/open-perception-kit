@@ -64,7 +64,7 @@ def _format_payload_key(key: PayloadKey) -> str:
     return (
         f"{key.payload_type}"
         f"[inferElementId={key.infer_element_id!r}, "
-        f"contentType={key.content_type!r}, model={key.model!r}, "
+        f"model={key.model!r}, "
         f"producerComponent={key.producer_component!r}, producerInstanceId={key.producer_instance_id!r}]"
     )
 

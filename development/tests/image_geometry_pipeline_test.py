@@ -57,12 +57,12 @@ from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerI
 def process(env, tensors, context):
     frame = next(item.video for item in env.for_each(FrameContextT) if item.video is not None)
     space = ImageSpaceT(frameId=frame.object.id, width=64, height=64, extentWidth=64, extentHeight=64)
-    env.add(BoxDetectionsT(layer=LayerInfoT(model="seed", contentType="genericObject", producer=context.producer_info),
+    env.add(BoxDetectionsT(layer=LayerInfoT(model="seed", producer=context.producer_info),
         detections=[BoxDetectionT(object=ObjectMetaT(id=424242, parentId=999999),
             box=BoundingBoxT(x=.25, y=.25, width=.5, height=.5, space=space, units=CoordinateUnits.Normalized))]))
 ''', encoding="utf-8")
             opchain = directory / "opchain.json"
-            opchain.write_text(json.dumps({"version": "1.0.0", "name": "Geometry regression",
+            opchain.write_text(json.dumps({"version": "2.0.0", "name": "Geometry regression",
                                           "description": "Normalized ROI through native inference", "ops": [
                                               {"id": "opk-std-ops/InferenceController", "attributes": {}},
                                               {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {
@@ -70,9 +70,9 @@ def process(env, tensors, context):
                                               {"id": "opk-onnx-ops/Inference",
                                                   "attributes": {"modelDescriptor": str(model)}},
                                               {"id": "opk-python-ops/PythonScript", "instanceId": "seed-roi",
-                                                  "attributes": {"script": str(script)}},
+                                               "attributes": {"script": str(script), "providedOutputs": [{"payloadType": "open_perception_kit.metadata.BoxDetections"}]}},
                                               {"id": "opk-std-ops/InferenceController", "loopId": 1,
-                                                  "attributes": {"contentType": "genericObject"}},
+                                               "attributes": {"sourceOp": "seed-roi"}},
                                               {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 1,
                                                "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
                                               {"id": "opk-onnx-ops/Inference", "loopId": 1,
@@ -84,9 +84,9 @@ def process(env, tensors, context):
             output = directory / "frames.ndjson"
             process = run_file_pipeline([
                 "videotestsrc", "num-buffers=2", "pattern=ball", "!",
-                "video/x-raw,format=BGRA,width=64,height=64", "!", "opkinfer", "active=true",
-                f"opchain-path={opchain}", "!", "opktracker", "name=tracker_a", "min-hits-to-confirm=1", "use-kalman=false", "!",
-                "opktracker", "name=tracker_b", "min-hits-to-confirm=1", "use-kalman=false", "!", "opkosd", "!",
+                "video/x-raw,format=BGRA,width=64,height=64", "!", "opkinfer", "name=infer", "active=true",
+                f"opchain-path={opchain}", "!", "opktracker", "name=tracker_a", 'input-producers=["infer/opk-std-ops-GenericPostprocess-0"]', "min-hits-to-confirm=1", "use-kalman=false", "!",
+                "opktracker", "name=tracker_b", 'input-producers=["infer/opk-std-ops-GenericPostprocess-0"]', "min-hits-to-confirm=1", "use-kalman=false", "!", "opkosd", "!",
                 "opkcomm", "method=file", f"file-name={output}", "!",
                 "appsink", "wait-on-eos=true", "sync=false", "async=false",
             ], output, 2, env=environment, cwd=repository)

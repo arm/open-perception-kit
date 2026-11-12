@@ -79,15 +79,19 @@ changing a script.
 `instanceId` is optional, but assigning one gives payloads a stable producer
 identity even if the operation order changes.
 
-With an OpChain v1 reader supporting `1.10.0`, scripts can explicitly declare
-`providedOutputs` and `requiredOutputs` in their attributes. Entries have
-`payloadType` (the fully qualified SDK root, for example
-`open_perception_kit.metadata.BoxDetections`) and optional `role` (for example
-`humanFace`). Only declare outputs the script actually publishes. An omitted
-declaration is not inferred from a filename, model name or script contents.
-An empty required role accepts any role of that root; it never matches another
-payload family. The declarations support dependency activation and model
-inspection, not automatic conversion of external JSON into SDK payloads.
+OpChain format `2.0.0` supports payload-only `providedOutputs` and named
+`requiredInputs`. An output declares `payloadType`, for example
+`open_perception_kit.metadata.BoxDetections`. An input also declares `inputId`
+and optionally `sourceOp` (an earlier Op's `instanceId`) or `producerId` (a concrete
+external producer). An omitted or empty external address is unconnected. Only declare outputs the
+script actually publishes. Declarations are never inferred from script or model names.
+
+The read-only `context.input_producers` mapping resolves each declared input ID
+to its producer ID for the current frame. Select payloads by their SDK type and
+`payload.layer.producer.instanceId == context.input_producers["input"]`.
+An empty address selects nothing. External bindings can change through the
+model UI or `opkinfer input-bindings`; local references remain authored connections.
+See [explicit inputs](../../arch/explicit-input-connections.md).
 
 Place the operation after inference to receive output tensors. It may also be
 used elsewhere in the chain, in which case `tensors` is empty when no inference
@@ -135,7 +139,6 @@ Python Op. Attach it to the `LayerInfoT` of payloads created by the script:
 ```python
 layer = LayerInfoT(
     model="example-model",
-    contentType="classification",
     producer=context.producer_info,
 )
 ```

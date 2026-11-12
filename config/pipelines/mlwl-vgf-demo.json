@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MLWL VGF demo: YOLO26n object detection and UltraFace face detection.",
   "sourceInfo": "bundled video file",
   "loop": true,
@@ -8,9 +8,9 @@
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/ultraface-rfb-320-mlwl/opchain.json\" active=true !",
-    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26n-320-mlwl/opchain.json\" active=true !",
-    "opktracker content-type=genericObject !",
+    "opkinfer name=opkinfer0 opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/ultraface-rfb-320-mlwl/opchain.json\" active=true !",
+    "opkinfer name=opkinfer1 opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26n-320-mlwl/opchain.json\" active=true !",
+    "opktracker input-producers=\"[\\\"opkinfer1/opk-std-ops-GenericPostprocess-0\\\"]\" !",
     "opkperformance show-all-metrics=true update-interval=1 !",
     "opkcomm method=websocket endpoint=/ws !",
     "opksink name=sink"

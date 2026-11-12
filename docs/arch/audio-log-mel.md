@@ -179,7 +179,8 @@ VAD/turn inference element named `voice`. See the
 [voice demo](../../development/examples/voice-pipeline/README.md).
 
 Custom pipelines can add independently scheduled keyword inference in an
-`opkinfer name=keywords` branch. Keep it separate from the conversation's
+`opkinfer name=keywords` branch, with the postprocessor's `instanceId` set to
+`opk-std-ops-GenericPostprocess-0`. Keep it separate from the conversation's
 terminal turn-detection branch: `AbortChain` skips the remaining Op stages.
 The demo receives its classifications through the runtime callback; keyword
 assessments do not control conversation completion.

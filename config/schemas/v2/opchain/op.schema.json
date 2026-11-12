@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:opchain-op:v1",
-  "title": "OPK OpChain operation v1",
+  "$id": "urn:arm:opk:schema:opchain-op:v2",
+  "title": "OPK OpChain operation v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,28 +27,28 @@
   },
   "allOf": [
     {
-      "$ref": "urn:arm:opk:schema:inference-controller-op:v1"
+      "$ref": "urn:arm:opk:schema:inference-controller-op:v2"
     },
     {
-      "$ref": "urn:arm:opk:schema:generic-image-preprocess-op:v1"
+      "$ref": "urn:arm:opk:schema:generic-image-preprocess-op:v2"
     },
     {
-      "$ref": "urn:arm:opk:schema:paddle-ocr-preprocess-op:v1"
+      "$ref": "urn:arm:opk:schema:paddle-ocr-preprocess-op:v2"
     },
     {
-      "$ref": "urn:arm:opk:schema:inference-op:v1"
+      "$ref": "urn:arm:opk:schema:inference-op:v2"
     },
     {
-      "$ref": "urn:arm:opk:schema:generic-postprocess-op:v1"
+      "$ref": "urn:arm:opk:schema:generic-postprocess-op:v2"
     },
     {
-      "$ref": "urn:arm:opk:schema:python-script-op:v1"
+      "$ref": "urn:arm:opk:schema:python-script-op:v2"
     },
     {
-      "$ref": "urn:arm:opk:schema:generic-audio-preprocess-op:v1"
+      "$ref": "urn:arm:opk:schema:generic-audio-preprocess-op:v2"
     },
     {
-      "$ref": "urn:arm:opk:schema:turn-detector-op:v1"
+      "$ref": "urn:arm:opk:schema:turn-detector-op:v2"
     }
   ]
 }

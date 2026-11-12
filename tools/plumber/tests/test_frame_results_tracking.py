@@ -50,9 +50,9 @@ def trace(owner, count=2):
 def packet(tracks=(), traces=(), source=True):
     result = frame_results_with_boxes((2, 10, 10, 20, 20)) if source else FrameResults()
     if tracks:
-        result.add(ObjectTracksT(layer=layer("genericObject", "tracker"), tracks=list(tracks)))
+        result.add(ObjectTracksT(layer=layer("tracker"), tracks=list(tracks)))
     if traces:
-        result.add(TrackTracesT(layer=layer("trackTrace", "tracker"), traces=list(traces)))
+        result.add(TrackTracesT(layer=layer("tracker"), traces=list(traces)))
     return frame_results_frame(FrameResults(result.serialize()))
 
 

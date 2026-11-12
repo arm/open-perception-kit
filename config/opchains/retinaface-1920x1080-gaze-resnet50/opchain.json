@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "retinaface-1920x1080-gaze-resnet50",
   "displayName": "RetinaFace 1920x1080 + Gaze ResNet50 FP32",
   "task": "Gaze estimation",
@@ -10,10 +10,10 @@
     {"id": "opk-std-ops/InferenceController", "attributes": {}},
     {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {}},
     {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "../../models/retinaface-resnet34/model-1920x1080.json", "intraOpNumThreads": 3, "interOpNumThreads": 1}},
-    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "RetinaFaceParser", "confidenceThreshold": 0.6, "iouThreshold": 0.4}},
-    {"id": "opk-std-ops/InferenceController", "loopId": 2, "attributes": {"contentType": "humanFace"}},
+    {"id": "opk-std-ops/GenericPostprocess", "instanceId": "opk-std-ops-GenericPostprocess-0", "attributes": {"parser": "RetinaFaceParser", "confidenceThreshold": 0.6, "iouThreshold": 0.4}},
+    {"id": "opk-std-ops/InferenceController", "instanceId": "opk-std-ops-InferenceController-1", "loopId": 2, "attributes": {"sourceOp": "opk-std-ops-GenericPostprocess-0"}},
     {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 2, "attributes": {}},
     {"id": "opk-onnx-ops/Inference", "loopId": 2, "attributes": {"modelDescriptor": "../../models/gaze-resnet50/model.json", "intraOpNumThreads": 3, "interOpNumThreads": 1}},
-    {"id": "opk-std-ops/GenericPostprocess", "loopId": 2, "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}}
+    {"id": "opk-std-ops/GenericPostprocess", "instanceId": "opk-std-ops-GenericPostprocess-1", "loopId": 2, "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}}
   ]
 }

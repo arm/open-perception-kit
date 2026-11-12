@@ -21,10 +21,10 @@
 
 namespace opk::stdop::postproc {
 
-/// Decodes RetinaFace boxes into frame-pixel humanFace detections.
+/// Decodes RetinaFace boxes into frame-pixel BoxDetections.
 struct RetinaFaceParser : public opk::TensorParser {
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>("humanFace")};
+        return {opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>()};
     }
 
     opk::Result<void> parse(const opk::TensorParser::Input &input,

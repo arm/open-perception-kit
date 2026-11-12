@@ -40,7 +40,8 @@ ObjectEmbeddingT embedding(const std::string &space = "test:a",
 
 FrameResults frame(const uint64_t id = 7, const float x = 0) {
     BoxDetectionsT boxes;
-    boxes.layer = makeLayerInfo({.contentType = "genericObject"});
+    boxes.layer = makeLayerInfo({});
+    boxes.layer->producer = makeProducerInfo("detector", "test", "");
     auto box = std::make_unique<BoxDetectionT>();
     box->object = makeObjectMeta(id);
     box->box = makeImageBoundingBox(
@@ -59,7 +60,7 @@ void addEmbedding(FrameResults &result,
                   const ObjectEmbeddingT &value,
                   const std::string &producer = "one") {
     ObjectEmbeddingsT payload;
-    payload.layer = makeLayerInfo({.contentType = "custom-not-routing"});
+    payload.layer = makeLayerInfo({});
     payload.layer->producer = makeProducerInfo(producer, "test/Embedding", "fixture");
     payload.embeddings.push_back(std::make_unique<ObjectEmbeddingT>(value));
     result.add(std::move(payload));
@@ -108,7 +109,10 @@ TEST(EmbeddingContract, SelectionRejectsDuplicatesBeforeValidityAndHonorsExplici
         addEmbedding(result, reverse ? b : a, reverse ? "two" : "one");
         addEmbedding(result, reverse ? a : b, reverse ? "one" : "two");
         opk::tracker::Config config;
-        EXPECT_EQ(opk::tracker::frameinputs::collectEmbeddings(result, config).at(7), nullptr);
+        EXPECT_TRUE(opk::tracker::frameinputs::collectEmbeddings(result, config).empty());
+        config.useEmbeddings = true;
+        EXPECT_TRUE(opk::tracker::frameinputs::collectEmbeddings(result, config).empty());
+        config.embeddingProducerId = "one";
         config.embeddingSpaceId = "test:a";
         const auto selected = opk::tracker::frameinputs::collectEmbeddings(result, config);
         ASSERT_NE(selected.at(7), nullptr);
@@ -125,12 +129,13 @@ TEST(EmbeddingContract, SelectionRejectsDuplicatesBeforeValidityAndHonorsExplici
     absent.subject_id = flatbuffers::nullopt;
     absent.object->parent_id = 7;
     addEmbedding(result, absent);
-    EXPECT_TRUE(opk::tracker::frameinputs::collectEmbeddings(result, {}).empty());
+    const opk::tracker::Config selected{.useEmbeddings = true, .embeddingProducerId = "one"};
+    EXPECT_TRUE(opk::tracker::frameinputs::collectEmbeddings(result, selected).empty());
     addEmbedding(result, embedding());
-    EXPECT_NE(opk::tracker::frameinputs::collectEmbeddings(result, {}).at(7), nullptr);
+    EXPECT_NE(opk::tracker::frameinputs::collectEmbeddings(result, selected).at(7), nullptr);
     const auto duplicate = frame();
     duplicate.for_each<BoxDetectionsT>([&](const auto &boxes) { result.add(boxes); });
-    EXPECT_EQ(opk::tracker::frameinputs::collectEmbeddings(result, {}).at(7), nullptr);
+    EXPECT_EQ(opk::tracker::frameinputs::collectEmbeddings(result, selected).at(7), nullptr);
 }
 
 TEST(EmbeddingContract, ParserPublishesSpaceAndSubjectAndRejectsMalformedTensors) {
@@ -223,6 +228,9 @@ uint64_t step(opk::tracker::Tracker &tracker,
 TEST(EmbeddingContract, ActiveAndDormantHistoryKeepSpaceIdentity) {
     opk::tracker::Tracker tracker;
     opk::tracker::Config config;
+    config.inputProducers = {"detector"};
+    config.useEmbeddings = true;
+    config.embeddingProducerId = "one";
     config.useKalman = false;
     config.minHitsToConfirm = 1;
     config.maxMissedFrames = 0;
