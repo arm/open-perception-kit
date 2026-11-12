@@ -256,6 +256,11 @@ struct ImageInferenceMetadata {
     size_t letterboxRight = 0;  ///< Right padding in model input pixels.
     size_t letterboxTop = 0;    ///< Top padding in model input pixels.
     size_t letterboxBottom = 0; ///< Bottom padding in model input pixels.
+    uint64_t frameId = 0;       ///< Identity of the source image coordinate basis.
+    uint32_t frameWidth = 0;    ///< Full source frame width, before cropping.
+    uint32_t frameHeight = 0;   ///< Full source frame height, before cropping.
+    size_t cropX = 0;           ///< Crop origin in full source frame pixels.
+    size_t cropY = 0;           ///< Crop origin in full source frame pixels.
 };
 
 /// Timing of the selected mono 16 kHz audio window. Timestamps are media PTS,

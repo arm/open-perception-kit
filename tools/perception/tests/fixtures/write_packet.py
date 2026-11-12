@@ -28,6 +28,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.BoxDetection import Box
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT  # noqa: E402
 
 payload = BoxDetectionsT()
 payload.layer = LayerInfoT()
@@ -39,6 +40,7 @@ detection.object = ObjectMetaT()
 detection.object.id, detection.object.parentId, detection.object.creationTsNs = 42, 7, 123456789
 detection.box = BoundingBoxT()
 detection.box.x, detection.box.y, detection.box.width, detection.box.height = 10.5, 20.25, 30.75, 40.5
+detection.box.space = ImageSpaceT(frameId=7, width=640, height=480, extentWidth=640, extentHeight=480)
 detection.classId, detection.text, detection.confidence = 3, "car", 0.875
 payload.detections = [detection]
 envelope = Envelope()

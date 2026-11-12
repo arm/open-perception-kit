@@ -58,7 +58,7 @@ export class ObjectTrack {
     }
     classId() {
         const offset = this.bb.__offset(this.bb_pos, 14);
-        return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+        return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
     }
     text(optionalEncoding) {
         const offset = this.bb.__offset(this.bb_pos, 16);
@@ -91,7 +91,7 @@ export class ObjectTrack {
         builder.addFieldFloat32(4, confidence, 0.0);
     }
     static addClassId(builder, classId) {
-        builder.addFieldInt32(5, classId, -1);
+        builder.addFieldInt32(5, classId, null);
     }
     static addText(builder, textOffset) {
         builder.addFieldOffset(6, textOffset, 0);
@@ -122,7 +122,7 @@ export class ObjectTrack {
     }
 }
 export class ObjectTrackT {
-    constructor(object = null, sourceId = BigInt('0'), trackId = BigInt('0'), box = null, confidence = 0.0, classId = -1, text = null, diagnostic = null, predictedOnly = false) {
+    constructor(object = null, sourceId = BigInt('0'), trackId = BigInt('0'), box = null, confidence = 0.0, classId = null, text = null, diagnostic = null, predictedOnly = false) {
         this.object = object;
         this.sourceId = sourceId;
         this.trackId = trackId;
@@ -144,7 +144,8 @@ export class ObjectTrackT {
         ObjectTrack.addTrackId(builder, this.trackId);
         ObjectTrack.addBox(builder, box);
         ObjectTrack.addConfidence(builder, this.confidence);
-        ObjectTrack.addClassId(builder, this.classId);
+        if (this.classId !== null)
+            ObjectTrack.addClassId(builder, this.classId);
         ObjectTrack.addText(builder, text);
         ObjectTrack.addDiagnostic(builder, diagnostic);
         ObjectTrack.addPredictedOnly(builder, this.predictedOnly);

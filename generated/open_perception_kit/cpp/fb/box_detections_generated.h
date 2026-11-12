@@ -46,7 +46,7 @@ struct BoxDetectionT : public ::flatbuffers::NativeTable {
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
     std::unique_ptr<open_perception_kit::metadata::BoundingBoxT> box{};
     float confidence = 0.0f;
-    int32_t class_id = -1;
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt;
     std::string text{};
     BoxDetectionT() = default;
     BoxDetectionT(const BoxDetectionT &o);
@@ -73,8 +73,8 @@ struct BoxDetection FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     float confidence() const {
         return GetField<float>(VT_CONFIDENCE, 0.0f);
     }
-    int32_t class_id() const {
-        return GetField<int32_t>(VT_CLASS_ID, -1);
+    ::flatbuffers::Optional<uint32_t> class_id() const {
+        return GetOptional<uint32_t, uint32_t>(VT_CLASS_ID);
     }
     const ::flatbuffers::String *text() const {
         return GetPointer<const ::flatbuffers::String *>(VT_TEXT);
@@ -83,7 +83,7 @@ struct BoxDetection FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) && VerifyOffset(verifier, VT_BOX) &&
                verifier.VerifyTable(box()) && VerifyField<float>(verifier, VT_CONFIDENCE, 4) &&
-               VerifyField<int32_t>(verifier, VT_CLASS_ID, 4) && VerifyOffset(verifier, VT_TEXT) &&
+               VerifyField<uint32_t>(verifier, VT_CLASS_ID, 4) && VerifyOffset(verifier, VT_TEXT) &&
                verifier.VerifyString(text()) && verifier.EndTable();
     }
     BoxDetectionT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -108,8 +108,8 @@ struct BoxDetectionBuilder {
     void add_confidence(float confidence) {
         fbb_.AddElement<float>(BoxDetection::VT_CONFIDENCE, confidence, 0.0f);
     }
-    void add_class_id(int32_t class_id) {
-        fbb_.AddElement<int32_t>(BoxDetection::VT_CLASS_ID, class_id, -1);
+    void add_class_id(uint32_t class_id) {
+        fbb_.AddElement<uint32_t>(BoxDetection::VT_CLASS_ID, class_id);
     }
     void add_text(::flatbuffers::Offset<::flatbuffers::String> text) {
         fbb_.AddOffset(BoxDetection::VT_TEXT, text);
@@ -129,11 +129,13 @@ CreateBoxDetection(::flatbuffers::FlatBufferBuilder &_fbb,
                    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
                    ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
                    float confidence = 0.0f,
-                   int32_t class_id = -1,
+                   ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
                    ::flatbuffers::Offset<::flatbuffers::String> text = 0) {
     BoxDetectionBuilder builder_(_fbb);
     builder_.add_text(text);
-    builder_.add_class_id(class_id);
+    if (class_id) {
+        builder_.add_class_id(*class_id);
+    }
     builder_.add_confidence(confidence);
     builder_.add_box(box);
     builder_.add_object(object);
@@ -145,7 +147,7 @@ inline ::flatbuffers::Offset<BoxDetection> CreateBoxDetectionDirect(
     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
     ::flatbuffers::Offset<open_perception_kit::metadata::BoundingBox> box = 0,
     float confidence = 0.0f,
-    int32_t class_id = -1,
+    ::flatbuffers::Optional<uint32_t> class_id = ::flatbuffers::nullopt,
     const char *text = nullptr) {
     auto text__ = text ? _fbb.CreateString(text) : 0;
     return open_perception_kit::metadata::CreateBoxDetection(

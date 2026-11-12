@@ -30,7 +30,7 @@ export declare class ObjectTrack implements flatbuffers.IUnpackableObject<Object
     trackId(): bigint;
     box(obj?: BoundingBox): BoundingBox | null;
     confidence(): number;
-    classId(): number;
+    classId(): number | null;
     text(): string | null;
     text(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     diagnostic(): string | null;
@@ -56,10 +56,10 @@ export declare class ObjectTrackT implements flatbuffers.IGeneratedObject {
     trackId: bigint;
     box: BoundingBoxT | null;
     confidence: number;
-    classId: number;
+    classId: number | null;
     text: string | Uint8Array | null;
     diagnostic: string | Uint8Array | null;
     predictedOnly: boolean;
-    constructor(object?: ObjectMetaT | null, sourceId?: bigint, trackId?: bigint, box?: BoundingBoxT | null, confidence?: number, classId?: number, text?: string | Uint8Array | null, diagnostic?: string | Uint8Array | null, predictedOnly?: boolean);
+    constructor(object?: ObjectMetaT | null, sourceId?: bigint, trackId?: bigint, box?: BoundingBoxT | null, confidence?: number, classId?: number | null, text?: string | Uint8Array | null, diagnostic?: string | Uint8Array | null, predictedOnly?: boolean);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }
