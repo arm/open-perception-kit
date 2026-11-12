@@ -49,8 +49,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def format_build_info() -> str:
-    full_sha = git("rev-parse", "HEAD")
+def format_build_info(full_sha: str) -> str:
     return "\n".join(
         [
             BEGIN_MARKER,
@@ -77,7 +76,7 @@ def main() -> int:
     target = args.target.resolve()
 
     text = target.read_text(encoding="utf-8")
-    updated = replace_build_info_block(text, format_build_info())
+    updated = replace_build_info_block(text, format_build_info(git("rev-parse", "HEAD")))
     target.write_text(updated, encoding="utf-8")
     return 0
 

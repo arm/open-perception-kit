@@ -17,45 +17,80 @@ limitations under the License.
 
 # Open Perception Kit Docs
 
-The public Arm docs site source lives in `docs/public`. The docs config is `docs/public/docs-config.json`, Markdown image assets live under `docs/public/assets`, and site-root static assets live under `docs/public/static`.
+Public documentation lives in `docs/public`; developer architecture documentation
+lives in `docs/arch`. PlantUML sources live in `docs/plantuml`. The common generator
+uses the pinned `opk-docs` container and the shared Arm site renderer for local
+viewing and publication. Generation never modifies tracked sources.
 
-Developer-facing architecture documentation lives in `docs/arch`.
+## Generate and view locally
 
-PlantUML sources live in `docs/plantuml`. Generated PNGs are written to `docs/public/static/img` and referenced with paths relative to each Markdown file.
-
-## Run Locally
-
-First, make sure you can authenticate with your container engine by following [this guide](https://qa.developer.arm.com/dev-docs/arm-docs-github-action/getting-started/docker-auth/).
-
-Make sure you are logged in and authenticated with Docker or Podman:
-
-    echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u "YOUR_GITHUB_USERNAME" --password-stdin
-    # or
-    echo "YOUR_GITHUB_TOKEN" | podman login ghcr.io -u "YOUR_GITHUB_USERNAME" --password-stdin
-
-From the repository root, run:
+Run these commands from the checkout on a host with Docker or Podman and Python 3:
 
 ```bash
+./scripts/gen-doc.sh
 ./scripts/serve-docs.sh
 ```
 
-The documentation scripts use `OPK_PROJECT_ROOT` when it is set and otherwise
-derive the checkout from their own location. Set it to an absolute path when
-invoking the scripts for a different checkout.
+Open [the local site](http://localhost:3003). It includes public and architecture
+pages. Generation writes `docs/html`; serving only reads that output. After
+editing Markdown, diagrams, styles, or images, rerun `gen-doc.sh` and refresh the
+browser. There is no watcher or automatic generation. `serve-docs-plain.sh` serves
+the same output on port 8080.
 
-The script mounts `docs/public`, including its static assets, in the Arm docs preview image. It preserves the existing local script URL, `http://localhost:3003`.
+Initial toolchain setup and generation need network access, including access to
+Arm's npm mirror by default. Serving the generated site needs no internet or Arm
+credentials. Open generated HTML through localhost; opening HTML files directly
+with `file://` is unsupported.
+External links still require access to their destinations.
 
-If you need to run the container manually, the equivalent command is:
+`OPK_PROJECT_ROOT` can select another checkout and must be an absolute path.
+`DOCS_PORT` changes the serving port. `DOCS_IMAGE` selects an already-built
+compatible documentation image; otherwise `gen-doc.sh` builds the checked-in
+`opk-docs` target. Set `NPM_REGISTRY` to override the image's default Arm npm mirror,
+for example `NPM_REGISTRY=https://registry.npmjs.org ./scripts/gen-doc.sh` outside
+the Arm network.
 
-    docker run --rm -it --pull always -p 3003:3000 \
-      -v "$(pwd)/docs/public":/workspace/docs-site:ro \
-      ghcr.io/arm-debug/arm-docs-github-action/local:latest
+### Optional API reference
 
-Then open:
+```bash
+./scripts/gen-doc.sh --with-api
+```
 
-    http://localhost:3003
+This adds a linked Doxygen C++ API reference to the local site. The normal build
+omits it, including after an earlier API build. API references and architecture
+pages are not included in publication. This does not change OPK release assets.
 
-Stop the preview server with `Ctrl+C`.
+## View Markdown in VS Code
+
+Use **Markdown Preview Enhanced: Open Preview to the Side** to view source
+Markdown with embedded PlantUML diagrams. Install the extension in your existing
+VS Code environment and ensure Java, Graphviz, and `plantuml-mit-1.2026.2.jar`
+are available there. The rich image already includes these tools, with the JAR
+at `/opt/opk-deps/plantuml-mit-1.2026.2.jar`.
+
+Set `markdown-preview-enhanced.plantumlJarPath` to the absolute JAR path in that
+environment and leave `markdown-preview-enhanced.plantumlServer` empty. After
+setup, rendering works offline and does not send diagrams to a server. Container
+validation does not establish native Java/editor support on macOS or Windows.
+
+Reference a shared diagram from an embedded block, relative to the Markdown file:
+
+````markdown
+```plantuml
+@startuml
+!include ../plantuml/component-overview.puml
+@enduml
+```
+````
+
+Keep diagram content and shared style in the `.puml` files. The site generator
+renders these blocks to SVGs in its build copy. Do not commit generated diagram
+images. Reload the Markdown preview after changing an included `.puml` file if
+the editor retains a cached diagram.
+
+GitHub rendering of embedded PlantUML is outside the current scope. Whether to
+migrate to Mermaid or explicitly drop GitHub diagram viewing remains a separate
+decision under EXPKITS-1554.
 
 ## Publish From GitHub Actions
 
@@ -151,18 +186,24 @@ arm-docs validate --docs-root docs/public --site-id open-perception-kit
 This builds the site without AWS credentials or uploads. `--docs-root` must be
 relative to the repository root.
 
-## Asset Paths
+## Asset paths and validation
 
-Put images referenced by public Markdown pages in `docs/public/assets` and use paths relative to each Markdown file. The Arm publisher bundles these images, while VS Code Markdown preview and plain HTML generated by `./scripts/gen-doc.sh` resolve the same paths directly.
+Place authored public images under `docs/public/assets` and link to them relative
+to the Markdown page. Reserve `docs/public/static` for site-root assets. Do not
+reference `static` with relative Markdown image links: the Arm renderer relocates
+that directory.
 
-Reserve `docs/public/static` for assets served at site-root URLs. The publisher relocates this directory, so public Markdown must not use `./static/...` or `../static/...` image paths. Developer-facing architecture pages can still reference generated diagrams in `docs/public/static/img` using file-relative paths; these pages are outside the published docs root.
+Source preparation checks referenced files and PlantUML rendering. Local site
+generation also runs the Arm site's page/anchor validation and checks generated
+links and assets. Publication uses the existing actions' validation and build.
+A failed build leaves the last successful output available. Validation of
+external websites is separate from offline viewing.
 
-For example, in `docs/public/how-to/performance-measurement.md`:
+Generated sites include `source-revision.txt` with the checkout commit. The
+local renderer is pinned to `arm-docs` 0.12.1; OPK copies its validated HTML from
+an isolated temporary directory into `docs/html`.
 
-```md
-![Performix results](../assets/performix-results.jpg)
-```
-
-For generated diagrams, put the `.puml` source in `docs/plantuml` and run `./scripts/gen-doc.sh`.
-
-See [the docs system docs](https://qa.developer.arm.com/dev-docs/arm-docs-github-action/) for more information.
+The supported build environment is a Linux container on Linux, Windows with WSL,
+macOS, or Raspberry Pi Linux. Test results must distinguish the host platform,
+container architecture, and VS Code preview setup; an amd64 Linux run does not
+verify the other platforms.

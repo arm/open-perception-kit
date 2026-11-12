@@ -26,7 +26,11 @@ OPK uses separate container image lanes for development, documentation,
 pre-commit checks, and deployment. The structure keeps tool-heavy images away
 from runtime images while still giving each workflow a reproducible environment.
 
-[Current container structure PlantUML source](../plantuml/container-structure.puml)
+```plantuml
+@startuml
+!include ../plantuml/container-structure.puml
+@enduml
+```
 
 ## Architecture
 
@@ -232,8 +236,8 @@ stages inherit everything from their parent unless noted otherwise.
   enabled, ensures an ARM64 ONNX Runtime path is available, and copies resolved
   model artifacts and demo videos into `/opt/opk-app` for first-run seeding. It
   does not copy the repository or prebuilt OPK binaries into the image.
-- `opk-docs`: adds `default-jdk`, Graphviz, Pandoc, Doxygen, and the
-  PlantUML JAR.
+- `opk-docs`: adds the shared Arm renderer, pnpm, Java, Graphviz, fonts,
+  Doxygen, and the pinned PlantUML JAR to the development base.
 - `opk-deployment-build`: inherits `opk-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson
   subprojects, copies model configurations from the checkout and demo
@@ -281,8 +285,8 @@ CI jobs build and test the checked-out source at job runtime. There is no
 separate general-purpose CI image. The `opk-ci` Python tool remains installed
 in the development and pre-commit images.
 
-The `opk-docs` image reuses the development base and adds documentation tools
-such as Doxygen, Pandoc, Graphviz, and PlantUML. For release documentation
+The `opk-docs` image reuses the development base and adds documentation
+generation tools. For release documentation
 publishing, see [Publish From GitHub Actions](../README.md#publish-from-github-actions).
 
 The deployment lane combines build and runtime roles with shared artifact inputs.
@@ -305,8 +309,8 @@ running the kit from a mounted checkout.
 Use the development container for local tests and `opk-ci` commands.
 See the [CI workflow definitions](../../.github/workflows/) for the standalone CI checks.
 
-Use the documentation image for local generation of public docs, Doxygen output,
-and PlantUML diagrams.
+Use the documentation image for explicit local generation of public and
+architecture pages, PlantUML diagrams, and optional Doxygen output.
 
 Use the deployment build and runtime images when producing a runnable deployment
 image. This lane combines model configurations, demo media, compiled OPK

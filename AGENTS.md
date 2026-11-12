@@ -285,7 +285,7 @@ size. Preserve numerical contracts, generated statistics, and dated measurements
 - `./scripts/build.sh clean`
 - `./scripts/build.sh debug true`
 - `meson test -C ./development/build-active --print-errorlogs`
-- `./scripts/gen-doc.sh` to refresh generated docs, Doxygen output, and PlantUML images
+- `./scripts/gen-doc.sh` to generate and validate docs and PlantUML images in build output; add `--with-api` for Doxygen
 - `./scripts/serve-docs-plain.sh`
 - `./scripts/serve-docs.sh`
 

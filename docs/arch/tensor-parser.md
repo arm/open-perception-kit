@@ -70,4 +70,8 @@ Adding a parser normally means:
 Python-based postprocessing is not part of the current runtime. See
 [Known Limitations](known-limitations.md).
 
-![Postprocessor types](../public/static/img/postprocessor-types.png)
+```plantuml
+@startuml
+!include ../plantuml/postprocessor-types.puml
+@enduml
+```

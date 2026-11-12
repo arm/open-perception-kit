@@ -212,7 +212,7 @@ payload production. New configurations explicitly supply `outputTensorIndex`
 `thresholdOn`, `thresholdOff`, `attackMs` and `releaseMs`. Select a finite
 Float32 value from any fixed tensor shape; `none` requires a probability in
 [0,1], while `sigmoid` converts a logit stably. Thresholds are finite with
-0 <= off <= on <= 1; attack/release are nonnegative integer milliseconds.
+`0 <= off <= on <= 1`; attack/release are nonnegative integer milliseconds.
 Invalid input must not change state or append a partial payload.
 
 `GenericPostprocess` also accepts the `SileroVadParser` name published in OPK

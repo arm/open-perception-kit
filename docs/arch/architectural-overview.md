@@ -35,14 +35,22 @@ creates and enriches it through OpChain execution, `opktracker` and
 `opkperformance` can append runtime data, `opkosd` consumes it for overlays, and
 application-facing boundaries can serialize it for external consumers.
 
-![OPK component overview](../public/static/img/component-overview.png)
+```plantuml
+@startuml
+!include ../plantuml/component-overview.puml
+@enduml
+```
 
 ## Activity View
 
 The activity view traces the path from `opk-menu` preset parsing through element
 initialization and into the steady-state per-buffer execution path.
 
-![OPK engineer execution flow](../public/static/img/execution-flow.png)
+```plantuml
+@startuml
+!include ../plantuml/execution-flow.puml
+@enduml
+```
 
 ## Execution Model
 

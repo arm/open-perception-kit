@@ -133,6 +133,7 @@ config/models/licenses/
 config/models/pp-ocrv6-tiny-rec/characters.txt*
 
 docs/html
+docs/prepared-public
 todo.md
 
 # -------------------------

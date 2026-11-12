@@ -567,6 +567,12 @@ FROM opk-dev-base AS opk-docs
 ARG USERNAME=dev
 # Keep diagram output and the versioned JAR path used by gen-doc.sh, setup.sh and VS Code aligned.
 ARG PLANTUML_VERSION=1.2026.2
+ARG ARM_DOCS_VERSION=0.12.1
+ARG PNPM_VERSION=12.21.0
+ARG NPM_REGISTRY=https://artifactory.arm.com/artifactory/api/npm/mirrors.npmjs_org
+
+ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY} \
+  PNPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 
 USER 0
 
@@ -578,13 +584,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   doxygen graphviz \
-  default-jdk pandoc
+  default-jdk fonts-dejavu-core
 
 RUN set -eux; \
   mkdir -p /opt/opk-deps; \
   plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
   plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
   curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/opt/opk-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
+
+RUN npm install --global "pnpm@${PNPM_VERSION}"
+RUN set -eux; \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo /tmp/arm-docs.deb \
+    "https://artifacts.tools.arm.com/tools-deb/pool/arm-docs-github-action_${ARM_DOCS_VERSION}_$(dpkg --print-architecture).deb"; \
+  dpkg --install /tmp/arm-docs.deb; \
+  rm /tmp/arm-docs.deb
 
 USER ${USERNAME}
 WORKDIR /work
