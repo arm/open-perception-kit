@@ -29,6 +29,7 @@
 #include <optional>
 #include <poll.h>
 #include <span>
+#include <string_view>
 #include <termios.h>
 #include <unistd.h>
 #include <utility>
@@ -44,6 +45,10 @@ using Results = open_perception_kit::container::envelope;
 constexpr uint64_t kSilenceTimeoutSamples = 16000 * 2500 / 1000;
 constexpr unsigned kRequiredPositiveAssessments = 2;
 volatile std::sig_atomic_t interrupted = 0;
+
+void printUsage(const char *const program, FILE *const output) {
+    std::fprintf(output, "Usage: %s [--pipeline PATH]\n", program);
+}
 
 void interrupt(int) {
     interrupted = 1;
@@ -192,7 +197,15 @@ struct Keyboard {
 
 } // namespace
 
-int main() {
+int main(const int argc, char **const argv) {
+    if (argc == 2 && std::string_view(argv[1]) == "--help") {
+        printUsage(argv[0], stdout);
+        return 0;
+    }
+    if (argc != 1 && (argc != 3 || std::string_view(argv[1]) != "--pipeline" || !*argv[2])) {
+        printUsage(argv[0], stderr);
+        return 2;
+    }
     Keyboard keyboard;
     if (!keyboard.enable()) {
         std::perror("voice-pipeline requires an interactive terminal");
@@ -223,7 +236,8 @@ int main() {
 
     // Black video supplies the web viewer; browser microphone audio runs through
     // the combined VAD/SmartTurn chain. Pipeline expands the project-root variable.
-    auto loaded = opk::runtime::Pipeline::fromString(R"(
+    auto loaded = argc == 3 ? opk::runtime::Pipeline::fromJsonFile(argv[2])
+                            : opk::runtime::Pipeline::fromString(R"(
         videotestsrc is-live=true pattern=black !
         video/x-raw,format=BGRA,width=640,height=480,framerate=30/1 !
         opksink name=sink
@@ -267,8 +281,8 @@ int main() {
 
     // Info
     std::puts("\033[31;7mVOICE DEMO: detects speech and when your turn ends.\033[0m");
-    std::puts("\033[7m\033[36mbrowser microphone -> opksrc -> Silero VAD -> SmartTurn -> "
-              "opksink\033[0m");
+    std::puts("\033[7m\033[36mbrowser microphone -> voice activity + turn detection -> "
+              "conversation\033[0m");
     std::puts("Use the OPK web frontend for microphone input!");
     std::fflush(stdout);
 

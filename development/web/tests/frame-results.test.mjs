@@ -41,7 +41,11 @@ import {SemanticSegmentationMaskT} from '../../../generated/open_perception_kit/
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {TrackTraceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
+import {TurnDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.js';
+import {TurnDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.js';
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
+import {VoiceActivityDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.js';
+import {VoiceActivityDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.js';
 import {decodeFrameResultsMessage, FRAME_RESULTS_ENCODING, FrameResultsDecodeError} from '../src/frame-results.js';
 import {findVideoFrame} from '../src/overlay-drawing.js';
 import {indexFrame, outputSource} from '../src/overlay-sources.js';
@@ -181,6 +185,92 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
     assert.equal(gaze.detections[0].data.parentUuid, '20');
     assert.equal(findVideoFrame(decoded.frame_results).originalHeight, 480);
     assert.equal(indexFrame(decoded.frame_results).objects.get('20')[0].data.text, 'face');
+});
+
+test('decodes audio assessments with exact sample positions, timestamp presence and resets', () => {
+    const envelope = new Envelope();
+    const largeSample = 9007199254740993n;
+    envelope.add(new VoiceActivityDetectionsT(1, 0, layer('custom-voice'), [
+        new VoiceActivityDetectionT(new ObjectMetaT(1n), 0, false, 0n, 512n, 0n, 32000000n, true),
+        new VoiceActivityDetectionT(new ObjectMetaT(2n), 1, true, largeSample, largeSample + 400n),
+    ]));
+    envelope.add(new TurnDetectionsT(1, 0, layer('custom-turn'), [
+        new TurnDetectionT(new ObjectMetaT(3n), 0.75, true, 0n, 16000n),
+    ]));
+    const {frame_results: frame} = decodeFrameResultsMessage({
+        frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64'),
+    });
+    const voice = frame.layers.find(item => item.payloadType === 'VoiceActivityDetections');
+    assert.equal(voice.producer.instanceId, 'infer/parser');
+    assert.equal(voice.count, 2);
+    assert.equal(voice.detections[0].type, 'VoiceActivityDetection');
+    assert.deepEqual(voice.detections[0].data, {
+        uuid: '1', parentUuid: '0', creationTsNs: '0',
+        windowStartSample: '0', windowEndSample: '512',
+        windowStartTsNs: '0', windowEndTsNs: '32000000', discontinuity: true,
+        speechProbability: 0, speechActive: false,
+    });
+    assert.equal(voice.detections[1].data.windowStartSample, largeSample.toString());
+    assert.equal(voice.detections[1].data.windowEndSample, (largeSample + 400n).toString());
+    assert.equal(voice.detections[1].data.windowStartTsNs, null);
+    assert.equal(voice.detections[1].data.windowEndTsNs, null);
+    assert.equal(voice.detections[1].data.speechActive, true);
+    const turn = frame.layers.find(item => item.payloadType === 'TurnDetections');
+    assert.equal(turn.detections[0].type, 'TurnDetection');
+    assert.equal(turn.detections[0].data.turnProbability, 0.75);
+    assert.equal(turn.detections[0].data.turnComplete, true);
+    assert.equal(turn.detections[0].data.windowEndSample, '16000');
+    assert.equal(turn.detections[0].data.discontinuity, false);
+});
+
+test('renders and copies speech states and model turn assessments as plain text', async () => {
+    const originals = Object.fromEntries(['document', 'window', 'navigator']
+        .map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+    const element = () => ({
+        children: [], textContent: '', dataset: {}, listeners: new Map(),
+        appendChild(child) { this.children.push(child); },
+        replaceChildren(...children) { this.children = children; },
+        addEventListener(name, listener) { this.listeners.set(name, listener); },
+        setAttribute() {}, getAttribute() { return 'Copy output'; }, querySelector() { return null; },
+    });
+    const body = element();
+    const button = element();
+    let copied;
+    globalThis.document = {getElementById: id => id === 'inferenceOutputBody' ? body : button,
+        createElement: element};
+    globalThis.window = {addEventListener() {}};
+    Object.defineProperty(globalThis, 'navigator', {configurable: true,
+        value: {clipboard: {async writeText(value) { copied = value; }}}});
+    try {
+        const {renderInferenceOutput} = await import('../src/inference-output.js');
+        const bounds = {windowStartSample: '0', windowEndSample: '512', discontinuity: true};
+        renderInferenceOutput({layers: [{model: 'audio', contentType: 'voiceActivity', count: 4,
+            detections: [
+                {type: 'VoiceActivityDetection', data: {...bounds, speechProbability: 1, speechActive: true}},
+                {type: 'VoiceActivityDetection', data: {...bounds, speechProbability: 0, speechActive: false}},
+                {type: 'TurnDetection', data: {...bounds, turnProbability: 0.75, turnComplete: true}},
+                {type: 'TurnDetection', data: {...bounds, turnProbability: 0.25, turnComplete: false}},
+            ]}]});
+        const texts = node => [node.textContent, ...node.children.flatMap(texts)];
+        const rendered = texts(body).join('\n');
+        for (const title of ['Speech active', 'Silence', 'Turn assessment: complete', 'Turn assessment: ongoing'])
+            assert.ok(rendered.includes(title), title);
+        assert.ok(rendered.includes('audio samples [0, 512); stream reset'));
+        assert.equal(button.disabled, false);
+        button.listeners.get('click')();
+        await new Promise(resolve => setImmediate(resolve));
+        assert.ok(copied.includes('Speech active [1.00]'));
+        assert.ok(copied.includes('Silence [0.00]'));
+        assert.ok(copied.includes('Turn assessment: complete [0.75]'));
+        assert.ok(copied.includes('Turn assessment: ongoing [0.25]'));
+    } finally {
+        clearTimeout(button.copyFeedbackTimer);
+        for (const [name, descriptor] of Object.entries(originals)) {
+            if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+            else delete globalThis[name];
+        }
+    }
 });
 
 test('retains detector and tracker outputs for independent overlay selection', () => {

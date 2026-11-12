@@ -335,7 +335,7 @@ void validateTurnDetectorIntegers(ValidationReport &report,
             continue;
 
         for (const auto *const attribute :
-             {"hopSampleCount", "silenceMs", "retryMs", "maxAttempts"}) {
+             {"hopSampleCount", "inputWindowSampleCount", "silenceMs", "retryMs", "maxAttempts"}) {
             if (!op.attributes.contains(attribute) || op.attributes.at(attribute).isInt())
                 continue;
 

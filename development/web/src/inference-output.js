@@ -58,6 +58,16 @@ function detectionSummary(detection) {
         };
     }
 
+    if (type === 'VoiceActivityDetection' || type === 'TurnDetection') {
+        const voiceActivity = type === 'VoiceActivityDetection';
+        return {
+            title: voiceActivity ? (data.speechActive ? 'Speech active' : 'Silence')
+                : (data.turnComplete ? 'Turn assessment: complete' : 'Turn assessment: ongoing'),
+            detail: `audio samples [${data.windowStartSample}, ${data.windowEndSample})${data.discontinuity ? '; stream reset' : ''}`,
+            meta: number(voiceActivity ? data.speechProbability : data.turnProbability),
+        };
+    }
+
     if (type === 'LocalizedText') {
         return {
             title: data.text || 'Text',
