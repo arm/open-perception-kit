@@ -124,7 +124,7 @@ jobs:
 
       - name: Build
         if: *run_checks
-        run: ./scripts/build.sh release true
+        run: ./scripts/build.sh release true --extra-setup-args=-Dor_runtime=true
 
       - name: Install test dependencies
         if: *run_checks
