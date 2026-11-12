@@ -1,5 +1,5 @@
 {
-  "version": "1.1.1",
+  "version": "2.0.0",
   "name": "PP-OCRv6-tiny-det",
   "modelFile": "PP-OCRv6_tiny_det.onnx",
   "hfDownload": {

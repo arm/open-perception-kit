@@ -25,7 +25,7 @@ Full-frame text-region detector for horizontal OCR.
 - Normalization: mean and standard deviation from `model.json`, in BGR order
 - Output: Float32 probability map `[1, 1, H, W]`
 - Postprocessor: `PaddleOcrDbDetectionParser`
-- FrameResults payload: `BoxDetectionsT` with `contentType` set to `textRegion`
+- FrameResults payload: `BoxDetectionsT` containing text-region geometry; connect consumers to its concrete producer identity.
 
 Run `python3 scripts/download-models.py --models-dir config/models` from the
 repository root to download the pinned PaddlePaddle ONNX artifact beside `model.json`.

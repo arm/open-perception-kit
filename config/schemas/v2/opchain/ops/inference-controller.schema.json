@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:inference-controller-op:v2",
+  "title": "InferenceController Op v2",
+  "if": {
+    "properties": {
+      "id": {
+        "const": "opk-std-ops/InferenceController"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "then": {
+    "properties": {
+      "attributes": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sourceOp": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "sourceProducer": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+          }
+        },
+        "not": {"required": ["sourceOp", "sourceProducer"]}
+      }
+    }
+  }
+}

@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <fmt/core.h>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -32,6 +33,7 @@
 #include "glib.h"
 
 #include "Log.h"
+#include "opk/InputBindings.h"
 #include "opk/PcmRingBuffer.h"
 #include "opk/Result.h"
 #include "opk/Tools.h"
@@ -66,6 +68,7 @@ struct GstOpkInferMembers {
     }
 
     opk::op::OpChain opChain;
+    std::map<std::string, std::vector<opk::OutputReference>> upstreamOutputs;
     std::optional<bool> inputIsLive;
 
     opk::Result<void> executeOpChain(opk::op::OpChainContext &opChainContext,
@@ -128,6 +131,7 @@ struct _GstOpkInfer {
 
     // a safe place for c++ stuff
     std::shared_ptr<GstOpkInferMembers> runtimeMembers;
+    std::vector<opk::InputBinding> inputBindings;
 };
 
 G_END_DECLS
@@ -157,6 +161,11 @@ static std::shared_ptr<GstOpkInferMembers> gst_opkinfer_get_members(GstOpkInfer 
     return self->runtimeMembers;
 }
 
+static std::vector<opk::InputBinding> gst_opkinfer_input_bindings(GstOpkInfer *const self) {
+    g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
+    return self->inputBindings;
+}
+
 static void gst_opkinfer_emit_result_requirements(GstOpkInfer *self) {
     if (!g_atomic_int_get(&self->autoActivateDependencies))
         return;
@@ -164,19 +173,24 @@ static void gst_opkinfer_emit_result_requirements(GstOpkInfer *self) {
     if (members == nullptr)
         return;
 
-    for (const auto &required : members->opChain.getRequiredOutputs()) {
+    const auto bindings = gst_opkinfer_input_bindings(self);
+    for (const auto &required :
+         members->opChain.getRequiredInputs(gst_opkinfer_get_effective_inferId(self), bindings)) {
+        if (required.producerId.empty())
+            continue;
         GstStructure *structure = opk::result_requirement_event::structure(
-            opk::result_requirement_event::k_name, required);
+            opk::result_requirement_event::k_name, {required.payloadType, required.producerId});
         gst_pad_push_event(GST_BASE_TRANSFORM_SINK_PAD(self),
                            gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure));
     }
 }
 
-static bool gst_opkinfer_provides_result(GstOpkInfer *self, const opk::OutputCapability &required) {
+static bool gst_opkinfer_provides_result(GstOpkInfer *self, const opk::OutputReference &required) {
     const auto members = gst_opkinfer_get_members(self);
     if (members == nullptr)
         return false;
-    const auto outputs = members->opChain.getProvidedOutputs();
+    const auto outputs =
+        members->opChain.getProvidedOutputs(gst_opkinfer_get_effective_inferId(self));
     return std::ranges::any_of(outputs,
                                [&](const auto &output) { return opk::provides(output, required); });
 }
@@ -224,9 +238,20 @@ static void gst_opkinfer_push_model_registration(GstOpkInfer *self) {
             structure, "runtime", G_TYPE_STRING, members->opChain.getRuntime().c_str(), nullptr);
     }
     opk::result_requirement_event::writeList(
-        structure, "provided-outputs", members->opChain.getProvidedOutputs());
+        structure,
+        "provided-outputs",
+        members->opChain.getProvidedOutputs(gst_opkinfer_get_effective_inferId(self)));
     opk::result_requirement_event::writeList(
-        structure, "required-outputs", members->opChain.getRequiredOutputs());
+        structure,
+        "required-inputs",
+        members->opChain.getRequiredInputs(gst_opkinfer_get_effective_inferId(self),
+                                           gst_opkinfer_input_bindings(self)));
+    std::vector<opk::OutputReference> available;
+    GST_OBJECT_LOCK(self);
+    for (const auto &[element, outputs] : members->upstreamOutputs)
+        available.insert(available.end(), outputs.begin(), outputs.end());
+    GST_OBJECT_UNLOCK(self);
+    opk::result_requirement_event::writeList(structure, "available-inputs", available);
     gst_pad_push_event(sourcePad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure));
     gst_object_unref(sourcePad);
 }
@@ -303,6 +328,15 @@ static gboolean gst_opkinfer_start(GstBaseTransform *selfInParentType) {
     }
 
     GST_OBJECT_LOCK(self);
+    if (const auto valid = members->opChain.validateInputBindings(self->inputBindings); !valid) {
+        GST_OBJECT_UNLOCK(self);
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          SETTINGS,
+                          ("Invalid input connections: %s", valid.error().info.c_str()),
+                          (nullptr));
+        return FALSE;
+    }
     self->runtimeMembers = std::move(members);
     GST_OBJECT_UNLOCK(self);
 
@@ -497,6 +531,39 @@ static gboolean gst_opkinfer_src_event(GstBaseTransform *selfInParentType, GstEv
 
 static gboolean gst_opkinfer_sink_event(GstBaseTransform *selfInParentType, GstEvent *event) {
     const auto eventType = GST_EVENT_TYPE(event);
+    if (eventType == GST_EVENT_CUSTOM_DOWNSTREAM) {
+        auto *const self = GST_OPKINFER(selfInParentType);
+        const auto *const structure = gst_event_get_structure(event);
+        if (structure && gst_structure_has_name(structure, "opk-model-register")) {
+            const auto *const element = gst_structure_get_string(structure, "element-name");
+            const auto members = gst_opkinfer_get_members(self);
+            if (element && members) {
+                const auto outputs =
+                    opk::result_requirement_event::readOutputs(structure, "provided-outputs");
+                const auto own =
+                    members->opChain.getProvidedOutputs(gst_opkinfer_get_effective_inferId(self));
+                if (std::ranges::any_of(outputs, [&](const auto &upstream) {
+                        return std::ranges::any_of(own, [&](const auto &output) {
+                            return upstream.producerId == output.producerId;
+                        });
+                    })) {
+                    GST_ELEMENT_ERROR(self,
+                                      RESOURCE,
+                                      SETTINGS,
+                                      ("Producer instance IDs must be unique along the pipeline"),
+                                      (nullptr));
+                    gst_event_unref(event);
+                    return FALSE;
+                }
+                GST_OBJECT_LOCK(self);
+                const bool changed = members->upstreamOutputs[element] != outputs;
+                members->upstreamOutputs[element] = outputs;
+                GST_OBJECT_UNLOCK(self);
+                if (changed)
+                    gst_opkinfer_push_model_registration(self);
+            }
+        }
+    }
     switch (eventType) {
     case GST_EVENT_STREAM_START:
         if (const auto members = gst_opkinfer_get_members(GST_OPKINFER(selfInParentType))) {
@@ -603,6 +670,7 @@ gst_opkinfer_process_audio_window(GstOpkInfer *self,
     auto &members = *self->runtimeMembers;
     opk::op::OpChainContext context;
     context.frameResults = &frameResults;
+    context.inputBindings = gst_opkinfer_input_bindings(self);
     context.inferenceInfo.inferElementId = gst_opkinfer_get_effective_inferId(self);
     context.pcmViews.emplace("pipelineAudioData", window);
     auto &audio = context.inferenceInfo.audio;
@@ -646,6 +714,7 @@ gst_opkinfer_process_video_frame(GstOpkInfer *self,
     // Execute the op-chain with the provided context. The chain can read and mutate the
     // frame results and read the video frame, but not mutate the frame.
     opk::op::OpChainContext opChainContext;
+    opChainContext.inputBindings = gst_opkinfer_input_bindings(self);
     opChainContext.inferenceInfo.inferElementId =
         std::string(gst_opkinfer_get_effective_inferId(self));
 
@@ -749,7 +818,6 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
                 GST_OBJECT_NAME(self), "gstreamer/opkinfer", "audio-source");
             payload.layer = open_perception_kit::makeLayerInfo(
                 {.inferElementId = gst_opkinfer_get_effective_inferId(self),
-                 .contentType = "frameContext",
                  .producer = producer.get()});
             payload.audio = std::make_unique<open_perception_kit::metadata::AudioFrameContextT>();
             payload.audio->object = open_perception_kit::makeObjectMeta();
@@ -921,6 +989,7 @@ constexpr guint PROP_QOS_ACCEPTED_EVENTS_DEBUG = 6;
 constexpr guint PROP_COPY_INPUT = 7;
 constexpr guint PROP_AUDIO_HOP_SAMPLES = 8;
 constexpr guint PROP_AUTO_ACTIVATE_DEPENDENCIES = 9;
+constexpr guint PROP_INPUT_BINDINGS = 10;
 
 static void gst_opkinfer_set_property(GObject *selfInParentType,
                                       guint propertyId,
@@ -931,6 +1000,29 @@ static void gst_opkinfer_set_property(GObject *selfInParentType,
     if (!propertyGuard.isChangeAllowed())
         return;
     switch (propertyId) {
+    case PROP_INPUT_BINDINGS: {
+        auto bindings = opk::parseInputBindings(g_value_get_string(value));
+        if (!bindings) {
+            GST_WARNING_OBJECT(self, "Invalid input-bindings JSON; connection state unchanged");
+            gst_opkinfer_push_model_registration(self);
+            break;
+        }
+        GST_OBJECT_LOCK(self);
+        if (self->runtimeMembers &&
+            !self->runtimeMembers->opChain.validateInputBindings(*bindings)) {
+            GST_OBJECT_UNLOCK(self);
+            GST_WARNING_OBJECT(self,
+                               "Input binding must name a declared external consumer/type input");
+            gst_opkinfer_push_model_registration(self);
+            break;
+        }
+        self->inputBindings = std::move(*bindings);
+        GST_OBJECT_UNLOCK(self);
+        gst_opkinfer_push_model_registration(self);
+        if (gst_opkinfer_is_active(self))
+            gst_opkinfer_emit_result_requirements(self);
+        break;
+    }
     case PROP_COPY_INPUT:
         g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
         gst_base_transform_reconfigure_src(GST_BASE_TRANSFORM(self));
@@ -990,6 +1082,16 @@ static void gst_opkinfer_get_property(GObject *selfInParentType,
                                       GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
     switch (propertyId) {
+    case PROP_INPUT_BINDINGS: {
+        auto encoded = nlohmann::json::array();
+        for (const auto &binding : gst_opkinfer_input_bindings(self))
+            encoded.push_back({{"consumerId", binding.consumerId},
+                               {"inputId", binding.inputId},
+                               {"payloadType", binding.payloadType},
+                               {"producerId", binding.producerId}});
+        g_value_set_string(value, encoded.dump().c_str());
+        break;
+    }
     case PROP_COPY_INPUT:
         g_value_set_boolean(value, g_atomic_int_get(&self->copyInput));
         break;
@@ -1033,6 +1135,7 @@ static void gst_opkinfer_finalize(GObject *selfInParentType) {
     auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
 
     std::destroy_at(&self->runtimeMembers);
+    std::destroy_at(&self->inputBindings);
     g_clear_pointer(&self->opChainPath, g_free);
     g_clear_pointer(&self->inferId, g_free);
 
@@ -1047,6 +1150,17 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
     objectClass->set_property = gst_opkinfer_set_property;
     objectClass->get_property = gst_opkinfer_get_property;
     objectClass->finalize = gst_opkinfer_finalize;
+
+    g_object_class_install_property(
+        objectClass,
+        PROP_INPUT_BINDINGS,
+        g_param_spec_string(
+            "input-bindings",
+            "Input connections",
+            "JSON array of consumerId, inputId, payloadType and concrete producerId connections; "
+            "Changeable while playing",
+            "[]",
+            static_cast<GParamFlags>(G_PARAM_READWRITE | GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         objectClass,
@@ -1187,6 +1301,7 @@ static void gst_opkinfer_init(GstOpkInfer *self) {
     self->autoActivateDependencies = true;
     self->copyInput = false;
     std::construct_at(&self->runtimeMembers);
+    std::construct_at(&self->inputBindings);
     self->inferId = nullptr;
     self->qosEnabled = false;
     self->qosAcceptedEventsDebug = 0;

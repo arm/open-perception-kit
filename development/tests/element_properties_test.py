@@ -18,6 +18,7 @@
 
 import base64
 import ctypes
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -53,6 +54,21 @@ class ElementPropertiesTest(unittest.TestCase):
         self.image.write_bytes(base64.b64decode(RED_PIXEL_PNG))
         self.opchain = write_test_opchain(self.directory.name, "first", {})
 
+    def test_quick_start_fixture_connects_the_tracker_to_its_detector(self):
+        root = Path(__file__).resolve().parents[2]
+        fixture = json.loads((root / ".github/scripts/quick-start-smoke/pipeline.json").read_text())
+        command = " ".join(fixture["pipeline"]).replace("${OPK_PROJECT_ROOT:-/work}", str(root))
+        pipeline = self.Gst.parse_launch(command)
+        try:
+            detector = pipeline.get_by_name("opkinfer0")
+            self.assertIsNotNone(detector)
+            tracker = detector.get_static_pad("src").get_peer().get_parent_element()
+            self.assertEqual(tracker.get_factory().get_name(), "opktracker")
+            self.assertEqual(json.loads(tracker.get_property("input-producers")),
+                             [f"{detector.get_property('infer-id')}/opk-std-ops-GenericPostprocess-0"])
+        finally:
+            release_pipeline(pipeline, self.Gst)
+
     def own_properties(self, element):
         return [prop for prop in element.list_properties()
                 if prop.owner_type == element.__gtype__]
@@ -60,7 +76,10 @@ class ElementPropertiesTest(unittest.TestCase):
     def sample_value(self, prop):
         special = {"bg-image": str(self.image), "opchain-path": str(self.opchain),
                    "association-mode": "iou", "static-files": self.directory.name,
-                   "method": TCP_METHOD}
+                   "method": TCP_METHOD, "input-bindings": "[]",
+                   "input-producers": '["fixture/output"]',
+                   "circle-producers": '["fixture/output"]',
+                   "box-producers": '["fixture/output"]'}
         if prop.name in special:
             return special[prop.name]
         default = prop.default_value

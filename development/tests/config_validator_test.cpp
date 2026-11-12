@@ -123,7 +123,7 @@ TEST(ConfigValidator, RejectsInvalidUtf8BeforeSchema) {
 }
 
 TEST(ConfigValidator, RejectsUnsupportedVersionDuringDispatch) {
-    const auto result = opk::config::validateModelJson(R"({"version":"2.0.0"})", "model.json");
+    const auto result = opk::config::validateModelJson(R"({"version":"1.0.0"})", "model.json");
 
     ASSERT_FALSE(result);
     EXPECT_TRUE(hasRule(result.error(), "dispatch.unsupported"));
@@ -209,7 +209,7 @@ TEST(ConfigValidator, PipelineV1ValidatesExecutableFieldsAndPreservesAnnotations
 }
 
 TEST(ConfigValidator, CompatibleMinorAndPatchVersionsSurviveRoundTrips) {
-    for (const auto *version : {"1.0.0", "1.0.42", "1.7.13"}) {
+    for (const auto *version : {"2.0.0", "2.0.42", "2.7.13"}) {
         SCOPED_TRACE(version);
         const nlohmann::json model{
             {"version", version},
@@ -223,7 +223,8 @@ TEST(ConfigValidator, CompatibleMinorAndPatchVersionsSurviveRoundTrips) {
             {"name", "Chain"},
             {"description", "Version test"},
             {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
-        const nlohmann::json pipeline{{"version", version},
+        const auto pipelineVersion = "1" + std::string(version).substr(1);
+        const nlohmann::json pipeline{{"version", pipelineVersion},
                                       {"description", "Version test"},
                                       {"pipeline", "fakesrc ! fakesink"}};
         const auto modelResult = opk::config::validateModelJson(model.dump());
@@ -234,13 +235,13 @@ TEST(ConfigValidator, CompatibleMinorAndPatchVersionsSurviveRoundTrips) {
         ASSERT_TRUE(pipelineResult) << pipelineResult.error().toText();
         EXPECT_EQ(nlohmann::json(*modelResult).at("version"), version);
         EXPECT_EQ(nlohmann::json(*chainResult).at("version"), version);
-        EXPECT_EQ(pipelineResult->at("version"), version);
+        EXPECT_EQ(pipelineResult->at("version"), pipelineVersion);
     }
 }
 
 TEST(ConfigValidator, AcceptsNonEmptyModelVariantFilename) {
     const auto result = opk::config::validateModelJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "variant",
         "modelFile": "model.onnx",
         "dynamicOutput": true,
@@ -255,7 +256,7 @@ TEST(ConfigValidator, AcceptsNonEmptyModelVariantFilename) {
 
 TEST(ConfigValidator, ModelSchemaSeparatesBuildDownloadFromLocalRuntimePath) {
     nlohmann::json document{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "downloaded-model"},
         {"modelFile", "models/model.onnx"},
         {"hfDownload",
@@ -299,7 +300,7 @@ TEST(ConfigValidator, ModelSchemaSeparatesBuildDownloadFromLocalRuntimePath) {
 
 TEST(ConfigValidator, TypedValidationRejectsMismatchedRoutingFilename) {
     const auto model = opk::config::validateModelJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "model",
         "modelFile": "model.onnx",
         "dynamicOutput": true,
@@ -309,7 +310,7 @@ TEST(ConfigValidator, TypedValidationRejectsMismatchedRoutingFilename) {
     })",
                                                       "opchain.json");
     const auto opchain = opk::config::validateOpChainJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "opchain",
         "description": "Routing test.",
         "ops": [{"id": "custom/Operation", "attributes": {}}]
@@ -324,14 +325,14 @@ TEST(ConfigValidator, TypedValidationRejectsMismatchedRoutingFilename) {
 
 TEST(ConfigValidator, SchemasRejectValuesThatCannotProjectToFiniteFloat) {
     const auto valueInput = opk::config::validateModelJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "large-value",
         "modelFile": "model.onnx",
         "dynamicOutput": true,
         "inputTensors": [{"dataKind": "Value", "valueInputs": [1e308]}]
     })");
     const auto imageMean = opk::config::validateModelJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "large-mean",
         "modelFile": "model.onnx",
         "dynamicOutput": true,
@@ -342,7 +343,7 @@ TEST(ConfigValidator, SchemasRejectValuesThatCannotProjectToFiniteFloat) {
         }]
     })");
     const auto gamma = opk::config::validateOpChainJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "large-gamma",
         "description": "Reject gamma that narrows to infinity.",
         "ops": [{
@@ -360,14 +361,14 @@ TEST(ConfigValidator, SchemasRejectValuesThatCannotProjectToFiniteFloat) {
 
 TEST(ConfigValidator, ModelAndOpChainSemanticsRejectControlCharactersInNames) {
     nlohmann::json model{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "model"},
         {"modelFile", "model.onnx"},
         {"dynamicOutput", true},
         {"inputTensors",
          {{{"shape", {1}}, {"dataKind", "RawTensorData"}, {"valueType", "Float32"}}}}};
     nlohmann::json opchain{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "opchain"},
         {"description", "Control-character test."},
         {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
@@ -389,7 +390,7 @@ TEST(ConfigValidator, ModelAndOpChainSemanticsRejectControlCharactersInNames) {
 
 TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
     const auto model = opk::config::validateModelJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "roundtrip-model",
         "modelFile": "model.onnx",
         "dynamicOutput": true,
@@ -398,7 +399,7 @@ TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
         ]
     })");
     const auto opchain = opk::config::validateOpChainJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "roundtrip-opchain",
         "description": "Round-trip a custom operation.",
         "displayName": "Round-trip model",
@@ -427,7 +428,7 @@ TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
 
 TEST(ConfigValidator, OpChainDisplayMetadataUsesNonEmptyStrings) {
     nlohmann::json opchain{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "display-metadata"},
         {"description", "Validate optional display metadata."},
         {"displayName", "Display name"},
@@ -449,14 +450,14 @@ TEST(ConfigValidator, OpChainDisplayMetadataUsesNonEmptyStrings) {
 TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {
     const std::string embeddedNull{"unsafe\0value", 12};
     nlohmann::json model{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "model"},
         {"modelFile", embeddedNull},
         {"dynamicOutput", true},
         {"inputTensors",
          {{{"shape", {1}}, {"dataKind", "RawTensorData"}, {"valueType", "Float32"}}}}};
     nlohmann::json opchain{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "opchain"},
         {"description", "Runtime boundary controls."},
         {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
@@ -471,16 +472,16 @@ TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {
     ASSERT_FALSE(modelResult);
     ASSERT_FALSE(opIdResult);
     ASSERT_FALSE(modelDescriptorResult);
-    EXPECT_TRUE(hasRule(modelResult.error(), "model.v1.model-file-control"));
-    EXPECT_TRUE(hasRule(opIdResult.error(), "opchain.v1.op-id-control"));
-    EXPECT_TRUE(hasRule(modelDescriptorResult.error(), "opchain.v1.model-descriptor-control"));
+    EXPECT_TRUE(hasRule(modelResult.error(), "model.v2.model-file-control"));
+    EXPECT_TRUE(hasRule(opIdResult.error(), "opchain.v2.op-id-control"));
+    EXPECT_TRUE(hasRule(modelDescriptorResult.error(), "opchain.v2.model-descriptor-control"));
 }
 
 } // namespace
 
 TEST(ConfigValidator, AudioPcmRequiresFloat32AndPositiveSampleShape) {
     nlohmann::json document{
-        {"version", "1.1.0"},
+        {"version", "2.0.0"},
         {"name", "Audio"},
         {"modelFile", "audio.onnx"},
         {"dynamicOutput", true},
@@ -501,7 +502,7 @@ TEST(ConfigValidator, AudioPcmRequiresFloat32AndPositiveSampleShape) {
 
 TEST(ConfigValidator, AcceptsExactInt64ValueConstants) {
     const auto model = [](const std::string &value) {
-        return std::string(R"({"version":"1.1.0","name":"scalar","modelFile":"model.onnx",
+        return std::string(R"({"version":"2.0.0","name":"scalar","modelFile":"model.onnx",
             "dynamicOutput":true,"inputTensors":[{"dataKind":"Value","valueType":"Int64",
             "valueInputs":[)") +
                value + "]}]}";

@@ -28,11 +28,9 @@ namespace opk::stdop::postproc {
  * Produces source-sized binary masks with their class, confidence and source-pixel box.
  */
 struct Yolo26InstanceSegmentationParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "instanceSegmentation";
 
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {opk::outputCapability<open_perception_kit::metadata::InstanceSegmentationMasksT>(
-            k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::InstanceSegmentationMasksT>()};
     }
 
     opk::Result<void> parse(const Input &input,

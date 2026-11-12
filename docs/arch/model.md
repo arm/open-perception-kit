@@ -60,9 +60,8 @@ from the backend model file. A minimal image model descriptor looks like this:
 
 ```json
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "yolo26n-320-int8",
-  "contentType": "genericObject",
   "modelFile": "yolo26n_raspberry_onnx_optimized.onnx",
   "dynamicOutput": true,
   "inputTensors": [

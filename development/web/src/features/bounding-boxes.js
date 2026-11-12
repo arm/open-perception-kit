@@ -20,7 +20,8 @@ import {drawObjectBox} from '../overlay-drawing.js';
 
 export default defineFeature({
     id: 'bounding-boxes', label: 'Bounding boxes',
-    accepts: (source) => ['BoxDetections', 'ObjectTracks'].includes(source.payloadType) && source.contentType !== 'humanFace',
+    defaults: {color: '#ff3030'},
+    accepts: (source) => ['BoxDetections', 'ObjectTracks'].includes(source.payloadType),
     render({ctx, mapper}, resolved, settings) {
         for (const {type, data} of resolved.items) {
             if (type === 'Rect') drawObjectBox(ctx, data, mapper, settings.color);

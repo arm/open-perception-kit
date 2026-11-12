@@ -1122,11 +1122,14 @@ function readableText(value) {
   return String(value ?? "").trim();
 }
 function outputs(value) {
-  return Array.isArray(value) ? value.filter((item) => typeof item?.payloadType === "string" && item.payloadType.length > 0 && typeof item.role === "string") : [];
+  return Array.isArray(value) ? value.filter((item) => typeof item?.payloadType === "string" && item.payloadType.length > 0 && typeof item.producerId === "string") : [];
+}
+function inputs(value) {
+  return outputs(value).filter((item) => typeof item.consumerId === "string" && item.consumerId.length > 0 && typeof item.inputId === "string" && item.inputId.length > 0);
 }
 function dependencyProviderTasks(model, models) {
-  const required = outputs(model.requiredOutputs);
-  return [...new Set(models.filter((candidate) => candidate !== model && outputs(candidate.providedOutputs).some((output) => required.some((input) => output.payloadType === input.payloadType && (!input.role || output.role === input.role)))).map((candidate) => readableText(candidate.task) || readableText(candidate.name)).filter(Boolean))];
+  const required = inputs(model.requiredInputs);
+  return [...new Set(models.filter((candidate) => candidate !== model && outputs(candidate.providedOutputs).some((output) => required.some((input) => output.payloadType === input.payloadType && input.producerId && output.producerId === input.producerId))).map((candidate) => readableText(candidate.task) || readableText(candidate.name)).filter(Boolean))];
 }
 function resolveModelPresentation(model) {
   const rawName = readableText(model.name) || "Unknown model";
@@ -1159,7 +1162,8 @@ var ModelsManager = class {
       task: model.task || "",
       runtime: model.runtime || "",
       providedOutputs: outputs(model.providedOutputs),
-      requiredOutputs: outputs(model.requiredOutputs)
+      requiredInputs: inputs(model.requiredInputs),
+      availableInputs: outputs(model.availableInputs)
     })));
     if (nextSignature === this._lastModelsSignature) {
       return;
@@ -1202,13 +1206,60 @@ var ModelsManager = class {
       modelDetails.textContent = presentation.secondaryLabel;
       modelCopy.appendChild(modelDetails);
     }
-    const requiredOutputs = outputs(model.requiredOutputs);
+    const requiredInputs = inputs(model.requiredInputs);
+    const inputSelectors = /* @__PURE__ */ new Map();
     modelInfo.appendChild(modelCopy);
+    for (const input of requiredInputs) {
+      const label = document.createElement("label");
+      label.className = "model-input-binding";
+      label.textContent = `${input.consumerId}/${input.inputId} \u2014 ${input.payloadType.split(".").at(-1)} `;
+      const select = document.createElement("select");
+      inputSelectors.set(input, select);
+      select.setAttribute("aria-label", `Input source for ${presentation.fullLabel}, ${input.consumerId}/${input.inputId}, ${input.payloadType}`);
+      const addOption = (id, text2, disabled = false) => {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = text2;
+        option.disabled = disabled;
+        select.appendChild(option);
+      };
+      addOption("", "Not connected");
+      const candidates = models.filter((candidate) => candidate.element_name !== model.element_name).flatMap((candidate) => outputs(candidate.providedOutputs).filter((output) => output.producerId && output.payloadType === input.payloadType && outputs(model.availableInputs).some((upstream) => upstream.payloadType === output.payloadType && upstream.producerId === output.producerId)).map((output) => ({ ...output, label: resolveModelPresentation(candidate).fullLabel })));
+      const counts = /* @__PURE__ */ new Map();
+      for (const candidate of candidates) counts.set(candidate.producerId, (counts.get(candidate.producerId) || 0) + 1);
+      const seen = /* @__PURE__ */ new Set();
+      for (const candidate of candidates) {
+        if (seen.has(candidate.producerId)) continue;
+        seen.add(candidate.producerId);
+        const ambiguous = counts.get(candidate.producerId) !== 1;
+        addOption(candidate.producerId, `${candidate.label} \u2014 ${candidate.producerId}${ambiguous ? " (ambiguous)" : ""}`, ambiguous);
+      }
+      if (input.producerId && !seen.has(input.producerId))
+        addOption(input.producerId, `Unavailable: ${input.producerId}`, true);
+      select.value = input.producerId;
+      select.addEventListener("change", () => {
+        const bindings = requiredInputs.map((entry) => ({
+          consumerId: entry.consumerId,
+          inputId: entry.inputId,
+          payloadType: entry.payloadType,
+          producerId: inputSelectors.get(entry).value
+        }));
+        this._lastModelsSignature = "";
+        try {
+          ctrlSend({ type: "model_inputs", name: model.element_name, bindings });
+        } catch (error) {
+          select.value = input.producerId;
+          console.error("Error connecting model input:", error);
+        }
+      });
+      label.appendChild(select);
+      modelCopy.appendChild(label);
+    }
     const modelActions = document.createElement("div");
     modelActions.className = "model-actions";
-    if (requiredOutputs.length > 0) {
+    if (requiredInputs.length > 0) {
       const providerTasks = dependencyProviderTasks(model, models);
-      const accessibleProviders = providerTasks.length > 0 ? providerTasks.join(", ") : "No provider registered";
+      const accessibleProviders = providerTasks.length > 0 ? providerTasks.join(", ") : requiredInputs.some((input) => input.producerId) ? "Selected source unavailable" : "No input connected";
       const dependencyInfo = document.createElement("div");
       dependencyInfo.className = "model-dependency-info";
       dependencyInfo.setAttribute("tabindex", "0");
@@ -1225,7 +1276,7 @@ var ModelsManager = class {
       dependencyHeading.textContent = "Depends on:";
       dependencyPopup.appendChild(dependencyHeading);
       const dependencyList = document.createElement("ul");
-      const items = providerTasks.length > 0 ? providerTasks : ["No provider registered"];
+      const items = providerTasks.length > 0 ? providerTasks : [accessibleProviders];
       for (const task of items) {
         const dependency = document.createElement("li");
         dependency.textContent = task;
@@ -2310,7 +2361,7 @@ function detectionSummary(detection) {
   };
 }
 function layerTitle(layer2) {
-  return layer2.model || layer2.contentType || layer2.engine || "Layer";
+  return layer2.model || layer2.payloadType || layer2.engine || "Layer";
 }
 function createNode(tag, className, text2) {
   const node2 = document.createElement(tag);
@@ -2345,7 +2396,7 @@ function renderLayer(layer2) {
   header.appendChild(createNode("span", "inference-layer-title wfr-txt-label", layerTitle(layer2)));
   header.appendChild(createNode("span", "inference-layer-count wfr-txt-caption", layer2.status === "invalid" ? "Unavailable" : layer2.count || 0));
   container.appendChild(header);
-  container.appendChild(createNode("div", "inference-layer-kind wfr-txt-caption", layer2.contentType || layer2.labelFamily || "output"));
+  container.appendChild(createNode("div", "inference-layer-kind wfr-txt-caption", layer2.payloadType || "output"));
   if (rows.length) {
     const detectionsNode = createNode("div", "inference-detections");
     rows.forEach((row) => detectionsNode.appendChild(renderDetection(row)));
@@ -2397,7 +2448,7 @@ function getInferenceText() {
     const detections = Array.isArray(layer2.detections) ? layer2.detections : [];
     const rows = detections.map(detectionSummary);
     const lines = [
-      `${layerTitle(layer2)} (${layer2.contentType || layer2.labelFamily || "output"}): ${layer2.count || 0}`,
+      `${layerTitle(layer2)} (${layer2.payloadType || "output"}): ${layer2.count || 0}`,
       ...rows.map((row) => {
         const meta = row.meta ? ` [${row.meta}]` : "";
         return `- ${row.title}${meta}: ${row.detail}`;
@@ -3898,20 +3949,16 @@ var LayerInfo = class _LayerInfo {
     const offset = this.bb.__offset(this.bb_pos, 12);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  contentType(optionalEncoding) {
+  compositingMode(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 14);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  compositingMode(optionalEncoding) {
-    const offset = this.bb.__offset(this.bb_pos, 16);
-    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
-  }
   producer(obj) {
-    const offset = this.bb.__offset(this.bb_pos, 18);
+    const offset = this.bb.__offset(this.bb_pos, 16);
     return offset ? (obj || new ProducerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
   static startLayerInfo(builder) {
-    builder.startObject(8);
+    builder.startObject(7);
   }
   static addEngine(builder, engineOffset) {
     builder.addFieldOffset(0, engineOffset, 0);
@@ -3928,21 +3975,18 @@ var LayerInfo = class _LayerInfo {
   static addLabelFamily(builder, labelFamilyOffset) {
     builder.addFieldOffset(4, labelFamilyOffset, 0);
   }
-  static addContentType(builder, contentTypeOffset) {
-    builder.addFieldOffset(5, contentTypeOffset, 0);
-  }
   static addCompositingMode(builder, compositingModeOffset) {
-    builder.addFieldOffset(6, compositingModeOffset, 0);
+    builder.addFieldOffset(5, compositingModeOffset, 0);
   }
   static addProducer(builder, producerOffset) {
-    builder.addFieldOffset(7, producerOffset, 0);
+    builder.addFieldOffset(6, producerOffset, 0);
   }
   static endLayerInfo(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.contentType(), this.compositingMode(), this.producer() !== null ? this.producer().unpack() : null);
+    return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.compositingMode(), this.producer() !== null ? this.producer().unpack() : null);
   }
   unpackTo(_o) {
     _o.engine = this.engine();
@@ -3950,19 +3994,17 @@ var LayerInfo = class _LayerInfo {
     _o.tags = this.tags();
     _o.inferElementId = this.inferElementId();
     _o.labelFamily = this.labelFamily();
-    _o.contentType = this.contentType();
     _o.compositingMode = this.compositingMode();
     _o.producer = this.producer() !== null ? this.producer().unpack() : null;
   }
 };
 var LayerInfoT = class {
-  constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, contentType = null, compositingMode = null, producer = null) {
+  constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, compositingMode = null, producer = null) {
     this.engine = engine;
     this.model = model;
     this.tags = tags;
     this.inferElementId = inferElementId;
     this.labelFamily = labelFamily;
-    this.contentType = contentType;
     this.compositingMode = compositingMode;
     this.producer = producer;
   }
@@ -3972,7 +4014,6 @@ var LayerInfoT = class {
     const tags = this.tags !== null ? builder.createString(this.tags) : 0;
     const inferElementId = this.inferElementId !== null ? builder.createString(this.inferElementId) : 0;
     const labelFamily = this.labelFamily !== null ? builder.createString(this.labelFamily) : 0;
-    const contentType = this.contentType !== null ? builder.createString(this.contentType) : 0;
     const compositingMode = this.compositingMode !== null ? builder.createString(this.compositingMode) : 0;
     const producer = this.producer !== null ? this.producer.pack(builder) : 0;
     LayerInfo.startLayerInfo(builder);
@@ -3981,7 +4022,6 @@ var LayerInfoT = class {
     LayerInfo.addTags(builder, tags);
     LayerInfo.addInferElementId(builder, inferElementId);
     LayerInfo.addLabelFamily(builder, labelFamily);
-    LayerInfo.addContentType(builder, contentType);
     LayerInfo.addCompositingMode(builder, compositingMode);
     LayerInfo.addProducer(builder, producer);
     return LayerInfo.endLayerInfo(builder);
@@ -8143,7 +8183,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "4e701a0bbb27a37bf8f6f171f35506f4a48a697cb8a4e93642a646c4fd171093";
+var SCHEMA_SET_SHA256 = "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -8616,7 +8656,6 @@ function layerData(layer2) {
     tags: text(layer2?.tags),
     inferElementId: text(layer2?.inferElementId),
     labelFamily: text(layer2?.labelFamily),
-    contentType: text(layer2?.contentType),
     compositingMode: text(layer2?.compositingMode),
     producer: producer ? {
       instanceId: text(producer.instanceId),
@@ -9268,7 +9307,6 @@ function hexToRgba(hex, alpha) {
 // development/web/src/overlay-sources.js
 var SOURCE_FIELDS = [
   "payloadType",
-  "contentType",
   "engine",
   "model",
   "inferElementId",
@@ -9279,7 +9317,6 @@ var SOURCE_FIELDS = [
 ];
 var SOURCE_FIELD_LABELS = {
   payloadType: "Payload type",
-  contentType: "Content type",
   engine: "Engine",
   model: "Model",
   inferElementId: "Inference element",
@@ -9291,7 +9328,6 @@ var SOURCE_FIELD_LABELS = {
 function outputSource(layer2) {
   return {
     payloadType: layer2.payloadType || "",
-    contentType: layer2.contentType || "",
     engine: layer2.engine || "",
     model: layer2.model || "",
     inferElementId: layer2.inferElementId || "",
@@ -9306,6 +9342,9 @@ function sourceKey(source) {
 }
 function validSource(source) {
   return SOURCE_FIELDS.every((field) => typeof source?.[field] === "string") && source.payloadType.length > 0;
+}
+function copySource(source) {
+  return Object.fromEntries(SOURCE_FIELDS.map((field) => [field, source[field]]));
 }
 function producerKey(source) {
   return source.producerInstanceId ? JSON.stringify([source.producerComponent, source.producerInstanceId]) : null;
@@ -9417,20 +9456,12 @@ var STYLE_CONTROLS = [
   { key: "color", label: "Color", type: "color", value: "#ffffff" },
   { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.01, value: 1 }
 ];
-var CONTENT_COLORS = {
-  humanFace: "#2600ff",
-  genericObject: "#ff3030",
-  cameraContact: "#66ff00",
-  personClassification: "#66ff00",
-  trackTrace: "#ffff00"
-};
 function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: resolve5 = (result) => result, reason, ...definition }) {
   return {
     ...definition,
     controls,
     defaults(source) {
       const settings = Object.fromEntries(controls.map((control) => [control.key, control.value]));
-      if (Object.hasOwn(settings, "color")) settings.color = CONTENT_COLORS[source.contentType] || settings.color;
       return {
         ...settings,
         ...typeof defaults === "function" ? defaults(source) : defaults
@@ -9488,7 +9519,8 @@ function resolveBoxSubjects(result, index, type, available2) {
 var bounding_boxes_default = defineFeature({
   id: "bounding-boxes",
   label: "Bounding boxes",
-  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType) && source.contentType !== "humanFace",
+  defaults: { color: "#ff3030" },
+  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType),
   render({ ctx, mapper }, resolved, settings) {
     for (const { type, data } of resolved.items) {
       if (type === "Rect") drawObjectBox(ctx, data, mapper, settings.color);
@@ -9499,8 +9531,9 @@ var bounding_boxes_default = defineFeature({
 // development/web/src/features/face-circles.js
 var face_circles_default = defineFeature({
   id: "face-circles",
-  label: "Face circles",
-  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType) && source.contentType === "humanFace",
+  label: "Circular markers",
+  defaults: { color: "#2600ff" },
+  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType),
   render({ ctx, mapper }, resolved, settings) {
     for (const { type, data } of resolved.items) {
       if (type === "Rect") drawFace(ctx, data, mapper, settings.color);
@@ -9512,10 +9545,18 @@ var face_circles_default = defineFeature({
 var tracked_objects_default = defineFeature({
   id: "tracked-objects",
   label: "Tracked objects",
+  defaults: { color: "#ff3030" },
   accepts: (source) => source.payloadType === "ObjectTracks",
   controls: [
     { key: "boxes", label: "Boxes", type: "checkbox", value: true },
     { key: "trails", label: "Trails", type: "checkbox", value: true },
+    {
+      key: "shape",
+      label: "Marker shape",
+      type: "select",
+      value: "rectangle",
+      options: [{ value: "rectangle", label: "Rectangle" }, { value: "circle", label: "Circle" }]
+    },
     ...STYLE_CONTROLS
   ],
   resolve(result, index, settings) {
@@ -9546,7 +9587,7 @@ var tracked_objects_default = defineFeature({
       for (const trace of resolved.trails) drawTrackTrace(ctx, trace, mapper, settings.color);
     }
     if (settings.boxes) {
-      const draw = resolved.output.source.contentType === "humanFace" ? drawFace : drawObjectBox;
+      const draw = settings.shape === "circle" ? drawFace : drawObjectBox;
       for (const { data } of resolved.items) draw(ctx, data, mapper, settings.color);
     }
   }
@@ -9556,6 +9597,7 @@ var tracked_objects_default = defineFeature({
 var movement_trails_default = defineFeature({
   id: "movement-trails",
   label: "Movement trails",
+  defaults: { color: "#ffff00" },
   accepts: (source) => source.payloadType === "TrackTraces",
   resolve(result, index) {
     const items = result.items.filter((item) => {
@@ -10303,33 +10345,8 @@ function renderOsd(canvas2, video5, index, overlays2 = [], { now = Date.now() } 
 }
 
 // development/web/src/overlays.js
-var OVERLAY_STORAGE_KEY = "opk-overlays:v2";
-var LEGACY_STORAGE_KEY = "opk-overlays:v1";
-function legacyFeature(source) {
-  if (source.payloadType === "Classifications" && source.contentType === "cameraContact") return "camera-contact";
-  return {
-    BoxDetections: "bounding-boxes",
-    ObjectTracks: "tracked-objects",
-    TrackTraces: "movement-trails",
-    Classifications: "classifications",
-    PoseEstimations: "gaze",
-    PerformanceOverlay: "performance"
-  }[source.payloadType] || "unsupported";
-}
-function validLegacy(overlay2) {
-  return validSource(overlay2?.source) && typeof overlay2.enabled === "boolean" && typeof overlay2.settings?.color === "string" && /^#[0-9a-f]{6}$/i.test(overlay2.settings.color) && Number.isFinite(overlay2.settings?.opacity) && overlay2.settings.opacity >= 0 && overlay2.settings.opacity <= 1;
-}
-function migrateLegacy(overlay2, saved) {
-  if (!validLegacy(overlay2)) return null;
-  const featureId = legacyFeature(overlay2.source);
-  const settings = { ...overlay2.settings };
-  if (featureId === "tracked-objects") {
-    const oldTraceKey = sourceKey({ ...overlay2.source, payloadType: "TrackTraces", contentType: "trackTrace" });
-    settings.boxes = true;
-    settings.trails = !saved.some((entry) => validLegacy(entry) && sourceKey(entry.source) === oldTraceKey);
-  }
-  return { featureId, selection: { primary: overlay2.source }, enabled: overlay2.enabled, settings };
-}
+var OVERLAY_STORAGE_KEY = "opk-overlays:v3";
+var PREVIOUS_STORAGE_KEY = "opk-overlays:v2";
 function normalizeOverlay(overlay2) {
   const primary = overlay2?.selection?.primary;
   if (!overlay2 || typeof overlay2.featureId !== "string" || !overlay2.featureId || typeof overlay2.enabled !== "boolean" || primary !== null && !validSource(primary)) return null;
@@ -10337,7 +10354,7 @@ function normalizeOverlay(overlay2) {
   if (!overlay2.settings || typeof overlay2.settings !== "object" || Array.isArray(overlay2.settings)) return null;
   const settings = feature2 ? feature2.validateSettings(overlay2.settings) : overlay2.settings;
   if (!settings) return null;
-  return { featureId: overlay2.featureId, selection: { primary: primary === null ? null : { ...primary } }, enabled: overlay2.enabled, settings };
+  return { featureId: overlay2.featureId, selection: { primary: primary === null ? null : copySource(primary) }, enabled: overlay2.enabled, settings };
 }
 function createOverlay(featureId, source = null) {
   return { featureId, selection: { primary: source }, enabled: true, settings: defaultSettings(featureId, source) };
@@ -10358,36 +10375,19 @@ function bindPendingOverlays(overlays2, catalog) {
 function loadOverlays(storage2) {
   try {
     const current = storage2.getItem(OVERLAY_STORAGE_KEY);
-    const raw = current ?? storage2.getItem(LEGACY_STORAGE_KEY);
+    const raw = current ?? storage2.getItem(PREVIOUS_STORAGE_KEY);
     if (raw === null) return { overlays: [], notice: "" };
     const saved = JSON.parse(raw);
     const migrating = current === null;
-    if (saved?.version !== (migrating ? 1 : 2) || !Array.isArray(saved.overlays)) throw new Error("Unsupported settings");
-    const candidates = migrating ? saved.overlays.map((entry) => migrateLegacy(entry, saved.overlays)) : saved.overlays;
+    if (saved?.version !== (migrating ? 2 : 3) || !Array.isArray(saved.overlays)) throw new Error("Unsupported settings");
+    const candidates = saved.overlays;
     const overlays2 = candidates.map(normalizeOverlay).filter(Boolean);
-    let relabelled = false;
-    for (const overlay2 of overlays2) {
-      const source = overlay2.selection.primary;
-      if (overlay2.featureId === "gaze" && source?.payloadType === "PoseEstimations" && source.contentType === "eyeYawPitch") {
-        source.payloadType = "GazeMeasurements";
-        relabelled = true;
-      }
-      if (source?.payloadType === "Classifications" && ["cameraContact", "personClassification"].includes(source.contentType)) {
-        source.payloadType = source.contentType === "cameraContact" ? "CameraContacts" : "PersonPresences";
-        relabelled = true;
-      }
-      if (overlay2.featureId === "performance" && source?.payloadType === "PerformanceOverlay") {
-        source.payloadType = "PerformanceMeasurements";
-        relabelled = true;
-      }
-      if (overlay2.featureId === "bounding-boxes" && source?.contentType === "humanFace" && ["BoxDetections", "ObjectTracks"].includes(source.payloadType)) {
-        overlay2.featureId = "face-circles";
-        relabelled = true;
-      }
-    }
     const notices = [];
     if (overlays2.length !== candidates.length) notices.push("Some invalid saved overlays were skipped.");
-    if (migrating || relabelled) notices.push(saveOverlays(storage2, overlays2));
+    if (migrating) {
+      notices.push("Saved selections migrated. Marker shape is now an explicit display setting.");
+      notices.push(saveOverlays(storage2, overlays2));
+    }
     return { overlays: overlays2, notice: notices.filter(Boolean).join(" ") };
   } catch {
     return { overlays: [], notice: "Saved overlays could not be loaded. You can still add overlays." };
@@ -10397,7 +10397,7 @@ function saveOverlays(storage2, overlays2) {
   try {
     const saved = overlays2.map(normalizeOverlay);
     if (saved.some((overlay2) => !overlay2)) throw new Error("Invalid overlay settings");
-    storage2.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({ version: 2, overlays: saved }));
+    storage2.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({ version: 3, overlays: saved }));
     return "";
   } catch {
     return "Overlay settings could not be saved. Changes apply only to this page session.";
@@ -10778,12 +10778,12 @@ function updateLegends() {
             ...control,
             ariaLabel: `Class ${entry.id} (${entry.id}) ${control.label.toLowerCase()}`
           }));
-          const inputs = styleControls(overlay2.featureId, settings, () => {
+          const inputs2 = styleControls(overlay2.featureId, settings, () => {
             preview();
             persist();
           }, preview, controls);
-          inputs.className += " overlay-class-controls";
-          element.append(inputs);
+          inputs2.className += " overlay-class-controls";
+          element.append(inputs2);
         } else name.textContent = entry.label;
         const nextId = [...row.legendNodes.keys()].sort((a, b) => a - b).find((id) => id > entry.id);
         row.legendList.insertBefore(element, row.legendNodes.get(nextId)?.element || null);

@@ -32,7 +32,7 @@ each gaze result to its RetinaFace detection. This model has distinct weights
 from the already integrated MobileGaze MobileNetV2; it reuses that parser and
 loop structure.
 
-The model-local [OpChain](opchain.json) consumes upstream `humanFace` boxes.
+The model-local [OpChain](opchain.json) consumes `BoxDetections` from its explicitly connected face detector.
 
 See [RetinaFace pipelines](../retinaface-resnet34/index.md) for both detector
 resolutions. Downloads are pinned in [model-assets.json](../../model-assets.json).

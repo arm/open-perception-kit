@@ -27,6 +27,6 @@ namespace opk::python {
 void appendTensorModuleInittab();
 void initializeTensorModule();
 PyObject *wrapTensors(const opk::op::OpChainContext &context, const opk::Model *model);
-PyObject *wrapContext(PyObject *producerInfo);
+PyObject *wrapContext(PyObject *producerInfo, PyObject *inputProducers);
 
 } // namespace opk::python

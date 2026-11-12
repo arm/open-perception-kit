@@ -45,7 +45,6 @@ std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(const LayerInfoDescriptor &d
     info->tags = descriptor.tags;
     info->infer_element_id = descriptor.inferElementId;
     info->label_family = descriptor.labelFamily;
-    info->content_type = descriptor.contentType;
     info->compositing_mode = descriptor.compositingMode;
     if (descriptor.producer != nullptr)
         info->producer = std::make_unique<metadata::ProducerInfoT>(*descriptor.producer);

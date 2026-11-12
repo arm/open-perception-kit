@@ -40,8 +40,8 @@ config_schema_resources_tests = executable(
 config_validator_tests = executable(
   'config_validator_tests',
   [
-    'config_validator_model_v1_test.cpp',
-    'config_validator_opchain_v1_test.cpp',
+    'config_validator_model_v2_test.cpp',
+    'config_validator_opchain_v2_test.cpp',
     '../config-validator/RepositoryValidator.cpp',
     'config_validator_repository_test.cpp',
     'config_validator_report_test.cpp',

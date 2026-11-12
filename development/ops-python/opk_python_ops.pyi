@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from typing import Final, Protocol
+from collections.abc import Mapping
 
 import numpy
 from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfoT
@@ -24,6 +25,7 @@ class Context:
     """Call-scoped metadata for one Python operation invocation."""
 
     producer_info: Final[ProducerInfoT]
+    input_producers: Final[Mapping[str, str]]
 
 
 class Tensor:

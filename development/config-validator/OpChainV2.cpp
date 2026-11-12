@@ -65,7 +65,7 @@ void addStageIssue(ValidationReport &report,
                    std::string_view source,
                    std::size_t index,
                    std::string message) {
-    report.issues.push_back(makeIssue("opchain.v1.builtin-stage",
+    report.issues.push_back(makeIssue("opchain.v2.builtin-stage",
                                       ValidationPhase::Descriptor,
                                       source,
                                       std::format("/ops/{}", index),
@@ -79,7 +79,7 @@ void validateControlCharacters(ValidationReport &report,
     for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
         const auto &op = descriptor.ops[index];
         const std::string base = std::format("/ops/{}", index);
-        validateControlFreeString(report, op.id, source, base + "/id", "opchain.v1.op-id-control");
+        validateControlFreeString(report, op.id, source, base + "/id", "opchain.v2.op-id-control");
         if (opk::op::isInferenceOpId(op.id)) {
             const auto modelDescriptor = stringAttribute(op.attributes, "modelDescriptor");
             if (modelDescriptor.has_value()) {
@@ -87,7 +87,7 @@ void validateControlCharacters(ValidationReport &report,
                                           *modelDescriptor,
                                           source,
                                           base + "/attributes/modelDescriptor",
-                                          "opchain.v1.model-descriptor-control");
+                                          "opchain.v2.model-descriptor-control");
             }
         }
         if (op.id == Postprocess &&
@@ -97,7 +97,7 @@ void validateControlCharacters(ValidationReport &report,
                                           *dictionary,
                                           source,
                                           base + "/attributes/dictionaryFile",
-                                          "opchain.v1.dictionary-file-control");
+                                          "opchain.v2.dictionary-file-control");
             }
         }
     }
@@ -118,7 +118,7 @@ void validateLoopGroups(ValidationReport &report,
     for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
         std::optional<std::size_t> loopId = descriptor.ops[index].loopId;
         if (loopId.has_value() && *loopId == 0) {
-            report.issues.push_back(makeIssue("opchain.v1.loop-group",
+            report.issues.push_back(makeIssue("opchain.v2.loop-group",
                                               ValidationPhase::Descriptor,
                                               source,
                                               std::format("/ops/{}/loopId", index),
@@ -133,7 +133,7 @@ void validateLoopGroups(ValidationReport &report,
             auto run = runs.try_emplace(*loopId, Run{index, 0}).first;
             if (closed.contains(*loopId) && loopId != previous) {
                 report.issues.push_back(
-                    makeIssue("opchain.v1.loop-group",
+                    makeIssue("opchain.v2.loop-group",
                               ValidationPhase::Descriptor,
                               source,
                               std::format("/ops/{}/loopId", index),
@@ -148,7 +148,7 @@ void validateLoopGroups(ValidationReport &report,
     for (const auto &[loopId, run] : runs) {
         if (run.count >= 2)
             continue;
-        report.issues.push_back(makeIssue("opchain.v1.loop-group",
+        report.issues.push_back(makeIssue("opchain.v2.loop-group",
                                           ValidationPhase::Descriptor,
                                           source,
                                           std::format("/ops/{}/loopId", run.first),
@@ -175,7 +175,7 @@ void validateInstanceIds(ValidationReport &report,
         if (inserted)
             continue;
         report.issues.push_back(
-            makeIssue("opchain.v1.instance-id",
+            makeIssue("opchain.v2.instance-id",
                       ValidationPhase::Descriptor,
                       source,
                       std::format("/ops/{}/instanceId", index),
@@ -192,7 +192,7 @@ void validateStageStart(ValidationReport &report,
     if (loopId.has_value() && *loopId != 0 && controller > 0 &&
         ops[controller - 1].loopId == loopId) {
         report.issues.push_back(
-            makeIssue("opchain.v1.stage-loop",
+            makeIssue("opchain.v2.stage-loop",
                       ValidationPhase::Descriptor,
                       source,
                       std::format("/ops/{}/loopId", controller),
@@ -262,8 +262,8 @@ void validateStageLoop(ValidationReport &report,
             std::any_of(ops.begin() + static_cast<std::ptrdiff_t>(controller),
                         ops.begin() + static_cast<std::ptrdiff_t>(end),
                         [](const auto &op) { return op.loopId.value_or(0) != 0; });
-        !stageUsesLoop &&
-        stringAttribute(ops[controller].attributes, "contentType").value_or("").empty()) {
+        !stageUsesLoop && !ops[controller].attributes.contains("sourceOp") &&
+        !ops[controller].attributes.contains("sourceProducer")) {
         return;
     }
 
@@ -272,7 +272,7 @@ void validateStageLoop(ValidationReport &report,
         if (loopId.has_value() && *loopId != 0 && ops[index].loopId == loopId)
             continue;
         report.issues.push_back(makeIssue(
-            "opchain.v1.stage-loop",
+            "opchain.v2.stage-loop",
             ValidationPhase::Descriptor,
             source,
             std::format("/ops/{}/loopId", index),
@@ -316,7 +316,7 @@ void validateOnnxThreadCount(ValidationReport &report,
             if (!op.attributes.contains(name) || op.attributes.at(name).isInt())
                 continue;
             report.issues.push_back(makeIssue(
-                "opchain.v1.onnx-thread-count",
+                "opchain.v2.onnx-thread-count",
                 ValidationPhase::Descriptor,
                 source,
                 std::format("/ops/{}/attributes/{}", index, name),
@@ -340,7 +340,7 @@ void validateTurnDetectorIntegers(ValidationReport &report,
                 continue;
 
             report.issues.push_back(
-                makeIssue("opchain.v1.turn-detector-integer",
+                makeIssue("opchain.v2.turn-detector-integer",
                           ValidationPhase::Descriptor,
                           source,
                           std::format("/ops/{}/attributes/{}", index, attribute),
@@ -383,7 +383,7 @@ void validateThresholds(ValidationReport &report,
         }
 
         report.issues.push_back(
-            makeIssue("opchain.v1.threshold-order",
+            makeIssue("opchain.v2.threshold-order",
                       ValidationPhase::Descriptor,
                       source,
                       std::format("/ops/{}/attributes/thresholdHigh", index),
@@ -394,7 +394,7 @@ void validateThresholds(ValidationReport &report,
 
 } // namespace
 
-ValidationReport validateOpChainV1(const opk::op::OpChainDescriptor &descriptor,
+ValidationReport validateOpChainV2(const opk::op::OpChainDescriptor &descriptor,
                                    std::string_view source) {
     ValidationReport report;
     validateControlCharacters(report, descriptor, source);

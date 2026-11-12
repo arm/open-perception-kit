@@ -25,8 +25,8 @@ limitations under the License.
 # Configuration compatibility
 
 Every pipeline preset, OpChain, and model descriptor must declare a string
-version in `MAJOR.MINOR.PATCH` form, initially
-`"version": "1.0.0"`. This configuration version is independent of the OPK
+version in `MAJOR.MINOR.PATCH` form. Current Model and OpChain contracts use
+major 2; pipeline presets use major 1. This configuration version is independent of the OPK
 product version, model artifact format, dependency package versions, and
 FrameResults payload format.
 
@@ -65,8 +65,8 @@ releases remain independently versioned in `development/meson.build`.
 | Contract or dependency | Authoritative source | Owner and compatibility boundary |
 | --- | --- | --- |
 | Pipeline JSON | `config/schemas/v1/pipeline.schema.json` | OPK launcher maintainers own the preset format and execution semantics. |
-| OpChain JSON | `config/schemas/v1/opchain.schema.json` and its referenced Op schemas | OPK Op maintainers own ordering, loops, and built-in attributes. Custom Op authors own their attributes. |
-| Model JSON | `config/schemas/v1/model.schema.json` | OPK model integration maintainers own tensor and preprocessing declarations. Model authors own the artifact and its export requirements. |
+| OpChain JSON | `config/schemas/v2/opchain.schema.json` and its referenced Op schemas | OPK Op maintainers own ordering, loops, and built-in attributes. Custom Op authors own their attributes. |
+| Model JSON | `config/schemas/v2/model.schema.json` | OPK model integration maintainers own tensor and preprocessing declarations. Model authors own the artifact and its export requirements. |
 | SDK descriptor JSON | `tools/perception/sdk.json` and `tools/perception/sdk_config.py` | SDK tooling maintainers own its dependency locks, generator inputs, and release fields. It has no configuration-format version. |
 | OPK runtime, native plugins, and SDK package version | `development/meson.build` | OPK maintainers version and distribute these together. Use components from the same release or source checkout. |
 | Inference frameworks | `Dockerfile` dependency versions and `development/ops-*/meson.build` build integration | Backend maintainers select the packaged framework. Exported models must be supported by that framework. |
@@ -105,7 +105,8 @@ That metadata describes the reader's supported format; file versions record
 that file's evolution. A differing minor still produces the warning described
 above, and the runtime must implement every attribute the file uses.
 
-Each file has its own patch counter. Start newly versioned files at `1.0.0`.
+Each file has its own patch counter. Start new pipeline presets at `1.0.0`,
+and new Model and OpChain descriptors at `2.0.0`.
 When editing a command, model path, tensor declaration, dependency lock, or even
 an inert annotation, increment that file's patch in the same change; do not
 bump unrelated files. A new major or minor contract starts at patch zero and
@@ -114,8 +115,9 @@ numbers track file revisions, not OPK releases or model accuracy. Readers do
 not compare patch history. For manually authored Pipeline, Model, and OpChain
 files, the author owns the bump when changing a versioned descriptor.
 
-The schema directory and resource IDs retain `v1` to identify the supported
-major. Rebuild native consumers after changing their supported contract or
+Schema directories and resource IDs identify each contract's supported major:
+`v1` for pipelines and `v2` for Model and OpChain descriptors.
+Rebuild native consumers after changing their supported contract or
 schemas. Contract families evolve independently.
 
 Model and OpChain schemas
@@ -213,12 +215,38 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
-OpChain reader schema `1.10.0` adds optional `providedOutputs` and `requiredOutputs`
-to PythonScript attributes. Each entry declares a fully qualified payload root
-and optional role. The runtime's capability interfaces and control messages now
-carry typed declarations; rebuild custom Op libraries and upgrade the WebUI
-together. Existing role-based ROI configuration remains valid. Files adopting
-the new optional declarations should advance their own minor and reset patch.
+### Model and OpChain format 2.0.0
+
+The current Model and OpChain readers require major **2**. Pipeline presets remain
+major **1**. Rebuild custom Op libraries and upgrade the generated SDK and WebUI together.
+
+1. Remove Model `contentType` and set the Model version to `2.0.0`.
+2. Replace ROI `contentType` with `sourceOp` naming an earlier producer's explicit
+   `instanceId`, or `sourceProducer` naming an external producer. An empty external
+   address declares an unconnected input. Configure it with `opkinfer input-bindings`
+   or the model UI; it never means full-frame processing or a wildcard.
+3. Python `providedOutputs` entries contain only `payloadType`. Replace
+   `requiredOutputs` with `requiredInputs`: `inputId`, `payloadType`, and either
+   `sourceOp` or `producerId`. Remove semantic `role` fields. Callbacks use
+   `context.input_producers` to select the connected producer.
+4. Remove `TurnDetector.vadModel`; the immediately preceding compatible VAD
+   producer is its input. Set migrated OpChains to `2.0.0`.
+5. Replace tracker `content-type` with the `input-producers` JSON array. Embedding
+   matching requires `use-embeddings=true` and an explicit `embedding-producer-id`;
+   `embedding-space-id` remains a comparison-space constraint. Configure native
+   circular markers through `circle-producers`, or choose the browser renderer.
+6. Increment the patch of changed pipeline presets. Validate and run them with
+   their intended artifacts and inputs before replacing deployed configurations.
+
+See [explicit result inputs](../../arch/explicit-input-connections.md) for addresses,
+live changes and saved overlay migration. There is no automatic field-semantic converter.
+
+### Earlier format-1 additions
+
+The following records describe the earlier format-1 evolution. Their features are
+included in format 2; the earlier version numbers below apply only to matching
+older readers. Migrate existing Model and OpChain files to `2.0.0` as above for
+the current runtime.
 
 OpChain reader schema `1.9.0` adds optional `embeddingSpaceId` to
 `ObjectEmbeddingParser`. This is an author-declared, versioned comparison-space
@@ -337,7 +365,7 @@ omitted `description`, add a string description as well:
 ```
 
 Existing model and OpChain files using `"version": 1` must also migrate to
-`"version": "1.0.0"`. The SDK descriptor is not part of this configuration
+`"version": "2.0.0"` with the field changes above. The SDK descriptor is not part of this configuration
 version contract and must keep its own unversioned format. For an unversioned
 external Model, OpChain, or pipeline descriptor, compare it with the corresponding
 schema and checked-in example before adding `version`; the number alone does

@@ -127,8 +127,8 @@ multiple related payloads, and one payload can support multiple features.
 
 | Feature | Inputs and presentation |
 | --- | --- |
-| Bounding boxes | Non-face `BoxDetections` or `ObjectTracks`: rectangular boxes and labels. |
-| Face circles | `BoxDetections` or `ObjectTracks` with `humanFace` semantics: circles around faces. |
+| Bounding boxes | `BoxDetections` or `ObjectTracks`: rectangular boxes and labels. |
+| Circular markers | `BoxDetections` or `ObjectTracks`: circles centered on the selected regions. |
 | Tracked objects | `ObjectTracks` plus optional related `TrackTraces`: independently controlled **Boxes** and **Trails**, both enabled by default. |
 | Movement trails | `TrackTraces`: trajectories without boxes. |
 | Classifications | `Classifications`: explicitly declared categorical or recognized-text results; `PersonPresences`: explicit PERSON/NON-PERSON decisions with optional raw-score diagnostics. |
@@ -144,16 +144,14 @@ multiple related payloads, and one payload can support multiple features.
 
 Classification candidate order is explicit in the list; coordinate fields no
 longer encode rank. Label-set identity is retained separately from display text.
-Existing contact/presence overlay selections are migrated to the new payload
-names without resetting style or visibility. This does not decode old packets.
+Contact/presence use their explicit SDK payload roots.
 
 Gaze subjects use `subject_id`, independently of derivation parents and persistent
 track IDs. Duplicate subjects are ambiguous even if one has invalid geometry.
 Missing/invalid subjects and unavailable/non-finite angles produce no arrow;
 measured zero remains distinct from unavailable. The projection uses unmirrored
 image axes (positive yaw left, positive pitch up near forward gaze). Gaze selection
-and subject eligibility do not depend on content-type strings. Saved gaze overlay
-selections migrate to the new root while preserving their settings.
+and subject eligibility use the SDK root and explicit subject references.
 
 Box and trace geometry carries its own source-image basis. The decoder resolves
 crop-local/normalized coordinates before rendering; neither derivation parents
@@ -168,20 +166,20 @@ a payload does not imply that a renderer is registered for it.
 
 ## Source identity and lifecycle
 
-Primary selections match payload family, semantic content, engine, model,
+Primary selections match payload family, engine, model,
 inference element, label family, and producer instance/component/implementation.
 They do not depend on payload order, detection count, or per-frame object IDs.
 Repeated payloads with identical provenance (for example, per-face crop iterations)
 form one selectable source. Missing identity fields are not inferred.
 
-Preferences are stored per browser origin under `opk-overlays:v2`:
+Preferences are stored per browser origin under `opk-overlays:v3`:
 
 ```json
 {
   "featureId": "tracked-objects",
   "selection": {"primary": {"...": "existing full source selector"}},
   "enabled": true,
-  "settings": {"boxes": true, "trails": true, "color": "#ff3030", "opacity": 1}
+  "settings": {"boxes": true, "trails": true, "shape": "rectangle", "color": "#ff3030", "opacity": 1}
 }
 ```
 
@@ -218,22 +216,19 @@ Saved and draft sources remain selectable while editing, even if unavailable.
 Discovering more sources reveals **From** without changing the selection or draft
 styles. Presentation labels never change the full source key.
 
-### Migration from payload-based overlays
+### Migration to explicit presentation
 
-Previously saved **Bounding boxes** overlays bound to `humanFace` sources are
-automatically relabelled **Face circles**, preserving their source, color, opacity,
-visibility, and order. Unbound bounding-box overlays remain unchanged.
+The first load without a v3 record migrates `opk-overlays:v2`, retaining explicit
+renderers, producer selectors, order, visibility and settings while dropping
+retired selector fields. A notice explains the change; the previous record remains
+as a backup. Failed writes leave migrated overlays usable in memory. Unknown
+features remain visible as unsupported. Earlier payload roots are not relabelled
+through semantic tags.
 
-The first load without a v2 record migrates `opk-overlays:v1`, retaining primary
-selectors, order, visibility, color, and opacity. The old record remains as a
-backup; unsuccessful writes leave migrated overlays usable in memory. Unknown
-feature records remain visible as unsupported rather than being dropped.
-
-Old tracked-box overlays become **Tracked objects** with **Boxes** enabled. If a
-separate trail overlay previously overrode that source, migration initializes
-the tracked feature's **Trails** checkbox to false, preserving the prior drawing.
-Otherwise it starts true. This is a one-time conversion: afterward each feature
-owns its controls, with no cross-overlay override behavior.
+The existing circular-marker feature ID is retained for saved selections. Both
+circle and rectangle features accept typed boxes; tracked objects expose an
+explicit **Shape** choice, defaulting to rectangle. A semantic label never changes
+the renderer or shape.
 
 ## Relationships and geometry
 
@@ -423,10 +418,8 @@ Choose **OCR**, then explicitly select **From**:
   is displayed when populated; otherwise the view is region-only. This mode
   does not borrow results from another classification source.
 
-The OCR feature routes on these schema payload types and object relationships,
-not `contentType`, model names, or parser names. Shared source identity still
-retains the existing provenance fields; this is not a repository-wide removal
-of the legacy content-type contract. Generic box/classification producers can
+The OCR feature uses these schema payload types and object relationships.
+Shared source identity retains provenance fields. Generic box/classification producers can
 also be selected intentionally. When a pending overlay discovers outputs, use
 **Change source…** to choose one rather than automatically binding to the first.
 
@@ -510,11 +503,12 @@ replacing/clearing an image drops its old decoded resource.
 
 ## Module responsibilities
 
-Model registration uses `providedOutputs` and `requiredOutputs` arrays containing
-`{payloadType, role}` declarations. Dependency presentation requires an exact root
-match; an empty required role accepts any role of that root. The former string-only
-capability arrays are not used. Declarations describe model capability, not whether
-it ran on the current frame.
+Model registration exposes `providedOutputs` and `availableInputs` as
+`{payloadType, producerId}` references. `requiredInputs` additionally names each
+`consumerId` and `inputId`. The input selector offers compatible observed upstream
+producers and sends `model_inputs` with the full binding array. An empty producer
+ID is unconnected; unavailable and ambiguous sources are not substituted.
+Declarations describe capability, not whether a producer ran on the current frame.
 
 Decoded layers distinguish available observations, successful empty collections
 and invalid data. Unsupported/malformed payload entries are reported separately;
@@ -534,7 +528,7 @@ VAD/turn windows remain mono 16 kHz regardless of the original buffer rate.
 - `src/osd-renderer.js`: ordered dispatch and isolated canvas state; overlay opacity
   multiplies the renderer's alpha.
 - `src/overlays.js`: validated feature records, persistence, one-time source
-  binding, and v1 migration.
+  binding, and v2-to-v3 saved-selection migration.
 - `src/client-osd.js`: discovery, native dialog, overlay list, and control binding.
 
 ## Validation

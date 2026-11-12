@@ -31,7 +31,6 @@ class Inference : public opk::op::Op, public opk::op::OpInterfaceInference {
         input.shape = opk::Shape(1, 4);
         model.inputs.push_back(input);
         model.name = "audio";
-        model.contentType = "voiceActivity";
     }
     opk::Result<void> configure(const opk::AttributeMap &) override {
         return {};

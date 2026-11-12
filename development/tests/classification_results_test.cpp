@@ -169,7 +169,6 @@ TEST(ClassificationResults, ImageNetIdentityOrderingAndEmptyOutputArePreserved) 
         decodedEmpty.for_each<open_perception_kit::metadata::ClassificationsT>(
             [](const auto &payload) {
                 ASSERT_TRUE(payload.layer);
-                EXPECT_EQ(payload.layer->content_type, "classification");
                 ASSERT_EQ(payload.classifications.size(), 1U);
                 const auto &result = *payload.classifications[0];
                 EXPECT_EQ(result.kind,

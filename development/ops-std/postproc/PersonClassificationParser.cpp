@@ -69,7 +69,6 @@ opk::Result<void> PersonClassificationParser::parse(const opk::TensorParser::Inp
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
     payload.presences.push_back(std::move(result));
     results.add(std::move(payload));

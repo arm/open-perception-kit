@@ -39,7 +39,7 @@ class NoOp : public opk::op::Op {
 class Vad : public NoOp, public opk::op::OpInterfacePostprocessor {
   public:
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {opk::outputCapability<Payload>("voiceActivity")};
+        return {opk::outputCapability<Payload>()};
     }
 };
 class Inference : public NoOp, public opk::op::OpInterfaceInference {
@@ -54,7 +54,6 @@ class Inference : public NoOp, public opk::op::OpInterfaceInference {
         input.shape = opk::Shape(1, 256);
         model.inputs.push_back(input);
         model.name = "smart-turn";
-        model.contentType = "turnDetection";
     }
     const opk::Model &getModel() const override {
         return model;
@@ -84,10 +83,8 @@ class TurnDetector : public testing::Test {
         Payload payload;
         const auto identity =
             vad.producerInfo(producer, "fixture", "opk-std-ops/GenericPostprocess");
-        payload.layer = open_perception_kit::makeLayerInfo({.model = "silero-vad",
-                                                            .inferElementId = producer,
-                                                            .contentType = "voiceActivity",
-                                                            .producer = &identity});
+        payload.layer = open_perception_kit::makeLayerInfo(
+            {.model = "silero-vad", .inferElementId = producer, .producer = &identity});
         auto detection = std::make_unique<open_perception_kit::metadata::VoiceActivityDetectionT>();
         detection->speech_active = speech;
         detection->speech_probability = speech ? 1 : 0;
@@ -147,8 +144,8 @@ TEST_F(TurnDetector, WaitsForSpeechThenSilenceAndBoundsRetries) {
 
 TEST_F(TurnDetector, BoundProducerWinsOverSameModelWindowAndInvalidResultsAreNotSilence) {
     Payload other;
-    other.layer = open_perception_kit::makeLayerInfo(
-        {.model = "silero-vad", .inferElementId = "vad", .contentType = "voiceActivity"});
+    other.layer =
+        open_perception_kit::makeLayerInfo({.model = "silero-vad", .inferElementId = "vad"});
     other.layer->producer = open_perception_kit::makeProducerInfo(
         "vad/other", "opk-std-ops/GenericPostprocess", "SileroVadParser");
     auto value = std::make_unique<open_perception_kit::metadata::VoiceActivityDetectionT>();

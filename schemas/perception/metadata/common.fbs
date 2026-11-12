@@ -21,7 +21,6 @@ table LayerInfo {
   tags:string;
   infer_element_id:string;
   label_family:string;
-  content_type:string;
   compositing_mode:string;
   producer:ProducerInfo;
 }

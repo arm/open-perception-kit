@@ -50,19 +50,21 @@ class TemporaryRepository {
                                                     std::make_error_code(std::errc::file_exists));
 
         std::filesystem::create_directories(root_ / "config/schemas/v1");
+        std::filesystem::create_directories(root_ / "config/schemas/v2");
         std::filesystem::create_directories(root_ / "config/models/first");
         std::filesystem::create_directories(root_ / "config/models/second");
         std::filesystem::create_directories(root_ / "config/opchains");
         std::filesystem::create_directories(root_ / "config/pipelines");
 
         const std::filesystem::path sourceRoot = OPK_REPOSITORY_ROOT;
-        for (const auto *name :
-             {"model.schema.json", "opchain.schema.json", "pipeline.schema.json"}) {
-            std::filesystem::copy_file(sourceRoot / "config/schemas/v1" / name,
-                                       root_ / "config/schemas/v1" / name);
+        std::filesystem::copy_file(sourceRoot / "config/schemas/v1/pipeline.schema.json",
+                                   root_ / "config/schemas/v1/pipeline.schema.json");
+        for (const auto *name : {"model.schema.json", "opchain.schema.json"}) {
+            std::filesystem::copy_file(sourceRoot / "config/schemas/v2" / name,
+                                       root_ / "config/schemas/v2" / name);
         }
-        std::filesystem::copy(sourceRoot / "config/schemas/v1/opchain",
-                              root_ / "config/schemas/v1/opchain",
+        std::filesystem::copy(sourceRoot / "config/schemas/v2/opchain",
+                              root_ / "config/schemas/v2/opchain",
                               std::filesystem::copy_options::recursive);
     }
 
@@ -80,7 +82,7 @@ class TemporaryRepository {
 
     void writeModel(std::string_view directory, std::string_view name) const {
         nlohmann::json model{
-            {"version", "1.0.0"},
+            {"version", "2.0.0"},
             {"name", name},
             {"modelFile", "model.onnx"},
             {"dynamicOutput", true},
@@ -92,7 +94,7 @@ class TemporaryRepository {
 
     void writeOpChain(std::string_view name) const {
         nlohmann::json opchain{
-            {"version", "1.0.0"},
+            {"version", "2.0.0"},
             {"name", name},
             {"description", "Repository name test."},
             {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};

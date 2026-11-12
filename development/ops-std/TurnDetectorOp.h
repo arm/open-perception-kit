@@ -35,21 +35,21 @@ class TurnDetectorOp : public opk::op::Op, public opk::op::OpInterfaceAudioPrepr
   public:
     /// @brief Validates configuration and clears the previous binding and retained history.
     /// @param attributes Supports hopSampleCount (512), silenceMs (300), retryMs (500),
-    ///        maxAttempts (3), inputAudioSourceName (pipelineAudioData), and vadModel
-    ///        (silero-vad). Durations are converted to sample counts at 16 kHz.
+    ///        maxAttempts (3), and inputAudioSourceName (pipelineAudioData).
+    ///        Durations are converted to sample counts at 16 kHz.
     /// @return Success, or InvalidOpChain for invalid attribute values.
     opk::Result<void> configure(const opk::AttributeMap &attributes) override;
 
     /// @brief Validates adjacent Ops and allocates history for the next model's PCM input.
     /// @param index This Op's position in @p ops.
-    /// @param ops Chain Ops; the predecessor must provide voiceActivity and the successor
+    /// @param ops Chain Ops; the predecessor must provide VoiceActivityDetections and the successor
     ///        must expose one fixed Float32 AudioPcm input with shape [1,N].
     /// @return Success, or InvalidOpChain for an unsupported layout, loop, or input window.
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
 
     /// @brief Retains the current hop and prepares turn inference when the gate opens.
     /// @param[in,out] context PCM hop, audio timing, and accumulated FrameResults. Exactly
-    ///        one VAD result must match the hop bounds, configured model, and infer element.
+    ///        one VAD result must match the hop bounds and bound producer.
     ///        On Continue, model identity and audio bounds describe the prepared history;
     ///        synthetic padding is excluded from sample bounds and timestamps.
     /// @return Continue when input is ready, AbortChain when evaluation is skipped, or
@@ -78,8 +78,6 @@ class TurnDetectorOp : public opk::op::Op, public opk::op::OpInterfaceAudioPrepr
     size_t maxAttempts = 3;
     /// Name of the scheduled PCM view in OpChainContext.
     std::string inputAudioSourceName = "pipelineAudioData";
-    /// Model identity required on the matching VAD payload.
-    std::string vadModel = "silero-vad";
     /// Non-owning pointer to the adjacent inference Op, valid while the chain is bound.
     const opk::op::OpInterfaceInference *inference = nullptr;
     const opk::op::Op *vadProducer = nullptr;

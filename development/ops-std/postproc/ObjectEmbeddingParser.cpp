@@ -72,7 +72,6 @@ Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
     payload.embeddings.push_back(std::move(embedding));
     results.add(std::move(payload));

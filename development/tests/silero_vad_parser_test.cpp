@@ -81,7 +81,6 @@ TEST(SileroVadParser, UsesProbabilitiesAndCountsConsecutiveHopSamples) {
     f.results.for_each<Payload>([&](const auto &payload) {
         if (count++ == 0) {
             EXPECT_FLOAT_EQ(payload.detections[0]->speech_probability.value_or(-1), 0.9f);
-            EXPECT_EQ(payload.layer->content_type, "voiceActivity");
         }
     });
     EXPECT_EQ(count, 10u); // Burst outputs are all retained.

@@ -25,7 +25,8 @@ using namespace open_perception_kit::metadata;
 FrameResults observed(const uint64_t id, const std::string &text = "person") {
     FrameResults result;
     BoxDetectionsT boxes;
-    boxes.layer = makeLayerInfo({.contentType = "genericObject"});
+    boxes.layer = makeLayerInfo({});
+    boxes.layer->producer = makeProducerInfo("detector", "test", "");
     auto box = std::make_unique<BoxDetectionT>();
     box->object = makeObjectMeta(id);
     box->box = makeImageBoundingBox(
@@ -56,6 +57,7 @@ ObjectTrackT onlyTrack(const FrameResults &frame) {
 }
 opk::tracker::Config config() {
     opk::tracker::Config value;
+    value.inputProducers = {"detector"};
     value.useKalman = false;
     value.useEmbeddings = false;
     value.minHitsToConfirm = 1;
@@ -150,11 +152,14 @@ TEST(TrackingContract, DormantReacquisitionKeepsIdentityAndStartsANewTraceSegmen
     opk::tracker::Tracker tracker;
     auto settings = config();
     settings.useEmbeddings = true;
+    settings.embeddingProducerId = "embedding/output";
     settings.maxMissedFrames = 0;
     settings.associationMode = opk::tracker::AssociationMode::Embedding;
     const auto withEmbedding = [](const uint64_t id) {
         auto result = observed(id);
         ObjectEmbeddingsT payload;
+        payload.layer = makeLayerInfo({});
+        payload.layer->producer = makeProducerInfo("embedding/output", "test", "");
         auto value = std::make_unique<ObjectEmbeddingT>();
         value->subject_id = id;
         value->values = {1, 0};
@@ -191,7 +196,8 @@ TEST(TrackingContract, EmptyUnconfirmedAndExpiredResultsRemainExplicit) {
     const auto emptyInput = [] {
         FrameResults result;
         BoxDetectionsT detections;
-        detections.layer = makeLayerInfo({.contentType = "genericObject"});
+        detections.layer = makeLayerInfo({});
+        detections.layer->producer = makeProducerInfo("detector", "test", "");
         result.add(std::move(detections));
         return result;
     };

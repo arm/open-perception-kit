@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:model-descriptor:v1",
-  "title": "OPK Model descriptor v1",
-  "x-opk-supported-version": "1.2.0",
+  "$id": "urn:arm:opk:schema:model-descriptor:v2",
+  "title": "OPK Model descriptor v2",
+  "x-opk-supported-version": "2.0.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -28,9 +28,6 @@
     },
     "hfDownload": {
       "$ref": "#/$defs/hfDownload"
-    },
-    "contentType": {
-      "type": "string"
     },
     "inputTensors": {
       "type": "array",

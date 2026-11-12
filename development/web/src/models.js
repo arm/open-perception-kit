@@ -53,15 +53,20 @@ function readableText(value) {
 }
 
 function outputs(value) {
-    return Array.isArray(value) ? value.filter(item => typeof item?.payloadType === 'string' && item.payloadType.length > 0 && typeof item.role === 'string') : [];
+    return Array.isArray(value) ? value.filter(item => typeof item?.payloadType === 'string' && item.payloadType.length > 0 && typeof item.producerId === 'string') : [];
+}
+
+function inputs(value) {
+    return outputs(value).filter(item => typeof item.consumerId === 'string' && item.consumerId.length > 0 &&
+        typeof item.inputId === 'string' && item.inputId.length > 0);
 }
 
 function dependencyProviderTasks(model, models) {
-    const required = outputs(model.requiredOutputs);
+    const required = inputs(model.requiredInputs);
     return [...new Set(models
         .filter((candidate) => candidate !== model &&
             outputs(candidate.providedOutputs).some(output => required.some(input =>
-                output.payloadType === input.payloadType && (!input.role || output.role === input.role))))
+                output.payloadType === input.payloadType && input.producerId && output.producerId === input.producerId)))
         .map((candidate) => readableText(candidate.task) || readableText(candidate.name))
         .filter(Boolean))];
 }
@@ -102,7 +107,8 @@ class ModelsManager {
             task: model.task || '',
             runtime: model.runtime || '',
             providedOutputs: outputs(model.providedOutputs),
-            requiredOutputs: outputs(model.requiredOutputs),
+            requiredInputs: inputs(model.requiredInputs),
+            availableInputs: outputs(model.availableInputs),
         })));
         if (nextSignature === this._lastModelsSignature) {
             return;
@@ -154,17 +160,66 @@ class ModelsManager {
             modelCopy.appendChild(modelDetails);
         }
 
-        const requiredOutputs = outputs(model.requiredOutputs);
+        const requiredInputs = inputs(model.requiredInputs);
+        const inputSelectors = new Map();
         modelInfo.appendChild(modelCopy);
+
+        for (const input of requiredInputs) {
+            const label = document.createElement('label');
+            label.className = 'model-input-binding';
+            label.textContent = `${input.consumerId}/${input.inputId} — ${input.payloadType.split('.').at(-1)} `;
+            const select = document.createElement('select');
+            inputSelectors.set(input, select);
+            select.setAttribute('aria-label', `Input source for ${presentation.fullLabel}, ${input.consumerId}/${input.inputId}, ${input.payloadType}`);
+            const addOption = (id, text, disabled = false) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = text;
+                option.disabled = disabled;
+                select.appendChild(option);
+            };
+            addOption('', 'Not connected');
+            const candidates = models.filter(candidate => candidate.element_name !== model.element_name)
+                .flatMap(candidate => outputs(candidate.providedOutputs)
+                    .filter(output => output.producerId && output.payloadType === input.payloadType &&
+                        outputs(model.availableInputs).some(upstream => upstream.payloadType === output.payloadType &&
+                            upstream.producerId === output.producerId))
+                    .map(output => ({...output, label: resolveModelPresentation(candidate).fullLabel})));
+            const counts = new Map();
+            for (const candidate of candidates) counts.set(candidate.producerId, (counts.get(candidate.producerId) || 0) + 1);
+            const seen = new Set();
+            for (const candidate of candidates) {
+                if (seen.has(candidate.producerId)) continue;
+                seen.add(candidate.producerId);
+                const ambiguous = counts.get(candidate.producerId) !== 1;
+                addOption(candidate.producerId, `${candidate.label} — ${candidate.producerId}${ambiguous ? ' (ambiguous)' : ''}`, ambiguous);
+            }
+            if (input.producerId && !seen.has(input.producerId))
+                addOption(input.producerId, `Unavailable: ${input.producerId}`, true);
+            select.value = input.producerId;
+            select.addEventListener('change', () => {
+                const bindings = requiredInputs.map(entry => ({consumerId: entry.consumerId, inputId: entry.inputId,
+                    payloadType: entry.payloadType, producerId: inputSelectors.get(entry).value}));
+                this._lastModelsSignature = '';
+                try {
+                    ctrlSend({type: 'model_inputs', name: model.element_name, bindings});
+                } catch (error) {
+                    select.value = input.producerId;
+                    console.error('Error connecting model input:', error);
+                }
+            });
+            label.appendChild(select);
+            modelCopy.appendChild(label);
+        }
 
         const modelActions = document.createElement('div');
         modelActions.className = 'model-actions';
 
-        if (requiredOutputs.length > 0) {
+        if (requiredInputs.length > 0) {
             const providerTasks = dependencyProviderTasks(model, models);
             const accessibleProviders = providerTasks.length > 0
                 ? providerTasks.join(', ')
-                : 'No provider registered';
+                : requiredInputs.some(input => input.producerId) ? 'Selected source unavailable' : 'No input connected';
             const dependencyInfo = document.createElement('div');
             dependencyInfo.className = 'model-dependency-info';
             dependencyInfo.setAttribute('tabindex', '0');
@@ -185,7 +240,7 @@ class ModelsManager {
             dependencyPopup.appendChild(dependencyHeading);
 
             const dependencyList = document.createElement('ul');
-            const items = providerTasks.length > 0 ? providerTasks : ['No provider registered'];
+            const items = providerTasks.length > 0 ? providerTasks : [accessibleProviders];
             for (const task of items) {
                 const dependency = document.createElement('li');
                 dependency.textContent = task;

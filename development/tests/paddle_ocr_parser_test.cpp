@@ -76,7 +76,6 @@ TEST(PaddleOcrDbDetectionParser, RestoresSourcePixelBoxAndParentFromPaddedProbab
     const auto payload = results.get<open_perception_kit::metadata::BoxDetectionsT>();
     ASSERT_TRUE(payload.has_value());
     ASSERT_TRUE(payload->value().layer);
-    EXPECT_EQ(payload->value().layer->content_type, "textRegion");
     const auto &detections = payload->value().detections;
     ASSERT_EQ(detections.size(), 1U);
     ASSERT_TRUE(detections[0]);
@@ -105,7 +104,6 @@ TEST(PaddleOcrDbDetectionParser, RestoresSourcePixelBoxAndParentFromPaddedProbab
     decodedEmpty.for_each<open_perception_kit::metadata::BoxDetectionsT>([](const auto &value) {
         EXPECT_TRUE(value.detections.empty());
         ASSERT_TRUE(value.layer);
-        EXPECT_EQ(value.layer->content_type, "textRegion");
     });
     probabilities[0] = -1;
     open_perception_kit::FrameResults invalid;
@@ -200,7 +198,6 @@ TEST_F(PaddleOcrRecognitionParserTest, CollapsesAdjacentRepeatsBeforeRemovingBla
     const auto payload = results.get<open_perception_kit::metadata::ClassificationsT>();
     ASSERT_TRUE(payload.has_value());
     ASSERT_TRUE(payload->value().layer);
-    EXPECT_EQ(payload->value().layer->content_type, "textRecognition");
     const auto &classifications = payload->value().classifications;
     ASSERT_EQ(classifications.size(), 1U);
     ASSERT_TRUE(classifications[0]);

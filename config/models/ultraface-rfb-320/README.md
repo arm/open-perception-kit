@@ -25,7 +25,7 @@ Full-frame face detector optimized for ONNX Runtime.
 - Preprocessing: mean `127/255`, standard deviation `128/255`
 - Output: dynamically discovered score and box tensors
 - Postprocessor: `UltrafaceParser`, confidence threshold `0.1`, IoU threshold `0.3`
-- FrameResults payload: `BoxDetectionsT` with `contentType` set to `humanFace`
+- FrameResults payload: `BoxDetectionsT` containing face regions; connect consumers to its concrete producer identity.
 - Typical use: first stage for NITEC and MobileGaze face-crop inference
 
 The model binary is downloaded from the pinned `hfDownload` entry in

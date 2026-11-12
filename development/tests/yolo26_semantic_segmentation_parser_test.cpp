@@ -114,7 +114,6 @@ TEST_F(Yolo26SemanticSegmentationParserTest, PreservesBoundaryClassesAndSerializ
     }
     const auto &payload = restored->value();
     ASSERT_NE(payload.layer, nullptr);
-    EXPECT_EQ(payload.layer->content_type, "semanticSegmentation");
     EXPECT_EQ(payload.layer->label_family, "cityscapes");
     EXPECT_EQ(payload.layer->model, "yolo26n-sem");
     EXPECT_EQ(payload.layer->infer_element_id, "infer-sem");
