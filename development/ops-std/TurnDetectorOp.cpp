@@ -29,10 +29,8 @@ opk::Result<void> TurnDetectorOp::configure(const opk::AttributeMap &attributes)
     const auto count = attributes.getIntOrDefault("maxAttempts", 3);
     inputAudioSourceName =
         attributes.getStringOrDefault("inputAudioSourceName", "pipelineAudioData");
-    vadModel = attributes.getStringOrDefault("vadModel", "silero-vad");
     if (hop <= 0 || hop > 960000 || silenceMs < 0 || silenceMs > 60000 || retryMs <= 0 ||
-        retryMs > 60000 || count <= 0 || count > 100 || inputAudioSourceName.empty() ||
-        vadModel.empty())
+        retryMs > 60000 || count <= 0 || count > 100 || inputAudioSourceName.empty())
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "TurnDetector: invalid configuration"));
 
@@ -66,10 +64,10 @@ opk::Result<void> TurnDetectorOp::bind(size_t index, const std::vector<opk::op::
     const auto provided = post->getProvidedOutputs();
     const auto required =
         opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>();
-    if (!std::ranges::any_of(provided,
-                             [&](const auto &output) { return opk::provides(output, required); }))
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                                        "TurnDetector requires preceding voiceActivity output"));
+    if (std::ranges::find(provided, required) == provided.end())
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                      "TurnDetector requires preceding VoiceActivityDetections output"));
 
     const auto &inputs = next->getModel().inputs;
     if (inputs.size() != 1)
@@ -131,7 +129,6 @@ opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &
             if (!payload.layer || !payload.layer->producer ||
                 payload.layer->producer->instance_id != producer.instance_id ||
                 payload.layer->producer->component != producer.component ||
-                payload.layer->model != vadModel ||
                 payload.layer->infer_element_id != context.inferenceInfo.inferElementId)
                 return;
             for (const auto &detection : payload.detections) {
@@ -173,7 +170,6 @@ opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &
     ++attempts;
 
     context.inferenceInfo.modelName = inference->getModel().name;
-    context.inferenceInfo.contentType = inference->getModel().contentType;
     context.inferenceInfo.parentId = 0;
     audio.windowStartSample = history->beginPosition();
     audio.windowEndSample = history->endPosition();

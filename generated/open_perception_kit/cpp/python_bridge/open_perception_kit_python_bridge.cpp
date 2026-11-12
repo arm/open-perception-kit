@@ -4573,20 +4573,6 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666
 }
 
 PyObject *
-get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_n636f6e74656e745f74797065(
-    PyObject *self, void *) {
-    const auto *proxy =
-        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::LayerInfoT> *>(
-            self);
-    const auto *value = proxy->value;
-    if (value == nullptr) {
-        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
-        return nullptr;
-    }
-    return py_string_from_std(value->content_type);
-}
-
-PyObject *
 get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_n636f6d706f736974696e675f6d6f6465(
     PyObject *self, void *) {
     const auto *proxy =
@@ -4651,12 +4637,6 @@ getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496
              get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_n6c6162656c5f66616d696c79),
          nullptr,
          "read-only label_family",
-         nullptr},
-        {"contentType",
-         reinterpret_cast<getter>(
-             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_n636f6e74656e745f74797065),
-         nullptr,
-         "read-only content_type",
          nullptr},
         {"compositingMode",
          reinterpret_cast<getter>(

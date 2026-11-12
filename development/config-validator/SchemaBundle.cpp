@@ -42,8 +42,8 @@ std::string relativeSource(const std::filesystem::path &path, const std::filesys
 
 namespace {
 
-constexpr std::string_view ModelSchemaId = "urn:arm:opk:schema:model-descriptor:v1";
-constexpr std::string_view OpChainSchemaId = "urn:arm:opk:schema:opchain-descriptor:v1";
+constexpr std::string_view ModelSchemaId = "urn:arm:opk:schema:model-descriptor:v2";
+constexpr std::string_view OpChainSchemaId = "urn:arm:opk:schema:opchain-descriptor:v2";
 constexpr std::string_view PipelineSchemaId = "urn:arm:opk:schema:pipeline-descriptor:v1";
 constexpr std::string_view SupportedVersionKey = "x-opk-supported-version";
 const std::regex VersionPattern(R"((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))");

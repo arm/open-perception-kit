@@ -118,16 +118,17 @@ producers and consumers must upgrade together from the earlier ID scheme.
 
 Payloads that represent inference or processing output carry `LayerInfo`. It
 records interpretation and provenance fields such as engine, model, tags,
-producer element ID, label family, content type, and compositing mode. Consumers
-must select payloads by type and semantic fields such as `content_type`, not by
-their position in the envelope.
+producer element ID, label family, and compositing mode. SDK payload types define
+compatibility; explicit producer references select inputs. Envelope position and
+display labels do not select a producer.
 
 `LayerInfo.producer` identifies the component that created the payload rather
 than only the enclosing inference element. Its `instance_id` distinguishes
 multiple operations in one OpChain, `component` identifies the canonical Op or
 element type, and `implementation` identifies the selected parser, script, or
-processing implementation. Producer metadata is provenance and must not be
-used as a replacement for payload-type or content-type routing.
+processing implementation. The concrete `instance_id`, together with the SDK
+payload type, addresses an output. Component and implementation names remain
+provenance rather than matching rules.
 
 Result items use `ObjectMeta` where identity or parent relationships are needed:
 
@@ -188,10 +189,12 @@ retain their placement; the same generated snapshot is required throughout.
 
 ## Shared routing and result availability
 
-Model capabilities and dependencies use explicit payload roots plus optional
-roles, not content-type strings alone. The root is the generated fully qualified
-SDK name; a role narrows selection within that root. Native parsers declare the
-roots they publish, and trusted Python Ops can declare their inputs/outputs.
+Model capabilities declare generated fully qualified SDK payload roots.
+Dependencies connect a named consumer input to a concrete producer of that root.
+Native parsers declare the roots they publish; trusted Python Ops declare outputs
+and named inputs. Local `sourceOp` references must name earlier compatible Ops;
+external bindings are explicit and never fall back to another producer.
+See [explicit result inputs](explicit-input-connections.md).
 An empty declaration list means no declared capability; it is not evidence that
 a script cannot publish data. Auxiliary source/performance metadata is separate
 from model-result capability advertising.
@@ -313,12 +316,11 @@ or non-finite output before publication.
 
 The generic parser's optional `embeddingSpaceId` attribute supplies the semantic
 space declaration. Without it, vectors remain transportable but cannot be used
-for matching; a model name is not used as an identity fallback. This attribute
-is introduced by the OpChain v1 reader schema `1.9.0`.
+for matching; a model name is not used as an identity fallback.
 
-The tracker replaces `embedding-content-type` with optional `embedding-space-id`
-and `embedding-producer-id` selectors. Empty selectors accept only a single
-eligible candidate per subject. Duplicates are counted before vector validation,
+The tracker requires an explicit `embedding-producer-id` when `use-embeddings`
+is enabled; an empty producer ID is unconnected. The optional `embedding-space-id`
+constrains comparability. Duplicates are counted before vector validation,
 so even a valid/invalid pair is ambiguous. Multiple spaces or producers never
 overwrite one another by arrival order. A producer filter selects an exact
 instance ID; producer provenance alone never establishes vector comparability.

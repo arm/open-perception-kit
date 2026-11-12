@@ -115,10 +115,14 @@ On `start()`, the element allocates internal state and loads the OpChain from
 JSON regardless of `active`. OpChain loading failure prevents the element from starting.
 After successful setup and whenever `active` changes, it emits a downstream
 `opk-model-register` event with model identity, active state, and the OpChain's
-declared required and provided outputs. `provided-outputs` and `required-outputs`
-are GStreamer lists of structures with `payload-type` and `role` string fields.
-The model registry exposes them as `providedOutputs` and `requiredOutputs` JSON
-arrays of `{payloadType, role}` objects. The former string-only fields are removed.
+declared outputs and external inputs. `provided-outputs` structures carry
+`payload-type` and concrete `producer-id`; `required-inputs` also carry
+`consumer-id` and `input-id`. `available-inputs` advertises outputs observed
+upstream. The registry exposes `providedOutputs`, `requiredInputs`, and
+`availableInputs`, with camel-case field names. The `input-bindings` property is
+a JSON array of `{consumerId, inputId, payloadType, producerId}`; it is mutable
+while playing and snapshotted per frame. Invalid updates preserve the previous
+bindings. Dependencies activate only the addressed type-compatible producer.
 
 GPU device setup runs asynchronously. On the first inference frame of each stream,
 an upstream latency query identifies live input. Live inputs keep forwarding frames
@@ -185,7 +189,7 @@ filter tail. These are streaming control semantics, independent of any VAD model
 
 By default, when an active `opkinfer` starts or changes from inactive to active, it sends an
 `opk-result-required` upstream event for each externally required typed output.
-Every upstream `opkinfer` whose declared payload root and role satisfy it becomes active. A newly
+The addressed upstream `opkinfer` becomes active when its declared payload root matches. A newly
 activated provider sends its own requirements, so activation can propagate
 transitively through multiple dependent elements. Set
 `auto-activate-dependencies=false` on a consumer to select its providers manually;
@@ -194,11 +198,11 @@ that consumer then emits no upstream requirements.
 This propagation only enables elements. Setting a `opkinfer` to inactive affects
 that element alone and does not disable its upstream providers, because those
 providers may still be required by other active elements.
-An empty required role matches any role of the same root; matching a role alone
-is insufficient. Malformed events and retired `opk-content-required` messages
-are not interpreted. Existing `InferenceController.contentType` selects a box
-role, always under the `BoxDetections` root. Duplicate observation IDs in the
-selected role are ambiguous before geometry validation and do not create crops.
+Empty or unavailable input addresses select nothing. Malformed events and retired
+`opk-content-required` messages are not interpreted. `InferenceController` uses
+`sourceOp` or `sourceProducer` under the `BoxDetections` root. Duplicate observation
+IDs from the selected producer are ambiguous before geometry validation and do
+not create crops. Changing an input connection clears the previous frame's crops.
 
 Active audio processing publishes `FrameContext.audio` for each mapped original
 input buffer, including buffers too short to run a complete window. Its channel,

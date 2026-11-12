@@ -30,11 +30,9 @@ namespace opk::stdop::postproc {
  * Used to generate segmentation map of the background on a camera frame.
  */
 struct RvmParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "segmentation";
 
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {opk::outputCapability<open_perception_kit::metadata::SegmentationMasksT>(
-            k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::SegmentationMasksT>()};
     }
 
     opk::Result<void> parse(const opk::TensorParser::Input &input,

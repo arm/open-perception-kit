@@ -41,6 +41,7 @@ struct TensorObject {
 
 struct ContextObject {
     PyObject_HEAD PyObject *producerInfo;
+    PyObject *inputProducers;
 };
 
 struct BridgeState {
@@ -151,6 +152,7 @@ PyType_Spec &tensorSpec() {
 void contextDealloc(PyObject *self) {
     auto *context = reinterpret_cast<ContextObject *>(self);
     Py_XDECREF(context->producerInfo);
+    Py_XDECREF(context->inputProducers);
     Py_TYPE(self)->tp_free(self);
 }
 
@@ -161,6 +163,10 @@ PyObject *contextRepr(PyObject *self) {
 
 PyObject *getProducerInfo(PyObject *self, void *) {
     return Py_NewRef(reinterpret_cast<ContextObject *>(self)->producerInfo);
+}
+
+PyObject *getInputProducers(PyObject *self, void *) {
+    return Py_NewRef(reinterpret_cast<ContextObject *>(self)->inputProducers);
 }
 
 PyObject *pythonScript(PyObject *, PyObject *callback) {
@@ -183,12 +189,18 @@ std::array<PyMethodDef, 2> &moduleMethods() {
     return definitions;
 }
 
-std::array<PyGetSetDef, 2> &contextGetSet() {
-    static std::array<PyGetSetDef, 2> definitions = {{
+std::array<PyGetSetDef, 3> &contextGetSet() {
+    static std::array<PyGetSetDef, 3> definitions = {{
         {const_cast<char *>("producer_info"),
          getProducerInfo,
          nullptr,
          const_cast<char *>("Producer identity for payloads created by this operation."),
+         nullptr},
+        {const_cast<char *>("input_producers"),
+         getInputProducers,
+         nullptr,
+         const_cast<char *>(
+             "Read-only input ID to concrete producer ID connections; empty IDs are unbound."),
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     }};
@@ -416,9 +428,10 @@ PyObject *wrapTensors(const opk::op::OpChainContext &context, const opk::Model *
     return result;
 }
 
-PyObject *wrapContext(PyObject *producerInfo) {
-    if (producerInfo == nullptr) {
-        PyErr_SetString(PyExc_ValueError, "producer_info is required");
+PyObject *wrapContext(PyObject *producerInfo, PyObject *inputProducers) {
+    if (producerInfo == nullptr || inputProducers == nullptr || !PyDict_Check(inputProducers)) {
+        PyErr_SetString(PyExc_ValueError,
+                        "producer_info and an input connection dictionary are required");
         return nullptr;
     }
     PyTypeObject *contextType = bridgeState().contextType;
@@ -431,6 +444,11 @@ PyObject *wrapContext(PyObject *producerInfo) {
     if (context == nullptr)
         return nullptr;
     context->producerInfo = Py_NewRef(producerInfo);
+    context->inputProducers = PyDictProxy_New(inputProducers);
+    if (!context->inputProducers) {
+        Py_DECREF(reinterpret_cast<PyObject *>(context));
+        return nullptr;
+    }
     return reinterpret_cast<PyObject *>(context);
 }
 

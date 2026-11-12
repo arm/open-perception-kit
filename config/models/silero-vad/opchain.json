@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "2.0.0",
   "name": "SileroVad",
   "displayName": "Silero VAD",
   "task": "Voice activity detection",
@@ -23,6 +23,7 @@
     },
     {
       "id": "opk-std-ops/GenericPostprocess",
+      "instanceId": "opk-std-ops-GenericPostprocess-0",
       "attributes": {
         "parser": "SileroVadParser",
         "thresholdOn": 0.6,

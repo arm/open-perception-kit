@@ -116,7 +116,7 @@ function detectionSummary(detection) {
 }
 
 function layerTitle(layer) {
-    return layer.model || layer.contentType || layer.engine || 'Layer';
+    return layer.model || layer.payloadType || layer.engine || 'Layer';
 }
 
 function createNode(tag, className, text) {
@@ -158,7 +158,7 @@ function renderLayer(layer) {
     header.appendChild(createNode('span', 'inference-layer-title wfr-txt-label', layerTitle(layer)));
     header.appendChild(createNode('span', 'inference-layer-count wfr-txt-caption', layer.status === 'invalid' ? 'Unavailable' : layer.count || 0));
     container.appendChild(header);
-    container.appendChild(createNode('div', 'inference-layer-kind wfr-txt-caption', layer.contentType || layer.labelFamily || 'output'));
+    container.appendChild(createNode('div', 'inference-layer-kind wfr-txt-caption', layer.payloadType || 'output'));
 
     if (rows.length) {
         const detectionsNode = createNode('div', 'inference-detections');
@@ -224,7 +224,7 @@ function getInferenceText() {
         const detections = Array.isArray(layer.detections) ? layer.detections : [];
         const rows = detections.map(detectionSummary);
         const lines = [
-            `${layerTitle(layer)} (${layer.contentType || layer.labelFamily || 'output'}): ${layer.count || 0}`,
+            `${layerTitle(layer)} (${layer.payloadType || 'output'}): ${layer.count || 0}`,
             ...rows.map((row) => {
                 const meta = row.meta ? ` [${row.meta}]` : '';
                 return `- ${row.title}${meta}: ${row.detail}`;

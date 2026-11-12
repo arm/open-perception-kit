@@ -57,7 +57,7 @@ class AudioWindowTest(unittest.TestCase):
             for op in ops:
                 op["loopId"] = loop_id
         descriptor = Path(self.directory.name) / "opchain.json"
-        descriptor.write_text(json.dumps({"version": "1.0.0", "name": "audio-window-test",
+        descriptor.write_text(json.dumps({"version": "2.0.0", "name": "audio-window-test",
                                           "displayName": "Audio Window Test", "task": "Test", "runtime": "Test",
                                           "description": "Model-free audio scheduler test", "ops": ops}))
         self.rate = rate

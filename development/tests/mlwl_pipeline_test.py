@@ -66,7 +66,7 @@ class MlwlPipeline(unittest.TestCase):
         else:
             tensor["shape"] = [1, 1, 1, 1]
         (directory / "model.json").write_text(json.dumps({
-            "version": "1.0.0", "name": "mlwl-add",
+            "version": "2.0.0", "name": "mlwl-add",
             "modelFile": "add.vgf", "dynamicOutput": False,
             "inputTensors": [tensor],
             "outputTensors": [{"shape": [1, 1, 1, 1],
@@ -80,7 +80,7 @@ class MlwlPipeline(unittest.TestCase):
                 {"id": "opk-python-ops/PythonScript", "attributes": {"script": "observe.py"}},
                 {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "ModNetSegmentationParser"}}]
         descriptor = directory / "opchain.json"
-        descriptor.write_text(json.dumps({"version": "1.0.0", "name": "mlwl-pipeline-test",
+        descriptor.write_text(json.dumps({"version": "2.0.0", "name": "mlwl-pipeline-test",
                                           "description": "Real VGF pipeline", "ops": ops}), encoding="utf-8")
         frames = directory / "frames.bgra"
         frames.write_bytes(b"".join(bytes((value, value, value, 255)) * 256 for value in pattern))

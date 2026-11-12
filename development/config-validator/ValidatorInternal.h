@@ -81,10 +81,10 @@ void validateControlFreeString(ValidationReport &report,
                                std::string_view instanceLocation,
                                std::string_view rule);
 
-[[nodiscard]] ValidationReport validateModelV1(const opk::ModelDescriptor &descriptor,
+[[nodiscard]] ValidationReport validateModelV2(const opk::ModelDescriptor &descriptor,
                                                std::string_view source);
 
-[[nodiscard]] ValidationReport validateOpChainV1(const opk::op::OpChainDescriptor &descriptor,
+[[nodiscard]] ValidationReport validateOpChainV2(const opk::op::OpChainDescriptor &descriptor,
                                                  std::string_view source);
 
 } // namespace opk::config::detail

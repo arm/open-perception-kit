@@ -29,11 +29,9 @@ namespace opk::stdop::postproc {
  * Parses person classification model outputs to determine if it is a person or not.
  */
 struct PersonClassificationParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "personClassification";
 
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {
-            opk::outputCapability<open_perception_kit::metadata::PersonPresencesT>(k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::PersonPresencesT>()};
     }
 
     opk::Result<void> parse(const opk::TensorParser::Input &input,

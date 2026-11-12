@@ -118,7 +118,7 @@ negotiation; `videoconvert` performs conversion when needed.
 | --- | --- | --- |
 | `opkinfer` | `opchain-path`, `infer-id`, `audio-hop-samples`, `copy-input`, `auto-activate-dependencies` | NULL or READY. Returning to READY stops the OpChain and clears audio/QoS state. The next start loads the model and renegotiates media/memory. Identity must remain stable while processing. |
 | `opkinfer` | `active`, `qos-enabled` | Live. Changes affect subsequent inference decisions; an execution already in progress can finish. Activation can enable upstream content providers. Disabling QoS resets skipping. |
-| `opktracker` | `content-type`, `embedding-space-id`, `embedding-producer-id`, `infer-id` | NULL or READY. Restart clears tracking history so identities from different sources cannot mix. |
+| `opktracker` | `input-producers`, `embedding-space-id`, `embedding-producer-id`, `infer-id` | NULL or READY. Restart clears tracking history so identities from different sources cannot mix. |
 | `opktracker` | All other writable properties | Live. Each frame takes a synchronized configuration snapshot. Initial Kalman covariance only affects newly created tracks; existing state is retained. See [tracker](https://github.com/arm/open-perception-kit/blob/main/docs/arch/elements/opktracker.md#properties). |
 | `opkosd` | `enabled`, `performance-overlay-enabled`, `bg-image` | Live. Drawing uses synchronized flags and background storage. Loading a background is synchronous; a failed load leaves the current background/path unchanged and posts a warning. Empty/null clears it. |
 | `opkosd` | `copy-input` | NULL or READY. Video memory/caps must be renegotiated; a pause alone does not rebuild them. |

@@ -41,7 +41,7 @@ The codebase currently supports these runtime/model combinations:
 - ML Workload Library (MLWL) with `.vgf` models, disabled by default.
   Build instructions: [MLWL backend](https://github.com/arm/open-perception-kit/blob/main/development/ops-mlwl/README.md#build).
 
-These are the implementations currently available in the tree. The OpChain v1 extension contract is
+These are the implementations currently available in the tree. The OpChain extension contract is
 backend-independent: an exact `<library>/Inference` ID has one required `modelDescriptor` attribute,
 and its runtime implementation must provide `OpInterfaceInference`. Adding a conforming backend does
 not require adding its library name to the descriptor validator, but it still requires the runtime
@@ -82,7 +82,6 @@ Typical fields are:
 - `name`
 - `modelFile`
 - `dynamicOutput`
-- `contentType` when applicable
 - `inputTensors`
 - `outputTensors` when outputs are static
 
@@ -101,7 +100,7 @@ verify that every model required by the selected pipeline is present in the
 built image. Because the image stages only the model folder, `hfDownload`
 requires `modelFile` to stay within its descriptor directory; use a relative
 path for that combination. The downloader validates each Model descriptor it
-consumes against `config/schemas/v1/model.schema.json` before starting any
+consumes against `config/schemas/v2/model.schema.json` before starting any
 remote download. Schema, JSON, and destination validation failures are reported
 through Python logging and stop the build without a traceback.
 
@@ -139,18 +138,18 @@ Important input metadata includes:
 
 The easiest workflow is to copy one of the existing model folders and then adjust only the fields that differ.
 
-## Validate v1 descriptors
+## Validate descriptors
 
 The supported descriptor structure is defined by:
 
-- `config/schemas/v1/model.schema.json`
-- `config/schemas/v1/opchain.schema.json`
+- `config/schemas/v2/model.schema.json`
+- `config/schemas/v2/opchain.schema.json`
 
 A minimal dynamic-output Model descriptor is:
 
 ```json
 {
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"name": "example-onnx",
 	"modelFile": "model.onnx",
 	"dynamicOutput": true,
@@ -170,8 +169,8 @@ pipeline preset, Model descriptor, and OpChain with:
 opk-ci --config-schema-check
 ```
 
-These JSON contracts use `MAJOR.MINOR.PATCH` string versions, initially
-`"version": "1.0.0"`. Increment an existing file's patch whenever editing it
+These JSON contracts use `MAJOR.MINOR.PATCH` strings. New Model and OpChain files
+use `"version": "2.0.0"`; pipeline presets use `"1.0.0"`. Increment an existing file's patch whenever editing it
 within the same major/minor contract. Major mismatches fail, minor mismatches
 warn and continue, and patch differences are ignored at runtime. See
 [Configuration Compatibility](../concepts/configuration-compatibility.md) for
@@ -208,7 +207,7 @@ A minimal model opchain typically looks like this:
 
 ```json
 {
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"name": "YourModel",
 	"description": "Run the example model on each video frame.",
 	"displayName": "Your model",

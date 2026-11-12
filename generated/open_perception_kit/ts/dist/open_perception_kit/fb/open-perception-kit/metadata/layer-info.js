@@ -55,20 +55,16 @@ export class LayerInfo {
         const offset = this.bb.__offset(this.bb_pos, 12);
         return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
     }
-    contentType(optionalEncoding) {
+    compositingMode(optionalEncoding) {
         const offset = this.bb.__offset(this.bb_pos, 14);
         return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
     }
-    compositingMode(optionalEncoding) {
-        const offset = this.bb.__offset(this.bb_pos, 16);
-        return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
-    }
     producer(obj) {
-        const offset = this.bb.__offset(this.bb_pos, 18);
+        const offset = this.bb.__offset(this.bb_pos, 16);
         return offset ? (obj || new ProducerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
     }
     static startLayerInfo(builder) {
-        builder.startObject(8);
+        builder.startObject(7);
     }
     static addEngine(builder, engineOffset) {
         builder.addFieldOffset(0, engineOffset, 0);
@@ -85,21 +81,18 @@ export class LayerInfo {
     static addLabelFamily(builder, labelFamilyOffset) {
         builder.addFieldOffset(4, labelFamilyOffset, 0);
     }
-    static addContentType(builder, contentTypeOffset) {
-        builder.addFieldOffset(5, contentTypeOffset, 0);
-    }
     static addCompositingMode(builder, compositingModeOffset) {
-        builder.addFieldOffset(6, compositingModeOffset, 0);
+        builder.addFieldOffset(5, compositingModeOffset, 0);
     }
     static addProducer(builder, producerOffset) {
-        builder.addFieldOffset(7, producerOffset, 0);
+        builder.addFieldOffset(6, producerOffset, 0);
     }
     static endLayerInfo(builder) {
         const offset = builder.endObject();
         return offset;
     }
     unpack() {
-        return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.contentType(), this.compositingMode(), (this.producer() !== null ? this.producer().unpack() : null));
+        return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.compositingMode(), (this.producer() !== null ? this.producer().unpack() : null));
     }
     unpackTo(_o) {
         _o.engine = this.engine();
@@ -107,19 +100,17 @@ export class LayerInfo {
         _o.tags = this.tags();
         _o.inferElementId = this.inferElementId();
         _o.labelFamily = this.labelFamily();
-        _o.contentType = this.contentType();
         _o.compositingMode = this.compositingMode();
         _o.producer = (this.producer() !== null ? this.producer().unpack() : null);
     }
 }
 export class LayerInfoT {
-    constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, contentType = null, compositingMode = null, producer = null) {
+    constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, compositingMode = null, producer = null) {
         this.engine = engine;
         this.model = model;
         this.tags = tags;
         this.inferElementId = inferElementId;
         this.labelFamily = labelFamily;
-        this.contentType = contentType;
         this.compositingMode = compositingMode;
         this.producer = producer;
     }
@@ -129,7 +120,6 @@ export class LayerInfoT {
         const tags = (this.tags !== null ? builder.createString(this.tags) : 0);
         const inferElementId = (this.inferElementId !== null ? builder.createString(this.inferElementId) : 0);
         const labelFamily = (this.labelFamily !== null ? builder.createString(this.labelFamily) : 0);
-        const contentType = (this.contentType !== null ? builder.createString(this.contentType) : 0);
         const compositingMode = (this.compositingMode !== null ? builder.createString(this.compositingMode) : 0);
         const producer = (this.producer !== null ? this.producer.pack(builder) : 0);
         LayerInfo.startLayerInfo(builder);
@@ -138,7 +128,6 @@ export class LayerInfoT {
         LayerInfo.addTags(builder, tags);
         LayerInfo.addInferElementId(builder, inferElementId);
         LayerInfo.addLabelFamily(builder, labelFamily);
-        LayerInfo.addContentType(builder, contentType);
         LayerInfo.addCompositingMode(builder, compositingMode);
         LayerInfo.addProducer(builder, producer);
         return LayerInfo.endLayerInfo(builder);

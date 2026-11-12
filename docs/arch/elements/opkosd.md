@@ -47,11 +47,13 @@ unshared, linear CPU-mappable memory. Otherwise the pipeline fails and suggests
 
 ## Rendering Model
 
-Rendering is driven by generated payload types and `LayerInfoT::contentType`.
+Rendering is driven by generated payload types and explicit presentation settings.
 Supported paths include:
 
-- `genericObject`: bounding boxes and labels
-- `humanFace`: face-centered circular overlays
+- `BoxDetections` and `ObjectTracks`: rectangular boxes and labels, or circles
+  for producers explicitly listed in `circle-producers`. `box-producers=null`
+  displays other typed boxes; an explicit JSON list selects rectangle sources,
+  and `[]` hides rectangles. Both properties can change while playing.
 - `Classifications`: top-k text with an explicit categorical/recognized-text kind
 - `PersonPresences`: centered person / non-person status from the explicit decision
 - `GazeMeasurements`: finite degree-angle pairs projected from the center of an explicitly referenced, unique box or track observation; missing/ambiguous subjects and unavailable angles are omitted
@@ -60,7 +62,7 @@ Supported paths include:
   `BackgroundOpacity` masks use the existing background-replacement threshold
   and optional `bg-image`. Encoding, exact byte count and `ImageSpace` are validated.
   Mask meaning and placement are not inferred from content/compositing strings or parents.
-- `trackTrace`: tracker history lines
+- `TrackTraces`: tracker history lines
 - `PerformanceMeasurements`: numeric measurements from `opkperformance`, formatted for display
 
 Contact and gaze use explicit `subject_id` references to box/track observations.

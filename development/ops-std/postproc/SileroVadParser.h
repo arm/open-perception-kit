@@ -24,10 +24,8 @@ namespace opk::stdop::postproc {
 /// Parses Silero's single [1,1] Float32 speech probability.
 /// Attack/release durations use 16 kHz audio sample counts, never wall time.
 struct SileroVadParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "voiceActivity";
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>(
-            k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>()};
     }
     opk::Result<void> parse(const opk::TensorParser::Input &input,
                             open_perception_kit::FrameResults &results) override;

@@ -153,6 +153,11 @@ class FaceGazePipeline(unittest.TestCase):
                         if frame:
                             for element in infer:
                                 element.set_property("active", False)
+                            infer[gaze].set_property("input-bindings", json.dumps([{
+                                "consumerId": "opk-std-ops-InferenceController-0", "inputId": "input",
+                                "payloadType": "open_perception_kit.metadata.BoxDetections",
+                                "producerId": f"{infer[detector].get_name()}/opk-std-ops-GenericPostprocess-0",
+                            }]))
                             infer[detector].set_property("active", True)
                             infer[gaze].set_property("active", True)
                         self.assertEqual([element.get_property("active") for element in infer],

@@ -53,7 +53,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import Objec
 from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT
 def process(env, tensors, context):
     frame = next(item.video for item in env.for_each(FrameContextT) if item.video is not None)
-    env.add(BoxDetectionsT(layer=LayerInfoT(contentType="humanFace", producer=context.producer_info), detections=[
+    env.add(BoxDetectionsT(layer=LayerInfoT(producer=context.producer_info), detections=[
         BoxDetectionT(object=ObjectMetaT(id=4242), box=BoundingBoxT(x=16, y=16, width=32, height=32,
             space=ImageSpaceT(frameId=frame.object.id, width=64, height=64, extentWidth=64, extentHeight=64)))]))
 ''', encoding="utf-8")
@@ -62,7 +62,7 @@ def process(env, tensors, context):
                 loop_fields = {"loopId": 1} if loop else {}
                 ops.extend([
                     {"id": "opk-std-ops/InferenceController", **loop_fields,
-                     "attributes": {"contentType": "humanFace"} if loop else {}},
+                     "attributes": {"sourceOp": "seed-subject"} if loop else {}},
                     {"id": "opk-std-ops/GenericImagePreprocess", **loop_fields,
                      "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
                     {"id": "opk-onnx-ops/Inference", **loop_fields,
@@ -71,9 +71,9 @@ def process(env, tensors, context):
                 ops.append({"id": "opk-std-ops/GenericPostprocess", "loopId": 1,
                             "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}} if loop else
                            {"id": "opk-python-ops/PythonScript", "instanceId": "seed-subject",
-                            "attributes": {"script": str(script)}})
+                            "attributes": {"script": str(script), "providedOutputs": [{"payloadType": "open_perception_kit.metadata.BoxDetections"}]}})
             opchain = directory / "opchain.json"
-            opchain.write_text(json.dumps({"version": "1.0.0", "name": "Gaze regression",
+            opchain.write_text(json.dumps({"version": "2.0.0", "name": "Gaze regression",
                                            "description": "Typed face-crop gaze", "ops": ops}), encoding="utf-8")
             output = directory / "frames.ndjson"
             process = run_file_pipeline([

@@ -66,6 +66,7 @@ class CtrlWebSocket {
 
     void play_pause(const nlohmann::json &jsn);
     void model_toggle(const nlohmann::json &jsn);
+    void model_inputs(const nlohmann::json &jsn);
 
     void send_to_all(const std::string &text);
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:opchain-common:v1",
-  "title": "OPK OpChain shared definitions v1",
+  "$id": "urn:arm:opk:schema:opchain-common:v2",
+  "title": "OPK OpChain shared definitions v2",
   "$defs": {
     "trimNonEmptyString": {
       "type": "string",

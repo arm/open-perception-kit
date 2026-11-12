@@ -37,7 +37,7 @@ class MlwlPipelineStartup(unittest.TestCase):
             directory = Path(temporary)
             (directory / "invalid.vgf").write_bytes(b"not a VGF")
             (directory / "model.json").write_text(json.dumps({
-                "version": "1.0.0", "name": "invalid-vgf",
+                "version": "2.0.0", "name": "invalid-vgf",
                 "modelFile": "invalid.vgf", "dynamicOutput": False,
                 "inputTensors": [{"shape": [1], "dataKind": "RawTensorData",
                                   "valueType": "Float32"}],
@@ -46,7 +46,7 @@ class MlwlPipelineStartup(unittest.TestCase):
             }), encoding="utf-8")
             descriptor = directory / "opchain.json"
             descriptor.write_text(json.dumps({
-                "version": "1.0.0", "name": "invalid-vgf-startup",
+                "version": "2.0.0", "name": "invalid-vgf-startup",
                 "description": "MLWL pipeline startup test",
                 "ops": [{
                     "id": "opk-mlwl-ops/Inference",

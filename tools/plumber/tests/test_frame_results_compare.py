@@ -68,18 +68,17 @@ from open_perception_kit.fb.open_perception_kit.metadata.EmbeddingSpace import E
 from open_perception_kit.fb.open_perception_kit.metadata.EmbeddingMetric import EmbeddingMetric  # noqa: E402
 
 
-def layer(content_type: str, infer_element_id: str) -> LayerInfoT:
+def layer(infer_element_id: str) -> LayerInfoT:
     return LayerInfoT(
         model="model-a",
         inferElementId=infer_element_id,
-        contentType=content_type,
         engine="test",
     )
 
 
 def frame_payload() -> FrameContextT:
     return FrameContextT(
-        layer=layer("frameContext", "camera"),
+        layer=layer("camera"),
         video=VideoFrameContextT(
             object=ObjectMetaT(id=1),
             originalWidth=100,
@@ -90,7 +89,7 @@ def frame_payload() -> FrameContextT:
 
 def box_payload(*boxes: tuple[int, float, float, float, float]) -> BoxDetectionsT:
     return BoxDetectionsT(
-        layer=layer("genericObject", "infer0"),
+        layer=layer("infer0"),
         detections=[
             BoxDetectionT(
                 object=ObjectMetaT(id=object_id, parentId=1),
@@ -138,7 +137,7 @@ def gaze_frame(measurements, subjects=None, tracks=False):
                                                             for item in boxes.detections]))
     else:
         result.add(boxes)
-    result.add(GazeMeasurementsT(layer=layer("custom-gaze", "gaze"), measurements=measurements))
+    result.add(GazeMeasurementsT(layer=layer("gaze"), measurements=measurements))
     return frame_results_frame(FrameResults(result.serialize()))
 
 
@@ -149,17 +148,17 @@ class FrameResultsCompareTests(unittest.TestCase):
     def test_track_subject_identity_survives_coincident_geometry_and_run_local_ids(self):
         cases = (
             ("gaze", lambda subject, value: GazeMeasurementT(subjectId=subject, angles=GazeAnglesT(yawDegrees=10 + 70 * value, pitchDegrees=0)),
-             lambda values: GazeMeasurementsT(layer=layer("gaze", "reader"), measurements=values)),
+             lambda values: GazeMeasurementsT(layer=layer("reader"), measurements=values)),
             ("classification", lambda subject, value: ClassificationT(subjectId=subject, kind=ClassificationKind.Categorical, labelSet="test:labels",
                                                                       candidates=[ClassificationCandidateT(classId=value)]),
-             lambda values: ClassificationsT(layer=layer("classification", "reader"), classifications=values)),
+             lambda values: ClassificationsT(layer=layer("reader"), classifications=values)),
             ("contact", lambda subject, value: CameraContactT(subjectId=subject, result=CameraContactResultT(inContact=bool(value))),
-             lambda values: CameraContactsT(layer=layer("contact", "reader"), contacts=values)),
+             lambda values: CameraContactsT(layer=layer("reader"), contacts=values)),
             ("presence", lambda subject, value: PersonPresenceT(subjectId=subject, result=PersonPresenceResultT(personPresent=bool(value))),
-             lambda values: PersonPresencesT(layer=layer("presence", "reader"), presences=values)),
+             lambda values: PersonPresencesT(layer=layer("reader"), presences=values)),
             ("embedding", lambda subject, value: ObjectEmbeddingT(subjectId=subject, values=[1 - value, value],
                                                                   space=EmbeddingSpaceT(id="test:space", dimensions=2, metric=EmbeddingMetric.Cosine)),
-             lambda values: ObjectEmbeddingsT(layer=layer("embedding", "reader"), embeddings=values)),
+             lambda values: ObjectEmbeddingsT(layer=layer("reader"), embeddings=values)),
         )
         for name, item, root in cases:
             def frame(swapped=False, offset=0, reverse=False):
@@ -176,7 +175,7 @@ class FrameResultsCompareTests(unittest.TestCase):
                     tracks.reverse()
                     values.reverse()
                 result = FrameResults()
-                result.add(ObjectTracksT(layer=layer("tracks", "tracker"), tracks=tracks))
+                result.add(ObjectTracksT(layer=layer("tracker"), tracks=tracks))
                 result.add(root(values))
                 return frame_results_frame(FrameResults(result.serialize()))
 
@@ -198,7 +197,7 @@ class FrameResultsCompareTests(unittest.TestCase):
                 data = {score: 0, decision: False, "windowStartSample": 0, "windowEndSample": 512,
                         "windowStartTsNs": 0, "windowEndTsNs": 32000000, **changes}
                 value = item_type(object=ObjectMetaT(id=1, parentId=parent), **data)
-                info = layer("audio", "audio0")
+                info = layer("audio0")
                 info.producer = ProducerInfoT(instanceId=producer, component="test", implementation="test")
                 envelope = FrameResults()
                 envelope.add(root_type(layer=info, detections=[value]))
@@ -244,7 +243,7 @@ class FrameResultsCompareTests(unittest.TestCase):
 
     def test_declared_empty_classification_is_distinct_from_missing_or_unavailable(self):
         result = frame_results_with_boxes()
-        result.add(ClassificationsT(layer=layer("classification", "classifier"), classifications=[
+        result.add(ClassificationsT(layer=layer("classifier"), classifications=[
             ClassificationT(subjectId=1, kind=ClassificationKind.Categorical, labelSet="test:labels", candidates=[])]))
         empty = frame_results_frame(FrameResults(result.serialize()))
         self.assertTrue(compare_frame_results_frame(self.args, empty, empty)[0])
@@ -256,7 +255,7 @@ class FrameResultsCompareTests(unittest.TestCase):
             result = frame_results_with_boxes((2, 10, 10, 20, 20))
             space = EmbeddingSpaceT(id=space_id, dimensions=len(
                 values) if dimensions is None else dimensions, metric=metric)
-            result.add(ObjectEmbeddingsT(layer=layer("custom", "embedding"), embeddings=[
+            result.add(ObjectEmbeddingsT(layer=layer("embedding"), embeddings=[
                 ObjectEmbeddingT(object=ObjectMetaT(id=10, parentId=999), subjectId=2, space=space, values=values)]))
             return frame_results_frame(FrameResults(result.serialize()))
         expected = make([1, 0])
@@ -276,7 +275,7 @@ class FrameResultsCompareTests(unittest.TestCase):
     def test_embedding_subjects_and_multiple_spaces_are_not_collapsed(self):
         def make(assignments):
             result = frame_results_with_boxes((2, 10, 10, 20, 20), (3, 60, 10, 20, 20))
-            result.add(ObjectEmbeddingsT(layer=layer("custom", "embedding"), embeddings=[
+            result.add(ObjectEmbeddingsT(layer=layer("embedding"), embeddings=[
                 ObjectEmbeddingT(object=ObjectMetaT(id=10+index, parentId=2), subjectId=subject,
                                  space=EmbeddingSpaceT(id=space, dimensions=2, metric=EmbeddingMetric.Cosine), values=values)
                 for index, (subject, space, values) in enumerate(assignments)]))
@@ -302,7 +301,7 @@ class FrameResultsCompareTests(unittest.TestCase):
                 result.add(boxes)
                 yaw = (-20 if index == 0 else 20) * (-1 if swapped else 1)
                 measurements.append(gaze_measurement(yaw=yaw, subject=subject))
-            result.add(GazeMeasurementsT(layer=layer("gaze", "secondary"), measurements=measurements))
+            result.add(GazeMeasurementsT(layer=layer("secondary"), measurements=measurements))
             return frame_results_frame(FrameResults(result.serialize()))
         for identity_field in ("component", "instanceId"):
             for swapped in (False, True):
@@ -356,7 +355,7 @@ class FrameResultsCompareTests(unittest.TestCase):
     def test_classification_uses_label_set_and_class_id(self):
         def make(label_set, class_id, text, kind=ClassificationKind.Categorical, confidence=.9):
             result = frame_results_with_boxes()
-            result.add(ClassificationsT(layer=layer("classification", "infer0"), classifications=[
+            result.add(ClassificationsT(layer=layer("infer0"), classifications=[
                 ClassificationT(object=ObjectMetaT(id=10, parentId=999), subjectId=1, labelSet=label_set, kind=kind,
                                 candidates=[ClassificationCandidateT(classId=class_id, text=text, confidence=confidence)])]))
             return frame_results_frame(FrameResults(result.serialize()))
@@ -388,7 +387,7 @@ class FrameResultsCompareTests(unittest.TestCase):
     def test_contact_outcomes_do_not_depend_on_diagnostic_model_indices(self):
         def make(outcome, index=None, selected=True, confidence=.5):
             result = frame_results_with_boxes((2, 10, 10, 20, 20))
-            result.add(CameraContactsT(layer=layer("cameraContact", "infer0"), contacts=[
+            result.add(CameraContactsT(layer=layer("infer0"), contacts=[
                 CameraContactT(object=ObjectMetaT(id=10), subjectId=2, result=CameraContactResultT(
                     inContact=outcome, modelClassIndex=index, confidence=confidence) if selected else None)]))
             return frame_results_frame(FrameResults(result.serialize()))
@@ -402,7 +401,7 @@ class FrameResultsCompareTests(unittest.TestCase):
     def test_presence_compares_decisions_without_guessing_probability_units(self):
         def make(outcome, yes=None, no=None):
             result = frame_results_with_boxes()
-            result.add(PersonPresencesT(layer=layer("personClassification", "infer0"), presences=[
+            result.add(PersonPresencesT(layer=layer("infer0"), presences=[
                 PersonPresenceT(object=ObjectMetaT(id=10), subjectId=1,
                                 result=PersonPresenceResultT(personPresent=outcome, yesScore=yes, noScore=no))]))
             return frame_results_frame(FrameResults(result.serialize()))
@@ -418,16 +417,16 @@ class FrameResultsCompareTests(unittest.TestCase):
             result = frame_results_with_boxes(*boxes)
             objects = [ObjectMetaT(id=100+i, parentId=2) for i in range(len(assignments))]
             if kind == "classification":
-                result.add(ClassificationsT(layer=layer("custom", "secondary"), classifications=[
+                result.add(ClassificationsT(layer=layer("secondary"), classifications=[
                     ClassificationT(object=obj, subjectId=subject, kind=ClassificationKind.Categorical, labelSet="test:labels",
                                     candidates=[ClassificationCandidateT(classId=value)])
                     for obj, (subject, value) in zip(objects, assignments)]))
             elif kind == "contact":
-                result.add(CameraContactsT(layer=layer("custom", "secondary"), contacts=[
+                result.add(CameraContactsT(layer=layer("secondary"), contacts=[
                     CameraContactT(object=obj, subjectId=subject, result=CameraContactResultT(inContact=bool(value)))
                     for obj, (subject, value) in zip(objects, assignments)]))
             else:
-                result.add(PersonPresencesT(layer=layer("custom", "secondary"), presences=[
+                result.add(PersonPresencesT(layer=layer("secondary"), presences=[
                     PersonPresenceT(object=obj, subjectId=subject,
                                     result=PersonPresenceResultT(personPresent=bool(value)))
                     for obj, (subject, value) in zip(objects, assignments)]))
@@ -457,7 +456,7 @@ class FrameResultsCompareTests(unittest.TestCase):
         def make(swapped=False):
             result = frame_results_with_boxes()
             for index, instance in enumerate(("a", "b")):
-                source = layer("classification", "infer0")
+                source = layer("infer0")
                 source.producer = ProducerInfoT(component="classifier", instanceId=instance)
                 result.add(ClassificationsT(layer=source, classifications=[ClassificationT(
                     object=ObjectMetaT(id=10 + index), subjectId=1,
@@ -477,7 +476,7 @@ class FrameResultsCompareTests(unittest.TestCase):
                 if distinct_sources:
                     frame.layer.producer = ProducerInfoT(component="camera", instanceId=str(index))
                 result.add(frame)
-            result.add(ClassificationsT(layer=layer("classification", "infer0"), classifications=[
+            result.add(ClassificationsT(layer=layer("infer0"), classifications=[
                 ClassificationT(object=ObjectMetaT(id=100 + index), subjectId=1 + index + offset,
                                 kind=ClassificationKind.Categorical, labelSet="test:labels",
                                 candidates=[ClassificationCandidateT(classId=1-index if swapped else index)])
@@ -527,7 +526,7 @@ class FrameResultsCompareTests(unittest.TestCase):
         frames = []
         for scale in (1, 2):
             frame = FrameResults()
-            frame.add(TrackTracesT(layer=layer("trackTrace", "tracker"), traces=[TrackTraceT(
+            frame.add(TrackTracesT(layer=layer("tracker"), traces=[TrackTraceT(
                 object=ObjectMetaT(id=7, parentId=999), identity=TrackIdentityT(trackerId="tracker", sessionId=str(scale), trackId=1),
                 points=[TrackTracePointT(x=10 * scale, y=20 * scale,
                                          sample=TrackingSampleT(frameIndex=1, elapsedMs=10, timeSource=Clock.MediaDelta, state=State.Observed)),

@@ -64,7 +64,7 @@ TEST(ImageGeometry, RejectsMissingInvalidAndUnknownSpacesWithoutGuessing) {
 
 TEST(ImageGeometry, SubjectLookupCountsBoxAndTrackIdentitiesBeforeGeometryValidation) {
     open_perception_kit::metadata::BoxDetectionsT boxes;
-    boxes.layer = open_perception_kit::makeLayerInfo({.contentType = "custom"});
+    boxes.layer = open_perception_kit::makeLayerInfo({});
     auto box = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     box->object = open_perception_kit::makeObjectMeta(7);
     box->box = open_perception_kit::makeImageBoundingBox(Crop, 1, 2, 3, 4);
@@ -90,7 +90,8 @@ TEST(ImageGeometry, SubjectLookupCountsBoxAndTrackIdentitiesBeforeGeometryValida
 
 TEST(ImageGeometry, TrackerUsesPixelCopiesAndRetainsDetectorCoordinates) {
     open_perception_kit::metadata::BoxDetectionsT payload;
-    payload.layer = open_perception_kit::makeLayerInfo({.contentType = "genericObject"});
+    payload.layer = open_perception_kit::makeLayerInfo({});
+    payload.layer->producer = open_perception_kit::makeProducerInfo("detector", "test", "");
     auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     detection->object = open_perception_kit::makeObjectMeta(7, 999);
     detection->box = open_perception_kit::makeImageBoundingBox(Crop, .25f, .5f, .5f, .25f, true);
@@ -98,8 +99,8 @@ TEST(ImageGeometry, TrackerUsesPixelCopiesAndRetainsDetectorCoordinates) {
     open_perception_kit::FrameResults results;
     results.add(std::move(payload));
     std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> basis;
-    const auto copies =
-        opk::tracker::frameinputs::collectDetections(results, opk::tracker::Config{}, basis);
+    const auto copies = opk::tracker::frameinputs::collectDetections(
+        results, opk::tracker::Config{.inputProducers = {"detector"}}, basis);
     ASSERT_EQ(copies.size(), 1U);
     EXPECT_FLOAT_EQ(copies[0].box->x, 150);
     EXPECT_FLOAT_EQ(copies[0].box->y, 100);
@@ -113,7 +114,8 @@ TEST(ImageGeometry, TrackerUsesPixelCopiesAndRetainsDetectorCoordinates) {
         EXPECT_DOUBLE_EQ(original.detections[0]->box->space->origin_x, 100);
     });
     open_perception_kit::metadata::BoxDetectionsT resized;
-    resized.layer = open_perception_kit::makeLayerInfo({.contentType = "genericObject"});
+    resized.layer = open_perception_kit::makeLayerInfo({});
+    resized.layer->producer = open_perception_kit::makeProducerInfo("detector", "test", "");
     auto next = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     next->object = open_perception_kit::makeObjectMeta(8, 998);
     next->box = open_perception_kit::makeImageBoundingBox({.width = 400,
@@ -131,8 +133,8 @@ TEST(ImageGeometry, TrackerUsesPixelCopiesAndRetainsDetectorCoordinates) {
     resized.detections.push_back(std::move(next));
     open_perception_kit::FrameResults nextFrame;
     nextFrame.add(std::move(resized));
-    const auto rescaled =
-        opk::tracker::frameinputs::collectDetections(nextFrame, opk::tracker::Config{}, basis);
+    const auto rescaled = opk::tracker::frameinputs::collectDetections(
+        nextFrame, opk::tracker::Config{.inputProducers = {"detector"}}, basis);
     ASSERT_EQ(rescaled.size(), 1U);
     EXPECT_FLOAT_EQ(rescaled[0].box->x, copies[0].box->x);
     EXPECT_FLOAT_EQ(rescaled[0].box->y, copies[0].box->y);
@@ -143,7 +145,8 @@ TEST(ImageGeometry, TrackerUsesPixelCopiesAndRetainsDetectorCoordinates) {
 TEST(ImageGeometry, CropControllerUsesSpatialBasisInsteadOfDerivationParent) {
     open_perception_kit::FrameResults results;
     open_perception_kit::metadata::BoxDetectionsT boxes;
-    boxes.layer = open_perception_kit::makeLayerInfo({.contentType = "genericObject"});
+    boxes.layer = open_perception_kit::makeLayerInfo({});
+    boxes.layer->producer = open_perception_kit::makeProducerInfo("detector", "test", "");
     auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
     detection->object = open_perception_kit::makeObjectMeta(7, 999);
     detection->box = open_perception_kit::makeImageBoundingBox(Crop, .25f, .5f, .5f, .25f, true);
@@ -156,7 +159,7 @@ TEST(ImageGeometry, CropControllerUsesSpatialBasisInsteadOfDerivationParent) {
         std::vector<uint8_t>(std::size_t{1280} * 960 * 3), 1280, 960);
     opk::stdop::InferenceControllerOp controller;
     opk::AttributeMap attributes;
-    attributes.set("contentType", "genericObject");
+    attributes.set("sourceProducer", "detector");
     ASSERT_TRUE(controller.configure(attributes));
     ASSERT_TRUE(controller.process(context));
     ASSERT_EQ(context.inferenceImageCrops.size(), 1U);
@@ -166,6 +169,47 @@ TEST(ImageGeometry, CropControllerUsesSpatialBasisInsteadOfDerivationParent) {
     EXPECT_EQ(crop.width, 200U);
     EXPECT_EQ(crop.height, 50U);
     EXPECT_EQ(context.inferenceImageCropIds[0], 7U);
+}
+
+TEST(ImageGeometry, InputSwitchingSelectsOnlyTheConnectedProducerAndClearsOldCrops) {
+    using namespace open_perception_kit;
+    using namespace open_perception_kit::metadata;
+    FrameResults results;
+    for (const auto &id : {std::string{"first"}, std::string{"second"}}) {
+        BoxDetectionsT boxes;
+        boxes.layer = makeLayerInfo({});
+        boxes.layer->producer = makeProducerInfo(id, "test", "");
+        auto detection = std::make_unique<BoxDetectionT>();
+        detection->object = makeObjectMeta(id == "first" ? 7 : 8);
+        detection->box = makeImageBoundingBox(
+            {.width = 100, .height = 100, .frameId = 1, .frameWidth = 100, .frameHeight = 100},
+            id == "first" ? 10 : 60,
+            10,
+            20,
+            20);
+        boxes.detections.push_back(std::move(detection));
+        results.add(std::move(boxes));
+    }
+    opk::op::OpChainContext context;
+    context.frameResults = &results;
+    context.videoFrames["pipelineVideoFrame"] = opk::mediaio::PixelBufferVideoFrame::take(
+        std::vector<uint8_t>(std::size_t{100} * 100 * 3), 100, 100);
+    opk::stdop::InferenceControllerOp controller;
+    controller.instanceId = "crop";
+    opk::AttributeMap attributes;
+    ASSERT_TRUE(controller.configure(attributes.set("sourceProducer", "first")));
+    ASSERT_TRUE(controller.process(context));
+    ASSERT_EQ(context.inferenceImageCropIds, std::vector<uint64_t>{7});
+    const auto type = opk::outputCapability<BoxDetectionsT>().payloadType;
+    context.inputBindings = {{"crop", "input", type, "second"}};
+    ASSERT_TRUE(controller.process(context));
+    EXPECT_EQ(context.inferenceImageCropIds, std::vector<uint64_t>{8});
+    for (const auto &source : {std::string{}, std::string{"unavailable"}}) {
+        context.inputBindings[0].producerId = source;
+        ASSERT_TRUE(controller.process(context));
+        EXPECT_TRUE(context.inferenceImageCrops.empty());
+        EXPECT_TRUE(context.inferenceImageCropIds.empty());
+    }
 }
 
 TEST(ImageGeometry, FrameIdentityAndPresentationTimeAreSeparateFromCreationTime) {

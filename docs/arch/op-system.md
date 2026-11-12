@@ -105,7 +105,7 @@ Op entry can provide:
 - `loopId`: optional repeated-execution group identifier.
 - `attributes`: Op-specific configuration.
 
-The exact `<library>/Inference` operation name is the OpChain v1 inference
+The exact `<library>/Inference` operation name is the OpChain inference
 extension contract. Its only attribute is the required filesystem path
 `modelDescriptor`. Relative paths resolve from the OpChain descriptor directory;
 absolute paths are used unchanged. The loader preserves path components rather
@@ -119,8 +119,8 @@ may not reappear later in the chain. The scheduler executes the group's first Op
 once, then repeats the remaining Ops until one of them breaks the loop. A built-in
 stage is either entirely unlooped or assigns the same non-zero `loopId` to its
 controller, preprocess, inference, optional custom Ops, and final postprocess. In
-the looped form, InferenceController starts the group. A non-empty controller
-`contentType` requires the looped form.
+the looped form, InferenceController starts the group. A controller declaring
+`sourceOp` or `sourceProducer` requires the looped form, including an unconnected input.
 
 The optional `opk-python-ops/PythonScript` operation loads a Python module once
 and calls `process(env, tensors, context)` on each execution. The call-scoped
@@ -144,13 +144,13 @@ locked Python dependencies.
 Some Ops expose narrower contracts used by inference and postprocessing code:
 
 - `OpInterfaceInference` exposes tensor memory and model metadata to inference backends.
-- `OpInterfacePostprocessor::getProvidedOutputs()` declares model result roots and
-  optional roles as `OutputCapability` values. Native parsers derive root names
-  from generated SDK traits, not model names or content-type guesses.
-- `OpInterfaceResultConsumer::getRequiredOutputs()` declares typed requirements.
-  A root must match exactly; an empty required role accepts any role of that root.
-  The OpChain exposes only requirements not satisfied by an earlier declared
-  provider in the same chain. Declarations describe capability, not per-frame execution.
+- `OpInterfacePostprocessor::getProvidedOutputs()` declares SDK result roots as
+  `OutputCapability` values derived from generated traits.
+- `OpInterfaceResultConsumer::getRequiredInputs()` declares named typed input
+  sockets and concrete source references. Local `sourceOp` references must point
+  to earlier compatible producers. External inputs are exposed for explicit
+  binding; an empty address is unconnected. Declarations describe capability,
+  not per-frame execution.
 
 These interfaces keep backend execution and result interpretation separate from
 concrete Op implementations.

@@ -36,8 +36,9 @@ struct ModelStatus {
     std::string display_name{};
     std::string task{};
     std::string runtime{};
-    std::vector<opk::OutputCapability> provided_outputs{};
-    std::vector<opk::OutputCapability> required_outputs{};
+    std::vector<opk::OutputReference> provided_outputs{};
+    std::vector<opk::InputBinding> required_inputs{};
+    std::vector<opk::OutputReference> available_inputs{};
 };
 
 std::optional<ModelStatus> model_status_from_registration(const GstStructure *structure);

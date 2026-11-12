@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "2.0.0",
   "name": "yolo26s-640-int8",
   "modelFile": "yolo26s_raspberry_onnx_optimized.onnx",
   "hfDownload": {
@@ -25,4 +25,3 @@
     }
   ]
 }
-

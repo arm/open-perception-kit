@@ -76,14 +76,13 @@ import {collectOutputs, indexFrame, outputSource} from '../src/overlay-sources.j
 import {createOverlay, loadOverlays, saveOverlays} from '../src/overlays.js';
 import {resolveOverlay} from '../src/overlay-features.js';
 
-function layer(contentType) {
+function layer() {
     return new LayerInfoT(
         'engine',
         'model',
         '',
         'infer',
         'labels',
-        contentType,
         '',
         new ProducerInfoT('infer/parser', 'opk-std-ops/GenericPostprocess', 'FixtureParser'),
     );
@@ -121,13 +120,13 @@ function encodedFixture() {
     envelope.add(new FrameContextT(
         1,
         0,
-        layer('videoFrame'),
+        layer(),
         new VideoFrameContextT(new ObjectMetaT(10n), 640n, 480n),
     ));
     envelope.add(new BoxDetectionsT(
         1,
         0,
-        layer('humanFace'),
+        layer(),
         [new BoxDetectionT(
             new ObjectMetaT(20n, 0n),
             new BoundingBoxT(10, 20, 30, 40, new ImageSpaceT(10n, 640, 480, 0, 0, 640, 480)),
@@ -139,7 +138,7 @@ function encodedFixture() {
     envelope.add(new CameraContactsT(
         1,
         0,
-        layer('cameraContact'),
+        layer(),
         [new CameraContactT(
             new ObjectMetaT(30n, 20n),
             new CameraContactResultT(true, 0.8, 1), 20n,
@@ -148,13 +147,13 @@ function encodedFixture() {
     envelope.add(new GazeMeasurementsT(
         1,
         0,
-        layer('eyeYawPitch'),
+        layer(),
         [new GazeMeasurementT(new ObjectMetaT(40n, 999n), 20n, new GazeAnglesT(5, -2), 0.7)],
     ));
     envelope.add(new TrackTracesT(
         1,
         0,
-        layer('trackTrace'),
+        layer(),
         [new TrackTraceT(new ObjectMetaT(50n), new TrackIdentityT('tracker', 'session', 7n),
             [new TrackTracePointT(1, 2, new TrackingSampleT(1n, 10, Clock.MediaDelta, State.Observed)),
              new TrackTracePointT(3, 4, new TrackingSampleT(2n, 20, Clock.MediaDelta, State.Predicted))],
@@ -169,7 +168,7 @@ function trackedFixture() {
     envelope.add(new BoxDetectionsT(
         1,
         0,
-        layer('humanFace'),
+        layer(),
         [
             new BoxDetectionT(
                 new ObjectMetaT(20n),
@@ -190,7 +189,7 @@ function trackedFixture() {
     envelope.add(new ObjectTracksT(
         1,
         0,
-        layer('humanFace'),
+        layer(),
         [new ObjectTrackT(
             new ObjectMetaT(30n),
             20n,
@@ -210,18 +209,18 @@ function trackedFixture() {
 test('classification identity, candidate order and recognized text round trip without reinterpretation', () => {
     const envelope = new Envelope();
     const recognized = 'Hello\n世界';
-    envelope.add(new ClassificationsT(1, 0, layer('classification'), [
+    envelope.add(new ClassificationsT(1, 0, layer(), [
         new ClassificationT(new ObjectMetaT(7n), [
             new ClassificationCandidateT(.8, 7, 'display label'),
             new ClassificationCandidateT(.2, 0, 'zero label')], 'test:labels', ClassificationKind.Categorical, 9007199254740993n),
         new ClassificationT(new ObjectMetaT(8n), [new ClassificationCandidateT(null, null, recognized)], '', ClassificationKind.RecognizedText),
         new ClassificationT(new ObjectMetaT(9n), []),
     ]));
-    envelope.add(new CameraContactsT(1, 0, layer('cameraContact'), [
+    envelope.add(new CameraContactsT(1, 0, layer(), [
         new CameraContactT(new ObjectMetaT(10n), new CameraContactResultT(true, .5, 0), 7n),
         new CameraContactT(new ObjectMetaT(11n)),
     ]));
-    envelope.add(new PersonPresencesT(1, 0, layer('personClassification'), [new PersonPresenceT(new ObjectMetaT(12n), new PersonPresenceResultT(true, 2, -1), 7n)]));
+    envelope.add(new PersonPresencesT(1, 0, layer(), [new PersonPresenceT(new ObjectMetaT(12n), new PersonPresenceResultT(true, 2, -1), 7n)]));
     const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
     const classifications = frame.layers.find(item => item.payloadType === 'Classifications').detections;
@@ -244,10 +243,10 @@ test('classification identity, candidate order and recognized text round trip wi
 
 test('splitting classification roots preserves their mixed publication order', () => {
     const envelope = new Envelope();
-    envelope.add(new PersonPresencesT(1, 0, layer('personClassification'), []));
-    envelope.add(new CameraContactsT(1, 0, layer('cameraContact'), []));
-    envelope.add(new ClassificationsT(1, 0, layer('classification'), []));
-    envelope.add(new PersonPresencesT(1, 0, layer('personClassification'), []));
+    envelope.add(new PersonPresencesT(1, 0, layer(), []));
+    envelope.add(new CameraContactsT(1, 0, layer(), []));
+    envelope.add(new ClassificationsT(1, 0, layer(), []));
+    envelope.add(new PersonPresencesT(1, 0, layer(), []));
     const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
     assert.deepEqual(frame.layers.map(item => item.payloadType), [
@@ -264,7 +263,7 @@ test('splitting classification roots preserves their mixed publication order', (
 
 test('presence decoding distinguishes unavailable and zero scores without coercing NaN', () => {
     const envelope = new Envelope();
-    envelope.add(new PersonPresencesT(1, 0, layer('personClassification'), [
+    envelope.add(new PersonPresencesT(1, 0, layer(), [
         new PersonPresenceT(new ObjectMetaT(1n)),
         new PersonPresenceT(new ObjectMetaT(2n), new PersonPresenceResultT(false, 0, 1)),
         new PersonPresenceT(new ObjectMetaT(3n), new PersonPresenceResultT(true, .8, NaN)),
@@ -297,9 +296,9 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
 
     assert.equal(decoded.frame_counter, 42);
     assert.equal(decoded.frame_results.performance[0].frameRate.fps, 30);
-    const video = decoded.frame_results.layers.find((item) => item.contentType === 'videoFrame');
+    const video = decoded.frame_results.layers.find((item) => item.payloadType === 'FrameContext');
     assert.equal(video.detections[0].data.originalWidth, 640);
-    const face = decoded.frame_results.layers.find((item) => item.contentType === 'humanFace');
+    const face = decoded.frame_results.layers.find((item) => item.payloadType === 'BoxDetections');
     assert.equal(face.payloadType, 'BoxDetections');
     assert.ok(face.payload instanceof BoxDetectionsT);
     assert.deepEqual(face.producer, {
@@ -322,7 +321,7 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
         classId: 1,
         text: 'face',
     });
-    const gaze = decoded.frame_results.layers.find((item) => item.contentType === 'eyeYawPitch');
+    const gaze = decoded.frame_results.layers.find((item) => item.payloadType === 'GazeMeasurements');
     assert.equal(gaze.detections[0].data.angles.yawDegrees, 5);
     assert.equal(gaze.detections[0].data.subjectUuid, '20');
     assert.equal(gaze.detections[0].data.parentUuid, '999');
@@ -332,7 +331,7 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
 
 test('gaze decoding preserves optional values, precise subject IDs and non-finite angles', () => {
     const envelope = new Envelope();
-    envelope.add(new GazeMeasurementsT(1, 0, layer('custom-gaze'), [
+    envelope.add(new GazeMeasurementsT(1, 0, layer(), [
         new GazeMeasurementT(new ObjectMetaT(1n), null, null, null),
         new GazeMeasurementT(new ObjectMetaT(2n), 9007199254740993n, new GazeAnglesT(0, 0), 0),
         new GazeMeasurementT(new ObjectMetaT(3n), 20n, new GazeAnglesT(NaN, 15), .9),
@@ -356,7 +355,7 @@ test('retains detector and tracker outputs for independent overlay selection', (
     });
 
     const rects = decoded.frame_results.layers
-        .filter((item) => item.contentType === 'humanFace')
+        .filter((item) => ['BoxDetections', 'ObjectTracks'].includes(item.payloadType))
         .flatMap((item) => item.detections)
         .filter((item) => item.type === 'Rect')
         .map((item) => item.data);
@@ -371,10 +370,10 @@ test('retains detector and tracker outputs for independent overlay selection', (
 test('projects cropped normalized geometry independently of parents and first frame metadata', () => {
     const envelope = new Envelope();
     // An unrelated first frame must not determine the box's coordinate basis.
-    envelope.add(new FrameContextT(1, 0, layer('frameContext'),
+    envelope.add(new FrameContextT(1, 0, layer(),
         new VideoFrameContextT(new ObjectMetaT(99n), 10n, 10n)));
     const space = new ImageSpaceT(42n, 640, 480, 100, 50, 200, 100);
-    envelope.add(new BoxDetectionsT(1, 0, layer('genericObject'), [
+    envelope.add(new BoxDetectionsT(1, 0, layer(), [
         new BoxDetectionT(new ObjectMetaT(7n, 999n), new BoundingBoxT(.25, .5, .5, .25, space, CoordinateUnits.Normalized)),
         new BoxDetectionT(new ObjectMetaT(8n, 99n), new BoundingBoxT(50, 50, 100, 25)),
     ]));
@@ -390,8 +389,8 @@ test('projects cropped normalized geometry independently of parents and first fr
 
 test('retains empty outputs, mask bytes and performance payloads', () => {
     const envelope = new Envelope();
-    envelope.add(new BoxDetectionsT(1, 0, layer('genericObject'), []));
-    const maskLayer = layer('segmentation');
+    envelope.add(new BoxDetectionsT(1, 0, layer(), []));
+    const maskLayer = layer();
     maskLayer.compositingMode = 'backgroundReplacement';
     envelope.add(new SegmentationMasksT(1, 0, maskLayer, [
         new SegmentationMaskT(new ObjectMetaT(1n), new BitmapDataT(2, 2, BitmapEncoding.Uint8, [0, 64, 128, 255],
@@ -422,14 +421,14 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
 
 test('decodes semantic class maps separately from alpha masks, preserving zero and provenance', () => {
     const envelope = new Envelope();
-    const info = layer('semanticSegmentation');
+    const info = layer();
     info.labelFamily = 'cityscapes';
-    envelope.add(new FrameContextT(1, 0, layer('videoFrame'),
+    envelope.add(new FrameContextT(1, 0, layer(),
         new VideoFrameContextT(new ObjectMetaT(42n), 3n, 1n)));
     envelope.add(new SemanticSegmentationMasksT(1, 0, info, [
         new SemanticSegmentationMaskT(new ObjectMetaT(7n, 99n), new BitmapDataT(3, 1, BitmapEncoding.Uint8, [0, 18, 255], new ImageSpaceT(42n, 3, 1, 0, 0, 3, 1)), 'test:classes'),
     ]));
-    envelope.add(new SegmentationMasksT(1, 0, layer('segmentation'), [
+    envelope.add(new SegmentationMasksT(1, 0, layer(), [
         new SegmentationMaskT(new ObjectMetaT(8n, 42n), new BitmapDataT(3, 1, BitmapEncoding.Uint8, [0, 128, 255], new ImageSpaceT(42n, 3, 1, 0, 0, 3, 1)), OpacityMeaning.BackgroundOpacity),
     ]));
     const {frame_results: frame} = decodeFrameResultsMessage({
@@ -459,12 +458,12 @@ test('decodes semantic class maps separately from alpha masks, preserving zero a
 
 test('decodes instance masks with separate binary pixels, wide class IDs, confidence and boxes', () => {
     const envelope = new Envelope();
-    envelope.add(new FrameContextT(1, 0, layer('videoFrame'), new VideoFrameContextT(new ObjectMetaT(42n), 3n, 1n)));
-    envelope.add(new InstanceSegmentationMasksT(1, 0, layer('instanceSegmentation'), [
+    envelope.add(new FrameContextT(1, 0, layer(), new VideoFrameContextT(new ObjectMetaT(42n), 3n, 1n)));
+    envelope.add(new InstanceSegmentationMasksT(1, 0, layer(), [
         new InstanceSegmentationMaskT(new ObjectMetaT(7n, 99n), new BitmapDataT(3, 1, BitmapEncoding.Uint8, [0, 1, 0], new ImageSpaceT(42n, 3, 1, 0, 0, 3, 1)),
             500, 0.75, new BoundingBoxT(1, 0, 1, 1, new ImageSpaceT(42n, 3, 1, 0, 0, 3, 1), CoordinateUnits.Pixels), 'test:classes'),
     ]));
-    envelope.add(new SemanticSegmentationMasksT(1, 0, layer('semanticSegmentation'), []));
+    envelope.add(new SemanticSegmentationMasksT(1, 0, layer(), []));
     const {frame_results: frame} = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')});
     const output = frame.layers.find(item => item.payloadType === 'InstanceSegmentationMasks');
@@ -486,13 +485,13 @@ test('decodes instance masks with separate binary pixels, wide class IDs, confid
 test('OCR wire payloads preserve recognized text, explicit subjects and invalid numeric values', () => {
     const envelope = new Envelope();
     envelope.add(new FrameContextT(1, 0, null, new VideoFrameContextT(new ObjectMetaT(42n), 640n, 480n)));
-    const detectorInfo = layer('');
+    const detectorInfo = layer();
     detectorInfo.model = 'detector';
     envelope.add(new BoxDetectionsT(1, 0, detectorInfo, [
         new BoxDetectionT(new ObjectMetaT(9007199254740993n, 42n), new BoundingBoxT(20, 30, 100, 40,
             new ImageSpaceT(42n, 640, 480, 0, 0, 640, 480), CoordinateUnits.Pixels), 0.8, null, ''),
     ]));
-    const readerInfo = layer('arbitrary');
+    const readerInfo = layer();
     readerInfo.model = 'reader';
     envelope.add(new ClassificationsT(1, 0, readerInfo, [new ClassificationT(new ObjectMetaT(10n, 999n), [
         new ClassificationCandidateT(0.9, null, '東京 <text>'),
@@ -525,11 +524,11 @@ test('OCR wire payloads preserve recognized text, explicit subjects and invalid 
 test('OCR projects normalized ROI subjects without parent frames and preserves absent text confidence', () => {
     const envelope = new Envelope();
     const subject = 9007199254740993n;
-    envelope.add(new BoxDetectionsT(1, 0, layer('arbitrary'), [
+    envelope.add(new BoxDetectionsT(1, 0, layer(), [
         new BoxDetectionT(new ObjectMetaT(subject), new BoundingBoxT(.25, .125, .5, .5,
             new ImageSpaceT(42n, 640, 480, 100, 50, 200, 100), CoordinateUnits.Normalized), .8),
     ]));
-    envelope.add(new ClassificationsT(1, 0, layer('custom-reader'), [
+    envelope.add(new ClassificationsT(1, 0, layer(), [
         new ClassificationT(new ObjectMetaT(2n, 999n), [new ClassificationCandidateT(null, null, 'ROI 東京')],
             null, ClassificationKind.RecognizedText, subject),
     ]));
@@ -545,13 +544,13 @@ test('OCR projects normalized ROI subjects without parent frames and preserves a
 
 test('audio roots preserve unavailable values, zero PTS and false decisions without role guessing', () => {
     const envelope = new Envelope();
-    envelope.add(new FrameContextT(1, 0, layer('custom'), null,
+    envelope.add(new FrameContextT(1, 0, layer(), null,
         new AudioFrameContextT(null, 1n, 16000n, 512n, 0n, 0n, 0n)));
-    envelope.add(new VoiceActivityDetectionsT(1, 0, layer('custom'), [
+    envelope.add(new VoiceActivityDetectionsT(1, 0, layer(), [
         new VoiceActivityDetectionT(null, null, null, 0n, 512n),
         new VoiceActivityDetectionT(null, 0, false, 0n, 512n, 0n, 32000000n, true),
     ]));
-    envelope.add(new TurnDetectionsT(1, 0, layer('custom'), [
+    envelope.add(new TurnDetectionsT(1, 0, layer(), [
         new TurnDetectionT(null, .5, false, 512n, 16000n),
     ]));
     const result = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
@@ -619,13 +618,13 @@ test('invalid encoding, dimensions, image space and family-specific values are r
 
 test('box and track category IDs preserve absence and zero, and confidence is not coerced', () => {
     const envelope = new Envelope();
-    envelope.add(new BoxDetectionsT(1, 0, layer('genericObject'), [
+    envelope.add(new BoxDetectionsT(1, 0, layer(), [
         new BoxDetectionT(new ObjectMetaT(1n), null, NaN, null, 'unclassified'),
         new BoxDetectionT(new ObjectMetaT(2n), null, 0, 0, 'zero'),
     ]));
     const track = new ObjectTrackT();
     track.sourceConfidence = NaN;
-    envelope.add(new ObjectTracksT(1, 0, layer('genericObject'), [track]));
+    envelope.add(new ObjectTracksT(1, 0, layer(), [track]));
     const frame = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
     const boxes = frame.layers.find(item => item.payloadType === 'BoxDetections').detections;
@@ -641,7 +640,7 @@ test('box and track category IDs preserve absence and zero, and confidence is no
 test('embeddings preserve space, subject, multiple outputs and unusable values', () => {
     const envelope = new Envelope();
     const space = new EmbeddingSpaceT('test:a', 2, EmbeddingMetric.Cosine);
-    envelope.add(new ObjectEmbeddingsT(1, 0, layer('custom'), [
+    envelope.add(new ObjectEmbeddingsT(1, 0, layer(), [
         new ObjectEmbeddingT(new ObjectMetaT(10n, 999n), [3, 4], space, 7n),
         new ObjectEmbeddingT(null, [1, 0], new EmbeddingSpaceT('test:b', 2, EmbeddingMetric.Cosine), 7n),
         new ObjectEmbeddingT(new ObjectMetaT(12n, 7n), [1, 0]),

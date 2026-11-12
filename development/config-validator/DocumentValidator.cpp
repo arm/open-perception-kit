@@ -282,14 +282,14 @@ DocumentResult validateDocument(std::string_view json,
         }
         if (*type == DescriptorType::Model) {
             auto descriptor = projection.get<opk::ModelDescriptor>();
-            report = validateModelV1(descriptor, source);
+            report = validateModelV2(descriptor, source);
             if (!report.ok())
                 return tl::unexpected{std::move(report)};
             return Descriptor{std::move(descriptor)};
         }
 
         auto descriptor = projection.get<opk::op::OpChainDescriptor>();
-        report = validateOpChainV1(descriptor, source);
+        report = validateOpChainV2(descriptor, source);
         if (!report.ok())
             return tl::unexpected{std::move(report)};
         return Descriptor{std::move(descriptor)};
