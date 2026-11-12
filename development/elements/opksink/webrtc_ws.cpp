@@ -496,6 +496,16 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
         return;
     }
 
+    // Frame metadata must not wait for Nagle buffering while video advances over UDP.
+    websocketpp::lib::error_code ec;
+    const auto connection = ws->get_con_from_hdl(hdl, ec);
+    if (!ec) {
+        ec = connection->get_socket().set_option(asio::ip::tcp::no_delay(true), ec);
+    }
+    if (ec) {
+        opk::log::error("Failed to enable TCP_NODELAY for frame metadata: {}", ec.message());
+    }
+
     cleanup_session(hdl, "replaced by new open event");
 
     auto ctx = std::make_shared<SessionContext>(self_, this);

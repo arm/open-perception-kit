@@ -50,9 +50,11 @@ const restored = loadOverlays(storage);
 const overlays = restored.overlays;
 notice.textContent = restored.notice;
 let frameIndex = indexFrame(null);
-// Drawing uses only metadata matched to a displayed video frame. The live
-// metadata channel can still discover sources before video is connected.
+// Drawing uses matched metadata; overlays may briefly retain the last matched frame.
+// The live metadata channel only supplies discovery and inspection.
 let displayedFrameIndex = indexFrame(null);
+const OVERLAY_HOLD_MS = 100;
+let missingFrameSince = null;
 // Store only descriptors, not old frames or bitmap buffers, for the source picker.
 const knownOutputs = new Map();
 const cardNodes = new Map();
@@ -560,6 +562,7 @@ dialog.addEventListener('close', () => {
 form.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!draft || submitButton.disabled || resolveOverlay(frameIndex, draft).state === 'unsupported') return;
+    if (editing && selectionKey(editing) !== selectionKey(draft)) clearDisplayedFrame();
     if (editing) Object.assign(editing, draft);
     else overlays.push(draft);
     persist();
@@ -600,12 +603,26 @@ window.addEventListener('metadata-message', (event) => {
 });
 
 window.addEventListener('video-frame-results', (event) => {
-    if (event.detail) updateMetadata(event.detail);
-    displayedFrameIndex = event.detail ? frameIndex : indexFrame(null);
-    // Draw synchronously inside requestVideoFrameCallback, including null clears.
-    renderOsd(canvas, video, displayedFrameIndex, overlays);
+    if (event.detail) {
+        updateMetadata(event.detail);
+        displayedFrameIndex = frameIndex;
+        missingFrameSince = null;
+    } else if (displayedFrameIndex.frame && missingFrameSince === null) {
+        missingFrameSince = performance.now();
+    }
+    drawDisplayedFrame();
     updateLegends();
 });
+
+function clearDisplayedFrame() {
+    displayedFrameIndex = indexFrame(null);
+    missingFrameSince = null;
+    renderOsd(canvas, video, displayedFrameIndex, overlays);
+    updateLegends();
+}
+
+video.addEventListener('emptied', clearDisplayedFrame);
+window.addEventListener('video-frame-reset', clearDisplayedFrame);
 
 window.addEventListener('metadata-connection', (event) => {
     if (event.detail.connected) return;
@@ -620,8 +637,16 @@ window.addEventListener('metadata-connection', (event) => {
     }
 });
 
-function renderFrame() {
+function drawDisplayedFrame() {
+    if (missingFrameSince !== null && performance.now() - missingFrameSince >= OVERLAY_HOLD_MS) {
+        clearDisplayedFrame();
+        return;
+    }
     renderOsd(canvas, video, displayedFrameIndex, overlays);
+}
+
+function renderFrame() {
+    drawDisplayedFrame();
     window.requestAnimationFrame(renderFrame);
 }
 

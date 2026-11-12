@@ -9163,6 +9163,7 @@ window.addEventListener("video-frame-metadata", (event) => {
       frame = decodeFrameResultsMessage(event.detail).frame_results;
     } catch (error) {
       console.warn("Invalid video frame metadata", error);
+      window.dispatchEvent(new CustomEvent("video-frame-reset", { detail: null }));
     }
   }
   window.dispatchEvent(new CustomEvent("video-frame-results", { detail: frame }));
@@ -10475,6 +10476,8 @@ var overlays = restored.overlays;
 notice.textContent = restored.notice;
 var frameIndex = indexFrame(null);
 var displayedFrameIndex = indexFrame(null);
+var OVERLAY_HOLD_MS = 100;
+var missingFrameSince = null;
 var knownOutputs = /* @__PURE__ */ new Map();
 var cardNodes = /* @__PURE__ */ new Map();
 var expandedOverlays = /* @__PURE__ */ new Set();
@@ -10973,6 +10976,7 @@ dialog.addEventListener("close", () => {
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!draft || submitButton.disabled || resolveOverlay(frameIndex, draft).state === "unsupported") return;
+  if (editing && selectionKey(editing) !== selectionKey(draft)) clearDisplayedFrame();
   if (editing) Object.assign(editing, draft);
   else overlays.push(draft);
   persist();
@@ -11008,11 +11012,24 @@ window.addEventListener("metadata-message", (event) => {
   updateMetadata(event.detail?.frame_results || null, event.detail?.decode_error);
 });
 window.addEventListener("video-frame-results", (event) => {
-  if (event.detail) updateMetadata(event.detail);
-  displayedFrameIndex = event.detail ? frameIndex : indexFrame(null);
-  renderOsd(canvas, video4, displayedFrameIndex, overlays);
+  if (event.detail) {
+    updateMetadata(event.detail);
+    displayedFrameIndex = frameIndex;
+    missingFrameSince = null;
+  } else if (displayedFrameIndex.frame && missingFrameSince === null) {
+    missingFrameSince = performance.now();
+  }
+  drawDisplayedFrame();
   updateLegends();
 });
+function clearDisplayedFrame() {
+  displayedFrameIndex = indexFrame(null);
+  missingFrameSince = null;
+  renderOsd(canvas, video4, displayedFrameIndex, overlays);
+  updateLegends();
+}
+video4.addEventListener("emptied", clearDisplayedFrame);
+window.addEventListener("video-frame-reset", clearDisplayedFrame);
 window.addEventListener("metadata-connection", (event) => {
   if (event.detail.connected) return;
   frameIndex = indexFrame(null);
@@ -11025,8 +11042,15 @@ window.addEventListener("metadata-connection", (event) => {
     refreshOutputs();
   }
 });
-function renderFrame() {
+function drawDisplayedFrame() {
+  if (missingFrameSince !== null && performance.now() - missingFrameSince >= OVERLAY_HOLD_MS) {
+    clearDisplayedFrame();
+    return;
+  }
   renderOsd(canvas, video4, displayedFrameIndex, overlays);
+}
+function renderFrame() {
+  drawDisplayedFrame();
   window.requestAnimationFrame(renderFrame);
 }
 renderList();
