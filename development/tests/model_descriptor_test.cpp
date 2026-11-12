@@ -86,9 +86,10 @@ TEST(ModelDescriptor, ResolvesModelFileRelativeToDescriptor) {
     std::filesystem::create_directories(directory);
     const auto descriptorPath = directory / "model-variant.json";
     std::ofstream(descriptorPath) << R"({
-        "version": "1.0.0",
+        "version": "1.3.0",
         "name": "test",
         "modelFile": "model.onnx",
+        "runtimeLibrary": "libor-runtime.so",
         "dynamicOutput": true,
         "inputTensors": [
             {"shape": [1], "dataKind": "RawTensorData", "valueType": "Float32"}
@@ -99,7 +100,39 @@ TEST(ModelDescriptor, ResolvesModelFileRelativeToDescriptor) {
 
     ASSERT_TRUE(descriptor.has_value());
     EXPECT_EQ(descriptor->modelFile, (directory / "model.onnx").string());
+    EXPECT_EQ(descriptor->runtimeLibrary, (directory / "libor-runtime.so").string());
     std::filesystem::remove_all(directory.parent_path());
+}
+
+TEST(ModelDescriptor, RuntimeLibraryPathsStayExplicitForBasenameDescriptors) {
+    const std::filesystem::path descriptorPath("model-or-runtime-path-test.json");
+    const std::vector<std::pair<std::string, std::string>> cases{
+        {"libor-runtime.so", "./libor-runtime.so"},
+        {"./libor-runtime.so", "./libor-runtime.so"},
+        {"nested/../libor-runtime.so", "nested/../libor-runtime.so"},
+        {"/absolute/../libor-runtime.so", "/absolute/../libor-runtime.so"},
+        {"", ""},
+    };
+
+    for (const auto &[reference, expected] : cases) {
+        SCOPED_TRACE(reference);
+        nlohmann::json document{
+            {"version", "1.3.0"},
+            {"name", "test"},
+            {"modelFile", "model.onnx"},
+            {"dynamicOutput", true},
+            {"inputTensors",
+             {{{"shape", {1}}, {"dataKind", "RawTensorData"}, {"valueType", "Float32"}}}}};
+        if (!reference.empty())
+            document["runtimeLibrary"] = reference;
+
+        std::ofstream(descriptorPath) << document;
+        const auto descriptor = opk::ModelDescriptor::fromFile(descriptorPath.string());
+        ASSERT_TRUE(descriptor.has_value());
+        EXPECT_EQ(descriptor->runtimeLibrary, expected);
+    }
+
+    std::filesystem::remove(descriptorPath);
 }
 
 TEST(ModelDescriptor, PreservesAbsoluteModelFileFilesystemMeaning) {

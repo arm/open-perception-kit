@@ -96,6 +96,7 @@ and check the built artifacts before publication.
 | [onnxruntime](https://github.com/microsoft/onnxruntime) | [1.31.1](https://github.com/microsoft/onnxruntime/releases/tag/v1.31.1) | MIT and bundled terms | GitHub release |
 | [openai](https://github.com/openai/openai-python) | [2.44.0](https://pypi.org/project/openai/2.44.0/) | Apache-2.0 | PyPI |
 | [openai-agents](https://github.com/openai/openai-agents-python) | [0.17.7](https://pypi.org/project/openai-agents/0.17.7/) | MIT | PyPI |
+| [Optimized-Runtimes OR interface](https://github.com/arm/Optimized-Runtimes/tree/2f9423fe207b2a4bcbd1d610370ea42482d69744/interfaces/or) | [2f9423fe207b2a4bcbd1d610370ea42482d69744](https://github.com/arm/Optimized-Runtimes/tree/2f9423fe207b2a4bcbd1d610370ea42482d69744) (ABI 10) | [Apache-2.0](https://github.com/arm/Optimized-Runtimes/blob/2f9423fe207b2a4bcbd1d610370ea42482d69744/LICENSE) | Git submodule; provider headers and conformance tests |
 | [packaging](https://github.com/pypa/packaging) | [26.3](https://pypi.org/project/packaging/26.3/) | BSD-2-Clause AND Apache-2.0 | PyPI |
 | [Pillow](https://github.com/python-pillow/Pillow) | [13.0.0](https://pypi.org/project/pillow/13.0.0/) | CMU License | PyPI |
 | [pip](https://github.com/pypa/pip) | [25.1.1](https://pypi.org/project/pip/25.1.1/) | MIT | PyPI |
@@ -155,6 +156,11 @@ and check the built artifacts before publication.
 | [WebSocket++](https://github.com/zaphoyd/websocketpp) | [0.8.2](https://github.com/zaphoyd/websocketpp/tree/0.8.2) | BSD-3-Clause | Debian |
 | [cpp-httplib](https://github.com/yhirose/cpp-httplib) | [0.56.0](https://github.com/yhirose/cpp-httplib/tree/v0.56.0) | MIT | GitHub |
 | [zipp](https://github.com/jaraco/zipp) | [3.21.0](https://pypi.org/project/zipp/3.21.0/) | MIT | PyPI |
+
+The Optimized-Runtimes entry covers the OR headers consumed by `opk-or-ops`
+and the upstream host conformance sources used by tests. OPK does not build or
+bundle that repository's network runtime binaries or model weights through this dependency;
+example runtime libraries and model packages are provisioned separately.
 
 The published architecture archives and SDK packages do not bundle
 cmake-format, cmakelang, autocommand, pathspec, certifi, tqdm, ultralytics,

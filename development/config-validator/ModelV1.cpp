@@ -59,6 +59,11 @@ ValidationReport validateModelV1(const opk::ModelDescriptor &descriptor, std::st
     validateControlFreeString(report, descriptor.name, source, "/name", "common.v1.name-control");
     validateControlFreeString(
         report, descriptor.modelFile, source, "/modelFile", "model.v1.model-file-control");
+    validateControlFreeString(report,
+                              descriptor.runtimeLibrary,
+                              source,
+                              "/runtimeLibrary",
+                              "model.v1.runtime-library-control");
     validateTensorSizes(report, descriptor.inputTensors, "inputTensors", source);
     validateTensorSizes(report, descriptor.outputTensors, "outputTensors", source);
 

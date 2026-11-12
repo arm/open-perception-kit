@@ -533,6 +533,35 @@ class ReleaseToolTests(unittest.TestCase):
             ):
                 release_tool.validate_runtime_files(package_root)
 
+    def test_or_module_is_optional_but_unknown_modules_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            plugin_root = root / PLUGIN_DIR
+            private_root = root / "lib/opk"
+            plugin_root.mkdir(parents=True)
+            private_root.mkdir()
+            for name in release_tool.PLUGIN_NAMES:
+                (plugin_root / name).touch()
+            for name in release_tool.OP_MODULE_NAMES:
+                (private_root / name).touch()
+            for name in (release_tool.RUNTIME_LIBRARY_NAME, "libopk-common.so"):
+                (private_root / name).touch()
+            for name in release_tool.RELEASE_MODEL_NAMES:
+                (root / "share/opk/models" / name).mkdir(parents=True)
+            stub = root / "share/opk/python/opk_python_ops.pyi"
+            stub.parent.mkdir()
+            stub.touch()
+
+            with patch.object(release_tool, "is_elf", return_value=True):
+                self.assertEqual(release_tool.validate_runtime_files(root), private_root)
+
+                (private_root / "opk-or-ops.so").touch()
+                self.assertEqual(release_tool.validate_runtime_files(root), private_root)
+
+                (private_root / "opk-unknown-ops.so").touch()
+                with self.assertRaisesRegex(RuntimeError, "op modules must include"):
+                    release_tool.validate_runtime_files(root)
+
     def test_rejects_missing_or_non_elf_runtime_modules(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
