@@ -37,6 +37,12 @@ runtime. Treat these as constraints when extending the system.
 
 ## Security And Lifecycle
 
+- `opkcomm` file and FIFO outputs reject symlinks in every path component and
+  reject other file types before opening them for I/O. They require Linux 5.6
+  or newer and permission to use `openat2`. Existing outputs also require
+  procfs mounted at `/proc`. In sticky directories covered by `fs.protected_regular`,
+  existing regular files whose reported owner is the overflow UID are rejected:
+  distinct unmapped owners can appear as that same UID in a user namespace.
 - `opksink` control is not a product API. Authentication,
   authorization, input validation, and network exposure need dedicated review.
 - `opksink` request pads, thread startup/shutdown, and teardown ordering need more

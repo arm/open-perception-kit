@@ -19,8 +19,6 @@
 
 #include <mutex>
 
-#include <sys/stat.h>
-
 #include "writer.h"
 
 class FileWriter : public Writer {
@@ -31,9 +29,6 @@ class FileWriter : public Writer {
     std::recursive_mutex m_io_lock;
 
     int check_open();
-
-    bool io_open_existing(const struct stat &st);
-    bool io_create();
 
   protected:
     bool io_open() override;

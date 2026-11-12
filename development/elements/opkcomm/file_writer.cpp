@@ -20,16 +20,56 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <filesystem>
+#include <fstream>
+#include <linux/openat2.h>
 #include <span>
-#include <stdexcept>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "file_writer.h"
 
-class FileError : public std::runtime_error {
-  public:
-    explicit FileError(const std::string &err) : std::runtime_error(err) {}
-};
+constexpr int kWriteFlags = O_WRONLY | O_APPEND | O_NONBLOCK | O_CLOEXEC;
+
+static int open_existing_output(int directory_fd, int path_fd) {
+    struct stat st;
+    if (fstat(path_fd, &st) != 0)
+        return -1;
+    if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (S_ISREG(st.st_mode)) {
+        struct stat directory;
+        if (fstat(directory_fd, &directory) != 0)
+            return -1;
+        // Reopening through procfs skips the kernel's sticky-directory O_CREAT check.
+        if ((directory.st_mode & S_ISVTX) && (directory.st_mode & (S_IWOTH | S_IWGRP))) {
+            int protected_regular = 0;
+            uid_t overflow_uid = 0;
+            std::ifstream setting("/proc/sys/fs/protected_regular");
+            std::ifstream overflow_setting("/proc/sys/kernel/overflowuid");
+            const bool have_settings =
+                (setting >> protected_regular) && (overflow_setting >> overflow_uid);
+            const bool protected_directory =
+                protected_regular > 0 && ((directory.st_mode & S_IWOTH) ||
+                                          (protected_regular > 1 && (directory.st_mode & S_IWGRP)));
+            // Unmapped owners can share the overflow UID; it cannot establish ownership.
+            const bool allowed_owner = st.st_uid != overflow_uid &&
+                                       (st.st_uid == directory.st_uid ||
+                                        st.st_uid == static_cast<uid_t>(syscall(SYS_setfsuid, -1)));
+            if (!have_settings || (protected_directory && !allowed_owner)) {
+                errno = EACCES;
+                return -1;
+            }
+        }
+    }
+
+    // Use the validated inode even if the configured path is replaced.
+    return open(("/proc/self/fd/" + std::to_string(path_fd)).c_str(), kWriteFlags);
+}
 
 static bool write_all(int fd, const std::span<const char> data) {
     size_t off = 0;
@@ -52,95 +92,68 @@ static bool write_all(int fd, const std::span<const char> data) {
     return true;
 }
 
-bool FileWriter::io_open_existing(const struct stat &st) {
-    if (S_ISFIFO(st.st_mode)) {
-        m_fd = open(m_file_name.c_str(), O_WRONLY | O_NONBLOCK);
-        if (m_fd < 0) {
-            /* ENXIO is normal when no reader is connected yet */
-            if (errno == ENXIO) {
-                GST_INFO_OBJECT(self(), "FIFO '%s' has no reader yet", m_file_name.c_str());
-            } else {
-                GST_INFO_OBJECT(
-                    self(), "Failed to open FIFO '%s': %s", m_file_name.c_str(), g_strerror(errno));
-            }
-
-            throw FileError("FIFO cannot be opened");
-        }
-        return true;
-
-    } else if (S_ISREG(st.st_mode)) {
-        m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0640);
-        if (m_fd < 0) {
-            GST_INFO_OBJECT(
-                self(), "Failed to open file '%s': %s", m_file_name.c_str(), g_strerror(errno));
-
-            throw FileError("File cannot be opened");
-        }
-
-        return true;
-
-    } else {
-        GST_WARNING_OBJECT(
-            self(), "'%s' exists but is not a FIFO or regular file", m_file_name.c_str());
-
-        throw FileError("Unknown file type");
-    }
-}
-
-bool FileWriter::io_create() {
-    if (errno != ENOENT) {
-        GST_INFO_OBJECT(self(), "stat('%s') failed: %s", m_file_name.c_str(), g_strerror(errno));
-
-        throw FileError("Cannot stat");
-    }
-
-    /* Doesn't exist -> create as regular file */
-    m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0640);
-    if (m_fd < 0) {
-        GST_INFO_OBJECT(
-            self(), "Failed to create file '%s': %s", m_file_name.c_str(), g_strerror(errno));
-
-        throw FileError("File cannot be created");
-    }
-
-    return true;
-}
-
 bool FileWriter::io_open() {
-    std::lock_guard g(m_io_lock);
+    std::scoped_lock g(m_io_lock);
 
-    try {
-        auto ret = false;
-        if (m_file_name.empty()) {
-            GST_WARNING_OBJECT(self(), "file-name is not set");
-
-            throw FileError("file-name is not set");
-        }
-
-        /* "-" means stdout */
-        if ("-" == m_file_name) {
-            m_fd = STDOUT_FILENO;
-            ret = true;
-        } else {
-
-            // it is not stdout
-
-            struct stat st;
-            if (stat(m_file_name.c_str(), &st) == 0) {
-                /* Path exists: decide by type */
-                ret = io_open_existing(st);
-
-            } else {
-                /* Path doesn't exist or stat failed */
-                ret = io_create();
-            }
-        }
-
-        return ret;
-
-    } catch (FileError &) {
+    if (m_file_name.empty()) {
+        GST_WARNING_OBJECT(self(), "file-name is not set");
         return false;
     }
+
+    /* "-" means stdout */
+    if ("-" == m_file_name) {
+        m_fd = STDOUT_FILENO;
+        return true;
+    }
+
+    const std::filesystem::path path(m_file_name);
+    const auto parent = path.has_parent_path() ? path.parent_path() : std::filesystem::path(".");
+    const auto name = path.filename();
+    struct open_how how{
+        .flags = O_PATH | O_DIRECTORY | O_CLOEXEC,
+        .mode = 0,
+        .resolve = RESOLVE_NO_SYMLINKS,
+    };
+    const int directory_fd =
+        static_cast<int>(syscall(SYS_openat2, AT_FDCWD, parent.c_str(), &how, sizeof(how)));
+    int fd = -1;
+    if (directory_fd >= 0) {
+        how.flags = O_PATH | O_CLOEXEC;
+        int path_fd =
+            static_cast<int>(syscall(SYS_openat2, directory_fd, name.c_str(), &how, sizeof(how)));
+        if (path_fd < 0 && errno == ENOENT) {
+            how.flags = kWriteFlags | O_CREAT | O_EXCL;
+            how.mode = 0640;
+            fd = static_cast<int>(
+                syscall(SYS_openat2, directory_fd, name.c_str(), &how, sizeof(how)));
+            if (fd < 0 && errno == EEXIST) {
+                // A competing creator may have won the exclusive create.
+                how.flags = O_PATH | O_CLOEXEC;
+                how.mode = 0;
+                path_fd = static_cast<int>(
+                    syscall(SYS_openat2, directory_fd, name.c_str(), &how, sizeof(how)));
+            }
+        }
+        if (path_fd >= 0)
+            fd = open_existing_output(directory_fd, path_fd);
+        const int saved_errno = errno;
+        if (path_fd >= 0)
+            close(path_fd);
+        close(directory_fd);
+        errno = saved_errno;
+    }
+    if (fd < 0) {
+        if (errno == ENXIO) {
+            GST_INFO_OBJECT(self(), "FIFO '%s' has no reader yet", m_file_name.c_str());
+        } else {
+            GST_INFO_OBJECT(
+                self(), "Failed to open file '%s': %s", m_file_name.c_str(), g_strerror(errno));
+        }
+        return false;
+    }
+
+    m_fd = fd;
+    return true;
 }
 
 void FileWriter::io_close() {
@@ -164,7 +177,7 @@ int FileWriter::check_open() {
     if (m_fd < 0)
         io_open();
     if (m_fd >= 0)
-        fd = dup(m_fd);
+        fd = fcntl(m_fd, F_DUPFD_CLOEXEC, 0);
 
     return fd;
 }
