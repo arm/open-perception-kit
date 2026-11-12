@@ -21,10 +21,18 @@
 #include "Matching.h"
 #include "TrackLifecycle.h"
 #include "TrackingOutput.h"
+#include <glib.h>
 
 namespace opk::tracker {
 
+Tracker::Tracker() {
+    reset();
+}
+
 void Tracker::reset() {
+    gchar *const token = g_uuid_string_random();
+    sessionId = token;
+    g_free(token);
     activeTracks.clear();
     inactiveTracks.clear();
     imageSpace.reset();
@@ -63,13 +71,17 @@ void Tracker::process(open_perception_kit::FrameResults &frameResults,
         detections, embeddings, activeTracks, kalmanDt, config);
 
     // Build lifecycle inputs for this frame.
-    auto frameTrackingContext = tracklifecycle::FrameTrackingContext{detections,
-                                                                     embeddings,
-                                                                     detectionMatches,
-                                                                     currentFrameIndex,
-                                                                     trackerTimeMs,
-                                                                     kalmanDt,
-                                                                     config};
+    auto frameTrackingContext = tracklifecycle::FrameTrackingContext{
+        detections,
+        embeddings,
+        detectionMatches,
+        currentFrameIndex,
+        trackerTimeMs,
+        kalmanDt,
+        config,
+        kalmanDeltaTime.lifecycleUsesFallback()
+            ? open_perception_kit::metadata::TrackingTimeSource::FallbackDelta
+            : open_perception_kit::metadata::TrackingTimeSource::MediaDelta};
 
     // Build mutable lifecycle state references (active/dormant tracks and next ID).
     auto mutableTrackState =
@@ -82,8 +94,15 @@ void Tracker::process(open_perception_kit::FrameResults &frameResults,
     const auto lifecycleUpdate =
         tracklifecycle::updateTrackLifecycle(frameTrackingContext, mutableTrackState);
     // Bundle lifecycle output needed by output writers.
-    const auto resolvedTrackingAssignments = trackingoutput::TrackingResult{
-        lifecycleUpdate.assignedTrackByDetection, lifecycleUpdate.predictedOnlyTrackIds};
+    open_perception_kit::metadata::TrackingSampleT sample;
+    sample.frame_index = currentFrameIndex;
+    sample.elapsed_ms = trackerTimeMs;
+    sample.time_source = frameTrackingContext.timeSource;
+    const auto resolvedTrackingAssignments =
+        trackingoutput::TrackingResult{lifecycleUpdate.assignedTrackByDetection,
+                                       lifecycleUpdate.predictedOnlyTrackIds,
+                                       sessionId,
+                                       sample};
 
     // Emit tracker-owned records instead of mutating detector-owned records.
     trackingoutput::appendTrackingPayloads(

@@ -69,11 +69,14 @@ export function render(frame, overlays, width = 640, height = 480, videoWidth = 
 }
 
 export function trackerFixture() {
+    const identity = {trackerId: 'test/tracker', sessionId: 'session', trackId: '7'};
+    const sample = index => ({frameIndex: String(index), elapsedMs: index * 10, state: 1, timeSource: 1});
     const tracks = {payloadType: 'ObjectTracks', contentType: 'genericObject', model: 'Tracker', engine: 'std',
         inferElementId: 'opktracker0', producer: {instanceId: 'opktracker0/opktracker0', component: 'gstreamer/opktracker', implementation: 'Tracker'},
-        detections: [{type: 'Rect', data: {uuid: '10', trackId: '7', x: 20, y: 30, width: 40, height: 50}}]};
+        detections: [{type: 'Rect', data: {uuid: '10', identity, sample: sample(2), trackingValid: true, x: 20, y: 30, width: 40, height: 50}}]};
     const trails = {...tracks, payloadType: 'TrackTraces', contentType: 'trackTrace',
-        detections: [{type: 'TrackTrace', data: {trackId: '7', points: [{x: 1, y: 2}, {x: 40, y: 55}]}}]};
+        detections: [{type: 'TrackTrace', data: {identity, trackingValid: true,
+            points: [{x: 1, y: 2, sample: sample(1)}, {x: 40, y: 55, sample: sample(2)}]}}]};
     return {tracks, trails};
 }
 

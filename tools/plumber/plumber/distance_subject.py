@@ -16,6 +16,14 @@
 from .distance_rect import distance_rect
 
 
+def same_track(a, b):
+    # Session UUIDs and observation IDs differ across independent executions.
+    # Packet-level validation requires one unambiguous session per tracker.
+    left, right = a.get("identity"), b.get("identity")
+    return bool(left and right and left["trackerId"] and left["trackId"] > 0
+                and (left["trackerId"], left["trackId"]) == (right["trackerId"], right["trackId"]))
+
+
 def distance_subject(gt_item, out_item, gt_subject, out_subject):
     """Match observation scope without comparing frame-local observation IDs."""
     if (gt_subject is None or out_subject is None or gt_item.get("subject_source") is None
@@ -26,5 +34,9 @@ def distance_subject(gt_item, out_item, gt_subject, out_subject):
         # group in each packet; ambiguous groups never reach this branch.
         return 0.0
     if gt_subject["item_type"] not in ("BoxDetection", "ObjectTrack") or out_subject["item_type"] not in ("BoxDetection", "ObjectTrack"):
+        return 1.0
+    if gt_subject["item_type"] != out_subject["item_type"]:
+        return 1.0
+    if gt_subject["item_type"] == "ObjectTrack" and not same_track(gt_subject["data"], out_subject["data"]):
         return 1.0
     return distance_rect(gt_subject, out_subject, gt_subject, out_subject)

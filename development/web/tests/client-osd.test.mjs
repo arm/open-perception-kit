@@ -246,7 +246,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
 
         const tracked = {...first, payloadType: 'ObjectTracks',
             producer: {instanceId: 'tracker/0', component: 'tracker'},
-            detections: [{type: 'Rect', data: {trackId: '7'}}]};
+            detections: [{type: 'Rect', data: {identity: {trackerId: 'tracker', sessionId: 'session', trackId: '7'}}}]};
         emit([first, tracked]);
         get('addOverlayBtn').fire('click');
         assert.ok(get('overlayFeature').options.some((option) => option.textContent === 'Tracked objects'));

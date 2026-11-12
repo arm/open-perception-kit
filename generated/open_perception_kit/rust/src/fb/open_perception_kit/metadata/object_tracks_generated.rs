@@ -47,6 +47,7 @@ impl<'a> ObjectTracks<'a> {
     pub const VT_SCHEMA_MINOR: flatbuffers::VOffsetT = 6;
     pub const VT_LAYER: flatbuffers::VOffsetT = 8;
     pub const VT_TRACKS: flatbuffers::VOffsetT = 10;
+    pub const VT_DISPLAY_IDENTITY: flatbuffers::VOffsetT = 12;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -66,6 +67,7 @@ impl<'a> ObjectTracks<'a> {
         }
         builder.add_schema_minor(args.schema_minor);
         builder.add_schema_major(args.schema_major);
+        builder.add_display_identity(args.display_identity);
         builder.finish()
     }
 
@@ -76,11 +78,13 @@ impl<'a> ObjectTracks<'a> {
         let tracks = self
             .tracks()
             .map(|x| x.iter().map(|t| t.unpack()).collect());
+        let display_identity = self.display_identity();
         ObjectTracksT {
             schema_major,
             schema_minor,
             layer,
             tracks,
+            display_identity,
         }
     }
 
@@ -129,6 +133,17 @@ impl<'a> ObjectTracks<'a> {
             >>(ObjectTracks::VT_TRACKS, None)
         }
     }
+    #[inline]
+    pub fn display_identity(&self) -> bool {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<bool>(ObjectTracks::VT_DISPLAY_IDENTITY, Some(true))
+                .unwrap()
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for ObjectTracks<'_> {
@@ -145,6 +160,7 @@ impl flatbuffers::Verifiable for ObjectTracks<'_> {
             .visit_field::<flatbuffers::ForwardsUOffset<
                 flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<ObjectTrack>>,
             >>("tracks", Self::VT_TRACKS, false)?
+            .visit_field::<bool>("display_identity", Self::VT_DISPLAY_IDENTITY, false)?
             .finish();
         Ok(())
     }
@@ -158,6 +174,7 @@ pub struct ObjectTracksArgs<'a> {
             flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ObjectTrack<'a>>>,
         >,
     >,
+    pub display_identity: bool,
 }
 impl<'a> Default for ObjectTracksArgs<'a> {
     #[inline]
@@ -167,6 +184,7 @@ impl<'a> Default for ObjectTracksArgs<'a> {
             schema_minor: 0,
             layer: None,
             tracks: None,
+            display_identity: true,
         }
     }
 }
@@ -202,6 +220,11 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ObjectTracksBuilder<'a, 'b, A> 
             .push_slot_always::<flatbuffers::WIPOffset<_>>(ObjectTracks::VT_TRACKS, tracks);
     }
     #[inline]
+    pub fn add_display_identity(&mut self, display_identity: bool) {
+        self.fbb_
+            .push_slot::<bool>(ObjectTracks::VT_DISPLAY_IDENTITY, display_identity, true);
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> ObjectTracksBuilder<'a, 'b, A> {
@@ -225,6 +248,7 @@ impl core::fmt::Debug for ObjectTracks<'_> {
         ds.field("schema_minor", &self.schema_minor());
         ds.field("layer", &self.layer());
         ds.field("tracks", &self.tracks());
+        ds.field("display_identity", &self.display_identity());
         ds.finish()
     }
 }
@@ -235,6 +259,7 @@ pub struct ObjectTracksT {
     pub schema_minor: u16,
     pub layer: Option<Box<LayerInfoT>>,
     pub tracks: Option<Vec<ObjectTrackT>>,
+    pub display_identity: bool,
 }
 impl Default for ObjectTracksT {
     fn default() -> Self {
@@ -243,6 +268,7 @@ impl Default for ObjectTracksT {
             schema_minor: 0,
             layer: None,
             tracks: None,
+            display_identity: true,
         }
     }
 }
@@ -258,6 +284,7 @@ impl ObjectTracksT {
             let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
             _fbb.create_vector(&w)
         });
+        let display_identity = self.display_identity;
         ObjectTracks::create(
             _fbb,
             &ObjectTracksArgs {
@@ -265,6 +292,7 @@ impl ObjectTracksT {
                 schema_minor,
                 layer,
                 tracks,
+                display_identity,
             },
         )
     }

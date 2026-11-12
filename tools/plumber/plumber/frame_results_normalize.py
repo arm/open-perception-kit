@@ -28,6 +28,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.CameraContacts import C
 from open_perception_kit.fb.open_perception_kit.metadata.PersonPresences import PersonPresencesT
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT
+from .tracking import State, identity_key, valid_track
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT
 from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT
 from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT
@@ -181,13 +182,6 @@ def _box_data(box: Any) -> dict[str, Any]:
         data.update(x=space.originX + box.x * sx, y=space.originY + box.y * sy,
                     width=box.width * sx, height=box.height * sy)
     return data
-
-
-def _point_data(point: Any) -> dict[str, float]:
-    return {
-        "x": float(point.x),
-        "y": float(point.y),
-    }
 
 
 def _candidate_data(candidate: Any) -> dict[str, Any]:
@@ -367,20 +361,32 @@ def _normalize_object_embedding(embedding: Any) -> dict[str, Any]:
     }
 
 
+def _track_identity(value):
+    return None if value is None else {"trackerId": _text(value.trackerId), "sessionId": _text(value.sessionId), "trackId": int(value.trackId)}
+
+
+def _tracking_sample(value):
+    return None if value is None else {"frameIndex": int(value.frameIndex), "elapsedMs": float(value.elapsedMs),
+                                       "state": value.state, "timeSource": value.timeSource}
+
+
 def _normalize_object_track(track: Any) -> dict[str, Any]:
     data = _object_data(track.object)
     data.update(_box_data(track.box))
     data.update(
         {
-            "sourceId": int(track.sourceId),
-            "trackId": int(track.trackId),
-            "confidence": float(track.confidence),
+            "sourceId": track.sourceId,
+            "sourceFrameIndex": track.sourceFrameIndex,
+            "identity": _track_identity(track.identity),
+            "sample": _tracking_sample(track.sample),
+            "sourceConfidence": track.sourceConfidence,
             "classId": None if track.classId is None else int(track.classId),
             "text": _maybe_text(track.text),
-            "diagnostic": _maybe_text(track.diagnostic),
-            "predictedOnly": bool(track.predictedOnly),
+            "association": None if track.association is None else {"kind": track.association.kind, "score": track.association.score},
         }
     )
+    data["subjectId"] = track.sourceId if track.sample and track.sample.state == State.Observed else None
+    data["trackingValid"] = valid_track(data)
     return {
         "item_type": "ObjectTrack",
         "data": data,
@@ -394,9 +400,10 @@ def _normalize_track_trace(trace: Any) -> dict[str, Any]:
         point is not None and math.isfinite(point.x) and math.isfinite(point.y) for point in trace.points or [])
     data.update(
         {
-            "trackId": int(trace.trackId),
+            "identity": _track_identity(trace.identity),
             "points": [
-                {"x": trace.space.originX + float(point.x), "y": trace.space.originY + float(point.y)}
+                {"x": trace.space.originX + float(point.x), "y": trace.space.originY +
+                 float(point.y), "sample": _tracking_sample(point.sample)}
                 for point in trace.points or []
                 if point is not None and data["spatialValid"]
             ],
@@ -495,9 +502,11 @@ def _resolve_subjects(snapshot: FrameResultsSnapshot) -> None:
                     frame_counts[key] = frame_counts.get(key, 0) + 1
     for payload in snapshot.payloads.values():
         for item in payload.items:
-            if item["item_type"] not in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):
+            if item["item_type"] not in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding", "ObjectTrack"):
                 continue
             candidates = subjects.get(item["data"]["subjectId"], [])
+            if item["item_type"] == "ObjectTrack":
+                candidates = [(key, subject) for key, subject in candidates if subject["item_type"] == "BoxDetection"]
             if item["item_type"] in ("CameraContact", "GazeMeasurement"):
                 candidates = [(key, subject) for key, subject in candidates if subject["item_type"] != "VideoFrame"]
             item["subject"], item["subject_source"] = None, None
@@ -508,7 +517,7 @@ def _resolve_subjects(snapshot: FrameResultsSnapshot) -> None:
             # Observation IDs are packet-local. Multiple frames in one source
             # group do not establish a cross-packet correspondence by themselves.
             valid = (frame_counts[key] == 1 and data["originalWidth"] > 0 and data["originalHeight"] > 0
-                     if subject["item_type"] == "VideoFrame" else data.get("spatialValid"))
+                     if subject["item_type"] == "VideoFrame" else data.get("spatialValid") and data.get("trackingValid", True))
             if valid:
                 item["subject"] = subject
                 item["subject_source"] = astuple(key)
@@ -564,6 +573,27 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         "open_perception_kit.metadata.TrackTraces", "traces", _normalize_track_trace,
     )
     _resolve_subjects(snapshot)
+    tracks, traces, sessions = {}, {}, {}
+    for payload in snapshot.payloads.values():
+        for item in payload.items:
+            if item["item_type"] not in ("ObjectTrack", "TrackTrace"):
+                continue
+            data = item["data"]
+            identity = identity_key(data["identity"])
+            if identity:
+                (tracks if item["item_type"] == "ObjectTrack" else traces).setdefault(identity, []).append(data)
+                sessions.setdefault(identity[0], set()).add(identity[1])
+    for group in (tracks, traces):
+        for identity, values in group.items():
+            for data in values:
+                data["ambiguousTrackIdentity"] = len(values) != 1
+                data["ambiguousSession"] = len(sessions[identity[0]]) != 1
+    for identity, values in traces.items():
+        linked = tracks.get(identity, [])
+        if linked:
+            for data in values:
+                data["invalidLinkedTrack"] = len(linked) != 1 or not valid_track(linked[0])
+                data["linkedSample"] = linked[0]["sample"]
     for payload in snapshot.payloads.values():
         masks = [item for item in payload.items if "bitmap" in item["data"]]
         if len({item["data"]["bitmap"].get("frameId") for item in masks}) > 1:

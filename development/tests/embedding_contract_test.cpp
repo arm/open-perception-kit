@@ -205,7 +205,7 @@ uint64_t step(opk::tracker::Tracker &tracker,
     result.for_each<ObjectTracksT>([&](const auto &tracks) {
         for (const auto &track : tracks.tracks)
             if (track->source_id == subject)
-                trackId = track->track_id;
+                trackId = track->identity->track_id;
     });
     return trackId;
 }

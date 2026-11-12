@@ -21,11 +21,13 @@ import {featureFor, resolveOverlay} from '../../src/overlay-features.js';
 import {indexFrame} from '../../src/overlay-sources.js';
 import {render, select, trackerFixture} from '../overlay-test-utils.mjs';
 
-test('tracked objects joins by producer/track ID, preserving partial and ambiguous results', () => {
+test('tracked objects join by full tracker/session/track identity, preserving ambiguity', () => {
     const {tracks, trails} = trackerFixture();
     const renamed = {...trails, model: 'different label', engine: 'different engine', labelFamily: 'another family'};
-    const unrelated = {...trails, producer: {...trails.producer, instanceId: 'another-tracker'}};
-    const otherTrack = {...trails, detections: [{...trails.detections[0], data: {...trails.detections[0].data, trackId: '8'}}]};
+    const unrelated = {...trails, detections: [{...trails.detections[0], data: {...trails.detections[0].data,
+        identity: {...trails.detections[0].data.identity, sessionId: 'other-session'}}}]};
+    const otherTrack = {...trails, detections: [{...trails.detections[0], data: {...trails.detections[0].data,
+        identity: {...trails.detections[0].data.identity, trackId: '8'}}}]};
     const overlay = select('tracked-objects', tracks, {color: '#123456', opacity: 0.4});
     const frame = {layers: [tracks, renamed, unrelated, otherTrack]};
     assert.deepEqual(render(frame, [overlay]).calls, [
@@ -40,8 +42,9 @@ test('tracked objects joins by producer/track ID, preserving partial and ambiguo
     assert.equal(ambiguous.state, 'ambiguous');
     assert.equal(ambiguous.trails.length, 0);
     const unidentified = {...tracks, producer: null};
-    assert.equal(resolveOverlay(indexFrame({layers: [unidentified, {...trails, producer: null}]}), select('tracked-objects', unidentified)).state, 'partial');
-    const zeroId = {...tracks, detections: [{type: 'Rect', data: {...tracks.detections[0].data, trackId: '0'}}]};
+    assert.equal(resolveOverlay(indexFrame({layers: [unidentified, {...trails, producer: null}]}), select('tracked-objects', unidentified)).state, 'ready');
+    const zeroId = {...tracks, detections: [{type: 'Rect', data: {...tracks.detections[0].data,
+        identity: {...tracks.detections[0].data.identity, trackId: '0'}}}]};
     assert.equal(resolveOverlay(indexFrame({layers: [zeroId, trails]}), overlay).trails.length, 0);
     assert.equal(resolveOverlay(indexFrame({layers: [{...tracks, detections: []}]}), overlay).state, 'ready');
 });

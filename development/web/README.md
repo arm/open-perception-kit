@@ -238,11 +238,13 @@ owns its controls, with no cross-overlay override behavior.
 ## Relationships and geometry
 
 `indexFrame()` builds output, payload-family, producer, object-ID, and
-producer/track-ID indexes once per incoming frame. Entries retain all candidates,
+tracker/session/track-identity indexes once per incoming frame. Entries retain all candidates,
 including ambiguous identities. Discovery caches only descriptors; indexes are
 replaced on the next message and cleared on disconnect.
 
-- Tracked-object trails join by producer component/instance and `trackId`.
+- Tracked-object trails join by the explicit `(trackerId, sessionId, trackId)` identity,
+  independently of display/provenance fields. Duplicate identities remain ambiguous;
+  the trail's last sample must agree with the current track observation.
   Model names, engine labels, and label families are not relationship keys.
   Missing producer identity or trail history gives a partial result. Multiple
   matching trails are ambiguous and omitted. No browser-side history is invented.

@@ -27,6 +27,7 @@ from . import distance_seg_map as dsm
 from . import distance_track_trace as dtt
 from . import distance_video_frame as dvf
 from . import distance_gaze as dg
+from .tracking import distance_object_track, valid_track, valid_trace
 from .frame_results_decode import FrameResultsFrame
 from .frame_results_normalize import PayloadKey, PayloadSnapshot, normalize_frame_results
 
@@ -44,7 +45,7 @@ DISTANCE_SPECS: dict[str, DistanceSpec] = {
     "VideoFrame": DistanceSpec(dvf.distance_video_frame, threshold=0.1, skip=True),
     "AudioFrame": DistanceSpec(dvf.distance_video_frame, threshold=0.1, skip=True),
     "BoxDetection": DistanceSpec(dr.distance_rect, threshold=dr.GEOMETRY_THRESHOLD),
-    "ObjectTrack": DistanceSpec(dr.distance_rect, threshold=dr.GEOMETRY_THRESHOLD),
+    "ObjectTrack": DistanceSpec(distance_object_track, threshold=dr.GEOMETRY_THRESHOLD),
     "GazeMeasurement": DistanceSpec(dg.distance_gaze, threshold=dg.ANGLE_DISTANCE_THRESHOLD),
     "SegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1),
     "SemanticSegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1),
@@ -72,6 +73,10 @@ def _item_parent(
     item: dict,
     object_index: dict[int, tuple[PayloadKey, dict]],
 ) -> dict | None:
+    if item.get("item_type") == "ObjectTrack":
+        return item if valid_track(item["data"]) else None
+    if item.get("item_type") == "TrackTrace":
+        return item if valid_trace(item["data"]) else None
     if item.get("item_type") in dsm.MASK_TYPES:
         return item if dsm.valid_mask(item) else None
     if item.get("item_type") in ("BoxDetection", "ObjectTrack", "TrackTrace"):

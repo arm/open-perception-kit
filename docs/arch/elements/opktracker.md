@@ -39,8 +39,8 @@ writes to those states. Read-only entries cannot be set.
 | `iou-threshold` | Minimum intersection-over-union for matching detections to tracks. | `0.3` | Float, 0–1; e.g. `0.4`. | Live |
 | `max-missed-frames` | Number of unmatched frames before expiring a track. | `5` | Integer, 0–2147483647; e.g. `10`. | Live |
 | `min-hits-to-confirm` | Hits required before showing a track. | `5` | Integer, 1–2147483647; e.g. `3`. | Live |
-| `append-track-id-to-text` | Append `[ID:n]` to detection text. | `true` | `true`, `false` | Live |
-| `trace-history-seconds` | Time window retained for track traces. | `5.0` | Float seconds, 0–G_MAXFLOAT; e.g. `2.0`. | Live |
+| `append-track-id-to-text` | Request ID/association suffixes on rendered track labels; stored labels remain original. | `true` | `true`, `false` | Live |
+| `trace-history-seconds` | Elapsed-time window retained for track traces, independent of forced Kalman timing. | `5.0` | Float seconds, 0–G_MAXFLOAT; e.g. `2.0`. | Live |
 | `kalman-dt-fallback` | Time step when timestamps are unavailable or fallback is forced. | `1/30` (about `0.0333333`) | Float seconds, 0.0001–G_MAXFLOAT; e.g. `0.04` for 25 fps. | Live |
 | `kalman-dt-force-fallback` | Use the fallback time step instead of buffer timestamps. | `false` | `true`, `false` | Live |
 | `kalman-initial-covariance-pos` | Initial position covariance for new tracks. | `100.0` | Float, 0–G_MAXFLOAT; e.g. `80.0`. | Live |
@@ -82,3 +82,8 @@ dimension and cosine metric must agree with the stored active/dormant embedding;
 invalid, zero or missing vectors cannot create a similarity score. Hybrid mode
 falls back to IoU when no usable comparison exists; embedding-only mode does not.
 See [embedding spaces and selection](../perception.md#embedding-spaces-and-selection).
+
+Each processing step publishes `ObjectTracks`, even when no tracks are confirmed
+or all tracks have expired. With `emit-trace=true`, `TrackTraces` is also present
+with an empty collection when no history is ready. Disabling trace output omits
+that root; an empty result is not the same as disabled or unavailable output.

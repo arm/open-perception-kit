@@ -34,6 +34,8 @@ struct FrameTrackingContext {
     double trackerTimeMs;
     float kalmanDt;
     const Config &config;
+    open_perception_kit::metadata::TrackingTimeSource timeSource =
+        open_perception_kit::metadata::TrackingTimeSource::FallbackDelta;
 };
 
 struct MutableTrackState {

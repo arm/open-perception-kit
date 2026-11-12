@@ -18,7 +18,7 @@
 #include "TrackingOutput.h"
 
 #include <cassert>
-#include <fmt/core.h>
+#include <cmath>
 #include <memory>
 #include <utility>
 
@@ -29,15 +29,9 @@ namespace {
 constexpr const char *TRACKER_MODEL = "Tracker";
 constexpr const char *TRACKER_ENGINE = "std";
 constexpr const char *TRACKER_COMPONENT = "gstreamer/opktracker";
-constexpr const char *PREDICTION_TAG = "tracking-prediction";
-constexpr const char *TRACE_TAG = "tracking";
 
 uint64_t idOf(const open_perception_kit::metadata::BoxDetectionT &detection) {
     return detection.object ? detection.object->id : 0U;
-}
-
-uint64_t parentIdOf(const open_perception_kit::metadata::BoxDetectionT &detection) {
-    return detection.object ? detection.object->parent_id : 0U;
 }
 
 const open_perception_kit::metadata::BoxDetectionT &detectionAt(const DetectionBatch &detections,
@@ -55,25 +49,6 @@ copyObjectMeta(const open_perception_kit::metadata::ObjectMetaT *object) {
 std::unique_ptr<open_perception_kit::metadata::BoundingBoxT>
 copyBoundingBox(const open_perception_kit::metadata::BoundingBoxT *box) {
     return box ? std::make_unique<open_perception_kit::metadata::BoundingBoxT>(*box) : nullptr;
-}
-
-std::string
-formatTrackText(const std::string &existingText, TrackId trackId, const std::string &diagnostic) {
-    if (existingText.empty()) {
-        return fmt::format("ID:{} {}", trackId, diagnostic);
-    }
-    return fmt::format("{} [ID:{} {}]", existingText, trackId, diagnostic);
-}
-
-void appendTrackTextIfEnabled(open_perception_kit::metadata::BoxDetectionT &detection,
-                              TrackId trackId,
-                              const TrackState &track,
-                              const Config &config) {
-    if (!config.appendIdentityIdToText) {
-        return;
-    }
-
-    detection.text = formatTrackText(detection.text, trackId, track.lastMatchDiagnostic);
 }
 
 TrackId lookupAssignedTrackId(DetectionIndex detectionIndex,
@@ -109,7 +84,7 @@ bool shouldEmitTrace(const TrackState &track, const Config &config) {
 }
 
 std::unique_ptr<open_perception_kit::metadata::LayerInfoT>
-makeTrackerLayerInfo(const Config &config, const char *tags, const char *contentType) {
+makeTrackerLayerInfo(const Config &config, const char *contentType) {
     const std::string producerInstanceId =
         config.producerInstanceId.empty() ? "opktracker" : config.producerInstanceId;
     const auto producer = open_perception_kit::makeProducerInfo(
@@ -118,8 +93,18 @@ makeTrackerLayerInfo(const Config &config, const char *tags, const char *content
                                                .inferElementId = config.inferId,
                                                .contentType = contentType,
                                                .engine = TRACKER_ENGINE,
-                                               .tags = tags,
                                                .producer = producer.get()});
+}
+
+std::unique_ptr<open_perception_kit::metadata::TrackIdentityT>
+makeIdentity(const Config &config, const TrackingResult &result, const TrackId id) {
+    auto identity = std::make_unique<open_perception_kit::metadata::TrackIdentityT>();
+    identity->tracker_id =
+        config.inferId + "/" +
+        (config.producerInstanceId.empty() ? "opktracker" : config.producerInstanceId);
+    identity->session_id = result.sessionId;
+    identity->track_id = id;
+    return identity;
 }
 
 std::unique_ptr<open_perception_kit::metadata::ObjectTrackT>
@@ -127,22 +112,30 @@ makeTrackPayload(const open_perception_kit::metadata::BoxDetectionT &detection,
                  TrackId trackId,
                  const TrackState &track,
                  const Config &config,
+                 const TrackingResult &result,
                  bool predictedOnly) {
-    auto renderedDetection = detection;
-    appendTrackTextIfEnabled(renderedDetection, trackId, track, config);
-
-    const uint64_t sourceId = idOf(renderedDetection);
+    const uint64_t sourceId = idOf(detection);
 
     auto item = std::make_unique<open_perception_kit::metadata::ObjectTrackT>();
     item->object = open_perception_kit::makeObjectMeta(0U, sourceId);
-    item->source_id = sourceId;
-    item->track_id = trackId;
-    item->box = copyBoundingBox(renderedDetection.box.get());
-    item->confidence = renderedDetection.confidence;
-    item->class_id = renderedDetection.class_id;
-    item->text = renderedDetection.text;
-    item->diagnostic = track.lastMatchDiagnostic;
-    item->predicted_only = predictedOnly;
+    if (sourceId != 0 && track.lastObservationFrameIndex != 0) {
+        item->source_id = sourceId;
+        item->source_frame_index = track.lastObservationFrameIndex;
+    }
+    item->identity = makeIdentity(config, result, trackId);
+    item->box = copyBoundingBox(detection.box.get());
+    if (std::isfinite(detection.confidence) && detection.confidence >= 0 &&
+        detection.confidence <= 1)
+        item->source_confidence = detection.confidence;
+    item->class_id = detection.class_id;
+    item->text = detection.text;
+    if (!predictedOnly)
+        item->association = std::make_unique<open_perception_kit::metadata::TrackAssociationT>(
+            track.lastAssociation);
+    item->sample = std::make_unique<open_perception_kit::metadata::TrackingSampleT>(result.sample);
+    item->sample->state = predictedOnly
+                              ? open_perception_kit::metadata::TrackObservationState::Predicted
+                              : open_perception_kit::metadata::TrackObservationState::Observed;
     return item;
 }
 
@@ -163,7 +156,8 @@ void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,
                             const Config &config,
                             const TrackingResult &trackingResult) {
     open_perception_kit::metadata::ObjectTracksT tracksPayload;
-    tracksPayload.layer = makeTrackerLayerInfo(config, PREDICTION_TAG, config.contentType.c_str());
+    tracksPayload.layer = makeTrackerLayerInfo(config, config.contentType.c_str());
+    tracksPayload.display_identity = config.appendIdentityIdToText;
 
     for (DetectionIndex detectionIndex = 0; detectionIndex < detections.size(); ++detectionIndex) {
         const TrackId trackId = lookupAssignedTrackId(detectionIndex, trackingResult);
@@ -177,6 +171,7 @@ void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,
                              trackId,
                              *track,
                              config,
+                             trackingResult,
                              false));
     }
 
@@ -187,19 +182,17 @@ void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,
         }
 
         tracksPayload.tracks.push_back(
-            makeTrackPayload(track->lastDetection, trackId, *track, config, true));
+            makeTrackPayload(track->lastDetection, trackId, *track, config, trackingResult, true));
     }
 
-    if (!tracksPayload.tracks.empty()) {
-        frameResults.add(std::move(tracksPayload));
-    }
+    frameResults.add(std::move(tracksPayload));
 
     if (!config.emitTrace) {
         return;
     }
 
     open_perception_kit::metadata::TrackTracesT tracesPayload;
-    tracesPayload.layer = makeTrackerLayerInfo(config, TRACE_TAG, "trackTrace");
+    tracesPayload.layer = makeTrackerLayerInfo(config, "trackTrace");
 
     for (const auto &[trackId, track] : activeTracks) {
         if (!shouldEmitTrace(track, config)) {
@@ -207,21 +200,19 @@ void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,
         }
 
         auto trace = std::make_unique<open_perception_kit::metadata::TrackTraceT>();
-        trace->object = open_perception_kit::makeObjectMeta(0U, parentIdOf(track.lastDetection));
-        trace->track_id = trackId;
+        trace->object = open_perception_kit::makeObjectMeta();
+        trace->identity = makeIdentity(config, trackingResult, trackId);
         if (track.lastDetection.box && track.lastDetection.box->space)
             trace->space = std::make_unique<open_perception_kit::metadata::ImageSpaceT>(
                 *track.lastDetection.box->space);
         for (const auto &point : track.traceHistoryPoints) {
             trace->points.push_back(
-                std::make_unique<open_perception_kit::metadata::Point2fT>(point));
+                std::make_unique<open_perception_kit::metadata::TrackTracePointT>(point));
         }
         tracesPayload.traces.push_back(std::move(trace));
     }
 
-    if (!tracesPayload.traces.empty()) {
-        frameResults.add(std::move(tracesPayload));
-    }
+    frameResults.add(std::move(tracesPayload));
 }
 
 } // namespace opk::tracker::trackingoutput

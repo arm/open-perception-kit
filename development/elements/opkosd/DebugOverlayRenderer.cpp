@@ -25,9 +25,12 @@
 #include "opk/ClassificationScores.h"
 #include "opk/Color.h"
 #include "opk/Tools.h"
+#include "opk/Tracking.h"
 #include "raster/BitmapFont.h"
 #include "raster/SegmentationMask.h"
 #include "raster/SurfacePainter.h"
+#include <map>
+#include <tuple>
 
 #include <algorithm>
 #include <array>
@@ -386,30 +389,21 @@ void drawSegmentationMasks(const opk::raster::ImageSurfaceView &surface,
         });
 }
 
-bool isFinitePoint(const open_perception_kit::metadata::Point2fT &point) noexcept {
-    return std::isfinite(point.x) && std::isfinite(point.y);
-}
-
 void drawTrackTrace(opk::raster::SurfacePainter &painter,
                     const DebugOverlaySurface &surface,
                     const open_perception_kit::metadata::TrackTraceT &trace) noexcept {
-    if (trace.points.size() < 2U) {
+    if (trace.points.size() < 2U || !opk::tracking::validTrace(trace)) {
         return;
     }
 
     if (!open_perception_kit::validImageSpace(trace.space.get()))
         return;
     const auto &space = *trace.space;
-    const opk::Color color = colorForTrack(trace.track_id);
+    const opk::Color color = colorForTrack(trace.identity->track_id);
     bool hasPrevious = false;
     int previousX = 0;
     int previousY = 0;
     for (const auto &point : trace.points) {
-        if (!point || !isFinitePoint(*point)) {
-            hasPrevious = false;
-            continue;
-        }
-
         const int x = roundToInt((space.origin_x + point->x) * surface.width / space.width);
         const int y = roundToInt((space.origin_y + point->y) * surface.height / space.height);
         if (hasPrevious) {
@@ -425,14 +419,40 @@ void drawTrackTrace(opk::raster::SurfacePainter &painter,
 void drawTrackTraces(opk::raster::SurfacePainter &painter,
                      const DebugOverlaySurface &surface,
                      const open_perception_kit::FrameResults &frameResults) {
-    frameResults.for_each<open_perception_kit::metadata::TrackTracesT>(
-        [&painter, &surface](const auto &payload) {
-            for (const auto &trace : payload.traces) {
-                if (trace) {
-                    drawTrackTrace(painter, surface, *trace);
-                }
+    using Key = std::tuple<std::string, std::string, uint64_t>;
+    const auto key = [](const auto &identity) {
+        return Key{identity.tracker_id, identity.session_id, identity.track_id};
+    };
+    std::map<Key, size_t> counts;
+    std::map<Key, std::vector<const open_perception_kit::metadata::ObjectTrackT *>> tracks;
+    frameResults.for_each<open_perception_kit::metadata::TrackTracesT>([&](const auto &payload) {
+        for (const auto &trace : payload.traces)
+            if (trace && opk::tracking::validIdentity(trace->identity.get()))
+                ++counts[key(*trace->identity)];
+    });
+    frameResults.for_each<open_perception_kit::metadata::ObjectTracksT>([&](const auto &payload) {
+        for (const auto &track : payload.tracks)
+            if (track && opk::tracking::validIdentity(track->identity.get()))
+                tracks[key(*track->identity)].push_back(track.get());
+    });
+    frameResults.for_each<open_perception_kit::metadata::TrackTracesT>([&](const auto &payload) {
+        for (const auto &trace : payload.traces) {
+            if (!trace || !opk::tracking::validTrace(*trace) || counts[key(*trace->identity)] != 1)
+                continue;
+            const auto linked = tracks.find(key(*trace->identity));
+            if (linked != tracks.end()) {
+                if (linked->second.size() != 1 || !opk::tracking::validTrack(*linked->second[0]) ||
+                    trace->points.empty())
+                    continue;
+                const auto &a = *linked->second[0]->sample;
+                const auto &b = *trace->points.back()->sample;
+                if (a.frame_index != b.frame_index || a.state != b.state ||
+                    a.time_source != b.time_source || std::abs(a.elapsed_ms - b.elapsed_ms) > 1e-6)
+                    continue;
             }
-        });
+            drawTrackTrace(painter, surface, *trace);
+        }
+    });
 }
 
 std::set<std::uint64_t>
@@ -447,8 +467,10 @@ collectTrackedSourceIds(const open_perception_kit::FrameResults &frameResults,
             }
 
             for (const auto &track : payload.tracks) {
-                if (track && track->source_id != 0U) {
-                    result.insert(track->source_id);
+                if (track && opk::tracking::validTrack(*track) && track->source_id &&
+                    track->sample->state ==
+                        open_perception_kit::metadata::TrackObservationState::Observed) {
+                    result.insert(*track->source_id);
                 }
             }
         });
@@ -506,7 +528,7 @@ void drawHumanFaceTracks(opk::raster::SurfacePainter &painter,
             }
 
             for (const auto &track : payload.tracks) {
-                if (!track || !track->box) {
+                if (!track || !opk::tracking::validTrack(*track)) {
                     continue;
                 }
 
@@ -576,11 +598,18 @@ void drawGenericObjectTracks(opk::raster::SurfacePainter &painter,
             }
 
             for (const auto &track : payload.tracks) {
-                if (!track || !track->box) {
+                if (!track || !opk::tracking::validTrack(*track)) {
                     continue;
                 }
 
-                drawLabelledBox(painter, surface, *track->box, track->text);
+                std::string label;
+                try {
+                    label = opk::tracking::label(*track, payload.display_identity);
+                } catch (const std::format_error &) {
+                    // Keep the original label if formatting fails at the noexcept display boundary.
+                    label = track->text;
+                }
+                drawLabelledBox(painter, surface, *track->box, label);
             }
         });
 }

@@ -18,6 +18,7 @@
 #include "opk/FrameResults.h"
 
 #include "opk/Tools.h"
+#include "opk/Tracking.h"
 
 #include <algorithm>
 #include <cmath>
@@ -248,8 +249,14 @@ const metadata::BoundingBoxT *findSubjectBox(const FrameResults &frameResults, c
     };
     frameResults.for_each<metadata::BoxDetectionsT>(
         [&collect](const auto &p) { collect(p.detections); });
-    frameResults.for_each<metadata::ObjectTracksT>(
-        [&collect](const auto &p) { collect(p.tracks); });
+    frameResults.for_each<metadata::ObjectTracksT>([&](const auto &p) {
+        for (const auto &track : p.tracks) {
+            if (track && track->object && track->object->id == id) {
+                ++count;
+                box = opk::tracking::validTrack(*track) ? track->box.get() : nullptr;
+            }
+        }
+    });
     return count == 1U ? box : nullptr;
 }
 

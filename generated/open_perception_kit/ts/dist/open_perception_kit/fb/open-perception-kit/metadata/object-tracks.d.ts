@@ -31,6 +31,7 @@ export declare class ObjectTracks implements flatbuffers.IUnpackableObject<Objec
     layer(obj?: LayerInfo): LayerInfo | null;
     tracks(index: number, obj?: ObjectTrack): ObjectTrack | null;
     tracksLength(): number;
+    displayIdentity(): boolean;
     static startObjectTracks(builder: flatbuffers.Builder): void;
     static addSchemaMajor(builder: flatbuffers.Builder, schemaMajor: number): void;
     static addSchemaMinor(builder: flatbuffers.Builder, schemaMinor: number): void;
@@ -38,6 +39,7 @@ export declare class ObjectTracks implements flatbuffers.IUnpackableObject<Objec
     static addTracks(builder: flatbuffers.Builder, tracksOffset: flatbuffers.Offset): void;
     static createTracksVector(builder: flatbuffers.Builder, data: flatbuffers.Offset[]): flatbuffers.Offset;
     static startTracksVector(builder: flatbuffers.Builder, numElems: number): void;
+    static addDisplayIdentity(builder: flatbuffers.Builder, displayIdentity: boolean): void;
     static endObjectTracks(builder: flatbuffers.Builder): flatbuffers.Offset;
     static finishObjectTracksBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
     static finishSizePrefixedObjectTracksBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
@@ -49,6 +51,7 @@ export declare class ObjectTracksT implements flatbuffers.IGeneratedObject {
     schemaMinor: number;
     layer: LayerInfoT | null;
     tracks: (ObjectTrackT)[];
-    constructor(schemaMajor?: number, schemaMinor?: number, layer?: LayerInfoT | null, tracks?: (ObjectTrackT)[]);
+    displayIdentity: boolean;
+    constructor(schemaMajor?: number, schemaMinor?: number, layer?: LayerInfoT | null, tracks?: (ObjectTrackT)[], displayIdentity?: boolean);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

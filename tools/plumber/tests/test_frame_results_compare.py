@@ -43,7 +43,6 @@ from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import Image
 from open_perception_kit.fb.open_perception_kit.metadata.CoordinateUnits import CoordinateUnits  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.Point2f import Point2fT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.Classification import ClassificationT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ClassificationCandidate import ClassificationCandidateT  # noqa: E402
@@ -58,6 +57,10 @@ from open_perception_kit.fb.open_perception_kit.metadata.GazeAngles import GazeA
 from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement import GazeMeasurementT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTrack import ObjectTrackT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity import TrackIdentityT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackingSample import TrackingSampleT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTracePoint import TrackTracePointT  # noqa: E402
+from plumber.tracking import State, Clock  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbedding import ObjectEmbeddingT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
@@ -128,7 +131,10 @@ def gaze_frame(measurements, subjects=None, tracks=False):
     result.add(frame_payload())
     boxes = subjects if subjects is not None else box_payload((2, 10, 10, 20, 20), (3, 60, 10, 20, 20))
     if tracks:
-        result.add(ObjectTracksT(layer=boxes.layer, tracks=[ObjectTrackT(object=item.object, box=item.box, trackId=77)
+        result.add(ObjectTracksT(layer=boxes.layer, tracks=[ObjectTrackT(object=item.object, box=item.box,
+                                                                         identity=TrackIdentityT(
+                                                                             trackerId="tracker", sessionId="session", trackId=item.object.id),
+                                                                         sample=TrackingSampleT(frameIndex=1, elapsedMs=10, timeSource=Clock.MediaDelta, state=State.Observed))
                                                             for item in boxes.detections]))
     else:
         result.add(boxes)
@@ -139,6 +145,45 @@ def gaze_frame(measurements, subjects=None, tracks=False):
 class FrameResultsCompareTests(unittest.TestCase):
     def setUp(self) -> None:
         self.args = SimpleNamespace(verbose=False)
+
+    def test_track_subject_identity_survives_coincident_geometry_and_run_local_ids(self):
+        cases = (
+            ("gaze", lambda subject, value: GazeMeasurementT(subjectId=subject, angles=GazeAnglesT(yawDegrees=10 + 70 * value, pitchDegrees=0)),
+             lambda values: GazeMeasurementsT(layer=layer("gaze", "reader"), measurements=values)),
+            ("classification", lambda subject, value: ClassificationT(subjectId=subject, kind=ClassificationKind.Categorical, labelSet="test:labels",
+                                                                      candidates=[ClassificationCandidateT(classId=value)]),
+             lambda values: ClassificationsT(layer=layer("classification", "reader"), classifications=values)),
+            ("contact", lambda subject, value: CameraContactT(subjectId=subject, result=CameraContactResultT(inContact=bool(value))),
+             lambda values: CameraContactsT(layer=layer("contact", "reader"), contacts=values)),
+            ("presence", lambda subject, value: PersonPresenceT(subjectId=subject, result=PersonPresenceResultT(personPresent=bool(value))),
+             lambda values: PersonPresencesT(layer=layer("presence", "reader"), presences=values)),
+            ("embedding", lambda subject, value: ObjectEmbeddingT(subjectId=subject, values=[1 - value, value],
+                                                                  space=EmbeddingSpaceT(id="test:space", dimensions=2, metric=EmbeddingMetric.Cosine)),
+             lambda values: ObjectEmbeddingsT(layer=layer("embedding", "reader"), embeddings=values)),
+        )
+        for name, item, root in cases:
+            def frame(swapped=False, offset=0, reverse=False):
+                identifiers = [10 + offset, 20 + offset]
+                tracks = [ObjectTrackT(object=ObjectMetaT(id=identifier),
+                                       identity=TrackIdentityT(trackerId="tracker",
+                                                               sessionId=f"run-{offset}", trackId=index + 1),
+                                       sample=TrackingSampleT(frameIndex=1, elapsedMs=10,
+                                                              timeSource=Clock.MediaDelta, state=State.Observed),
+                                       box=box_payload((identifier, 10, 10, 20, 20)).detections[0].box)
+                          for index, identifier in enumerate(identifiers)]
+                values = [item(identifiers[1 - index if swapped else index], index) for index in range(2)]
+                if reverse:
+                    tracks.reverse()
+                    values.reverse()
+                result = FrameResults()
+                result.add(ObjectTracksT(layer=layer("tracks", "tracker"), tracks=tracks))
+                result.add(root(values))
+                return frame_results_frame(FrameResults(result.serialize()))
+
+            with self.subTest(kind=name):
+                reference = frame()
+                self.assertTrue(compare_frame_results_frame(self.args, reference, frame(offset=1000, reverse=True))[0])
+                self.assertFalse(compare_frame_results_frame(self.args, reference, frame(swapped=True, offset=1000))[0])
 
     def test_embeddings_require_declared_compatible_spaces_and_usable_values(self):
         def make(values, space_id="test:a", dimensions=None, metric=EmbeddingMetric.Cosine):
@@ -417,8 +462,11 @@ class FrameResultsCompareTests(unittest.TestCase):
         for scale in (1, 2):
             frame = FrameResults()
             frame.add(TrackTracesT(layer=layer("trackTrace", "tracker"), traces=[TrackTraceT(
-                object=ObjectMetaT(id=7, parentId=999), trackId=1,
-                points=[Point2fT(x=10 * scale, y=20 * scale), Point2fT(x=20 * scale, y=30 * scale)],
+                object=ObjectMetaT(id=7, parentId=999), identity=TrackIdentityT(trackerId="tracker", sessionId=str(scale), trackId=1),
+                points=[TrackTracePointT(x=10 * scale, y=20 * scale,
+                                         sample=TrackingSampleT(frameIndex=1, elapsedMs=10, timeSource=Clock.MediaDelta, state=State.Observed)),
+                        TrackTracePointT(x=20 * scale, y=30 * scale,
+                                         sample=TrackingSampleT(frameIndex=2, elapsedMs=20, timeSource=Clock.MediaDelta, state=State.Observed))],
                 space=ImageSpaceT(frameId=scale, width=100 * scale, height=100 * scale,
                                   extentWidth=100 * scale, extentHeight=100 * scale))]))
             frames.append(frame_results_frame(frame))

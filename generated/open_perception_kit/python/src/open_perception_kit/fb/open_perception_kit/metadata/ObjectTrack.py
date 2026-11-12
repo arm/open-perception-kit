@@ -18,6 +18,9 @@
 # namespace: metadata
 
 import open_perception_kit.fb.open_perception_kit.metadata.BoundingBox
+import open_perception_kit.fb.open_perception_kit.metadata.TrackingSample
+import open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity
+import open_perception_kit.fb.open_perception_kit.metadata.TrackAssociation
 import open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta
 import flatbuffers
 from flatbuffers.compat import import_numpy
@@ -63,14 +66,18 @@ class ObjectTrack(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
+        return None
 
     # ObjectTrack
-    def TrackId(self):
+    def Identity(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity import TrackIdentity
+            obj = TrackIdentity()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
 
     # ObjectTrack
     def Box(self):
@@ -84,11 +91,11 @@ class ObjectTrack(object):
         return None
 
     # ObjectTrack
-    def Confidence(self):
+    def SourceConfidence(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+        return None
 
     # ObjectTrack
     def ClassId(self):
@@ -105,22 +112,37 @@ class ObjectTrack(object):
         return None
 
     # ObjectTrack
-    def Diagnostic(self):
+    def Association(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
-            return self._tab.String(o + self._tab.Pos)
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.TrackAssociation import TrackAssociation
+            obj = TrackAssociation()
+            obj.Init(self._tab.Bytes, x)
+            return obj
         return None
 
     # ObjectTrack
-    def PredictedOnly(self):
+    def Sample(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
-        return False
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.TrackingSample import TrackingSample
+            obj = TrackingSample()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # ObjectTrack
+    def SourceFrameIndex(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return None
 
 
 def ObjectTrackStart(builder):
-    builder.StartObject(9)
+    builder.StartObject(10)
 
 
 def Start(builder):
@@ -136,19 +158,19 @@ def AddObject(builder, object):
 
 
 def ObjectTrackAddSourceId(builder, sourceId):
-    builder.PrependUint64Slot(1, sourceId, 0)
+    builder.PrependUint64Slot(1, sourceId, None)
 
 
 def AddSourceId(builder, sourceId):
     ObjectTrackAddSourceId(builder, sourceId)
 
 
-def ObjectTrackAddTrackId(builder, trackId):
-    builder.PrependUint64Slot(2, trackId, 0)
+def ObjectTrackAddIdentity(builder, identity):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(identity), 0)
 
 
-def AddTrackId(builder, trackId):
-    ObjectTrackAddTrackId(builder, trackId)
+def AddIdentity(builder, identity):
+    ObjectTrackAddIdentity(builder, identity)
 
 
 def ObjectTrackAddBox(builder, box):
@@ -159,12 +181,12 @@ def AddBox(builder, box):
     ObjectTrackAddBox(builder, box)
 
 
-def ObjectTrackAddConfidence(builder, confidence):
-    builder.PrependFloat32Slot(4, confidence, 0.0)
+def ObjectTrackAddSourceConfidence(builder, sourceConfidence):
+    builder.PrependFloat32Slot(4, sourceConfidence, None)
 
 
-def AddConfidence(builder, confidence):
-    ObjectTrackAddConfidence(builder, confidence)
+def AddSourceConfidence(builder, sourceConfidence):
+    ObjectTrackAddSourceConfidence(builder, sourceConfidence)
 
 
 def ObjectTrackAddClassId(builder, classId):
@@ -183,20 +205,28 @@ def AddText(builder, text):
     ObjectTrackAddText(builder, text)
 
 
-def ObjectTrackAddDiagnostic(builder, diagnostic):
-    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(diagnostic), 0)
+def ObjectTrackAddAssociation(builder, association):
+    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(association), 0)
 
 
-def AddDiagnostic(builder, diagnostic):
-    ObjectTrackAddDiagnostic(builder, diagnostic)
+def AddAssociation(builder, association):
+    ObjectTrackAddAssociation(builder, association)
 
 
-def ObjectTrackAddPredictedOnly(builder, predictedOnly):
-    builder.PrependBoolSlot(8, predictedOnly, 0)
+def ObjectTrackAddSample(builder, sample):
+    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(sample), 0)
 
 
-def AddPredictedOnly(builder, predictedOnly):
-    ObjectTrackAddPredictedOnly(builder, predictedOnly)
+def AddSample(builder, sample):
+    ObjectTrackAddSample(builder, sample)
+
+
+def ObjectTrackAddSourceFrameIndex(builder, sourceFrameIndex):
+    builder.PrependUint64Slot(9, sourceFrameIndex, None)
+
+
+def AddSourceFrameIndex(builder, sourceFrameIndex):
+    ObjectTrackAddSourceFrameIndex(builder, sourceFrameIndex)
 
 
 def ObjectTrackEnd(builder):
@@ -219,25 +249,30 @@ class ObjectTrackT(object):
     def __init__(
         self,
         object=None,
-        sourceId=0,
-        trackId=0,
+        sourceId=None,
+        identity=None,
         box=None,
-        confidence=0.0,
+        sourceConfidence=None,
         classId=None,
         text=None,
-        diagnostic=None,
-        predictedOnly=False,
+        association=None,
+        sample=None,
+        sourceFrameIndex=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
-        self.sourceId = sourceId  # type: int
-        self.trackId = trackId  # type: int
+        self.sourceId = sourceId  # type: Optional[int]
+        # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity.TrackIdentityT]
+        self.identity = identity
         self.box = box  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.BoundingBox.BoundingBoxT]
-        self.confidence = confidence  # type: float
+        self.sourceConfidence = sourceConfidence  # type: Optional[float]
         self.classId = classId  # type: Optional[int]
         self.text = text  # type: Optional[str]
-        self.diagnostic = diagnostic  # type: Optional[str]
-        self.predictedOnly = predictedOnly  # type: bool
+        # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.TrackAssociation.TrackAssociationT]
+        self.association = association
+        # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.TrackingSample.TrackingSampleT]
+        self.sample = sample
+        self.sourceFrameIndex = sourceFrameIndex  # type: Optional[int]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -264,39 +299,53 @@ class ObjectTrackT(object):
             self.object = open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT.InitFromObj(
                 objectTrack.Object())
         self.sourceId = objectTrack.SourceId()
-        self.trackId = objectTrack.TrackId()
+        if objectTrack.Identity() is not None:
+            self.identity = open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity.TrackIdentityT.InitFromObj(
+                objectTrack.Identity())
         if objectTrack.Box() is not None:
             self.box = open_perception_kit.fb.open_perception_kit.metadata.BoundingBox.BoundingBoxT.InitFromObj(
                 objectTrack.Box())
-        self.confidence = objectTrack.Confidence()
+        self.sourceConfidence = objectTrack.SourceConfidence()
         self.classId = objectTrack.ClassId()
         self.text = objectTrack.Text()
-        self.diagnostic = objectTrack.Diagnostic()
-        self.predictedOnly = objectTrack.PredictedOnly()
+        if objectTrack.Association() is not None:
+            self.association = open_perception_kit.fb.open_perception_kit.metadata.TrackAssociation.TrackAssociationT.InitFromObj(
+                objectTrack.Association())
+        if objectTrack.Sample() is not None:
+            self.sample = open_perception_kit.fb.open_perception_kit.metadata.TrackingSample.TrackingSampleT.InitFromObj(
+                objectTrack.Sample())
+        self.sourceFrameIndex = objectTrack.SourceFrameIndex()
 
     # ObjectTrackT
     def Pack(self, builder):
         if self.object is not None:
             object = self.object.Pack(builder)
+        if self.identity is not None:
+            identity = self.identity.Pack(builder)
         if self.box is not None:
             box = self.box.Pack(builder)
         if self.text is not None:
             text = builder.CreateString(self.text)
-        if self.diagnostic is not None:
-            diagnostic = builder.CreateString(self.diagnostic)
+        if self.association is not None:
+            association = self.association.Pack(builder)
+        if self.sample is not None:
+            sample = self.sample.Pack(builder)
         ObjectTrackStart(builder)
         if self.object is not None:
             ObjectTrackAddObject(builder, object)
         ObjectTrackAddSourceId(builder, self.sourceId)
-        ObjectTrackAddTrackId(builder, self.trackId)
+        if self.identity is not None:
+            ObjectTrackAddIdentity(builder, identity)
         if self.box is not None:
             ObjectTrackAddBox(builder, box)
-        ObjectTrackAddConfidence(builder, self.confidence)
+        ObjectTrackAddSourceConfidence(builder, self.sourceConfidence)
         ObjectTrackAddClassId(builder, self.classId)
         if self.text is not None:
             ObjectTrackAddText(builder, text)
-        if self.diagnostic is not None:
-            ObjectTrackAddDiagnostic(builder, diagnostic)
-        ObjectTrackAddPredictedOnly(builder, self.predictedOnly)
+        if self.association is not None:
+            ObjectTrackAddAssociation(builder, association)
+        if self.sample is not None:
+            ObjectTrackAddSample(builder, sample)
+        ObjectTrackAddSourceFrameIndex(builder, self.sourceFrameIndex)
         objectTrack = ObjectTrackEnd(builder)
         return objectTrack

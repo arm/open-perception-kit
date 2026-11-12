@@ -661,7 +661,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
         PROP_APPEND_TRACK_ID_TO_TEXT,
         g_param_spec_boolean("append-track-id-to-text",
                              "Append track ID",
-                             "Append [ID:n] to detection text"
+                             "Append identity and association details to rendered track labels"
                              "; Changeable while playing; applied to subsequent frames",
                              opk::tracker::Defaults::appendIdentityIdToText,
                              static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
