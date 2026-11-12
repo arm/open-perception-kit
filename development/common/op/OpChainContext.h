@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "opk/OutputCapability.h"
+
 #include "mediaio/VideoFrame.h"
 #include "opk/FrameResults.h"
 #include "opk/PcmRingBuffer.h"
@@ -41,6 +43,15 @@ namespace opk::op {
  * process() return signals rather than by mutable context flags.
  */
 struct OpChainContext {
+
+    /// Per-frame snapshot of explicit external input connections.
+    std::vector<opk::InputBinding> inputBindings;
+
+    std::string inputProducerId(const std::string_view consumerId,
+                                const opk::InputReference &input) const {
+        return opk::resolveInputProducerId(
+            input, consumerId, inferenceInfo.inferElementId, inputBindings);
+    }
 
     /// Borrowed PCM windows valid only during this execution. opkinfer supplies
     /// pipelineAudioData as one complete mono Float32 16 kHz inference window.

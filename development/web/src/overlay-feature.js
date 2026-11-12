@@ -22,10 +22,6 @@ export const STYLE_CONTROLS = [
     {key: 'color', label: 'Color', type: 'color', value: '#ffffff'},
     {key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01, value: 1},
 ];
-const CONTENT_COLORS = {
-    humanFace: '#2600ff', genericObject: '#ff3030',
-    cameraContact: '#66ff00', personClassification: '#66ff00', trackTrace: '#ffff00',
-};
 
 // Shared source lookup, palette and validation. Plugins own their accepted
 // sources, optional default overrides, relationship resolver and drawing function.
@@ -35,7 +31,6 @@ export function defineFeature({controls = STYLE_CONTROLS, defaults = {}, resolve
         controls,
         defaults(source) {
             const settings = Object.fromEntries(controls.map((control) => [control.key, control.value]));
-            if (Object.hasOwn(settings, 'color')) settings.color = CONTENT_COLORS[source.contentType] || settings.color;
             return {...settings,
                 ...(typeof defaults === 'function' ? defaults(source) : defaults)};
         },

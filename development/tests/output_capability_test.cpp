@@ -14,156 +14,133 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include <gtest/gtest.h>
-
-#include <array>
-#include <string_view>
-#include <utility>
-#include <vector>
-
 #include "op/Op.h"
 #include "op/OpChain.h"
 #include "op/OpRef.h"
+#include "opk/InputBindings.h"
+#include <array>
+#include <gtest/gtest.h>
 
 namespace {
 using namespace open_perception_kit::metadata;
 using opk::outputCapability;
 
-TEST(OutputCapabilities, ParsersAdvertiseTypedFrameResults) {
-    const std::array parserOutputs = {
-        std::pair{"CameraContactParser", outputCapability<CameraContactsT>("cameraContact")},
+TEST(OutputCapabilities, ParsersAdvertiseOnlySdkPayloadTypes) {
+    const std::array outputs = {
+        std::pair{"CameraContactParser", outputCapability<CameraContactsT>()},
         std::pair{"DummyParser", opk::OutputCapability{}},
-        std::pair{"GazeDetectionParser", outputCapability<GazeMeasurementsT>("eyeYawPitch")},
-        std::pair{"ImageNetClassificationParser",
-                  outputCapability<ClassificationsT>("classification")},
-        std::pair{"ModNetSegmentationParser", outputCapability<SegmentationMasksT>("segmentation")},
-        std::pair{"ObjectEmbeddingParser", outputCapability<ObjectEmbeddingsT>("objectEmbedding")},
-        std::pair{"PaddleOcrDetectionParser", outputCapability<SegmentationMasksT>("segmentation")},
-        std::pair{"PaddleOcrDbDetectionParser", outputCapability<BoxDetectionsT>("textRegion")},
-        std::pair{"PaddleOcrRecognitionParser",
-                  outputCapability<ClassificationsT>("textRecognition")},
-        std::pair{"PersonClassificationParser",
-                  outputCapability<PersonPresencesT>("personClassification")},
-        std::pair{"RvmParser", outputCapability<SegmentationMasksT>("segmentation")},
-        std::pair{"RetinaFaceParser", outputCapability<BoxDetectionsT>("humanFace")},
-        std::pair{"ScrfdParser", outputCapability<BoxDetectionsT>("humanFace")},
-        std::pair{"SileroVadParser", outputCapability<VoiceActivityDetectionsT>("voiceActivity")},
-        std::pair{"SmartTurnParser", outputCapability<TurnDetectionsT>("turnDetection")},
-        std::pair{"UltrafaceParser", outputCapability<BoxDetectionsT>("humanFace")},
-        std::pair{"YoloParser", outputCapability<BoxDetectionsT>("genericObject")},
-        std::pair{"YoloXParser", outputCapability<BoxDetectionsT>("genericObject")},
+        std::pair{"GazeDetectionParser", outputCapability<GazeMeasurementsT>()},
+        std::pair{"ImageNetClassificationParser", outputCapability<ClassificationsT>()},
+        std::pair{"ModNetSegmentationParser", outputCapability<SegmentationMasksT>()},
+        std::pair{"ObjectEmbeddingParser", outputCapability<ObjectEmbeddingsT>()},
+        std::pair{"PaddleOcrDetectionParser", outputCapability<SegmentationMasksT>()},
+        std::pair{"PaddleOcrDbDetectionParser", outputCapability<BoxDetectionsT>()},
+        std::pair{"PaddleOcrRecognitionParser", outputCapability<ClassificationsT>()},
+        std::pair{"PersonClassificationParser", outputCapability<PersonPresencesT>()},
+        std::pair{"RvmParser", outputCapability<SegmentationMasksT>()},
+        std::pair{"RetinaFaceParser", outputCapability<BoxDetectionsT>()},
+        std::pair{"ScrfdParser", outputCapability<BoxDetectionsT>()},
+        std::pair{"SileroVadParser", outputCapability<VoiceActivityDetectionsT>()},
+        std::pair{"SmartTurnParser", outputCapability<TurnDetectionsT>()},
+        std::pair{"UltrafaceParser", outputCapability<BoxDetectionsT>()},
+        std::pair{"YoloParser", outputCapability<BoxDetectionsT>()},
+        std::pair{"YoloXParser", outputCapability<BoxDetectionsT>()},
         std::pair{"Yolo26InstanceSegmentationParser",
-                  outputCapability<InstanceSegmentationMasksT>("instanceSegmentation")},
+                  outputCapability<InstanceSegmentationMasksT>()},
         std::pair{"Yolo26SemanticSegmentationParser",
-                  outputCapability<SemanticSegmentationMasksT>("semanticSegmentation")},
+                  outputCapability<SemanticSegmentationMasksT>()},
     };
-
     opk::op::OpRef op;
     ASSERT_TRUE(op.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
-    auto *postprocessor = op->as<opk::op::OpInterfacePostprocessor>();
-    ASSERT_NE(postprocessor, nullptr);
-    EXPECT_TRUE(postprocessor->getProvidedOutputs().empty());
-
-    for (const auto &[parser, output] : parserOutputs) {
-        opk::AttributeMap attributes;
-        attributes.set("parser", parser);
-        ASSERT_TRUE(op->configure(attributes)) << parser;
-
-        const auto expected = output.payloadType.empty()
-                                  ? std::vector<opk::OutputCapability>{}
-                                  : std::vector<opk::OutputCapability>{output};
-        EXPECT_EQ(postprocessor->getProvidedOutputs(), expected) << parser;
+    const auto *provider = op->as<opk::op::OpInterfacePostprocessor>();
+    ASSERT_NE(provider, nullptr);
+    for (const auto &[parser, output] : outputs) {
+        opk::AttributeMap attrs;
+        ASSERT_TRUE(op->configure(attrs.set("parser", parser)));
+        EXPECT_EQ(provider->getProvidedOutputs(),
+                  output.payloadType.empty() ? std::vector<opk::OutputCapability>{}
+                                             : std::vector<opk::OutputCapability>{output});
+        if (!output.payloadType.empty())
+            EXPECT_TRUE(opk::isKnownPayloadType(output.payloadType));
     }
+    EXPECT_FALSE(opk::isKnownPayloadType("humanFace"));
 }
 
-TEST(OutputCapabilities, InferenceControllerRequiresBoxesNotJustAMatchingRole) {
-    opk::op::OpRef op;
-    ASSERT_TRUE(op.bind(OPK_STDOPS_PATH, "InferenceController"));
-    auto *consumer = op->as<opk::op::OpInterfaceResultConsumer>();
-    ASSERT_NE(consumer, nullptr);
-
-    opk::AttributeMap attributes;
-    ASSERT_TRUE(op->configure(attributes));
-    EXPECT_TRUE(consumer->getRequiredOutputs().empty());
-
-    attributes.set("contentType", "humanFace");
-    ASSERT_TRUE(op->configure(attributes));
-    const auto required = outputCapability<BoxDetectionsT>("humanFace");
-    EXPECT_EQ(consumer->getRequiredOutputs(), std::vector<opk::OutputCapability>{required});
-    EXPECT_FALSE(opk::provides(outputCapability<ClassificationsT>("humanFace"), required));
-    EXPECT_TRUE(opk::provides(required, outputCapability<BoxDetectionsT>()));
-    EXPECT_FALSE(opk::provides(outputCapability<BoxDetectionsT>(), required));
+TEST(OutputCapabilities, ConnectionsRequireBothExactProducerAndPayload) {
+    const auto boxes = outputCapability<BoxDetectionsT>().payloadType;
+    EXPECT_TRUE(opk::provides({boxes, "one/output"}, {boxes, "one/output"}));
+    EXPECT_FALSE(opk::provides({boxes, "one/output"}, {boxes, "two/output"}));
+    EXPECT_FALSE(opk::provides({boxes, "one/output"}, {boxes, ""}));
+    EXPECT_FALSE(opk::provides({boxes, "one/output"},
+                               {outputCapability<ClassificationsT>().payloadType, "one/output"}));
+    EXPECT_FALSE(opk::parseProducerIds("genericObject"));
+    EXPECT_FALSE(opk::parseProducerIds("[\"same\",\"same\"]"));
+    EXPECT_TRUE(opk::parseProducerIds("[]").has_value());
+    EXPECT_FALSE(opk::parseInputBindings(
+        R"([{"consumerId":"crop","inputId":"input","payloadType":"humanFace","producerId":"one"}])"));
 }
 
-TEST(OutputCapabilities, ChainReportsOnlyExternalDependenciesAndDeduplicatesOutputs) {
-    opk::op::OpRef yolo;
-    opk::op::OpRef yoloX;
-    opk::op::OpRef dummy;
-    opk::op::OpRef controller;
-    ASSERT_TRUE(yolo.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
-    ASSERT_TRUE(yoloX.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
-    ASSERT_TRUE(dummy.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
+TEST(OutputCapabilities, LocalConnectionsDoNotCollapseSameTypePublishers) {
+    opk::op::OpRef first, second, controller;
+    ASSERT_TRUE(first.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
+    ASSERT_TRUE(second.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
     ASSERT_TRUE(controller.bind(OPK_STDOPS_PATH, "InferenceController"));
-
-    opk::AttributeMap attributes;
-    ASSERT_TRUE(yolo->configure(attributes.set("parser", "YoloParser")));
-    ASSERT_TRUE(yoloX->configure(attributes.set("parser", "YoloXParser")));
-    ASSERT_TRUE(dummy->configure(attributes.set("parser", "DummyParser")));
-    attributes.clear();
-    ASSERT_TRUE(controller->configure(attributes.set("contentType", "humanFace")));
-
+    first->instanceId = "first";
+    second->instanceId = "second";
+    controller->instanceId = "crop";
+    opk::AttributeMap parser, source;
+    ASSERT_TRUE(first->configure(parser.set("parser", "YoloParser")));
+    ASSERT_TRUE(second->configure(parser.set("parser", "RetinaFaceParser")));
+    ASSERT_TRUE(controller->configure(source.set("sourceOp", "first")));
+    auto *const consumer = controller.get();
     opk::op::OpChain chain;
-    auto *controllerPtr = controller.get();
-    chain.add(yolo);
-    chain.add(yoloX);
-    chain.add(dummy);
+    chain.add(first);
+    chain.add(second);
     chain.add(controller);
     ASSERT_TRUE(chain.bind());
-
-    EXPECT_EQ(
-        chain.getProvidedOutputs(),
-        std::vector<opk::OutputCapability>{outputCapability<BoxDetectionsT>("genericObject")});
-    EXPECT_EQ(chain.getRequiredOutputs(),
-              std::vector<opk::OutputCapability>{outputCapability<BoxDetectionsT>("humanFace")});
-    ASSERT_TRUE(controllerPtr->configure(attributes.set("contentType", "genericObject")));
-    EXPECT_TRUE(chain.getRequiredOutputs().empty());
+    const auto boxes = outputCapability<BoxDetectionsT>().payloadType;
+    EXPECT_EQ(chain.getProvidedOutputs("infer"),
+              (std::vector<opk::OutputReference>{{boxes, "infer/first"}, {boxes, "infer/second"}}));
+    EXPECT_TRUE(chain.getRequiredInputs("infer").empty());
+    EXPECT_FALSE(chain.validateInputBindings({{"crop", "input", boxes, "other/output"}}));
+    source.clear();
+    ASSERT_TRUE(consumer->configure(source.set("sourceProducer", "")));
+    EXPECT_EQ(chain.getRequiredInputs("infer"),
+              (std::vector<opk::InputBinding>{{"crop", "input", boxes, ""}}));
+    const std::vector<opk::InputBinding> binding{{"crop", "input", boxes, "upstream/output"}};
+    EXPECT_TRUE(chain.validateInputBindings(binding));
+    EXPECT_EQ(chain.getRequiredInputs("infer", binding), binding);
+    EXPECT_FALSE(chain.validateInputBindings({binding.front(), binding.front()}));
+    EXPECT_FALSE(chain.validateInputBindings({{"crop", "wrong", boxes, "upstream/output"}}));
+    EXPECT_FALSE(chain.validateInputBindings(
+        {{"crop", "input", outputCapability<ClassificationsT>().payloadType, "upstream/output"}}));
 }
 
-TEST(OutputCapabilities, AProviderAfterTheConsumerCannotSatisfyItsInput) {
-    opk::op::OpRef controller, producer;
-    ASSERT_TRUE(controller.bind(OPK_STDOPS_PATH, "InferenceController"));
-    ASSERT_TRUE(producer.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
-    opk::AttributeMap input, output;
-    ASSERT_TRUE(controller->configure(input.set("contentType", "genericObject")));
-    ASSERT_TRUE(producer->configure(output.set("parser", "YoloParser")));
-    opk::op::OpChain chain;
-    chain.add(controller);
-    chain.add(producer);
-    ASSERT_TRUE(chain.bind());
-    EXPECT_EQ(
-        chain.getRequiredOutputs(),
-        std::vector<opk::OutputCapability>{outputCapability<BoxDetectionsT>("genericObject")});
-}
-
-TEST(OutputCapabilities, RetinaFaceSatisfiesOnlyFollowingFaceConsumers) {
-    for (const bool provideFirst : std::array{false, true}) {
-        opk::op::OpRef detector, controller;
-        ASSERT_TRUE(detector.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
-        ASSERT_TRUE(controller.bind(OPK_STDOPS_PATH, "InferenceController"));
-        opk::AttributeMap output, input;
-        ASSERT_TRUE(detector->configure(output.set("parser", "RetinaFaceParser")));
-        ASSERT_TRUE(controller->configure(input.set("contentType", "humanFace")));
-        opk::op::OpChain chain;
-        chain.add(provideFirst ? detector : controller);
-        chain.add(provideFirst ? controller : detector);
-        ASSERT_TRUE(chain.bind());
-        const std::vector<opk::OutputCapability> faces{
-            outputCapability<BoxDetectionsT>("humanFace")};
-        EXPECT_EQ(chain.getProvidedOutputs(), faces);
-        EXPECT_EQ(chain.getRequiredOutputs(),
-                  provideFirst ? std::vector<opk::OutputCapability>{} : faces);
+TEST(OutputCapabilities, MissingForwardAndIncompatibleLocalConnectionsFail) {
+    for (const std::string parser : {"RetinaFaceParser", "ImageNetClassificationParser"}) {
+        for (const bool first : {false, true}) {
+            opk::op::OpRef producer, consumer;
+            ASSERT_TRUE(producer.bind(OPK_STDOPS_PATH, "GenericPostprocess"));
+            ASSERT_TRUE(consumer.bind(OPK_STDOPS_PATH, "InferenceController"));
+            producer->instanceId = "source";
+            consumer->instanceId = "crop";
+            opk::AttributeMap output, input;
+            ASSERT_TRUE(producer->configure(output.set("parser", parser)));
+            ASSERT_TRUE(consumer->configure(input.set("sourceOp", "source")));
+            opk::op::OpChain chain;
+            chain.add(first ? producer : consumer);
+            chain.add(first ? consumer : producer);
+            EXPECT_EQ(bool(chain.bind()), first && parser == "RetinaFaceParser");
+        }
     }
+    opk::op::OpRef consumer;
+    ASSERT_TRUE(consumer.bind(OPK_STDOPS_PATH, "InferenceController"));
+    opk::AttributeMap input;
+    EXPECT_FALSE(consumer->configure(input.set("contentType", "humanFace")));
+    input.clear();
+    ASSERT_TRUE(consumer->configure(input.set("sourceOp", "missing")));
+    opk::op::OpChain chain;
+    chain.add(consumer);
+    EXPECT_FALSE(chain.bind());
 }
-
 } // namespace

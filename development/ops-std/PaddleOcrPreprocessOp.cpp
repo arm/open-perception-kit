@@ -260,7 +260,6 @@ opk::Result<opk::op::OpSignal> PaddleOcrPreprocessOp::process(opk::op::OpChainCo
     image.cropX = crop.x;
     image.cropY = crop.y;
     context.inferenceInfo.modelName = model.name;
-    context.inferenceInfo.contentType = model.contentType;
     context.inferenceInfo.parentId = context.inferenceImageCropIds.back();
     context.inferenceImageCrops.pop_back();
     context.inferenceImageCropIds.pop_back();

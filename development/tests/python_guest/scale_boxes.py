@@ -60,7 +60,6 @@ def process(env: Envelope) -> None:
                 engine="python",
                 model="scale-boxes",
                 inferElementId="python-guest-test",
-                contentType="test/scaled-boxes",
             ),
             detections=transformed,
         )

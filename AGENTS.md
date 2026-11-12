@@ -221,7 +221,7 @@ Prefer simple, self-contained app code unless there is already an established sh
 
 For browser apps that consume metadata:
 
-- route on `layer.contentType` and `detection.type`, not layer order
+- use SDK payload types for compatibility and explicit producer references for input selection, not layer order or semantic labels
 - define the coordinate-space policy explicitly before mapping detections into UI or gameplay
 - use `VideoFrame` dimensions when available and treat other dimension recovery as heuristic
 - treat left/right assignment and mirrored-camera behavior as app-level logic

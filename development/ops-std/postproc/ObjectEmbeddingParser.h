@@ -30,11 +30,9 @@ namespace opk::stdop::postproc {
  * vehicle re-identification). Embeddings can be used for similarity matching.
  */
 struct ObjectEmbeddingParser : public TensorParser {
-    static constexpr std::string_view k_content_type = "objectEmbedding";
 
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {opk::outputCapability<open_perception_kit::metadata::ObjectEmbeddingsT>(
-            k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::ObjectEmbeddingsT>()};
     }
 
     Result<void> parse(const TensorParser::Input &input,

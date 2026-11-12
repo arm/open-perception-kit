@@ -88,7 +88,6 @@ opk::Result<void> RvmParser::parse(const opk::TensorParser::Input &input,
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));

@@ -211,7 +211,7 @@ test("selector renders task and model details from descriptor metadata", () => {
     name: "YoloV11",
     runtime: "ONNX",
     task: "Object detection",
-    providedOutputs: [{payloadType: "open_perception_kit.metadata.BoxDetections", role: "genericObject"}],
+    providedOutputs: [{payloadType: "open_perception_kit.metadata.BoxDetections", producerId: "opkinfer1/detector"}],
   };
 
   modelsManager.render([model]);
@@ -246,14 +246,14 @@ test("dependent models show their provider networks beside the toggle", () => {
       displayName: "L2CS MobileGaze",
       element_name: "opkinfer2",
       name: "GazeDetection",
-      requiredOutputs: [{payloadType: "open_perception_kit.metadata.BoxDetections", role: "humanFace"}],
+      requiredInputs: [{consumerId: "roi", inputId: "input", payloadType: "open_perception_kit.metadata.BoxDetections", producerId: "opkinfer1/detector"}],
     },
     {
       active: false,
       displayName: "UltraFace",
       element_name: "opkinfer1",
       name: "Ultraface",
-      providedOutputs: [{payloadType: "open_perception_kit.metadata.BoxDetections", role: "humanFace"}],
+      providedOutputs: [{payloadType: "open_perception_kit.metadata.BoxDetections", producerId: "opkinfer1/detector"}],
       task: "Face detection",
     },
     {
@@ -261,7 +261,7 @@ test("dependent models show their provider networks beside the toggle", () => {
       displayName: "YOLOv11n",
       element_name: "opkinfer0",
       name: "YoloV11",
-      providedOutputs: [{payloadType: "open_perception_kit.metadata.Classifications", role: "humanFace"}],
+      providedOutputs: [{payloadType: "open_perception_kit.metadata.Classifications", producerId: "opkinfer0/output"}],
     },
   ]);
 
@@ -288,12 +288,35 @@ test("dependent models identify missing providers", () => {
     element_name: "opkinfer0",
     name: "GazeDetection",
     providedOutputs: "humanFace",
-    requiredOutputs: [null, {}, {payloadType: "open_perception_kit.metadata.BoxDetections", role: "humanFace"}],
+    requiredInputs: [null, {}, {consumerId: "roi", inputId: "input", payloadType: "open_perception_kit.metadata.BoxDetections", producerId: "missing/output"}],
   }]);
 
   const dependencyInfo = modelsContainer.children[0].querySelector(".model-dependency-info");
-  assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: No provider registered");
-  assert.equal(dependencyInfo.querySelector("li").textContent, "No provider registered");
+  assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: Selected source unavailable");
+  assert.equal(dependencyInfo.querySelector("li").textContent, "Selected source unavailable");
+});
+
+test("input choices use compatible observed upstream outputs and submit concrete bindings", () => {
+  const payloadType = "open_perception_kit.metadata.BoxDetections";
+  const first = {payloadType, producerId: "first/output"};
+  const second = {payloadType, producerId: "second/output"};
+  const binding = {consumerId: "crop", inputId: "input", ...first};
+  const consumer = {name: "Consumer", element_name: "consumer", requiredInputs: [binding],
+    availableInputs: [first, second]};
+  modelsManager.render([
+    {name: "First", element_name: "first", providedOutputs: [first]},
+    {name: "Second", element_name: "second", providedOutputs: [second]},
+    {name: "Downstream", element_name: "downstream", providedOutputs: [{payloadType, producerId: "downstream/output"}]},
+    consumer,
+  ]);
+  const item = modelsContainer.children.find(element => element.getAttribute("data-model-name") === "Consumer");
+  const select = item.querySelector("select");
+  assert.ok(select.getAttribute("aria-label"));
+  assert.deepEqual(select.children.map(option => option.value), ["", first.producerId, second.producerId]);
+  select.value = second.producerId;
+  select.dispatchEvent({type: "change"});
+  assert.deepEqual(sentMessages.at(-1), {type: "model_inputs", name: "consumer",
+    bindings: [{...binding, producerId: second.producerId}]});
 });
 
 test("duplicate descriptor names retain unique element identities", () => {
@@ -334,6 +357,21 @@ test("duplicate descriptor names retain unique element identities", () => {
     type: "model_toggle",
     name: "opkinfer-executorch",
   });
+});
+
+test("duplicate output addresses remain visibly ambiguous instead of selecting a provider", () => {
+  const output = {payloadType: "open_perception_kit.metadata.BoxDetections", producerId: "duplicate/output"};
+  modelsManager.render([
+    {name: "First", element_name: "one", providedOutputs: [output]},
+    {name: "Second", element_name: "two", providedOutputs: [output]},
+    {name: "Consumer", element_name: "consumer", availableInputs: [output],
+      requiredInputs: [{consumerId: "crop", inputId: "input", ...output}]},
+  ]);
+  const item = modelsContainer.children.find(element => element.getAttribute("data-model-name") === "Consumer");
+  const select = item.querySelector("select");
+  assert.equal(select.value, output.producerId);
+  assert.equal(select.children[1].disabled, true);
+  assert.match(select.children[1].textContent, /ambiguous/);
 });
 
 test("partial metadata remains readable", () => {

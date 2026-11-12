@@ -379,7 +379,7 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             (model_dir / "model.json").write_text(
                 json.dumps(
                     {
-                        "version": "1.0.0",
+                        "version": "2.0.0",
                         "name": "missing",
                         "modelFile": "missing.vgf",
                         "dynamicOutput": True,
@@ -397,7 +397,7 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             (model_dir / "opchain.json").write_text(
                 json.dumps(
                     {
-                        "version": "1.0.0",
+                        "version": "2.0.0",
                         "name": "missing",
                         "description": "Missing files.",
                         "ops": [
@@ -461,7 +461,7 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             (model_dir / "model.json").write_text(
                 json.dumps(
                     {
-                        "version": "1.0.0",
+                        "version": "2.0.0",
                         "name": "executorch",
                         "modelFile": "model.pte",
                         "dynamicOutput": True,
@@ -479,7 +479,7 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             (model_dir / "opchain.json").write_text(
                 json.dumps(
                     {
-                        "version": "1.0.0",
+                        "version": "2.0.0",
                         "name": "executorch",
                         "description": "ExecuTorch plugin check.",
                         "ops": [

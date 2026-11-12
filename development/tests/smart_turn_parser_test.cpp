@@ -58,8 +58,7 @@ TEST(SmartTurnParser, PublishesEveryAssessmentWithoutPrintingOrReplacingVad) {
     EXPECT_TRUE(output.empty());
     EXPECT_EQ(f.parser.getProvidedOutputs(),
               std::vector<opk::OutputCapability>{
-                  opk::outputCapability<open_perception_kit::metadata::TurnDetectionsT>(
-                      "turnDetection")});
+                  opk::outputCapability<open_perception_kit::metadata::TurnDetectionsT>()});
 
     const auto bytes = open_perception_kit::serialize(f.results);
     open_perception_kit::FrameResults decoded{std::span<const uint8_t>(bytes)};
@@ -68,7 +67,6 @@ TEST(SmartTurnParser, PublishesEveryAssessmentWithoutPrintingOrReplacingVad) {
         EXPECT_EQ(payload.schema_major, 1);
         EXPECT_EQ(payload.schema_minor, 0);
         ASSERT_TRUE(payload.layer);
-        EXPECT_EQ(payload.layer->content_type, "turnDetection");
         EXPECT_EQ(payload.layer->model, "smart-turn");
         EXPECT_EQ(payload.layer->infer_element_id, "audio0");
         ASSERT_TRUE(payload.layer->producer);

@@ -91,7 +91,6 @@ struct ModelDescriptor {
     std::string modelFile;
 
     /// Semantic model content type (for example detection/classification).
-    std::string contentType;
 
     /// Input tensor descriptors.
     std::vector<TensorDescriptor> inputTensors;
@@ -188,8 +187,6 @@ inline void to_json(json &j, const ModelDescriptor &b) {
              {"modelFile", b.modelFile},
              {"inputTensors", b.inputTensors},
              {"dynamicOutput", b.dynamicOutput}};
-    if (!b.contentType.empty())
-        j["contentType"] = b.contentType;
     if (!b.outputTensors.empty())
         j["outputTensors"] = b.outputTensors;
     if (!b.tensorFeedbacks.empty())
@@ -202,7 +199,6 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     j.at("version").get_to(b.version);
     j.at("name").get_to(b.name);
     j.at("modelFile").get_to(b.modelFile);
-    b.contentType = j.value("contentType", std::string{});
     b.inputTensors = j.value("inputTensors", std::vector<TensorDescriptor>{});
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});
     b.tensorFeedbacks = j.value("tensorFeedbacks", std::vector<opk::TensorFeedback>{});

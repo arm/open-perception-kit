@@ -246,7 +246,7 @@ test('zero and absent text scores never fall back to region confidence; saved co
     assert.equal(migrated.opacity, 0.3);
     assert.equal(ocr.validateSettings({confidence: true, textConfidence: false}).textConfidence, false);
     assert.equal(ocr.validateSettings({confidence: 'yes'}), null);
-    const saved = {version: 2, overlays: [{...overlay, settings: {confidence: true, opacity: 0.3}}]};
+    const saved = {version: 3, overlays: [{...overlay, settings: {confidence: true, opacity: 0.3}}]};
     const restored = loadOverlays({getItem: () => JSON.stringify(saved)}).overlays[0];
     assert.equal(restored.settings.regionConfidence, true);
     assert.equal(restored.settings.textConfidence, true);

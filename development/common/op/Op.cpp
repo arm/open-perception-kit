@@ -26,7 +26,7 @@ Op::producerInfo(std::string_view inferElementId,
                  std::string_view implementation,
                  std::string_view fallbackComponent) const {
     open_perception_kit::metadata::ProducerInfoT result;
-    result.instance_id = fmt::format("{}/{}", inferElementId, instanceId);
+    result.instance_id = opk::producerInstanceId(inferElementId, instanceId);
     result.component = libName.empty() || opName.empty() ? fallbackComponent
                                                          : fmt::format("{}/{}", libName, opName);
     result.implementation = implementation;

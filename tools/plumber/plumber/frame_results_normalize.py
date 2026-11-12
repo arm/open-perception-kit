@@ -44,7 +44,6 @@ from open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements
 class PayloadKey:
     payload_type: str
     infer_element_id: str = ""
-    content_type: str = ""
     model: str = ""
     producer_component: str = ""
     producer_instance_id: str = ""
@@ -96,7 +95,6 @@ def _layer_info_dict(layer_info: Any) -> dict[str, Any]:
             "tags": "",
             "inferElementId": "",
             "labelFamily": "",
-            "contentType": "",
             "compositingMode": "",
             "producer": None,
         }
@@ -107,7 +105,6 @@ def _layer_info_dict(layer_info: Any) -> dict[str, Any]:
         "tags": _text(layer_info.tags),
         "inferElementId": _text(layer_info.inferElementId),
         "labelFamily": _text(layer_info.labelFamily),
-        "contentType": _text(layer_info.contentType),
         "compositingMode": _text(layer_info.compositingMode),
         "producer": None
         if producer is None
@@ -125,7 +122,6 @@ def _payload_key(payload_type: str, layer_info: Any) -> PayloadKey:
     return PayloadKey(
         payload_type=payload_type,
         infer_element_id=layer_info_fields["inferElementId"],
-        content_type=layer_info_fields["contentType"],
         model=layer_info_fields["model"],
         producer_component=producer.get("component", ""),
         producer_instance_id=producer.get("instanceId", ""),

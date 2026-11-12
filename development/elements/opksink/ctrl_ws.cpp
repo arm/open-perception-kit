@@ -43,6 +43,7 @@ CtrlWebSocket::CtrlWebSocket(_GstOpkSink *self) : self_(self) {
     message_types = {
         {"play_pause", std::bind(&CtrlWebSocket::play_pause, this, _1)},
         {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
+        {"model_inputs", [this](const json &message) { model_inputs(message); }},
     };
 }
 
@@ -317,5 +318,32 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
 
     } catch (const json::exception &e) {
         opk::log::debug("Dropping invalid model toggle: {}", e.what());
+    }
+}
+
+void CtrlWebSocket::model_inputs(const json &jsn) {
+    try {
+        const auto name = jsn.at("name").get<std::string>();
+        const auto &bindings = jsn.at("bindings");
+        if (name.empty() || name.size() > 1024 || name.find('\0') != std::string::npos ||
+            !bindings.is_array() || bindings.size() > 128)
+            return;
+        const auto encoded = bindings.dump();
+        if (encoded.size() > 65536)
+            return;
+        GstElement *const pipeline = get_top_pipeline(GST_ELEMENT(self_));
+        if (!pipeline)
+            return;
+        GstElement *const target = get_element_by_name(pipeline, name);
+        gst_object_unref(pipeline);
+        if (!target)
+            return;
+        const auto *const property =
+            g_object_class_find_property(G_OBJECT_GET_CLASS(target), "input-bindings");
+        if (property && G_PARAM_SPEC_VALUE_TYPE(property) == G_TYPE_STRING)
+            g_object_set(target, "input-bindings", encoded.c_str(), nullptr);
+        gst_object_unref(target);
+    } catch (const json::exception &error) {
+        opk::log::debug("Dropping invalid model input connections: {}", error.what());
     }
 }

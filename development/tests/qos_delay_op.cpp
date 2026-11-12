@@ -58,10 +58,11 @@ class DelayOp final : public opk::op::Op,
     }
 
     opk::Result<void> configure(const opk::AttributeMap &attributes) override {
-        provided_ = {attributes.getStringOrDefault("provided-payload-type", ""),
-                     attributes.getStringOrDefault("provided-role", "")};
-        required_ = {attributes.getStringOrDefault("required-payload-type", ""),
-                     attributes.getStringOrDefault("required-role", "")};
+        provided_ = {attributes.getStringOrDefault("provided-payload-type", "")};
+        required_ = {"input",
+                     attributes.getStringOrDefault("required-payload-type", ""),
+                     attributes.getStringOrDefault("required-producer", ""),
+                     attributes.getStringOrDefault("source-op", "")};
         if (attributes.contains("control-handle")) {
             handle_ = reinterpret_cast<DelayOpHandle *>(
                 static_cast<std::uintptr_t>(attributes.getInt("control-handle")));
@@ -96,9 +97,9 @@ class DelayOp final : public opk::op::Op,
                                              : std::vector<opk::OutputCapability>{provided_};
     }
 
-    std::vector<opk::OutputCapability> getRequiredOutputs() const override {
-        return required_.payloadType.empty() ? std::vector<opk::OutputCapability>{}
-                                             : std::vector<opk::OutputCapability>{required_};
+    std::vector<opk::InputReference> getRequiredInputs() const override {
+        return required_.payloadType.empty() ? std::vector<opk::InputReference>{}
+                                             : std::vector<opk::InputReference>{required_};
     }
 
     void setDelay(std::uint64_t milliseconds) {
@@ -127,7 +128,7 @@ class DelayOp final : public opk::op::Op,
 
   private:
     opk::OutputCapability provided_;
-    opk::OutputCapability required_;
+    opk::InputReference required_;
     DelayOpHandle *handle_ = nullptr;
     std::atomic<std::uint64_t> delayMilliseconds_{50};
     std::mutex gateMutex_;

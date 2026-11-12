@@ -16,38 +16,10 @@
  */
 
 import {defaultSettings, featureFor} from './overlay-features.js';
-import {sourceKey, validSource} from './overlay-sources.js';
+import {copySource, validSource} from './overlay-sources.js';
 
-export const OVERLAY_STORAGE_KEY = 'opk-overlays:v2';
-const LEGACY_STORAGE_KEY = 'opk-overlays:v1';
-
-function legacyFeature(source) {
-    if (source.payloadType === 'Classifications' && source.contentType === 'cameraContact') return 'camera-contact';
-    return {
-        BoxDetections: 'bounding-boxes', ObjectTracks: 'tracked-objects', TrackTraces: 'movement-trails',
-        Classifications: 'classifications', PoseEstimations: 'gaze', PerformanceOverlay: 'performance',
-    }[source.payloadType] || 'unsupported';
-}
-
-function validLegacy(overlay) {
-    return validSource(overlay?.source) && typeof overlay.enabled === 'boolean'
-        && typeof overlay.settings?.color === 'string' && /^#[0-9a-f]{6}$/i.test(overlay.settings.color)
-        && Number.isFinite(overlay.settings?.opacity) && overlay.settings.opacity >= 0 && overlay.settings.opacity <= 1;
-}
-
-function migrateLegacy(overlay, saved) {
-    if (!validLegacy(overlay)) return null;
-    const featureId = legacyFeature(overlay.source);
-    const settings = {...overlay.settings};
-    if (featureId === 'tracked-objects') {
-        // Preserve the old explicit-trail override as an owned checkbox value,
-        // once during migration. Features never consult other overlay settings.
-        const oldTraceKey = sourceKey({...overlay.source, payloadType: 'TrackTraces', contentType: 'trackTrace'});
-        settings.boxes = true;
-        settings.trails = !saved.some((entry) => validLegacy(entry) && sourceKey(entry.source) === oldTraceKey);
-    }
-    return {featureId, selection: {primary: overlay.source}, enabled: overlay.enabled, settings};
-}
+export const OVERLAY_STORAGE_KEY = 'opk-overlays:v3';
+const PREVIOUS_STORAGE_KEY = 'opk-overlays:v2';
 
 function normalizeOverlay(overlay) {
     const primary = overlay?.selection?.primary;
@@ -59,7 +31,7 @@ function normalizeOverlay(overlay) {
     if (!overlay.settings || typeof overlay.settings !== 'object' || Array.isArray(overlay.settings)) return null;
     const settings = feature ? feature.validateSettings(overlay.settings) : overlay.settings;
     if (!settings) return null;
-    return {featureId: overlay.featureId, selection: {primary: primary === null ? null : {...primary}}, enabled: overlay.enabled, settings};
+    return {featureId: overlay.featureId, selection: {primary: primary === null ? null : copySource(primary)}, enabled: overlay.enabled, settings};
 }
 
 export function createOverlay(featureId, source = null) {
@@ -85,46 +57,23 @@ export function bindPendingOverlays(overlays, catalog) {
 export function loadOverlays(storage) {
     try {
         const current = storage.getItem(OVERLAY_STORAGE_KEY);
-        const raw = current ?? storage.getItem(LEGACY_STORAGE_KEY);
+        const raw = current ?? storage.getItem(PREVIOUS_STORAGE_KEY);
         if (raw === null) return {overlays: [], notice: ''};
         const saved = JSON.parse(raw);
         const migrating = current === null;
-        if (saved?.version !== (migrating ? 1 : 2) || !Array.isArray(saved.overlays)) throw new Error('Unsupported settings');
-        const candidates = migrating ? saved.overlays.map((entry) => migrateLegacy(entry, saved.overlays)) : saved.overlays;
+        if (saved?.version !== (migrating ? 2 : 3) || !Array.isArray(saved.overlays)) throw new Error('Unsupported settings');
+        // Preserve explicit renderer/settings/provenance, dropping retired selector fields.
+        // Never infer a payload family or rendering style from old semantic labels.
+        const candidates = saved.overlays;
         const overlays = candidates.map(normalizeOverlay).filter(Boolean);
-        let relabelled = false;
-        for (const overlay of overlays) {
-            const source = overlay.selection.primary;
-            if (overlay.featureId === 'gaze' && source?.payloadType === 'PoseEstimations'
-                && source.contentType === 'eyeYawPitch') {
-                source.payloadType = 'GazeMeasurements';
-                relabelled = true;
-            }
-            // Saved selections follow the typed payload split; no old packets are decoded.
-            if (source?.payloadType === 'Classifications'
-                && ['cameraContact', 'personClassification'].includes(source.contentType)) {
-                source.payloadType = source.contentType === 'cameraContact' ? 'CameraContacts' : 'PersonPresences';
-                relabelled = true;
-            }
-            // Keep saved UI selections when the SDK payload is replaced. This
-            // migrates preferences only; old packets are not decoded.
-            if (overlay.featureId === 'performance' && source?.payloadType === 'PerformanceOverlay') {
-                source.payloadType = 'PerformanceMeasurements';
-                relabelled = true;
-            }
-            // Older bounding-box selections rendered humanFace regions as circles.
-            // Keep that appearance and selector, but give it an honest feature name.
-            if (overlay.featureId === 'bounding-boxes' && source?.contentType === 'humanFace'
-                && ['BoxDetections', 'ObjectTracks'].includes(source.payloadType)) {
-                overlay.featureId = 'face-circles';
-                relabelled = true;
-            }
-        }
         const notices = [];
         if (overlays.length !== candidates.length) notices.push('Some invalid saved overlays were skipped.');
-        // Keep the v1 record as a backup. Failed migration writes can be retried
+        // Keep the previous record as a backup. Failed migration writes can be retried
         // on reload; never delete the only persisted copy of the user's choices.
-        if (migrating || relabelled) notices.push(saveOverlays(storage, overlays));
+        if (migrating) {
+            notices.push('Saved selections migrated. Marker shape is now an explicit display setting.');
+            notices.push(saveOverlays(storage, overlays));
+        }
         return {overlays, notice: notices.filter(Boolean).join(' ')};
     } catch {
         return {overlays: [], notice: 'Saved overlays could not be loaded. You can still add overlays.'};
@@ -135,7 +84,7 @@ export function saveOverlays(storage, overlays) {
     try {
         const saved = overlays.map(normalizeOverlay);
         if (saved.some((overlay) => !overlay)) throw new Error('Invalid overlay settings');
-        storage.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({version: 2, overlays: saved}));
+        storage.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({version: 3, overlays: saved}));
         return '';
     } catch {
         return 'Overlay settings could not be saved. Changes apply only to this page session.';

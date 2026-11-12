@@ -18,21 +18,87 @@
 #include "open_perception_kit.h"
 #include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 #include <vector>
 
 namespace opk {
 // Declared capability, not an assertion that inference ran or returned items.
 struct OutputCapability {
     std::string payloadType;
-    std::string role;
     bool operator==(const OutputCapability &) const = default;
 };
-template <typename Payload> OutputCapability outputCapability(const std::string_view role = {}) {
-    return {std::string(open_perception_kit::detail::native_traits<Payload>::qualified_root_type),
-            std::string(role)};
+template <typename Payload> OutputCapability outputCapability() {
+    return {std::string(open_perception_kit::detail::native_traits<Payload>::qualified_root_type)};
 }
-inline bool provides(const OutputCapability &output, const OutputCapability &requirement) {
-    return !requirement.payloadType.empty() && output.payloadType == requirement.payloadType &&
-           (requirement.role.empty() || output.role == requirement.role);
+
+inline bool isKnownPayloadType(const std::string_view name) {
+    using Payloads = open_perception_kit::detail::payload_data;
+    return [&]<std::size_t... Index>(std::index_sequence<Index...>) {
+        return (
+            ([&] {
+                using Payload = std::variant_alternative_t<Index, Payloads>;
+                if constexpr (open_perception_kit::container::native_payload<Payload>)
+                    return name ==
+                           open_perception_kit::detail::native_traits<Payload>::qualified_root_type;
+                return false;
+            }()) ||
+            ...);
+    }(std::make_index_sequence<std::variant_size_v<Payloads>>{});
+}
+
+// A concrete output address. The producer ID is the instance_id carried in metadata,
+// not a semantic label, parser name or a wildcard selecting a family of producers.
+struct OutputReference {
+    std::string payloadType;
+    std::string producerId;
+    bool operator==(const OutputReference &) const = default;
+};
+
+// Authored input: sourceOp names one earlier operation in the same chain;
+// otherwise producerId is an external address (empty means explicitly unbound).
+struct InputReference {
+    std::string inputId;
+    std::string payloadType;
+    std::string producerId;
+    std::string sourceOp;
+    bool operator==(const InputReference &) const = default;
+};
+
+// Runtime connection for one consumer/type input, including model-selector changes.
+struct InputBinding {
+    std::string consumerId;
+    std::string inputId;
+    std::string payloadType;
+    std::string producerId;
+    bool operator==(const InputBinding &) const = default;
+};
+
+inline std::string producerInstanceId(const std::string_view inferId,
+                                      const std::string_view instanceId) {
+    return std::string(inferId) + "/" + std::string(instanceId);
+}
+
+inline std::string resolveInputProducerId(const InputReference &input,
+                                          const std::string_view consumerId,
+                                          const std::string_view inferId,
+                                          const std::vector<InputBinding> &bindings) {
+    if (!input.sourceOp.empty())
+        return producerInstanceId(inferId, input.sourceOp);
+    const InputBinding *selected = nullptr;
+    for (const auto &binding : bindings) {
+        if (binding.consumerId == consumerId && binding.inputId == input.inputId) {
+            if (binding.payloadType != input.payloadType)
+                return {};
+            if (selected)
+                return {}; // Ambiguity must not choose an arbitrary producer.
+            selected = &binding;
+        }
+    }
+    return selected ? selected->producerId : input.producerId;
+}
+
+inline bool provides(const OutputReference &output, const OutputReference &input) {
+    return !input.payloadType.empty() && !input.producerId.empty() && output == input;
 }
 } // namespace opk

@@ -63,50 +63,68 @@ const std::string &OpChain::getRuntime() const {
     return this->runtime;
 }
 
-namespace {
-
-template <typename Interface, typename Getter>
-std::vector<opk::OutputCapability> collectOutputs(std::span<opk::op::Op *const> ops,
-                                                  Getter getter) {
-    std::vector<opk::OutputCapability> result;
-    for (const auto *op : ops) {
-        const auto *contentOp = op->as<Interface>();
-        if (contentOp == nullptr)
-            continue;
-        for (const auto &output : getter(*contentOp)) {
-            if (!output.payloadType.empty() && std::ranges::find(result, output) == result.end())
-                result.push_back(output);
-        }
-    }
-    return result;
-}
-
-} // namespace
-
-std::vector<opk::OutputCapability> OpChain::getProvidedOutputs() const {
-    return collectOutputs<OpInterfacePostprocessor>(
-        opPtrs, [](const auto &op) { return op.getProvidedOutputs(); });
-}
-
-std::vector<opk::OutputCapability> OpChain::getRequiredOutputs() const {
-    std::vector<opk::OutputCapability> result, earlier;
+std::vector<opk::OutputReference>
+OpChain::getProvidedOutputs(const std::string_view inferId) const {
+    std::vector<opk::OutputReference> result;
     for (const auto *op : opPtrs) {
-        if (const auto *consumer = op->as<OpInterfaceResultConsumer>()) {
-            for (const auto &required : consumer->getRequiredOutputs()) {
-                if (!required.payloadType.empty() &&
-                    !std::ranges::any_of(
-                        earlier,
-                        [&](const auto &output) { return opk::provides(output, required); }) &&
-                    std::ranges::find(result, required) == result.end())
-                    result.push_back(required);
+        if (const auto *producer = op->as<OpInterfacePostprocessor>()) {
+            for (const auto &output : producer->getProvidedOutputs()) {
+                const opk::OutputReference reference{
+                    output.payloadType, opk::producerInstanceId(inferId, op->instanceId)};
+                if (!output.payloadType.empty() &&
+                    std::ranges::find(result, reference) == result.end())
+                    result.push_back(reference);
             }
         }
-        if (const auto *producer = op->as<OpInterfacePostprocessor>()) {
-            const auto outputs = producer->getProvidedOutputs();
-            earlier.insert(earlier.end(), outputs.begin(), outputs.end());
+    }
+    return result;
+}
+
+std::vector<opk::InputBinding>
+OpChain::getRequiredInputs(const std::string_view inferId,
+                           const std::vector<opk::InputBinding> &bindings) const {
+    std::vector<opk::InputBinding> result;
+    for (const auto *op : opPtrs) {
+        if (const auto *consumer = op->as<OpInterfaceResultConsumer>()) {
+            for (const auto &input : consumer->getRequiredInputs()) {
+                if (input.sourceOp.empty())
+                    result.push_back(
+                        {op->instanceId,
+                         input.inputId,
+                         input.payloadType,
+                         opk::resolveInputProducerId(input, op->instanceId, inferId, bindings)});
+            }
         }
     }
     return result;
+}
+
+opk::Result<void>
+OpChain::validateInputBindings(const std::vector<opk::InputBinding> &bindings) const {
+    std::vector<std::pair<std::string, std::string>> seen;
+    for (const auto &binding : bindings) {
+        const auto key = std::pair{binding.consumerId, binding.inputId};
+        if (std::ranges::find(seen, key) != seen.end())
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData, "Duplicate input connection"));
+        seen.push_back(key);
+        bool declared = false;
+        for (const auto *op : opPtrs) {
+            if (op->instanceId != binding.consumerId)
+                continue;
+            if (const auto *consumer = op->as<OpInterfaceResultConsumer>()) {
+                for (const auto &input : consumer->getRequiredInputs())
+                    declared =
+                        declared || (input.sourceOp.empty() && input.inputId == binding.inputId &&
+                                     input.payloadType == binding.payloadType);
+            }
+        }
+        if (!declared)
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData,
+                          "Input connection does not name a declared external input"));
+    }
+    return {};
 }
 
 opk::Result<size_t> OpChain::getRequiredAudioSamples() const {
@@ -235,15 +253,58 @@ void OpChain::add(opk::op::OpRef &opRef) {
 
 opk::Result<void> OpChain::bind() {
     opPtrs.resize(opRefs.size());
+    std::unordered_map<std::string, size_t> occurrences;
+    std::vector<std::string> identities;
     for (size_t i = 0; i < opRefs.size(); i++) {
         opPtrs[i] = opRefs[i].get();
+        const auto component = opPtrs[i]->libName + "/" + opPtrs[i]->opName;
+        const auto occurrence = occurrences[component]++;
+        if (opPtrs[i]->instanceId.empty())
+            opPtrs[i]->instanceId = makeDefaultInstanceId(component, occurrence);
+        if (std::ranges::find(identities, opPtrs[i]->instanceId) != identities.end())
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "Duplicate operation instance ID"));
+        identities.push_back(opPtrs[i]->instanceId);
     }
 
     for (size_t i = 0; i < opPtrs.size(); i++) {
+        if (const auto *producer = opPtrs[i]->as<OpInterfacePostprocessor>()) {
+            for (const auto &output : producer->getProvidedOutputs())
+                if (!opk::isKnownPayloadType(output.payloadType))
+                    return tl::unexpected(
+                        OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                  "Output must name a generated SDK payload type"));
+        }
         auto opBindResult = opPtrs[i]->bind(i, opPtrs);
         if (!opBindResult) {
             return tl::unexpected(
                 ExecutionSelection::operationError(*opPtrs[i], opBindResult.error()));
+        }
+        if (const auto *consumer = opPtrs[i]->as<OpInterfaceResultConsumer>()) {
+            std::vector<std::string> inputs;
+            for (const auto &input : consumer->getRequiredInputs()) {
+                if (input.inputId.empty() || !opk::isKnownPayloadType(input.payloadType) ||
+                    std::ranges::find(inputs, input.inputId) != inputs.end() ||
+                    (!input.sourceOp.empty() && !input.producerId.empty()))
+                    return tl::unexpected(
+                        OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "Invalid input reference"));
+                inputs.push_back(input.inputId);
+                if (input.sourceOp.empty())
+                    continue;
+                bool found = false;
+                for (size_t upstream = 0; upstream < i; ++upstream) {
+                    if (opPtrs[upstream]->instanceId != input.sourceOp)
+                        continue;
+                    if (const auto *producer = opPtrs[upstream]->as<OpInterfacePostprocessor>()) {
+                        for (const auto &output : producer->getProvidedOutputs())
+                            found = found || output.payloadType == input.payloadType;
+                    }
+                }
+                if (!found)
+                    return tl::unexpected(OPK_ERROR(
+                        opk::ErrorFlag::InvalidOpChain,
+                        "Local input must name an earlier producer of the required payload type"));
+            }
         }
     }
 

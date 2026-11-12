@@ -28,13 +28,11 @@ namespace opk::stdop::postproc {
 /// to the consumer. Window bounds describe real audio, excluding front padding.
 struct SmartTurnParser : public opk::TensorParser {
     /// Semantic content type advertised by this parser and attached to each output layer.
-    static constexpr std::string_view k_content_type = "turnDetection";
 
     /// @brief Reports the output content type for OpChain binding.
-    /// @return A single entry containing k_content_type.
+    /// @return The typed turn-detection output.
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {
-            opk::outputCapability<open_perception_kit::metadata::TurnDetectionsT>(k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::TurnDetectionsT>()};
     }
 
     /// @brief Validates one probability and appends its turn-completion assessment.

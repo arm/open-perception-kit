@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "byom-blazeface",
   "modelFile": "face_detector.onnx",
   "hfDownload": {

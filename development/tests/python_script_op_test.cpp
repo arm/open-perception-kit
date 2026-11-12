@@ -219,10 +219,11 @@ TEST(TensorBridge, RequiresProducerInfoForContext) {
     opk::python::PyObjectPtr runtimeModule(PyImport_ImportModule("opk_python_ops"));
     ASSERT_TRUE(runtimeModule) << opk::python::formatPythonError();
 
-    opk::python::PyObjectPtr context(opk::python::wrapContext(nullptr));
+    opk::python::PyObjectPtr context(opk::python::wrapContext(nullptr, nullptr));
 
     EXPECT_FALSE(context);
-    EXPECT_NE(opk::python::formatPythonError().find("producer_info is required"),
+    EXPECT_NE(opk::python::formatPythonError().find(
+                  "producer_info and an input connection dictionary are required"),
               std::string::npos);
 }
 
@@ -255,23 +256,44 @@ TEST(PythonScriptOp, DeclaresTypedOutputsWithoutGuessingFromTheScriptName) {
     ASSERT_TRUE(script.configure(configuration));
     EXPECT_TRUE(script.getProvidedOutputs().empty());
     auto output = std::make_shared<opk::AttributeMap>();
-    output->set("payloadType", "open_perception_kit.metadata.BoxDetections")
-        .set("role", "humanFace");
+    output->set("payloadType", "open_perception_kit.metadata.BoxDetections");
     auto required = std::make_shared<opk::AttributeMap>();
-    required->set("payloadType", "open_perception_kit.metadata.VoiceActivityDetections");
+    required->set("inputId", "audio")
+        .set("payloadType", "open_perception_kit.metadata.VoiceActivityDetections")
+        .set("producerId", "vad/output");
     configuration.setArray("providedOutputs",
                            opk::AttributeValue::Array{opk::AttributeValue(output)});
-    configuration.setArray("requiredOutputs",
+    configuration.setArray("requiredInputs",
                            opk::AttributeValue::Array{opk::AttributeValue(required)});
     ASSERT_TRUE(script.configure(configuration));
+    EXPECT_EQ(script.getProvidedOutputs(),
+              std::vector<opk::OutputCapability>{
+                  opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>()});
     EXPECT_EQ(
-        script.getProvidedOutputs(),
-        std::vector<opk::OutputCapability>{
-            opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>("humanFace")});
-    EXPECT_EQ(
-        script.getRequiredOutputs(),
-        std::vector<opk::OutputCapability>{
-            opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>()});
+        script.getRequiredInputs(),
+        (std::vector<opk::InputReference>{
+            {"audio", "open_perception_kit.metadata.VoiceActivityDetections", "vad/output", ""}}));
+}
+
+TEST(PythonScriptOp, ExposesImmutableConnectionsFromEachFrameSnapshot) {
+    opk::python::PythonScriptOp script;
+    script.instanceId = "reader";
+    auto configuration = attributes("input_connections.py");
+    auto input = std::make_shared<opk::AttributeMap>();
+    const auto type =
+        opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>().payloadType;
+    input->set("inputId", "input").set("payloadType", type).set("producerId", "first/output");
+    configuration.setArray("requiredInputs",
+                           opk::AttributeValue::Array{opk::AttributeValue(input)});
+    ASSERT_TRUE(script.configure(configuration));
+    open_perception_kit::FrameResults results;
+    opk::op::OpChainContext context;
+    context.frameResults = &results;
+    ASSERT_TRUE(script.process(context));
+    context.inputBindings = {{"reader", "input", type, "second/output"}};
+    ASSERT_TRUE(script.process(context));
+    context.inputBindings[0].producerId.clear();
+    ASSERT_TRUE(script.process(context));
 }
 
 TEST(PythonScriptOp, AllowsPlacementWithoutInferenceOutputs) {

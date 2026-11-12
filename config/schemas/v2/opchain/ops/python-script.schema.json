@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:python-script-op:v2",
+  "title": "PythonScript Op v2",
+  "$defs": {
+    "outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["payloadType"],
+        "properties": {
+          "payloadType": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z_0-9]*(\\.[A-Za-z_][A-Za-z_0-9]*)+$"}
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["inputId", "payloadType"],
+        "properties": {
+          "inputId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"},
+          "payloadType": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z_0-9]*(\\.[A-Za-z_][A-Za-z_0-9]*)+$"},
+          "producerId": {"type": "string", "maxLength": 1024, "pattern": "^[^\\u0000-\\u001f\\u007f]*$"},
+          "sourceOp": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+        },
+        "not": {"required": ["sourceOp", "producerId"]}
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "id": {
+        "const": "opk-python-ops/PythonScript"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "then": {
+    "required": [
+      "attributes"
+    ],
+    "properties": {
+      "attributes": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "script"
+        ],
+        "properties": {
+          "providedOutputs": {"$ref": "#/$defs/outputs"},
+          "requiredInputs": {"$ref": "#/$defs/inputs"},
+          "script": {
+            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/localPath"
+          },
+          "pythonPaths": {
+            "type": "array",
+            "items": {
+              "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/localPath"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  }
+}

@@ -442,7 +442,6 @@ opk::Result<void> PaddleOcrDbDetectionParser::parse(const opk::TensorParser::Inp
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
     for (auto &contour : findContours(probabilities, width, height, settings)) {
         auto rectangle = minimumRectangle(convexHull(std::move(contour)));

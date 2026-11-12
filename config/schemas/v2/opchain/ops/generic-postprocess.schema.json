@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:generic-postprocess-op:v1",
-  "title": "GenericPostprocess Op v1",
+  "$id": "urn:arm:opk:schema:generic-postprocess-op:v2",
+  "title": "GenericPostprocess Op v2",
   "$defs": {
     "cameraContact": {
-      "title": "CameraContactParser attributes v1",
+      "title": "CameraContactParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -77,7 +77,7 @@
       ]
     },
     "dummy": {
-      "title": "DummyParser attributes v1",
+      "title": "DummyParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -94,7 +94,7 @@
       }
     },
     "gazeDetection": {
-      "title": "GazeDetectionParser attributes v1",
+      "title": "GazeDetectionParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -105,25 +105,25 @@
           "const": "GazeDetectionParser"
         },
         "angleBinWidthDeg": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveFiniteFloat"
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat"
         }
       }
     },
     "objectEmbedding": {
-      "title": "ObjectEmbeddingParser attributes v1",
+      "title": "ObjectEmbeddingParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": ["parser"],
       "properties": {
         "parser": {"const": "ObjectEmbeddingParser"},
         "embeddingSpaceId": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString",
           "description": "Versioned semantic embedding-space identity. Omission leaves vectors unidentified and unavailable for matching."
         }
       }
     },
     "noConfig": {
-      "title": "No-config GenericPostprocess parser attributes v1",
+      "title": "No-config GenericPostprocess parser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -140,7 +140,7 @@
       }
     },
     "imagenetClassification": {
-      "title": "ImageNetClassificationParser attributes v1",
+      "title": "ImageNetClassificationParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -151,17 +151,17 @@
           "const": "ImageNetClassificationParser"
         },
         "topK": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveCount",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
           "default": 5
         },
         "confidenceThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.01
         }
       }
     },
     "yolo26InstanceSegmentation": {
-      "title": "Yolo26InstanceSegmentationParser attributes v1",
+      "title": "Yolo26InstanceSegmentationParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -172,13 +172,13 @@
           "const": "Yolo26InstanceSegmentationParser"
         },
         "confidenceThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.25
         }
       }
     },
     "modnetSegmentation": {
-      "title": "ModNetSegmentationParser attributes v1",
+      "title": "ModNetSegmentationParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -189,17 +189,17 @@
           "const": "ModNetSegmentationParser"
         },
         "thresholdLow": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.2
         },
         "thresholdHigh": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.8
         }
       }
     },
     "paddleOcrDbDetection": {
-      "title": "PaddleOcrDbDetectionParser attributes v1",
+      "title": "PaddleOcrDbDetectionParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -216,27 +216,27 @@
           "const": "PaddleOcrDbDetectionParser"
         },
         "binaryThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability"
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability"
         },
         "confidenceThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability"
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability"
         },
         "unclipRatio": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveFiniteFloat"
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat"
         },
         "maxCandidates": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveCount"
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount"
         },
         "minBoxSize": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveFiniteFloat"
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat"
         },
         "minExpandedBoxSize": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveFiniteFloat"
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat"
         }
       }
     },
     "paddleOcrRecognition": {
-      "title": "PaddleOcrRecognitionParser attributes v1",
+      "title": "PaddleOcrRecognitionParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -248,12 +248,12 @@
           "const": "PaddleOcrRecognitionParser"
         },
         "dictionaryFile": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/localPath"
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/localPath"
         }
       }
     },
     "paddleOcrDetection": {
-      "title": "PaddleOcrDetectionParser attributes v1",
+      "title": "PaddleOcrDetectionParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -264,21 +264,21 @@
           "const": "PaddleOcrDetectionParser"
         },
         "thresholdLow": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.6
         },
         "thresholdHigh": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.8
         },
         "gamma": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveFiniteFloat",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat",
           "default": 0.5
         }
       }
     },
     "scrfd": {
-      "title": "ScrfdParser attributes v1",
+      "title": "ScrfdParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -289,11 +289,11 @@
           "const": "ScrfdParser"
         },
         "confidenceThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.5
         },
         "iouThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.4
         },
         "normalizeOutputCoordinates": {
@@ -301,13 +301,13 @@
           "default": false
         },
         "maxDetections": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveCount",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
           "default": 100
         }
       }
     },
     "ultraface": {
-      "title": "UltrafaceParser attributes v1",
+      "title": "UltrafaceParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -318,11 +318,11 @@
           "const": "UltrafaceParser"
         },
         "confidenceThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.5
         },
         "iouThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.3
         },
         "normalizeOutputCoordinates": {
@@ -332,7 +332,7 @@
       }
     },
     "yolo": {
-      "title": "YoloParser attributes v1",
+      "title": "YoloParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -351,16 +351,16 @@
           "default": "centerClassScores"
         },
         "maxDetections": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveCount",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
           "description": "Top class/anchor pairs retained by cornerClassScores before optional NMS.",
           "default": 300
         },
         "confidenceThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.25
         },
         "iouThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.45
         },
         "coordinatesAreNormalized": {
@@ -416,7 +416,7 @@
       ]
     },
     "yoloX": {
-      "title": "YoloXParser attributes v1",
+      "title": "YoloXParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -427,19 +427,19 @@
           "const": "YoloXParser"
         },
         "classCount": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveCount",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
           "default": 80
         },
         "confidenceThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.25
         },
         "iouThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.45
         },
         "maxDetections": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveCount",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
           "default": 100
         },
         "applyNms": {
@@ -533,13 +533,13 @@
           "const": "SmartTurnParser"
         },
         "threshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.5
         }
       }
     },
     "retinaface": {
-      "title": "RetinaFaceParser attributes v1",
+      "title": "RetinaFaceParser attributes v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -550,11 +550,11 @@
           "const": "RetinaFaceParser"
         },
         "confidenceThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.6
         },
         "iouThreshold": {
-          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
           "default": 0.4
         }
       }

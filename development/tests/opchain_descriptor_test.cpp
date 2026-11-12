@@ -29,7 +29,7 @@ namespace {
 nlohmann::json descriptor(std::string modelDescriptor,
                           std::string id = "opk-future-ops/Inference") {
     return {
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "test"},
         {"description", "Path resolution test."},
         {"ops",
@@ -110,7 +110,7 @@ TEST(OpChainDescriptor, PreservesCanonicalJsonAndAbsolutePaths) {
     std::filesystem::remove_all(directory.parent_path());
 
     auto executionDocument = descriptor("model.json");
-    executionDocument["version"] = "1.5.0";
+    executionDocument["version"] = "2.1.0";
     const auto omitted{opk::op::OpChainDescriptor::fromJson(executionDocument.dump())};
     ASSERT_TRUE(omitted);
     EXPECT_FALSE(omitted->execution);
@@ -148,7 +148,7 @@ TEST(OpChainDescriptor, ResolvesPythonScriptPathsRelativeToModelDescriptor) {
     std::filesystem::create_directories(modelDirectory);
     const auto descriptorPath = opchainDirectory / "opchain.json";
     nlohmann::json value = {
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
@@ -179,7 +179,7 @@ TEST(OpChainDescriptor, RejectsRelativePythonScriptPathsWithoutModelDescriptor) 
     std::filesystem::create_directories(directory);
     const auto descriptorPath = directory / "opchain.json";
     nlohmann::json value = {
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
@@ -202,7 +202,7 @@ TEST(OpChainDescriptor, RejectsAmbiguousRelativePythonScriptPaths) {
     std::filesystem::create_directories(directory);
     const auto descriptorPath = directory / "opchain.json";
     nlohmann::json value = {
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
@@ -230,7 +230,7 @@ TEST(OpChainDescriptor, AllowsAbsolutePythonScriptPathsWithMultipleModelDirector
     const auto absoluteScript = std::filesystem::absolute("scripts/process.py").string();
     const auto absolutePythonPath = std::filesystem::absolute("modules").string();
     nlohmann::json value = {
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
@@ -269,7 +269,7 @@ TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().flag, opk::ErrorFlag::InvalidOpChain);
-    EXPECT_NE(result.error().info.find("opchain.v1.loop-group"), std::string::npos);
+    EXPECT_NE(result.error().info.find("opchain.v2.loop-group"), std::string::npos);
 }
 
 TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
@@ -278,7 +278,7 @@ TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
                                             std::pair{"retryMs", "500"},
                                             std::pair{"maxAttempts", "3"}}) {
         const std::string prefix =
-            R"({"version":"1.3.0","name":"turn-notation","description":"Validate turn notation.",
+            R"({"version":"2.0.0","name":"turn-notation","description":"Validate turn notation.",
                 "ops":[{"id":"opk-std-ops/TurnDetector","attributes":{")" +
             std::string(attribute) + "\":";
         ASSERT_TRUE(opk::op::OpChainDescriptor::fromJson(prefix + number + "}}]}"));
@@ -290,7 +290,7 @@ TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
                 const auto parsed = opk::op::OpChainDescriptor::fromJson(json);
                 EXPECT_FALSE(parsed);
                 if (!parsed) {
-                    EXPECT_NE(parsed.error().info.find("opchain.v1.turn-detector-integer"),
+                    EXPECT_NE(parsed.error().info.find("opchain.v2.turn-detector-integer"),
                               std::string::npos);
                     EXPECT_NE(
                         parsed.error().info.find(std::string("/ops/0/attributes/") + attribute),
@@ -305,7 +305,7 @@ TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
                 EXPECT_FALSE(setup);
                 if (!setup) {
                     EXPECT_EQ(setup.error().flag, opk::ErrorFlag::InvalidOpChain);
-                    EXPECT_NE(setup.error().info.find("opchain.v1.turn-detector-integer"),
+                    EXPECT_NE(setup.error().info.find("opchain.v2.turn-detector-integer"),
                               std::string::npos);
                 }
             });

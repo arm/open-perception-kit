@@ -35,7 +35,7 @@ DOCKER_UNAVAILABLE = "Docker CLI is not installed"
 MODELS_DIR = "config/models"
 MODEL_DESCRIPTOR = "model.json"
 SCHEMAS_DIR = Path("config/schemas")
-MODEL_SCHEMA = SCHEMAS_DIR / "v1/model.schema.json"
+MODEL_SCHEMA = SCHEMAS_DIR / "v2/model.schema.json"
 # Temporary EXPKITS-1084 quality gate while stale model artifacts may remain in build contexts.
 RETIRED_MODEL_SUFFIXES = {".hef"}
 
@@ -74,7 +74,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
         from jsonschema import Draft202012Validator
 
         for name in ("model", "opchain", "pipeline"):
-            schema = json.loads((REPO_ROOT / SCHEMAS_DIR / f"v1/{name}.schema.json").read_text())
+            major = "v1" if name == "pipeline" else "v2"
+            schema = json.loads((REPO_ROOT / SCHEMAS_DIR / major / f"{name}.schema.json").read_text())
             validator = Draft202012Validator(schema["properties"]["version"])
             for version in ("1.0.0", "1.0.37", "1.4.2", "0.9.0", "2.0.0"):
                 with self.subTest(name=name, version=version):
@@ -89,12 +90,12 @@ class ModelArtifactBuildTest(unittest.TestCase):
             (REPO_ROOT / "config/pipelines/yolo26n-320.json").read_text()
         )
         inference_steps = [
-            step for step in pipeline["pipeline"] if "opkinfer" in step
+            step for step in pipeline["pipeline"] if step.startswith("opkinfer ")
         ]
         self.assertEqual(
             inference_steps,
             [
-                'opkinfer opchain-path="${OPK_PROJECT_ROOT:-/work}/config/models/'
+                'opkinfer name=opkinfer0 opchain-path="${OPK_PROJECT_ROOT:-/work}/config/models/'
                 'yolo26n-320/opchain.json" active=true !'
             ],
         )
@@ -844,14 +845,14 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
 
             verified_descriptor = root / "config/models/second/model.json"
             mismatched_model = json.loads(verified_descriptor.read_text())
-            for version in (1, "0.9.0", "2.0.0", "1.0.0\n", "1.0.0\0", "1.0.0-rc1"):
+            for version in (1, "0.9.0", "1.0.0", "1.0.0\n", "1.0.0\0", "1.0.0-rc1"):
                 with self.subTest(version=version):
                     mismatched_model["version"] = version
                     verified_descriptor.write_text(json.dumps(mismatched_model))
                     (root / "captured-token").unlink(missing_ok=True)
                     version_result = run_download()
                     self.assertEqual(version_result.returncode, 1, version_result.stderr)
-                    if version in ("0.9.0", "2.0.0"):
+                    if version in ("0.9.0", "1.0.0"):
                         self.assertIn("/version", version_result.stderr)
                     else:
                         self.assertIn("Invalid model descriptor", version_result.stderr)
@@ -867,7 +868,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                     self.assertEqual(version_result.returncode, 0, version_result.stderr)
                     self.assertTrue((root / "captured-token").exists())
                     self.assertEqual("different minor" in version_result.stderr, version == different_minor)
-            mismatched_model["version"] = "1.0.0"
+            mismatched_model["version"] = "2.0.0"
             mismatched_model["hfDownload"]["sha256"] = "0" * 64
             verified_descriptor.write_text(json.dumps(mismatched_model))
             installed_model = root / "config/models/second/renamed.bin"

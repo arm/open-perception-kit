@@ -29,11 +29,9 @@ namespace opk::stdop::postproc {
  * Specialized parser for detecting if the user looks into the camera or not.
  */
 struct CameraContactParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "cameraContact";
 
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {
-            opk::outputCapability<open_perception_kit::metadata::CameraContactsT>(k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::CameraContactsT>()};
     }
 
     opk::Result<void> parse(const opk::TensorParser::Input &input,

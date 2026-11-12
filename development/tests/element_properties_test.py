@@ -60,7 +60,10 @@ class ElementPropertiesTest(unittest.TestCase):
     def sample_value(self, prop):
         special = {"bg-image": str(self.image), "opchain-path": str(self.opchain),
                    "association-mode": "iou", "static-files": self.directory.name,
-                   "method": TCP_METHOD}
+                   "method": TCP_METHOD, "input-bindings": "[]",
+                   "input-producers": '["fixture/output"]',
+                   "circle-producers": '["fixture/output"]',
+                   "box-producers": '["fixture/output"]'}
         if prop.name in special:
             return special[prop.name]
         default = prop.default_value

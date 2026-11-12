@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "2.0.0",
   "name": "ultraface-rfb-320-fp32-mlwl",
   "modelFile": "ultraface-rfb-320.vgf",
   "hfDownload": {
@@ -9,7 +9,6 @@
     "sha256": "665e3f0ef67ea93a0b21c8acf3d33604ef4c3f82bd61860887beb35f5adba471"
   },
   "dynamicOutput": false,
-  "contentType": "humanFace",
   "inputTensors": [{
     "shape": [1, 3, 240, 320],
     "dataKind": "ImageRgbChw",

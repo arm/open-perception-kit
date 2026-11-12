@@ -46,11 +46,11 @@ std::string textOr(std::string_view value, std::string_view fallback = "-") {
 
 std::string layerLabel(const LayerInfoT *layer) {
     if (!layer) {
-        return "content=- model=- infer=-";
+        return "producer=- model=- infer=-";
     }
 
-    return fmt::format("content={} model={} infer={}",
-                       textOr(layer->content_type),
+    return fmt::format("producer={} model={} infer={}",
+                       layer->producer ? textOr(layer->producer->instance_id) : "-",
                        textOr(layer->model),
                        textOr(layer->infer_element_id));
 }

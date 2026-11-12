@@ -284,7 +284,6 @@ GenericImagePreprocessOp::process(opk::op::OpChainContext &opChainContext) {
     image.cropX = cropRect.x;
     image.cropY = cropRect.y;
     opChainContext.inferenceInfo.modelName = upcomingInferenceModel.name;
-    opChainContext.inferenceInfo.contentType = upcomingInferenceModel.contentType;
     opChainContext.inferenceInfo.parentId = sourceId;
 
     return opk::op::OpSignal::Continue;

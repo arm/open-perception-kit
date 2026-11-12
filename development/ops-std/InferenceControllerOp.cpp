@@ -38,16 +38,26 @@ opk::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<op
 }
 
 opk::Result<void> InferenceControllerOp::configure(const opk::AttributeMap &attributes) {
-    contentType = attributes.getStringOrDefault("contentType", "");
+    for (const auto &[key, value] : attributes.raw())
+        if (key != "sourceOp" && key != "sourceProducer")
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                            "Unknown InferenceController attribute: " + key));
+    if (attributes.contains("sourceOp") && attributes.contains("sourceProducer"))
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                        "Choose sourceOp or sourceProducer, not both"));
+    useBoxes = attributes.contains("sourceOp") || attributes.contains("sourceProducer");
+    input = {"input",
+             opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>().payloadType,
+             attributes.getStringOrDefault("sourceProducer", ""),
+             attributes.getStringOrDefault("sourceOp", "")};
+    if (attributes.contains("sourceOp") && input.sourceOp.empty())
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "sourceOp must name a concrete operation"));
     return {};
 }
 
-std::vector<opk::OutputCapability> InferenceControllerOp::getRequiredOutputs() const {
-    return contentType.empty()
-               ? std::vector<opk::OutputCapability>{}
-               : std::vector<opk::OutputCapability>{
-                     opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>(
-                         contentType)};
+std::vector<opk::InputReference> InferenceControllerOp::getRequiredInputs() const {
+    return useBoxes ? std::vector<opk::InputReference>{input} : std::vector<opk::InputReference>{};
 }
 
 opk::Result<opk::op::OpSignal>
@@ -62,8 +72,10 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
     }
 
     opChainContext.inferenceInfo.modelName.clear();
+    opChainContext.inferenceImageCrops.clear();
+    opChainContext.inferenceImageCropIds.clear();
 
-    if (contentType.empty()) {
+    if (!useBoxes) {
         const auto producer = producerInfo(
             opChainContext.inferenceInfo.inferElementId, opName, "opk-std-ops/InferenceController");
         const auto frameId = opChainContext.videoFrameId("pipelineVideoFrame", producer);
@@ -77,15 +89,16 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
 
         opChainContext.inferenceImageCropIds.push_back(frameId);
     } else {
+        const auto producerId = opChainContext.inputProducerId(instanceId, input);
         std::map<uint64_t, size_t> identities;
-        open_perception_kit::forEachBoxDetectionWithContentType(
-            *opChainContext.frameResults, contentType, [&](const auto &item) {
+        open_perception_kit::forEachBoxDetectionFromProducer(
+            *opChainContext.frameResults, producerId, [&](const auto &item) {
                 if (item.object && item.object->id != 0)
                     ++identities[item.object->id];
             });
-        open_perception_kit::forEachBoxDetectionWithContentType(
+        open_perception_kit::forEachBoxDetectionFromProducer(
             *opChainContext.frameResults,
-            contentType,
+            producerId,
             [&opChainContext, pipelineVideoFrame, &identities](const auto &r) {
                 if (!r.box || !r.object || r.object->id == 0 || identities[r.object->id] != 1) {
                     return;

@@ -116,6 +116,20 @@ def check_control(session, pipeline, gst):
         websocket.send_text(invalid)
         check_play_pause_after(invalid)
         assert model.props.active, f"Unexpected model state after {invalid!r}"
+        bindings = [{"consumerId": "crop", "inputId": "input",
+                     "payloadType": "open_perception_kit.metadata.BoxDetections",
+                     "producerId": "detector/output"}]
+        valid = json.dumps({"type": "model_inputs", "name": "model", "bindings": bindings})
+        websocket.send_text(valid)
+        check_play_pause_after(valid)
+        assert json.loads(model.props.input_bindings) == bindings
+        for update in ({"name": "model\0extra", "bindings": []},
+                       {"name": "model", "bindings": "invalid"},
+                       {"name": "model", "bindings": [bindings[0]] * 129}):
+            invalid = json.dumps({"type": "model_inputs", **update})
+            websocket.send_text(invalid)
+            check_play_pause_after(invalid)
+            assert json.loads(model.props.input_bindings) == bindings
     finally:
         websocket.close(1000, "done")
 
@@ -212,6 +226,7 @@ def check_messages():
     if endpoint == "control":
         class Model(gst.Bin):
             active = GObject.Property(type=bool, default=False)
+            input_bindings = GObject.Property(type=str, default="[]")
 
         pipeline.add(Model(name="model"))
     session = Soup.Session()

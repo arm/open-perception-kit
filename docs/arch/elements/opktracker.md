@@ -28,10 +28,10 @@ writes to those states. Read-only entries cannot be set.
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
-| `content-type` | Result layer content type containing detections to track. | `genericObject` | String matching an input layer; e.g. `humanFace`. | NULL/READY |
-| `use-embeddings` | Enable ReID embedding-based association. | `true` | `true`, `false` | Live |
+| `input-producers` | Concrete `BoxDetections` producers to track. | `[]` | JSON array, e.g. `["detector/boxes"]`; empty is unconnected. | NULL/READY |
+| `use-embeddings` | Enable ReID embedding-based association. | `false` | `true`, `false`; also requires an embedding producer. | Live |
 | `embedding-space-id` | Select an explicitly declared embedding space. | `""` | Exact space ID; empty requires one unambiguous candidate per subject. | NULL/READY |
-| `embedding-producer-id` | Restrict embedding selection to one producer instance. | `""` | Exact `ProducerInfo.instance_id`; empty does not filter producers. | NULL/READY |
+| `embedding-producer-id` | Select one embedding producer instance. | `""` | Exact `ProducerInfo.instance_id`; empty is unconnected. | NULL/READY |
 | `embedding-weight` | Embedding contribution to hybrid matching cost. | `0.5` | Float, 0–1; e.g. `0.7`. `0` uses IoU cost only; `1` uses embedding cost when available. | Live |
 | `min-cosine-similarity` | Minimum similarity for an embedding contribution. | `0.0` | Float, −1–1; e.g. `0.4`. | Live |
 | `reid-reassociate-threshold` | Minimum similarity for restoring a dormant track; values ≤ 0 disable dormant reassociation. | `0.65` | Float, −1–1; e.g. `0.75`. | Live |
@@ -58,7 +58,7 @@ writes to those states. Read-only entries cannot be set.
 Float defaults above use their intended decimal values; introspection may display
 the nearest representable float.
 
-`content-type`, `embedding-space-id`, `embedding-producer-id`, and `infer-id` require NULL or READY.
+`input-producers`, `embedding-space-id`, `embedding-producer-id`, and `infer-id` require NULL or READY.
 Their identity/source meaning must stay stable for a tracking history. Returning
 to READY clears that history before the next start. Other writable properties
 can change while playing: association thresholds and weights, confirmation/miss
@@ -75,8 +75,8 @@ default and description with `gst-inspect-1.0 opktracker`.
 See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
 for discovery, readback, validation and the explicit restart procedure.
 
-Embedding selection uses `ObjectEmbeddings`, explicit subject IDs and declared
-spaces, not content-type strings or derivation parents. Multiple eligible outputs
+Embedding selection uses `ObjectEmbeddings`, an explicit producer, subject IDs and declared
+spaces. Multiple eligible outputs
 for a subject are unavailable, even if only one vector is valid. Space ID,
 dimension and cosine metric must agree with the stored active/dormant embedding;
 invalid, zero or missing vectors cannot create a similarity score. Hybrid mode
