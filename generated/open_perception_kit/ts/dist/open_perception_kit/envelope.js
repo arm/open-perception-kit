@@ -33,7 +33,7 @@ import { WireEnvelope as FbEnvelope } from './fb/open-perception-kit/internalfb/
 import { WirePayload as Payload } from './fb/open-perception-kit/internalfb/wire-payload.js';
 import { _CLASS_TO_ID, _TYPE_REGISTRY, } from './registry.js';
 export const SDK_NAME = 'open_perception_kit';
-export const SDK_VERSION = '0.1.2';
+export const SDK_VERSION = '1.0.0';
 export const SCHEMA_SET_SHA256 = '80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3';
 export const EXTERNAL_KEY_MIN = BigInt('9223372036854775808');
 const EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
@@ -42,17 +42,13 @@ const EXTERNAL_HASH_PRIME = BigInt('1099511628211');
 const UINT64_MASK = BigInt('0xffffffffffffffff');
 const textEncoder = new TextEncoder();
 const externalKeyToken = Symbol('external-key');
-const SDK_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SEMANTIC_VERSION_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
-const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 export var ProducerIdentityStatus;
 (function (ProducerIdentityStatus) {
+    ProducerIdentityStatus["NameMismatch"] = "name_mismatch";
     ProducerIdentityStatus["ExactMatch"] = "exact_match";
-    ProducerIdentityStatus["Missing"] = "missing";
-    ProducerIdentityStatus["Malformed"] = "malformed";
-    ProducerIdentityStatus["SdkNameMismatch"] = "sdk_name_mismatch";
-    ProducerIdentityStatus["SdkVersionMismatch"] = "sdk_version_mismatch";
-    ProducerIdentityStatus["SchemaSetMismatch"] = "schema_set_mismatch";
+    ProducerIdentityStatus["CompatibleMatch"] = "compatible_match";
+    ProducerIdentityStatus["VersionMismatch"] = "version_mismatch";
 })(ProducerIdentityStatus || (ProducerIdentityStatus = {}));
 function isExternalKeyValue(value) {
     return value >= EXTERNAL_KEY_MIN && value <= UINT64_MASK;
@@ -187,6 +183,7 @@ export class Envelope {
             this.validEnvelope = true;
         }
         catch (error) {
+            this.payloadEntries = [];
             this.errorMessage = `invalid ${SDK_NAME} envelope: ${String(error)}`;
         }
     }
@@ -207,22 +204,18 @@ export class Envelope {
         return this.producerSchemaDigest;
     }
     producerIdentity() {
-        if (!this.producerName || !this.producerVersion || !this.producerSchemaDigest) {
-            return ProducerIdentityStatus.Missing;
-        }
-        if (!SDK_NAME_PATTERN.test(this.producerName)
-            || !SEMANTIC_VERSION_PATTERN.test(this.producerVersion)
-            || !SHA256_PATTERN.test(this.producerSchemaDigest)) {
-            return ProducerIdentityStatus.Malformed;
-        }
         if (this.producerName !== SDK_NAME)
-            return ProducerIdentityStatus.SdkNameMismatch;
-        if (this.producerVersion !== SDK_VERSION)
-            return ProducerIdentityStatus.SdkVersionMismatch;
-        if (this.producerSchemaDigest !== SCHEMA_SET_SHA256) {
-            return ProducerIdentityStatus.SchemaSetMismatch;
+            return ProducerIdentityStatus.NameMismatch;
+        const version = SEMANTIC_VERSION_PATTERN.exec(this.producerVersion);
+        if (!version || version[0] !== this.producerVersion) {
+            return ProducerIdentityStatus.VersionMismatch;
         }
-        return ProducerIdentityStatus.ExactMatch;
+        if (this.producerVersion === SDK_VERSION)
+            return ProducerIdentityStatus.ExactMatch;
+        if (version[1] === SDK_VERSION.split('.')[0]) {
+            return ProducerIdentityStatus.CompatibleMatch;
+        }
+        return ProducerIdentityStatus.VersionMismatch;
     }
     empty() {
         return this.size() === 0;
@@ -313,6 +306,8 @@ export class Envelope {
             return;
         }
         const id = resolvePayloadClass(selector);
+        if (!this.validEnvelope)
+            return;
         for (const entry of this.payloadEntries) {
             if (entry.id !== id)
                 continue;

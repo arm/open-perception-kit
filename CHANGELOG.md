@@ -23,6 +23,23 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - Unreleased
+
+### Changed
+
+- Upgrade the FlowData generator to v0.7.1 and regenerate all OPK SDKs. Payload
+  identities now depend on their qualified root names rather than schema contents.
+- Adopt the four-state producer identity API. OPK consumers accept matching SDK
+  names and major versions; schema hashes remain diagnostic information.
+- Mark the SDK packages as development prereleases while the 1.0 refactor is in
+  progress; the packet identity remains `1.0.0`.
+
+### Breaking
+
+- SDK 1.0 uses new payload identities and requires producers and consumers to be
+  upgraded together. Earlier SDK packets are not supported. The payload schemas
+  and their processing semantics are unchanged by this generator upgrade.
+
 ## [0.1.2]
 
 ### Changed

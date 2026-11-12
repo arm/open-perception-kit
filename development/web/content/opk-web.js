@@ -6701,152 +6701,152 @@ var VoiceActivityDetectionsT = class {
 };
 
 // generated/open_perception_kit/ts/dist/open_perception_kit/registry.js
-var decode_556103652012567315 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
-var verify_556103652012567315 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2852697023809600655 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
-var verify_2852697023809600655 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2065478860695108412 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
-var verify_2065478860695108412 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3149752457626985059 = (blob) => InstanceSegmentationMasks.getRootAsInstanceSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_3149752457626985059 = (blob) => InstanceSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_5972661533224817501 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
-var verify_5972661533224817501 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2960585987463094496 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
-var verify_2960585987463094496 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_7749401259036278028 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
-var verify_7749401259036278028 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_9114952555105892553 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
-var verify_9114952555105892553 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_1998909987238011535 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_1998909987238011535 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_1602571589628393389 = (blob) => SemanticSegmentationMasks.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_1602571589628393389 = (blob) => SemanticSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_238211229389337861 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
-var verify_238211229389337861 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3528578282400045446 = (blob) => TurnDetections.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
-var verify_3528578282400045446 = (blob) => TurnDetections.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_7328253118381503000 = (blob) => VoiceActivityDetections.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
-var verify_7328253118381503000 = (blob) => VoiceActivityDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3248104387212218840 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
+var verify_3248104387212218840 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3375056508603945320 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
+var verify_3375056508603945320 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_5246681475592864076 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
+var verify_5246681475592864076 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7634499802271603959 = (blob) => InstanceSegmentationMasks.getRootAsInstanceSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_7634499802271603959 = (blob) => InstanceSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_6121378805478677067 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
+var verify_6121378805478677067 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_5316059591418463553 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
+var verify_5316059591418463553 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_2126073810871404430 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
+var verify_2126073810871404430 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_5268014742632501193 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
+var verify_5268014742632501193 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3128408959875976772 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_3128408959875976772 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_133049182594848948 = (blob) => SemanticSegmentationMasks.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_133049182594848948 = (blob) => SemanticSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7618457940451616939 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
+var verify_7618457940451616939 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7194963704333257544 = (blob) => TurnDetections.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
+var verify_7194963704333257544 = (blob) => TurnDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_4750671262425495264 = (blob) => VoiceActivityDetections.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
+var verify_4750671262425495264 = (blob) => VoiceActivityDetections.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
-  [556103652012567315n, {
+  [3248104387212218840n, {
     name: "open_perception_kit::metadata::BoxDetections",
     root_type: "BoxDetections",
     qualified_root_type: "open_perception_kit.metadata.BoxDetections",
     file_identifier: "BDET",
-    decode: decode_556103652012567315,
-    verify: verify_556103652012567315
+    decode: decode_3248104387212218840,
+    verify: verify_3248104387212218840
   }],
-  [2852697023809600655n, {
+  [3375056508603945320n, {
     name: "open_perception_kit::metadata::Classifications",
     root_type: "Classifications",
     qualified_root_type: "open_perception_kit.metadata.Classifications",
     file_identifier: "CLSF",
-    decode: decode_2852697023809600655,
-    verify: verify_2852697023809600655
+    decode: decode_3375056508603945320,
+    verify: verify_3375056508603945320
   }],
-  [2065478860695108412n, {
+  [5246681475592864076n, {
     name: "open_perception_kit::metadata::FrameContext",
     root_type: "FrameContext",
     qualified_root_type: "open_perception_kit.metadata.FrameContext",
     file_identifier: "FCTX",
-    decode: decode_2065478860695108412,
-    verify: verify_2065478860695108412
+    decode: decode_5246681475592864076,
+    verify: verify_5246681475592864076
   }],
-  [3149752457626985059n, {
+  [7634499802271603959n, {
     name: "open_perception_kit::metadata::InstanceSegmentationMasks",
     root_type: "InstanceSegmentationMasks",
     qualified_root_type: "open_perception_kit.metadata.InstanceSegmentationMasks",
     file_identifier: "ISGM",
-    decode: decode_3149752457626985059,
-    verify: verify_3149752457626985059
+    decode: decode_7634499802271603959,
+    verify: verify_7634499802271603959
   }],
-  [5972661533224817501n, {
+  [6121378805478677067n, {
     name: "open_perception_kit::metadata::ObjectEmbeddings",
     root_type: "ObjectEmbeddings",
     qualified_root_type: "open_perception_kit.metadata.ObjectEmbeddings",
     file_identifier: "EMBE",
-    decode: decode_5972661533224817501,
-    verify: verify_5972661533224817501
+    decode: decode_6121378805478677067,
+    verify: verify_6121378805478677067
   }],
-  [2960585987463094496n, {
+  [5316059591418463553n, {
     name: "open_perception_kit::metadata::ObjectTracks",
     root_type: "ObjectTracks",
     qualified_root_type: "open_perception_kit.metadata.ObjectTracks",
     file_identifier: "TRKS",
-    decode: decode_2960585987463094496,
-    verify: verify_2960585987463094496
+    decode: decode_5316059591418463553,
+    verify: verify_5316059591418463553
   }],
-  [7749401259036278028n, {
+  [2126073810871404430n, {
     name: "open_perception_kit::metadata::PerformanceOverlay",
     root_type: "PerformanceOverlay",
     qualified_root_type: "open_perception_kit.metadata.PerformanceOverlay",
     file_identifier: "PERF",
-    decode: decode_7749401259036278028,
-    verify: verify_7749401259036278028
+    decode: decode_2126073810871404430,
+    verify: verify_2126073810871404430
   }],
-  [9114952555105892553n, {
+  [5268014742632501193n, {
     name: "open_perception_kit::metadata::PoseEstimations",
     root_type: "PoseEstimations",
     qualified_root_type: "open_perception_kit.metadata.PoseEstimations",
     file_identifier: "POSE",
-    decode: decode_9114952555105892553,
-    verify: verify_9114952555105892553
+    decode: decode_5268014742632501193,
+    verify: verify_5268014742632501193
   }],
-  [1998909987238011535n, {
+  [3128408959875976772n, {
     name: "open_perception_kit::metadata::SegmentationMasks",
     root_type: "SegmentationMasks",
     qualified_root_type: "open_perception_kit.metadata.SegmentationMasks",
     file_identifier: "SGMS",
-    decode: decode_1998909987238011535,
-    verify: verify_1998909987238011535
+    decode: decode_3128408959875976772,
+    verify: verify_3128408959875976772
   }],
-  [1602571589628393389n, {
+  [133049182594848948n, {
     name: "open_perception_kit::metadata::SemanticSegmentationMasks",
     root_type: "SemanticSegmentationMasks",
     qualified_root_type: "open_perception_kit.metadata.SemanticSegmentationMasks",
     file_identifier: "SSGM",
-    decode: decode_1602571589628393389,
-    verify: verify_1602571589628393389
+    decode: decode_133049182594848948,
+    verify: verify_133049182594848948
   }],
-  [238211229389337861n, {
+  [7618457940451616939n, {
     name: "open_perception_kit::metadata::TrackTraces",
     root_type: "TrackTraces",
     qualified_root_type: "open_perception_kit.metadata.TrackTraces",
     file_identifier: "TRCE",
-    decode: decode_238211229389337861,
-    verify: verify_238211229389337861
+    decode: decode_7618457940451616939,
+    verify: verify_7618457940451616939
   }],
-  [3528578282400045446n, {
+  [7194963704333257544n, {
     name: "open_perception_kit::metadata::TurnDetections",
     root_type: "TurnDetections",
     qualified_root_type: "open_perception_kit.metadata.TurnDetections",
     file_identifier: "TURN",
-    decode: decode_3528578282400045446,
-    verify: verify_3528578282400045446
+    decode: decode_7194963704333257544,
+    verify: verify_7194963704333257544
   }],
-  [7328253118381503000n, {
+  [4750671262425495264n, {
     name: "open_perception_kit::metadata::VoiceActivityDetections",
     root_type: "VoiceActivityDetections",
     qualified_root_type: "open_perception_kit.metadata.VoiceActivityDetections",
     file_identifier: "VACT",
-    decode: decode_7328253118381503000,
-    verify: verify_7328253118381503000
+    decode: decode_4750671262425495264,
+    verify: verify_4750671262425495264
   }]
 ]);
 var _CLASS_TO_ID = /* @__PURE__ */ new Map([
-  [BoxDetectionsT, 556103652012567315n],
-  [ClassificationsT, 2852697023809600655n],
-  [FrameContextT, 2065478860695108412n],
-  [InstanceSegmentationMasksT, 3149752457626985059n],
-  [ObjectEmbeddingsT, 5972661533224817501n],
-  [ObjectTracksT, 2960585987463094496n],
-  [PerformanceOverlayT, 7749401259036278028n],
-  [PoseEstimationsT, 9114952555105892553n],
-  [SegmentationMasksT, 1998909987238011535n],
-  [SemanticSegmentationMasksT, 1602571589628393389n],
-  [TrackTracesT, 238211229389337861n],
-  [TurnDetectionsT, 3528578282400045446n],
-  [VoiceActivityDetectionsT, 7328253118381503000n]
+  [BoxDetectionsT, 3248104387212218840n],
+  [ClassificationsT, 3375056508603945320n],
+  [FrameContextT, 5246681475592864076n],
+  [InstanceSegmentationMasksT, 7634499802271603959n],
+  [ObjectEmbeddingsT, 6121378805478677067n],
+  [ObjectTracksT, 5316059591418463553n],
+  [PerformanceOverlayT, 2126073810871404430n],
+  [PoseEstimationsT, 5268014742632501193n],
+  [SegmentationMasksT, 3128408959875976772n],
+  [SemanticSegmentationMasksT, 133049182594848948n],
+  [TrackTracesT, 7618457940451616939n],
+  [TurnDetectionsT, 7194963704333257544n],
+  [VoiceActivityDetectionsT, 4750671262425495264n]
 ]);
 
 // generated/open_perception_kit/ts/dist/open_perception_kit/envelope.js
@@ -6863,7 +6863,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 };
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
-var SDK_VERSION = "0.1.2";
+var SDK_VERSION = "1.0.0";
 var SCHEMA_SET_SHA256 = "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
@@ -6872,17 +6872,13 @@ var EXTERNAL_HASH_PRIME = BigInt("1099511628211");
 var UINT64_MASK = BigInt("0xffffffffffffffff");
 var textEncoder = new TextEncoder();
 var externalKeyToken = /* @__PURE__ */ Symbol("external-key");
-var SDK_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 var SEMANTIC_VERSION_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
-var SHA256_PATTERN = /^[0-9a-f]{64}$/;
 var ProducerIdentityStatus;
 (function(ProducerIdentityStatus2) {
+  ProducerIdentityStatus2["NameMismatch"] = "name_mismatch";
   ProducerIdentityStatus2["ExactMatch"] = "exact_match";
-  ProducerIdentityStatus2["Missing"] = "missing";
-  ProducerIdentityStatus2["Malformed"] = "malformed";
-  ProducerIdentityStatus2["SdkNameMismatch"] = "sdk_name_mismatch";
-  ProducerIdentityStatus2["SdkVersionMismatch"] = "sdk_version_mismatch";
-  ProducerIdentityStatus2["SchemaSetMismatch"] = "schema_set_mismatch";
+  ProducerIdentityStatus2["CompatibleMatch"] = "compatible_match";
+  ProducerIdentityStatus2["VersionMismatch"] = "version_mismatch";
 })(ProducerIdentityStatus || (ProducerIdentityStatus = {}));
 function isExternalKeyValue(value) {
   return value >= EXTERNAL_KEY_MIN && value <= UINT64_MASK;
@@ -7013,6 +7009,7 @@ var Envelope = class {
       }
       this.validEnvelope = true;
     } catch (error) {
+      this.payloadEntries = [];
       this.errorMessage = `invalid ${SDK_NAME} envelope: ${String(error)}`;
     }
   }
@@ -7033,20 +7030,18 @@ var Envelope = class {
     return this.producerSchemaDigest;
   }
   producerIdentity() {
-    if (!this.producerName || !this.producerVersion || !this.producerSchemaDigest) {
-      return ProducerIdentityStatus.Missing;
-    }
-    if (!SDK_NAME_PATTERN.test(this.producerName) || !SEMANTIC_VERSION_PATTERN.test(this.producerVersion) || !SHA256_PATTERN.test(this.producerSchemaDigest)) {
-      return ProducerIdentityStatus.Malformed;
-    }
     if (this.producerName !== SDK_NAME)
-      return ProducerIdentityStatus.SdkNameMismatch;
-    if (this.producerVersion !== SDK_VERSION)
-      return ProducerIdentityStatus.SdkVersionMismatch;
-    if (this.producerSchemaDigest !== SCHEMA_SET_SHA256) {
-      return ProducerIdentityStatus.SchemaSetMismatch;
+      return ProducerIdentityStatus.NameMismatch;
+    const version = SEMANTIC_VERSION_PATTERN.exec(this.producerVersion);
+    if (!version || version[0] !== this.producerVersion) {
+      return ProducerIdentityStatus.VersionMismatch;
     }
-    return ProducerIdentityStatus.ExactMatch;
+    if (this.producerVersion === SDK_VERSION)
+      return ProducerIdentityStatus.ExactMatch;
+    if (version[1] === SDK_VERSION.split(".")[0]) {
+      return ProducerIdentityStatus.CompatibleMatch;
+    }
+    return ProducerIdentityStatus.VersionMismatch;
   }
   empty() {
     return this.size() === 0;
@@ -7136,6 +7131,8 @@ var Envelope = class {
       return;
     }
     const id = resolvePayloadClass(selector);
+    if (!this.validEnvelope)
+      return;
     for (const entry of this.payloadEntries) {
       if (entry.id !== id)
         continue;
@@ -7289,7 +7286,7 @@ function decodeFrameResultsMessage(message) {
     );
   }
   const producerIdentity = envelope.producerIdentity();
-  if (producerIdentity !== ProducerIdentityStatus.ExactMatch) {
+  if (![ProducerIdentityStatus.ExactMatch, ProducerIdentityStatus.CompatibleMatch].includes(producerIdentity)) {
     throw new FrameResultsDecodeError(
       `incompatible frame results producer identity: ${producerIdentity}`
     );

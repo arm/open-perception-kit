@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {Builder} from 'flatbuffers';
-import {Envelope} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
+import {Envelope, OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {WireEnvelope, WireEnvelopeT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
 import {BitmapDataT, BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
 import {BoxDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.js';
@@ -338,8 +338,26 @@ test('rejects a packet from an incompatible producer identity', () => {
             frame_results_encoding: FRAME_RESULTS_ENCODING,
             frame_results_packet_b64: Buffer.from(builder.asUint8Array()).toString('base64'),
         }),
-        /sdk_name_mismatch/,
+        /name_mismatch/,
     );
+});
+
+test('accepts same-major identities with different schema digests and rejects legacy versions', () => {
+    const major = OPEN_PERCEPTION_KIT_VERSION.split('.')[0];
+    for (const version of [OPEN_PERCEPTION_KIT_VERSION, `${major}.999.0`, '0.1.2', '9.9.9', 'invalid', null]) {
+        const builder = new Builder(128);
+        const offset = new WireEnvelopeT([], OPEN_PERCEPTION_KIT_NAME, version, 'different-digest').pack(builder);
+        WireEnvelope.finishWireEnvelopeBuffer(builder, offset);
+        const decode = () => decodeFrameResultsMessage({
+            frame_results_encoding: FRAME_RESULTS_ENCODING,
+            frame_results_packet_b64: Buffer.from(builder.asUint8Array()).toString('base64'),
+        });
+        if (version === OPEN_PERCEPTION_KIT_VERSION || version === `${major}.999.0`) {
+            assert.deepEqual(decode().frame_results.layers, []);
+        } else {
+            assert.throws(decode, /version_mismatch/);
+        }
+    }
 });
 
 test('rejects unsupported encoding and malformed base64', () => {

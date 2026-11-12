@@ -19,8 +19,20 @@ limitations under the License.
 
 This directory contains ordinary tracked source files for the SDK generator,
 including C++, Python, Rust, TypeScript, CMake, Meson, and the embedded Python
-bridge. The generator identity is 0.6.1, independent of the generated Open Perception Kit
+bridge. The generator identity is 0.7.1, independent of the generated Open Perception Kit
 SDK's product version.
+
+Sources were imported from the [v0.7.1 generator release](https://github.com/Arm-Debug/flowdata-sdk/releases/tag/v0.7.1):
+
+- Archive: `flowdata-sdk-generator-0.7.1.tar.gz`
+- SHA-256: `8cbe38225fe140c9a1b88187415aec16d2312883c71594a29ad832922e2d0dc4`
+- Source commit: `3ed972470e9341cd0eec8800ec99c78960f6a628`
+
+Local adaptations are OPK licence/formatting decoration, repository documentation
+links, and a bridge type-resolution fix that matches flatc's enum-first namespace
+lookup. The latter has a generated C++ compilation regression. This README is
+OPK-owned; upstream demos and release tooling are not vendored. Keep generator
+updates separate from OPK payload redesigns.
 
 No separate checkout, credentials, or generator download is required. Source
 updates are manual repository changes; there is no fetch or update command.
