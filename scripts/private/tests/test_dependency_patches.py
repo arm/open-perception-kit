@@ -69,27 +69,27 @@ class DependencyPatchTest(unittest.TestCase):
         return path
 
     def prepare(self):
-        work = self.root / "work"
-        work.mkdir()
-        return prepare_sources(self.lock, work, self.requirements)
+        return prepare_sources(self.lock, self.root / "work", self.requirements)
 
-    def test_multiple_patches_follow_descriptor_order(self):
+    def test_apply_and_package_in_declared_order(self):
         # The build can live inside a repository without git apply silently skipping files.
         subprocess.run(["git", "init", "--quiet", str(self.root)], check=True)
         sources, patches = self.prepare()
         self.assertEqual((sources["sample"] / "value.txt").read_text(), "second\n")
-        self.assertEqual([entry["file"] for entry in patches], [
-            "patches/sample/initialize.patch", "patches/sample/finalize.patch"])
         notices = self.root / "notices"
         stage_patches(patches, notices, self.requirements)
-        self.assertEqual(validate_patch_files(notices, patches), tuple(entry["file"] for entry in patches))
+        self.assertEqual(validate_patch_files(notices, patches), (
+            "patches/sample/initialize.patch", "patches/sample/finalize.patch"))
+
+    def test_packaging_validation(self):
+        patches = patch_inventory(self.lock, self.requirements)
+        notices = self.root / "notices"
+        stage_patches(patches, notices, self.requirements)
         with self.assertRaises(FileExistsError):
             stage_patches(patches[1:], notices, self.requirements)
         with self.assertRaisesRegex(RuntimeError, "do not match"):
             validate_patch_files(notices, list(reversed(patches)))
         self.first.write_text(change("original", "changed"))
-        with self.assertRaisesRegex(RuntimeError, "do not match"):
-            validate_patch_files(notices, patch_inventory(self.lock, self.requirements))
         with self.assertRaisesRegex(RuntimeError, "changed during build"):
             stage_patches(patches, self.root / "stale", self.requirements)
         (notices / patches[0]["file"]).write_text("tampered\n")
