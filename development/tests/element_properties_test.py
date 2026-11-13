@@ -23,12 +23,15 @@ import sys
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline, write_test_opchain
 
 DELAY_OP_PATH = Path(sys.argv[1]).resolve()
 PLUGIN_PATHS = [Path(argument).resolve() for argument in sys.argv[2:]]
 STATE_TIMEOUT_SECONDS = 5
+ERROR_TIMEOUT_SECONDS = 1
 FRAME_COUNT = 3
 FLOAT_PLACES = 5
 FLOAT_INCREMENT = 0.25
@@ -36,6 +39,30 @@ POLL_INTERVAL_SECONDS = 0.01
 TCP_METHOD = 2
 # One red RGB pixel, encoded as PNG (the background loader supports PNG/JPEG).
 RED_PIXEL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC'
+
+
+def wait_for_element_error(bus, element, gst):
+    deadline = time.monotonic() + ERROR_TIMEOUT_SECONDS
+    while True:
+        remaining = max(0, int((deadline - time.monotonic()) * gst.SECOND))
+        message = bus.timed_pop_filtered(remaining, gst.MessageType.ERROR)
+        if message is None or message.src == element:
+            return message
+        if time.monotonic() >= deadline:
+            return None
+
+
+class ErrorMessageOrderTest(unittest.TestCase):
+    def test_waits_for_the_requested_element_in_either_order(self):
+        element = object()
+        expected = SimpleNamespace(src=element)
+        other = SimpleNamespace(src=object())
+        gst = SimpleNamespace(SECOND=1_000_000_000, MessageType=SimpleNamespace(ERROR=1))
+        for messages in ([expected], [other, expected], [other, None], [None]):
+            with self.subTest(messages=messages):
+                bus = SimpleNamespace(timed_pop_filtered=Mock(side_effect=messages))
+                result = wait_for_element_error(bus, element, gst)
+                self.assertIs(result, expected if expected in messages else None)
 
 
 class ElementPropertiesTest(unittest.TestCase):
@@ -189,10 +216,10 @@ class ElementPropertiesTest(unittest.TestCase):
                          self.Gst.State.PLAYING)
         comm = pipeline.get_by_name("comm")
         comm.set_property("file-name", str(invalid))
-        message = pipeline.get_bus().timed_pop_filtered(self.Gst.SECOND, self.Gst.MessageType.ERROR)
+        message = wait_for_element_error(pipeline.get_bus(), comm, self.Gst)
         self.assertIsNotNone(message)
-        self.assertEqual(message.src, comm)
         self.assertIn("file-name", message.parse_error()[1])
+        self.assertIn(str(invalid), message.parse_error()[1])
         self.assertEqual(comm.get_property("file-name"), str(invalid))
         # No saved working combination: the caller explicitly corrects the value.
         pipeline.set_state(self.Gst.State.NULL)

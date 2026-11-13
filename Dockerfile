@@ -874,6 +874,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
   LC_ALL=C.UTF-8 \
   GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
+  OPK_PLUGIN_PATH=/work/development/build/meson-out \
   LD_LIBRARY_PATH=/opt/opk-deps/onnxruntime/lib:/work/development/build/meson-out \
   OPK_PYTHON_RUNTIME_VENV=/opt/opk-venvs/python-ops-runtime \
   OPK_PIPELINE=${OPK_PIPELINE}
@@ -1028,6 +1029,8 @@ ARG TARGETARCH
 
 WORKDIR /work
 COPY --from=opk-release-sources /work/development development
+COPY --from=opk-release-sources /work/generated generated
+COPY --from=opk-release-sources /work/config/schemas config/schemas
 COPY --from=opk-release-sources /work/requirements/build.json requirements/build.json
 COPY --from=opk-release-sources /work/LICENSE /work/NOTICE ./
 COPY --from=opk-release-sources /work/docs/third-party-licenses.md docs/third-party-licenses.md
