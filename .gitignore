@@ -125,6 +125,7 @@ config/models/**/*.bin
 config/models/**/*.bin.part
 config/models/**/*.hef
 config/models/**/*.onnx
+config/models/**/*.onnx.data
 config/models/**/*.pte
 config/models/**/*.vgf
 config/models/**/*.vgf.part

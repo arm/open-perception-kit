@@ -17,58 +17,21 @@
 
 #include "GenericAudioPreprocessOp.h"
 
-#include <algorithm>
-#include <cstring>
-
 using namespace opk::stdop;
 
-opk::Result<void> GenericAudioPreprocessOp::configure(const opk::AttributeMap &attributes) {
-    inference = nullptr;
-    sampleCount = 0;
-    contextSamples.clear();
-    nextPosition.reset();
-    const auto count = attributes.getIntOrDefault("contextSampleCount", 0);
-    if (count < 0 || count > 2147483647)
-        return tl::unexpected(
-            OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "Invalid audio context sample count"));
-    contextSampleCount = static_cast<size_t>(count);
-    inputAudioSourceName =
-        attributes.getStringOrDefault("inputAudioSourceName", "pipelineAudioData");
-    const auto tensorIndex = attributes.getIntOrDefault("inputAudioTensorIndex", -1);
-    if (inputAudioSourceName.empty() || tensorIndex < -1) {
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                                        "GenericAudioPreprocess requires a source name and a "
-                                        "nonnegative tensor index (or -1 for auto)"));
-    }
-    inputAudioTensorIndex =
-        tensorIndex == -1 ? opk::InvalidTensorIndex : static_cast<size_t>(tensorIndex);
-    return {};
-}
-
-opk::Result<void> GenericAudioPreprocessOp::bind(size_t index,
-                                                 const std::vector<opk::op::Op *> &ops) {
-    inference = nullptr;
-    if (index >= ops.size() || ops.size() - index < 2 || !ops[index + 1]) {
-        return tl::unexpected(
-            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                      "GenericAudioPreprocess must be immediately before an inference Op"));
-    }
-    const auto *next = ops[index + 1]->as<opk::op::OpInterfaceInference>();
-    if (!next) {
-        return tl::unexpected(
-            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                      "GenericAudioPreprocess must be immediately before an inference Op"));
-    }
-    const auto &inputs = next->getModel().inputs;
-    size_t selected = inputAudioTensorIndex;
+namespace {
+opk::Result<size_t> selectAudioInput(const std::vector<opk::ModelInput> &inputs,
+                                     const size_t requestedIndex) {
+    size_t selected = requestedIndex;
     if (selected == opk::InvalidTensorIndex) {
         for (size_t i = 0; i < inputs.size(); ++i) {
-            if (inputs[i].dataKind != opk::DataKind::AudioPcm)
+            if (inputs[i].dataKind != opk::DataKind::AudioPcm &&
+                inputs[i].dataKind != opk::DataKind::AudioLogMel)
                 continue;
             if (selected != opk::InvalidTensorIndex) {
                 return tl::unexpected(
                     OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                              "Multiple AudioPcm inputs: specify inputAudioTensorIndex"));
+                              "Multiple audio inputs: specify inputAudioTensorIndex"));
             }
             selected = i;
         }
@@ -76,31 +39,64 @@ opk::Result<void> GenericAudioPreprocessOp::bind(size_t index,
     if (selected >= inputs.size() || selected >= opk::MaxTensorCount) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                      "GenericAudioPreprocess cannot find the selected AudioPcm input"));
+                      "GenericAudioPreprocess cannot find the selected audio input"));
     }
-    const auto &input = inputs[selected];
-    const auto &shape = input.shape;
-    if (input.dataKind != opk::DataKind::AudioPcm || input.valueType != opk::Dtype::Float32 ||
-        shape.rank == 0 || shape.rank > 8 || shape.dims[shape.rank - 1] <= 0 ||
-        input.matchShapeOutputIndex != opk::InvalidTensorIndex) {
+    return selected;
+}
+} // namespace
+
+opk::Result<void> GenericAudioPreprocessOp::configure(const opk::AttributeMap &attributes) {
+    inference = nullptr;
+    tensorBuilder.resetBinding();
+    inputAudioSourceName.clear();
+    if (attributes.contains("inputAudioTensorIndex") &&
+        !attributes.at("inputAudioTensorIndex").isInt())
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "Audio tensor index must be an integer"));
+    if (attributes.contains("inputAudioSourceName") &&
+        !attributes.at("inputAudioSourceName").isString())
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "Audio source name must be a string"));
+    const auto sourceName =
+        attributes.getStringOrDefault("inputAudioSourceName", "pipelineAudioData");
+    const auto tensorIndex = attributes.getIntOrDefault("inputAudioTensorIndex", -1);
+    if (sourceName.empty() || tensorIndex < -1) {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                                        "GenericAudioPreprocess requires a fixed Float32 AudioPcm "
-                                        "tensor; log-mel is not supported"));
+                                        "GenericAudioPreprocess requires a source name and a "
+                                        "nonnegative tensor index (or -1 for auto)"));
     }
-    for (size_t i = 0; i + 1 < shape.rank; ++i) {
-        if (shape.dims[i] != 1) {
-            return tl::unexpected(OPK_ERROR(
-                opk::ErrorFlag::InvalidOpChain,
-                "AudioPcm requires singleton leading dimensions and a final sample dimension"));
-        }
-    }
-    inputAudioTensorIndex = selected;
-    sampleCount = static_cast<size_t>(shape.dims[shape.rank - 1]);
-    if (contextSampleCount >= sampleCount || contextSampleCount > sampleCount - contextSampleCount)
+    if (const auto result = tensorBuilder.configure(attributes); !result)
+        return result;
+    inputAudioSourceName = sourceName;
+    inputAudioTensorIndex =
+        tensorIndex == -1 ? opk::InvalidTensorIndex : static_cast<size_t>(tensorIndex);
+    return {};
+}
+
+opk::Result<void> GenericAudioPreprocessOp::bind(const size_t index,
+                                                 const std::vector<opk::op::Op *> &ops) {
+    inference = nullptr;
+    tensorBuilder.resetBinding();
+    if (inputAudioSourceName.empty())
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                                        "Audio context must fit within the fresh sample window"));
-    contextSamples.assign(contextSampleCount, 0.0f);
-    nextPosition.reset();
+                                        "GenericAudioPreprocess has no valid configuration"));
+    if (index >= ops.size() || ops.size() - index < 2 || !ops[index + 1]) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                      "GenericAudioPreprocess must be immediately before an inference Op"));
+    }
+    const auto *const next = ops[index + 1]->as<opk::op::OpInterfaceInference>();
+    if (!next) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                      "GenericAudioPreprocess must be immediately before an inference Op"));
+    }
+    const auto selected = selectAudioInput(next->getModel().inputs, inputAudioTensorIndex);
+    if (!selected)
+        return tl::unexpected(selected.error());
+    if (const auto result = tensorBuilder.bind(next->getModel().inputs[*selected]); !result)
+        return result;
+    boundAudioTensorIndex = *selected;
     inference = next;
     return {};
 }
@@ -110,43 +106,17 @@ opk::Result<opk::op::OpSignal> GenericAudioPreprocessOp::process(opk::op::OpChai
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "GenericAudioPreprocess is not bound"));
     }
-    const auto *window = context.getPcmView(inputAudioSourceName);
-    if (!window || window->size() != getRequiredAudioSamples()) {
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
-                                        "GenericAudioPreprocess requires one complete scheduled "
-                                        "PCM window matching the tensor"));
-    }
-    auto *destination = inference->getTensorDataAddress(inputAudioTensorIndex);
-    if (!destination) {
+    const auto *const window = context.getPcmView(inputAudioSourceName);
+    if (!window)
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidData,
-                      "GenericAudioPreprocess input tensor has no writable storage"));
-    }
-    if (!contextSamples.empty()) {
-        const auto &audio = context.inferenceInfo.audio;
-        if (audio.hopSampleCount != getRequiredAudioSamples() ||
-            (!audio.discontinuity && nextPosition && *nextPosition != window->beginPosition()))
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InvalidData,
-                          "Context audio requires contiguous nonoverlapping windows"));
-        if (audio.discontinuity)
-            std::fill(contextSamples.begin(), contextSamples.end(), 0.0f);
-        std::memcpy(destination, contextSamples.data(), contextSamples.size() * sizeof(float));
-    }
-    auto *fresh = destination + contextSamples.size() * sizeof(float);
-    // Copy bytes so the backend's tensor pointer need not be float-aligned.
-    const auto first = window->first();
-    const auto second = window->second();
-    if (!first.empty())
-        std::memcpy(fresh, first.data(), first.size_bytes());
-    if (!second.empty())
-        std::memcpy(fresh + first.size_bytes(), second.data(), second.size_bytes());
-    if (!contextSamples.empty()) {
-        std::memcpy(contextSamples.data(),
-                    destination + (sampleCount - contextSamples.size()) * sizeof(float),
-                    contextSamples.size() * sizeof(float));
-        nextPosition = window->endPosition();
-    }
+                      "GenericAudioPreprocess requires its scheduled PCM source"));
+    auto *const destination = inference->getTensorDataAddress(boundAudioTensorIndex);
+    const auto &audio = context.inferenceInfo.audio;
+    if (const auto result =
+            tensorBuilder.build(*window, destination, audio.hopSampleCount, audio.discontinuity);
+        !result)
+        return tl::unexpected(result.error());
     const auto &model = inference->getModel();
     context.inferenceInfo.modelName = model.name;
     context.inferenceInfo.contentType = model.contentType;

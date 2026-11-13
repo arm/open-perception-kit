@@ -213,6 +213,14 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+Model reader schema `1.4.0` accepts Float32 `AudioLogMel` inputs.
+OpChain reader schema `1.11.0` adds `GenericAudioPreprocess.logMel`, which requires
+explicit FFT/window/hop/frequency/
+log-offset/layout and normalization settings with matching tensor dimensions.
+Rebuild or upgrade readers before adopting it; existing PCM preprocessing retains
+its behavior. See the [audio frontend specification](../../arch/audio-log-mel.md)
+for the supported numerical contract.
+
 OpChain reader schema `1.10.0` adds `VoiceActivityParser`. Rebuild or upgrade
 readers before adopting it. Voice-activity decoding requires explicit activation,
 output selection and decision parameters; see the

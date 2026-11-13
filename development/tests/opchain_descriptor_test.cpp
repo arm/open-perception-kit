@@ -313,6 +313,33 @@ TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
     }
 }
 
+TEST(OpChainDescriptor, ValidatesConfigurableAudioFrontendBeforeStartup) {
+    auto value = descriptor("model.json");
+    const nlohmann::json frontend = {
+        {"windowSampleCount", 384},
+        {"fftSize", 384},
+        {"windowLengthSamples", 300},
+        {"frameHopSamples", 128},
+        {"minFrequencyHz", 50},
+        {"maxFrequencyHz", 7800},
+        {"logOffset", 1e-7},
+        {"layout", "mel-major"},
+        {"normalization", {{"kind", "rolling"}, {"epsilon", 1e-6}, {"historyFrames", 7}}}};
+    value["ops"] = {
+        {{"id", "opk-std-ops/GenericAudioPreprocess"}, {"attributes", {{"logMel", frontend}}}}};
+    EXPECT_TRUE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    value["ops"][0]["attributes"]["contextSampleCount"] = 0;
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    value["ops"][0]["attributes"].erase("contextSampleCount");
+    auto &normalization = value["ops"][0]["attributes"]["logMel"]["normalization"];
+    normalization["historyFrames"] = 0;
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    normalization = {{"kind", "none"}};
+    EXPECT_TRUE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    normalization["epsilon"] = 1e-8;
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+}
+
 TEST(OpChainDescriptor, ValidatesVoiceActivityIntegerNotationBeforeStartup) {
     auto value = descriptor("model.json");
     value["ops"] = {{{"id", "opk-std-ops/GenericPostprocess"},

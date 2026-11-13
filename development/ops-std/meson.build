@@ -45,6 +45,8 @@ stdops = shared_module(
     'postproc/ModNetSegmentationParser.cpp',
     'postproc/ScrfdParser.cpp',
 
+    'preproc/CpuLogMelSpectrogram.cpp',
+    'preproc/GenericAudioTensorBuilder.cpp',
     'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp',
     'preproc/CpuImageKernelsI420.cpp',
@@ -53,7 +55,7 @@ stdops = shared_module(
 
   ],
   include_directories: common_include,
-  dependencies: opk_deps ,
+  dependencies: [opk_deps, gstfft_dep],
   link_with: [ common ],
   name_prefix: '',
   gnu_symbol_visibility: 'default',
