@@ -57,8 +57,9 @@ The report is written to
 
 ## Nightly And Release Health Reports
 
-Nightly and release workflows publish `health-report.yaml` as an Actions
-artifact and link it from the run summary. Artifacts are retained for 14 days;
+Nightly and release workflows publish an unarchived YAML Actions artifact
+(`nightly-health-report-<attempt>.yaml` or `release-health-report-<attempt>.yaml`)
+and link it from the run summary. Artifacts are retained for 14 days;
 they do not provide durable trend history. The README badge shows the overall
 nightly workflow result.
 
