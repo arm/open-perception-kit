@@ -27,6 +27,9 @@ from gi.repository import GLib, GObject
 
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
 
+MODEL_TOGGLE_BURST_SIZE = 16
+CROSS_MODEL_TOGGLE_PAIR_COUNT = 100
+
 
 def wait_for(predicate, context="WebSocket activity"):
     deadline = monotonic() + 5
@@ -78,9 +81,15 @@ def create_sdp_offer(gst):
 
 
 def check_control(session, pipeline, gst):
+    from gi.repository import Soup
+
     sink = pipeline.get_by_name("sink")
     model = pipeline.get_by_name("model")
     websocket = connect_websocket(session, sink.get_property("ctrl-port"))
+    applied_values = []
+    model_handler = model.connect(
+        "notify::active", lambda owner, _spec: GLib.idle_add(applied_values.append, owner.props.active)
+    )
     reports = deque()
     websocket.connect("message", lambda _, kind, data: reports.append(
         json.loads(data.get_data())["pipeline_state"]["playing"]
@@ -111,13 +120,73 @@ def check_control(session, pipeline, gst):
         valid = json.dumps({"type": "model_toggle", "name": "model"})
         invalid = json.dumps({"type": "model_toggle", "name": "model\0extra"})
         websocket.send_text(valid)
+        wait_for(lambda: applied_values, "model toggle")
         check_play_pause_after(valid)
         assert model.props.active, f"Unexpected model state after {valid!r}"
         websocket.send_text(invalid)
         check_play_pause_after(invalid)
         assert model.props.active, f"Unexpected model state after {invalid!r}"
+
+        applied_values.clear()
+        for _ in range(MODEL_TOGGLE_BURST_SIZE):
+            websocket.send_text(valid)
+        wait_for(lambda: len(applied_values) == MODEL_TOGGLE_BURST_SIZE, "model toggle burst")
+        assert applied_values == [bool(index % 2) for index in range(MODEL_TOGGLE_BURST_SIZE)]
+
+        dependent_model = pipeline.get_by_name("dependent-model")
+        applied_models = []
+
+        def record_model_change(owner, _spec):
+            GLib.idle_add(applied_models.append, owner.get_name())
+
+        model_order_handler = model.connect("notify::active", record_model_change)
+        dependent_order_handler = dependent_model.connect("notify::active", record_model_change)
+        dependent_toggle = json.dumps({"type": "model_toggle", "name": "dependent-model"})
+        try:
+            for _ in range(CROSS_MODEL_TOGGLE_PAIR_COUNT):
+                websocket.send_text(valid)
+                websocket.send_text(dependent_toggle)
+            expected_models = ["model", "dependent-model"] * CROSS_MODEL_TOGGLE_PAIR_COUNT
+            wait_for(lambda: len(applied_models) == len(expected_models), "ordered model toggles")
+            assert applied_models == expected_models, applied_models
+
+            def activate_provider(owner, _spec):
+                if owner.props.active:
+                    model.props.active = True
+
+            dependency_handler = dependent_model.connect("notify::active", activate_provider)
+            try:
+                # Disabling the provider before enabling its consumer must reactivate the provider.
+                applied_models.clear()
+                websocket.send_text(valid)
+                websocket.send_text(dependent_toggle)
+                expected_models = ["model", "dependent-model", "model"]
+                wait_for(lambda: len(applied_models) == len(expected_models), "provider activation")
+                assert applied_models == expected_models, applied_models
+                assert model.props.active and dependent_model.props.active
+            finally:
+                dependent_model.disconnect(dependency_handler)
+        finally:
+            model.disconnect(model_order_handler)
+            dependent_model.disconnect(dependent_order_handler)
+
+        stopped = []
+
+        def stop_on_activation(_model, _spec):
+            pipeline.set_state(gst.State.NULL)
+            GLib.idle_add(stopped.append, True)
+
+        stop_handler = model.connect("notify::active", stop_on_activation)
+        try:
+            websocket.send_text(valid)
+            wait_for(lambda: stopped, "shutdown from a model property callback")
+            assert pipeline.get_state(0)[1] == gst.State.NULL
+        finally:
+            model.disconnect(stop_handler)
     finally:
-        websocket.close(1000, "done")
+        model.disconnect(model_handler)
+        if websocket.get_state() == Soup.WebsocketState.OPEN:
+            websocket.close(1000, "done")
 
 
 def check_webrtc_message(session, sink, message, *, expect_answer=False, offer_after=None):
@@ -214,6 +283,7 @@ def check_messages():
             active = GObject.Property(type=bool, default=False)
 
         pipeline.add(Model(name="model"))
+        pipeline.add(Model(name="dependent-model"))
     session = Soup.Session()
     try:
         assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
