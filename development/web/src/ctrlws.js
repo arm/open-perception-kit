@@ -58,6 +58,7 @@ function connectCtrl(manual = false) {
         enableAudioButton(data.pipeline_state.audio);
         enableMicrophoneButton(data.pipeline_state.microphone);
         setPlayPause(data.pipeline_state.playing);
+        window.dispatchEvent(new CustomEvent('models-change', {detail: data.models}));
         modelsManager.render(data.models);
     };
 

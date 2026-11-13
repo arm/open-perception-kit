@@ -40,6 +40,8 @@ const client = new MicrophoneClient({
     signalingUrl: signalingUrl.href,
     ...resolveWebRtcIceConfig(microphoneConfig),
     onStatus: (active, message, kind) => {
+        if (kind === 'audio')
+            window.dispatchEvent(new CustomEvent('microphone-state', {detail: {active}}));
         const control = kind === 'video' ? cameraButton : button;
         const indicator = kind === 'video' ? cameraIcon : icon;
         const output = kind === 'video' ? cameraStatus : status;
