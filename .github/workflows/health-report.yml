@@ -51,6 +51,13 @@ jobs:
         with:
           pattern: ${{ inputs.kind == 'nightly' && 'nightly-development-logs-*' || 'meson-test-logs' }}
           path: health-test-logs
+      - name: Download deployment logs
+        if: inputs.kind == 'nightly'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: nightly-archive-logs-*
+          path: health-deployment-logs
       - name: Download Valgrind logs
         continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -83,6 +90,7 @@ jobs:
             --jobs "$RUNNER_TEMP/health-jobs.json" --logs-dir health-test-logs \
             --valgrind-dir health-valgrind-logs \
             --coverage-dir health-coverage \
+            --deployment-logs-dir health-deployment-logs \
             --releases "$RUNNER_TEMP/health-releases.json" \
             --nightlies "$RUNNER_TEMP/health-nightlies.json" \
             --thresholds .github/ci/baselines/health-thresholds.yml \
@@ -106,5 +114,13 @@ jobs:
         run: |
           if [[ "$COVERAGE_PASSED" != true ]]; then
             echo '::error::Coverage is below the configured minimum or unavailable; see the health report.'
+            exit 1
+          fi
+      - name: Check deployment image thresholds
+        env:
+          SIZES_PASSED: ${{ steps.generate.outputs.container_sizes_passed }}
+        run: |
+          if [[ "$SIZES_PASSED" != true ]]; then
+            echo '::error::Deployment image size exceeds its limit or is unavailable; see the health report.'
             exit 1
           fi

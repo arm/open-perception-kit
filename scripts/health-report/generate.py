@@ -136,7 +136,7 @@ def coverage_results(coverage_dir):
 
 
 def apply_coverage_thresholds(coverage, thresholds):
-    if not isinstance(thresholds, dict) or set(thresholds) != {"coverage"}:
+    if not isinstance(thresholds, dict) or set(thresholds) != {"coverage", "deployment_image"}:
         raise ValueError("Expected coverage thresholds")
     if not isinstance(thresholds["coverage"], dict) or set(thresholds["coverage"]) != set(coverage):
         raise ValueError("Expected thresholds for Python and native coverage")
@@ -157,8 +157,60 @@ def apply_coverage_thresholds(coverage, thresholds):
             result["threshold_status"] = "failed"
 
 
+def container_sizes(kind, development_logs, deployment_logs, thresholds):
+    settings = thresholds.get("deployment_image")
+    architectures = ("x86_64", "aarch64")
+    if not isinstance(settings, dict) or set(settings) != set(architectures):
+        raise ValueError("Expected deployment image thresholds for both architectures")
+
+    results = {}
+    for name, root, prefix in (("development", development_logs, "nightly-development-logs-"),
+                               ("deployment", deployment_logs, "nightly-archive-logs-")):
+        results[name] = {}
+        for arch in architectures:
+            maximum = settings[arch]
+            if not isinstance(maximum, dict) or set(maximum) != {"maximum_bytes"}:
+                raise ValueError(f"Invalid deployment image threshold for {arch}")
+            maximum = maximum["maximum_bytes"]
+            if maximum is not None and (type(maximum) is not int or maximum <= 0):
+                raise ValueError(f"Invalid deployment image threshold for {arch}")
+            path = root / f"{prefix}{arch}"
+            if name == "development":
+                path = path / "nightly-logs"
+            path = path / "container-size.json"
+            result = {"status": "unavailable"}
+            if kind == "nightly" and path.is_file():
+                try:
+                    measurement = json.loads(path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    measurement = None
+            else:
+                measurement = None
+            if measurement is not None:
+                keys = {"image_bytes", "writable_layer_bytes", "external_model_bytes", "total_bytes"}
+                if set(measurement) != keys or any(type(v) is not int or v < 0 for v in measurement.values()):
+                    raise ValueError(f"Invalid container measurement: {path}")
+                if measurement["total_bytes"] != sum(measurement[key] for key in keys - {"total_bytes"}):
+                    raise ValueError(f"Invalid container total: {path}")
+                result = {
+                    "status": "available",
+                    "scope": ("fresh container; external checkout and build outputs excluded" if name == "development"
+                              else "deployment smoke test with two mounted models"),
+                    **measurement,
+                }
+            if name == "deployment" and kind == "nightly":
+                result["maximum_image_bytes"] = maximum
+                result["threshold_status"] = (
+                    "unavailable" if result["status"] != "available" else
+                    "pending_baseline" if maximum is None else
+                    "passed" if result["image_bytes"] <= maximum else "failed"
+                )
+            results[name][arch] = result
+    return results
+
+
 def build_report(kind, source_commit, run_id, run_attempt, run_url, needs, pages, logs_dir,
-                 releases, valgrind_dir, nightlies, coverage_dir, thresholds):
+                 releases, valgrind_dir, nightlies, coverage_dir, thresholds, deployment_logs_dir=Path("health-deployment-logs")):
     jobs = []
     for page in pages:
         for job in page["jobs"]:
@@ -197,6 +249,7 @@ def build_report(kind, source_commit, run_id, run_attempt, run_url, needs, pages
         "release_downloads": release_downloads(releases),
         "nightly_success_rate": nightly_success_rate(nightlies),
         "coverage": coverage,
+        "container_sizes": container_sizes(kind, logs_dir, deployment_logs_dir, thresholds),
     }
 
 
@@ -210,6 +263,7 @@ def main():
     parser.add_argument("--valgrind-dir", type=Path, required=True)
     parser.add_argument("--nightlies", type=Path, required=True)
     parser.add_argument("--coverage-dir", type=Path, required=True)
+    parser.add_argument("--deployment-logs-dir", type=Path, default=Path("health-deployment-logs"))
     parser.add_argument("--thresholds", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -229,6 +283,7 @@ def main():
         json.loads(args.nightlies.read_text(encoding="utf-8")),
         args.coverage_dir,
         yaml.safe_load(args.thresholds.read_text(encoding="utf-8")),
+        args.deployment_logs_dir,
     )
     args.output.write_text(yaml.safe_dump(report, sort_keys=False), encoding="utf-8")
     with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
@@ -240,11 +295,19 @@ def main():
         for name, result in report["coverage"].items():
             summary.write(f"- {name} coverage: {result['threshold_status']} "
                           f"(minimum {result['minimum_percent']}%)\n")
+        if args.kind == "nightly":
+            for arch, result in report["container_sizes"]["deployment"].items():
+                summary.write(f"- deployment image ({arch}): {result['threshold_status']}\n")
         summary.write("\n")
     if "GITHUB_OUTPUT" in os.environ:
         passed = all(result["threshold_status"] == "passed" for result in report["coverage"].values())
         with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
             output.write(f"coverage_passed={str(passed).lower()}\n")
+            sizes_passed = args.kind != "nightly" or all(
+                result["threshold_status"] in ("passed", "pending_baseline")
+                for result in report["container_sizes"]["deployment"].values()
+            )
+            output.write(f"container_sizes_passed={str(sizes_passed).lower()}\n")
 
 
 if __name__ == "__main__":

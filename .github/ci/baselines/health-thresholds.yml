@@ -19,3 +19,9 @@ coverage:
     minimum_percent: 57.0
   native:
     minimum_percent: 75.0
+# Run 43394358854 deployment image sizes plus 5%, rounded up to whole bytes.
+deployment_image:
+  x86_64:
+    maximum_bytes: 1061094357
+  aarch64:
+    maximum_bytes: 1045179911

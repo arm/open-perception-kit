@@ -38,6 +38,9 @@ trap 'docker rm -f "$container_id" >/dev/null' EXIT
 
 status=0
 timeout 120s docker start --attach "$container_id" 2>&1 | tee "$logs_dir/deployment-smoke.txt" || status=$?
+python3 "$script_dir/../health-report/container-size.py" "$container_id" \
+    --model-dir "$models_dir/ultraface-rfb-320" \
+    --model-dir "$models_dir/nitec-resnet-18-executorch" > "$logs_dir/container-size.json"
 if ! docker cp "$container_id:/tmp/nightly-deployment-cascade.ndjson" "$logs_dir/deployment-cascade.ndjson"; then
     if [[ $status -eq 0 ]]; then
         exit 1

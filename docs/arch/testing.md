@@ -68,6 +68,17 @@ success rate of the last 30 completed scheduled nightly runs on `main`.
 Cancelled and other non-pass/fail outcomes are shown separately and excluded
 from the rate. The currently running nightly is not yet included.
 
+The nightly report also records container footprints for both architectures.
+Development is measured in a fresh container, without a mounted checkout or build
+outputs. Deployment is measured after the smoke test, including the two mounted
+model directories. The report separates uncompressed image size, writable-layer
+size, and apparent model-data size; their sum is an estimate for this test, not
+actual disk allocation. Volumes, container logs and other external data are not
+included. Deployment image limits are configured per architecture in
+`.github/ci/baselines/health-thresholds.yml`; set each limit to 105% of its first
+representative measurement. A null limit is reported as pending and is not
+therefore enforced. Development has no limit.
+
 Native coverage uses a separate aarch64 debug build with Python Ops enabled
 and ExecuTorch and MLWL disabled. Python coverage measures repository scripts
 and `tools/opk-ci/opk_ci` using the tests listed in
