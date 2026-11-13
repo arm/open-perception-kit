@@ -562,7 +562,6 @@ dialog.addEventListener('close', () => {
 form.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!draft || submitButton.disabled || resolveOverlay(frameIndex, draft).state === 'unsupported') return;
-    if (editing && selectionKey(editing) !== selectionKey(draft)) clearDisplayedFrame();
     if (editing) Object.assign(editing, draft);
     else overlays.push(draft);
     persist();

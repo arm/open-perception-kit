@@ -136,7 +136,7 @@ multiple related payloads, and one payload can support multiple features.
 | Camera contact | `Classifications` with `cameraContact` semantics plus parent face geometry. A dashed ring denotes no contact; a solid ring denotes contact. |
 | Performance text | `PerformanceOverlay`: combined pipeline text, since the schema has no source provenance to separate producers. |
 | Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
-| Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with current-frame presence indicators. |
+| Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with displayed-mask presence indicators. |
 | Instance segmentation | `InstanceSegmentationMasks` with `instanceSegmentation` semantics: separate binary object masks, contrasting outlines, and optional numbered boxes/class/confidence labels. |
 | OCR | Explicitly selected `Classifications` with parent `BoxDetections`, or a `BoxDetections` source directly: region outlines and spatially attached text, without content-type routing. |
 
@@ -186,7 +186,7 @@ is unsupported still cannot be added as working overlays.
 - **Unsupported**: the feature or semantic interpretation is unsupported.
 - **Hidden**: the source is present, but the user unchecked the overlay.
 - **Waiting for source**: configuration remains, but no matching primary payload
-  exists in the current frame. Previous-frame detections are not drawn.
+  exists in the latest metadata frame. Drawing follows the [overlay timing](#overlay-timing) below.
 - **Choose a source**: an unbound overlay has multiple compatible observed sources
   and needs an explicit choice. Once selected, normal source matching applies.
 
@@ -234,12 +234,19 @@ replaced on the next message and cleared on disconnect.
 - The persistent full selector still determines which primary output the user
   chose. It is intentionally separate from semantic relationship keys.
 
-Rendering uses WebRTC metadata matched to the displayed frame's RTP timestamp.
+### Overlay timing
+
+Rendering normally uses WebRTC metadata matched to the displayed frame's RTP timestamp.
 When frame metadata is missing, overlays retain their last matched results
 for up to 100 ms from the first missing frame; further misses do not extend this
 window. Fresh results replace them immediately, including valid empty detections.
-Invalid packets, video resets and source changes clear retained results. Legends
-follow the retained overlays. There is no fallback to the independently arriving
+Invalid matched packets and video resets clear retained results. Editing an overlay
+preserves the shared frame and any existing hold deadline; its new source is
+resolved against that frame. Legends follow the retained overlays. During a hold,
+video continues advancing, so boxes, masks and other annotations can lag moving
+objects. The 100 ms limit starts at the first miss, not at the retained frame's
+timestamp; expiry occurs on the next drawing callback. This reduces flicker but
+does not guarantee alignment. There is no fallback to the independently arriving
 metadata stream. Browsers without
 `requestVideoFrameCallback` do not render overlays. The independent metadata
 channel still supplies discovery and inspection before video is connected.
@@ -267,7 +274,7 @@ semantic resolution, rendering, and optional default overrides.
 | `validateSettings(settings)` | Return normalized settings, or `null` for invalid saved data. |
 | `discover(catalog)` | Return compatible primary descriptors from the observed-source Map. Match semantic requirements as well as family, and support empty payloads. Also used for unique, one-time binding of waiting overlays. |
 | `requiresExplicitSource` | Optional flag: always offer a source picker when candidates exist and never auto-bind a pending overlay. Used by OCR, whose payload types are shared with other tasks. |
-| `resolve(index, selection, settings)` | Resolve current-frame inputs and relationships. Return `state`, `message`, `items`, and feature-specific resolved data. |
+| `resolve(index, selection, settings)` | Resolve inputs and relationships within the supplied frame, which may be retained during a metadata gap. Return `state`, `message`, `items`, and feature-specific resolved data. |
 | `render(target, resolved, settings)` | Draw resolved data. Target supplies canvas/context, video, mapper, shared layout state, time, and the owning overlay for resource caching. |
 | `renderAnnotations(target, resolved, settings)` | Optional annotation pass for raster features, drawn at priority `0` after backgrounds. The resolved inputs and opacity are shared with `render`; stable overlay order applies within each priority. |
 | `legend(resolved, settings)` | Optional `{entries: [{id, label, color, present}], message}` for the expanded row. Uses displayed-frame results; controls retain their DOM nodes across frames. |
@@ -296,7 +303,7 @@ change the class IDs or incoming metadata. Spaces around a name are trimmed.
 **Reset labels** restores all names in that overlay to their numeric defaults,
 preserving colors, opacity, and visibility; the reset is saved immediately.
 Hover the name for its ID and **In frame** or **Not in frame** status. Presence
-follows matched metadata even when the overlay or class is hidden. **Unavailable**
+follows the displayed mask's metadata, including the [overlay hold](#overlay-timing), even when the overlay or class is hidden. **Unavailable**
 means there is no valid matched output, rather than asserting the class is absent. Controls
 retain class-specific accessible labels without visible field labels.
 Rows are ordered by ID. Observed rows stay available when temporarily absent,
@@ -330,9 +337,9 @@ show a status. The native parser already removes model-input letterboxing;
 the browser scales with nearest-neighbor sampling into the contained video
 rectangle without applying that transform again.
 
-The mask and presence indicators use only metadata matched to the displayed video
-frame. Unmatched frames and empty semantic payloads clear the mask and mark class
-presence unavailable; independent live
+The mask and presence indicators share the [overlay timing](#overlay-timing):
+unmatched frames briefly retain both; expiry, resets and fresh empty semantic
+payloads clear the mask and mark class presence unavailable. Independent live
 metadata only discovers sources. Colorized pixels are cached per overlay and
 invalidated when its mask or class styles change. Source, visibility, order,
 master opacity, and per-class names/visibility/color/opacity are saved; class maps and
@@ -380,9 +387,9 @@ compositing remain bounded even when many large masks are supplied.
 The entire bitmap is validated; actual foreground bounds then limit compositing
 work, independently of the supplied annotation box.
 
-Drawing uses only displayed-frame-matched metadata and nearest-neighbor scaling
-inside the contained video rectangle. Missing/unmatched frames clear both raster
-and annotations. Mask validation is cached per indexed output, and one composite
+Drawing uses nearest-neighbor scaling inside the contained video rectangle.
+Raster and annotations share the [overlay hold and clearing rules](#overlay-timing).
+Mask validation is cached per indexed output, and one composite
 canvas is cached per overlay rather than allocating a canvas per object.
 
 ## OCR
@@ -440,8 +447,8 @@ one region retain an unlabelled outline and report ambiguity rather than choosin
 arbitrary text. Malformed geometry/text/scores are omitted with status feedback;
 outputs exceeding 4096 records are rejected.
 
-Only displayed-frame-matched metadata draws. Orphan recognition results never
-become floating labels, and absent/unmatched frames clear the overlay. Preferences
+OCR follows the shared [overlay hold and clearing rules](#overlay-timing).
+Orphan recognition results never become floating labels. Preferences
 persist per selected source/overlay; recognized strings and frame relationships
 are not saved. For detector regions that remain visible while recognition is
 disabled, add a separate detector-bound OCR overlay and disable **Regions** on
@@ -472,9 +479,9 @@ The existing native `opkosd` replacement path still uses its binary mask thresho
 of 150. Omit that native replacement when testing browser backgrounds.
 
 The compositor uses the original video colors, not RVM's separate inferred
-foreground-color tensor. As with the other overlays, its mask comes from metadata
-matched to the displayed video frame. Hiding/removing the overlay,
-missing metadata and disconnects reveal the original video. Decoded images and
+foreground-color tensor. Its mask follows the shared [overlay timing](#overlay-timing),
+including retention during metadata gaps. Hiding/removing the overlay, expiry,
+fresh empty results and video resets reveal the original video. Decoded images and
 scratch canvases are cached per overlay and become collectible when it is removed;
 replacing/clearing an image drops its old decoded resource.
 
