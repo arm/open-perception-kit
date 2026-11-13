@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import unittest
+import json
 import os
 import subprocess
 import sys
@@ -22,9 +23,12 @@ from tempfile import TemporaryDirectory
 
 import yaml
 
-from generate import apply_coverage_thresholds, build_report, coverage_results, nightly_success_rate
+from generate import apply_coverage_thresholds, build_report, container_sizes, coverage_results, nightly_success_rate
 
-THRESHOLDS = {"coverage": {"python": {"minimum_percent": 57}, "native": {"minimum_percent": 75}}}
+THRESHOLDS = {
+    "coverage": {"python": {"minimum_percent": 57}, "native": {"minimum_percent": 75}},
+    "deployment_image": {"x86_64": {"maximum_bytes": None}, "aarch64": {"maximum_bytes": None}},
+}
 
 
 class GenerateReportTest(unittest.TestCase):
@@ -140,9 +144,55 @@ class GenerateReportTest(unittest.TestCase):
     def test_invalid_threshold_is_rejected(self):
         coverage = {"python": {"status": "unavailable"}, "native": {"status": "unavailable"}}
         with self.assertRaises(ValueError):
-            apply_coverage_thresholds(coverage, {"coverage": {
+            apply_coverage_thresholds(coverage, {**THRESHOLDS, "coverage": {
                 "python": {"minimum_percent": True}, "native": {"minimum_percent": 75},
             }})
+
+    def test_container_sizes_check_each_architecture_and_missing_measurements(self):
+        thresholds = {**THRESHOLDS, "deployment_image": {
+            "x86_64": {"maximum_bytes": 105}, "aarch64": {"maximum_bytes": 105},
+        }}
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            deployment = root / "nightly-archive-logs-x86_64"
+            deployment.mkdir()
+            development = root / "nightly-development-logs-x86_64" / "nightly-logs"
+            development.mkdir(parents=True)
+            measurement = {"image_bytes": 105, "writable_layer_bytes": 2,
+                           "external_model_bytes": 3, "total_bytes": 110}
+            (deployment / "container-size.json").write_text(json.dumps(measurement), encoding="utf-8")
+            (development / "container-size.json").write_text(json.dumps(measurement), encoding="utf-8")
+            results = container_sizes("nightly", root, root, thresholds)
+            self.assertEqual(results["development"]["x86_64"]["image_bytes"], 105)
+            self.assertEqual(results["deployment"]["x86_64"]["threshold_status"], "passed")
+            self.assertEqual(results["deployment"]["aarch64"]["threshold_status"], "unavailable")
+            measurement["image_bytes"] = 106
+            measurement["total_bytes"] = 111
+            (deployment / "container-size.json").write_text(json.dumps(measurement), encoding="utf-8")
+            results = container_sizes("nightly", root, root, thresholds)
+            self.assertEqual(results["deployment"]["x86_64"]["threshold_status"], "failed")
+            self.assertNotIn("threshold_status", results["development"]["x86_64"])
+
+    def test_container_measurement_script_uses_docker_and_model_directories(self):
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            docker = root / "docker"
+            docker.write_text(
+                '#!/bin/sh\n'
+                'case "$1" in\n'
+                "  container) echo '[{\"Image\":\"sha256:abc\",\"SizeRw\":7}]' ;;\n"
+                "  image) echo '[{\"Size\":100}]' ;;\n"
+                'esac\n', encoding="utf-8")
+            docker.chmod(0o755)
+            model = root / "model"
+            model.write_bytes(b"model")
+            env = dict(os.environ, PATH=f"{root}:{os.environ['PATH']}")
+            output = subprocess.check_output([
+                sys.executable, str(Path(__file__).with_name("container-size.py")),
+                "test-container", "--model-dir", str(model),
+            ], text=True, env=env)
+            self.assertEqual(json.loads(output), {"image_bytes": 100, "writable_layer_bytes": 7,
+                                                  "external_model_bytes": 5, "total_bytes": 112})
 
     def test_generator_writes_report_and_failing_output_for_missing_coverage(self):
         with TemporaryDirectory() as temp_dir:
@@ -150,6 +200,10 @@ class GenerateReportTest(unittest.TestCase):
             for filename, contents in (("jobs.json", "[]"), ("releases.json", "null"),
                                        ("nightlies.json", "null")):
                 (root / filename).write_text(contents, encoding="utf-8")
+            for directory in (root / "logs/nightly-development-logs-x86_64/nightly-logs",
+                              root / "deployment/nightly-archive-logs-x86_64"):
+                directory.mkdir(parents=True)
+                (directory / "container-size.json").write_text("", encoding="utf-8")
             (root / "thresholds.yml").write_text(yaml.safe_dump(THRESHOLDS), encoding="utf-8")
             env = dict(os.environ, GITHUB_RUN_ID="1", GITHUB_RUN_ATTEMPT="1",
                        GITHUB_SERVER_URL="https://example.test", GITHUB_REPOSITORY="test/repo",
@@ -159,13 +213,17 @@ class GenerateReportTest(unittest.TestCase):
                 sys.executable, str(Path(__file__).with_name("generate.py")), "--kind", "nightly",
                 "--source-commit", "abc", "--jobs", str(root / "jobs.json"),
                 "--logs-dir", str(root / "logs"), "--valgrind-dir", str(root / "valgrind"),
+                "--deployment-logs-dir", str(root / "deployment"),
                 "--coverage-dir", str(root / "coverage"), "--releases", str(root / "releases.json"),
                 "--nightlies", str(root / "nightlies.json"), "--thresholds", str(root / "thresholds.yml"),
                 "--output", str(root / "report.yml"),
             ], env=env, check=True)
             report = yaml.safe_load((root / "report.yml").read_text(encoding="utf-8"))
             self.assertEqual(report["coverage"]["python"]["threshold_status"], "unavailable")
-            self.assertEqual((root / "output").read_text(encoding="utf-8"), "coverage_passed=false\n")
+            self.assertEqual(report["container_sizes"]["development"]["x86_64"]["status"], "unavailable")
+            self.assertEqual(report["container_sizes"]["deployment"]["x86_64"]["threshold_status"], "unavailable")
+            self.assertEqual((root / "output").read_text(encoding="utf-8"),
+                             "coverage_passed=false\ncontainer_sizes_passed=false\n")
 
 
 if __name__ == "__main__":

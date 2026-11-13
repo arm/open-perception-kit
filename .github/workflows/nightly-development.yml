@@ -56,6 +56,11 @@ jobs:
             --build-arg NO_EXAMPLE_CONTENT=true \
             --build-arg HF_DOWNLOAD_CACHEBUST="$HF_DOWNLOAD_CACHEBUST" \
             --tag opk-nightly-dev . 2>&1 | tee nightly-logs/development-image.txt
+      - name: Measure development image footprint
+        run: |
+          container_id="$(docker create opk-nightly-dev)"
+          trap 'docker rm -f "$container_id" >/dev/null' EXIT
+          python3 scripts/health-report/container-size.py "$container_id" > nightly-logs/container-size.json
       - name: Build and test debug
         run: |
           docker run --rm -v "$PWD:/work" -w /work \

@@ -68,6 +68,8 @@ class DeploymentSmokeTest(unittest.TestCase):
             root = Path(directory)
             models = root / "models"
             models.mkdir()
+            (models / "ultraface-rfb-320").mkdir()
+            (models / "nitec-resnet-18-executorch").mkdir()
             log = root / "docker-calls.txt"
             docker = root / "docker"
             docker.write_text(
@@ -75,6 +77,8 @@ class DeploymentSmokeTest(unittest.TestCase):
                 "printf '%s\\n' \"$*\" >> \"$FAKE_DOCKER_LOG\"\n"
                 "case $1 in\n"
                 "  create) echo test-container ;;\n"
+                "  container) echo '[{\"Image\":\"sha256:abc\",\"SizeRw\":7}]' ;;\n"
+                "  image) echo '[{\"Size\":100}]' ;;\n"
                 "  start) exit \"${FAKE_START_STATUS:-0}\" ;;\n"
                 "  cp) if [[ ${FAKE_COPY_FAIL:-0} == 1 ]]; then exit 1; fi; "
                 "echo packet > \"$3\" ;;\n"
