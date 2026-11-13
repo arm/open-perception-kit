@@ -32,7 +32,7 @@ class FileWriter : public Writer {
 
     int check_open();
 
-    bool io_open_existing(const struct stat &st);
+    bool io_open_existing(const struct stat &fileStatus);
     bool io_create();
 
   protected:

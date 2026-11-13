@@ -70,18 +70,22 @@ static guint vp8_encoder_thread_count() {
 }
 
 /* ===== Properties ===== */
-enum {
-    PROP_0,
-    PROP_HOST,
-    PROP_HTTP_PORT,
-    PROP_WS_PORT,
-    PROP_CTRL_PORT,
-    PROP_METADATA_PORT,
-    PROP_STATIC_FILES,
-    PROP_WEBRTC_STUN_SERVER,
-    PROP_WEBRTC_TURN_SERVER,
-    PROP_QOS_ENABLED,
+namespace {
+
+enum class PropertyId : guint {
+    Reserved = 0,
+    Host,
+    HttpPort,
+    WsPort,
+    CtrlPort,
+    MetadataPort,
+    StaticFiles,
+    WebRtcStunServer,
+    WebRtcTurnServer,
+    QosEnabled,
 };
+
+} // namespace
 
 static std::string env_or_empty(const char *name) {
     const char *value = std::getenv(name);
@@ -366,44 +370,46 @@ static GstStateChangeReturn gst_opk_sink_change_state(GstElement *element,
     return result;
 }
 
-static void
-gst_opk_sink_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
+static void gst_opk_sink_set_property(GObject *object,
+                                      guint propertyId,
+                                      const GValue *value,
+                                      GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkSink *>(object);
-    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), pspec);
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
     if (!propertyGuard.isChangeAllowed())
         return;
 
     g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
-    switch (prop_id) {
-    case PROP_HOST:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::Host:
         g_free(self->host);
         self->host = g_value_dup_string(value);
         break;
-    case PROP_HTTP_PORT:
+    case PropertyId::HttpPort:
         self->http_port = g_value_get_int(value);
         break;
-    case PROP_WS_PORT:
+    case PropertyId::WsPort:
         self->ws_port = g_value_get_int(value);
         break;
-    case PROP_CTRL_PORT:
+    case PropertyId::CtrlPort:
         self->ctrl_port = g_value_get_int(value);
         break;
-    case PROP_METADATA_PORT:
+    case PropertyId::MetadataPort:
         self->metadata_port = g_value_get_uint(value);
         break;
-    case PROP_STATIC_FILES:
+    case PropertyId::StaticFiles:
         g_free(self->static_files_location);
         self->static_files_location = g_value_dup_string(value);
         break;
-    case PROP_WEBRTC_STUN_SERVER:
+    case PropertyId::WebRtcStunServer:
         g_free(self->webrtc_stun_server);
         self->webrtc_stun_server = g_value_dup_string(value);
         break;
-    case PROP_WEBRTC_TURN_SERVER:
+    case PropertyId::WebRtcTurnServer:
         g_free(self->webrtc_turn_server);
         self->webrtc_turn_server = g_value_dup_string(value);
         break;
-    case PROP_QOS_ENABLED: {
+    case PropertyId::QosEnabled: {
         const gboolean enabled = g_value_get_boolean(value);
         self->qos_enabled = enabled;
         g_autoptr(GstElement) drain =
@@ -415,45 +421,47 @@ gst_opk_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
         break;
     }
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         return;
     }
 }
 
-static void
-gst_opk_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
+static void gst_opk_sink_get_property(GObject *object,
+                                      guint propertyId,
+                                      GValue *value,
+                                      GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkSink *>(object);
     g_autoptr(GMutexLocker) lock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
-    switch (prop_id) {
-    case PROP_HOST:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::Host:
         g_value_set_string(value, self->host);
         break;
-    case PROP_HTTP_PORT:
+    case PropertyId::HttpPort:
         g_value_set_int(value, self->http_port);
         break;
-    case PROP_WS_PORT:
+    case PropertyId::WsPort:
         g_value_set_int(value, self->ws_port);
         break;
-    case PROP_CTRL_PORT:
+    case PropertyId::CtrlPort:
         g_value_set_int(value, self->ctrl_port);
         break;
-    case PROP_METADATA_PORT:
+    case PropertyId::MetadataPort:
         g_value_set_uint(value, self->metadata_port);
         break;
-    case PROP_STATIC_FILES:
+    case PropertyId::StaticFiles:
         g_value_set_string(value, self->static_files_location);
         break;
-    case PROP_WEBRTC_STUN_SERVER:
+    case PropertyId::WebRtcStunServer:
         g_value_set_string(value, self->webrtc_stun_server);
         break;
-    case PROP_WEBRTC_TURN_SERVER:
+    case PropertyId::WebRtcTurnServer:
         g_value_set_string(value, self->webrtc_turn_server);
         break;
-    case PROP_QOS_ENABLED:
+    case PropertyId::QosEnabled:
         g_value_set_boolean(value, self->qos_enabled);
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
     }
 }
 
@@ -986,14 +994,14 @@ static void gst_opk_sink_init(GstOpkSink *self) {
     self->private_data->initialized = true;
 }
 
-static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
-    auto *gobject_class = G_OBJECT_CLASS(klass);
-    auto *element_class = GST_ELEMENT_CLASS(klass);
+static void gst_opk_sink_class_init(GstOpkSinkClass *sinkClass) {
+    auto *objectClass = G_OBJECT_CLASS(sinkClass);
+    auto *elementClass = GST_ELEMENT_CLASS(sinkClass);
 
-    gobject_class->set_property = gst_opk_sink_set_property;
-    gobject_class->get_property = gst_opk_sink_get_property;
-    gobject_class->dispose = gst_opk_sink_dispose;
-    gobject_class->finalize = gst_opk_sink_finalize;
+    objectClass->set_property = gst_opk_sink_set_property;
+    objectClass->get_property = gst_opk_sink_get_property;
+    objectClass->dispose = gst_opk_sink_dispose;
+    objectClass->finalize = gst_opk_sink_finalize;
 
     /* C++ flags helper */
     constexpr GParamFlags kRW =
@@ -1001,8 +1009,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
 
     /* properties */
     g_object_class_install_property(
-        gobject_class,
-        PROP_HOST,
+        objectClass,
+        static_cast<guint>(PropertyId::Host),
         g_param_spec_string("host",
                             "Host",
                             "The interface to bind the HTTP Server"
@@ -1011,8 +1019,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
                             "0.0.0.0",
                             kRW));
     g_object_class_install_property(
-        gobject_class,
-        PROP_HTTP_PORT,
+        objectClass,
+        static_cast<guint>(PropertyId::HttpPort),
         g_param_spec_int("http-port",
                          "HTTP Port",
                          "HTTP Server Port"
@@ -1023,8 +1031,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
                          9999,
                          kRW));
     g_object_class_install_property(
-        gobject_class,
-        PROP_WS_PORT,
+        objectClass,
+        static_cast<guint>(PropertyId::WsPort),
         g_param_spec_int("ws-port",
                          "WebSocket Port",
                          "WebSocket Port"
@@ -1035,8 +1043,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
                          8000,
                          kRW));
     g_object_class_install_property(
-        gobject_class,
-        PROP_CTRL_PORT,
+        objectClass,
+        static_cast<guint>(PropertyId::CtrlPort),
         g_param_spec_int("ctrl-port",
                          "Control Port",
                          "Control Port"
@@ -1047,8 +1055,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
                          8001,
                          kRW));
     g_object_class_install_property(
-        gobject_class,
-        PROP_METADATA_PORT,
+        objectClass,
+        static_cast<guint>(PropertyId::MetadataPort),
         g_param_spec_uint("metadata-port",
                           "Metadata Port",
                           "Browser metadata WebSocket port (0 discovers opkcomm automatically; "
@@ -1060,8 +1068,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
                           0,
                           kRW));
     g_object_class_install_property(
-        gobject_class,
-        PROP_STATIC_FILES,
+        objectClass,
+        static_cast<guint>(PropertyId::StaticFiles),
         g_param_spec_string(
             "static-files",
             "Static Files Location",
@@ -1071,8 +1079,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
             nullptr,
             kRW));
     g_object_class_install_property(
-        gobject_class,
-        PROP_WEBRTC_STUN_SERVER,
+        objectClass,
+        static_cast<guint>(PropertyId::WebRtcStunServer),
         g_param_spec_string(
             "webrtc-stun-server",
             "WebRTC STUN Server",
@@ -1082,8 +1090,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
             nullptr,
             kRW));
     g_object_class_install_property(
-        gobject_class,
-        PROP_WEBRTC_TURN_SERVER,
+        objectClass,
+        static_cast<guint>(PropertyId::WebRtcTurnServer),
         g_param_spec_string(
             "webrtc-turn-server",
             "WebRTC TURN Server",
@@ -1093,8 +1101,8 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
             nullptr,
             kRW));
     g_object_class_install_property(
-        gobject_class,
-        PROP_QOS_ENABLED,
+        objectClass,
+        static_cast<guint>(PropertyId::QosEnabled),
         g_param_spec_boolean(
             "qos-enabled",
             "QoS enabled",
@@ -1104,16 +1112,16 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
             static_cast<GParamFlags>(kRW | GST_PARAM_MUTABLE_PLAYING)));
 
     /* pads */
-    gst_element_class_add_static_pad_template(element_class, &v_sink_template);
-    gst_element_class_add_static_pad_template(element_class, &a_sink_template);
+    gst_element_class_add_static_pad_template(elementClass, &v_sink_template);
+    gst_element_class_add_static_pad_template(elementClass, &a_sink_template);
 
     /* request/release handlers for audio */
-    element_class->request_new_pad = gst_opk_sink_request_new_pad;
-    element_class->release_pad = gst_opk_sink_release_pad;
-    element_class->change_state = gst_opk_sink_change_state;
+    elementClass->request_new_pad = gst_opk_sink_request_new_pad;
+    elementClass->release_pad = gst_opk_sink_release_pad;
+    elementClass->change_state = gst_opk_sink_change_state;
 
     gst_element_class_set_static_metadata(
-        element_class,
+        elementClass,
         "OpkSink (video+audio → raw video+audio -> VP8 -> WebRTC)",
         "Sink/Network/Bin",
         "Encodes & muxes raw video+audio and sends them to WebRTC",

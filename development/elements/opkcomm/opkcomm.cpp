@@ -85,29 +85,33 @@ G_DEFINE_TYPE(GstOpkComm, gst_opk_comm, GST_TYPE_BASE_TRANSFORM)
 
 /* ----------------------- Properties ----------------------- */
 
-enum class OpkCommProps : guint {
-    PROP_0,
-    PROP_METHOD,
-    PROP_FILE_NAME,
-    PROP_WS_PORT,
-    PROP_ENDPOINT,
-    PROP_TCP_HOST,
-    PROP_TCP_PORT,
+namespace {
+
+enum class PropertyId : guint {
+    Reserved = 0,
+    Method,
+    FileName,
+    WsPort,
+    Endpoint,
+    TcpHost,
+    TcpPort,
 };
 
+} // namespace
+
 static GType gst_opk_comm_method_get_type(void) {
-    static GType t = 0;
+    static GType methodType = 0;
     static std::vector<GEnumValue> values = {
         {GST_OPK_COMM_METHOD_FILE, "file", "file"},
         {GST_OPK_COMM_METHOD_WEBSOCKET, "websocket", "websocket"},
         {GST_OPK_COMM_METHOD_TCP, "tcp", "tcp"},
         {0, nullptr, nullptr}};
 
-    if (g_once_init_enter(&t)) {
-        GType tmp = g_enum_register_static("GstOpkCommMethod", values.data());
-        g_once_init_leave(&t, tmp);
+    if (g_once_init_enter(&methodType)) {
+        GType registeredType = g_enum_register_static("GstOpkCommMethod", values.data());
+        g_once_init_leave(&methodType, registeredType);
     }
-    return t;
+    return methodType;
 }
 
 /* ----------------------- Helpers ----------------------- */
@@ -142,21 +146,21 @@ static bool gst_opk_comm_open_io(GstOpkComm *self) {
     }
     self->priv->writer_open = false;
 
-    auto ret = false;
+    auto success = false;
     switch (self->method) {
     case GST_OPK_COMM_METHOD_FILE:
         self->priv->writer = std::make_unique<FileWriter>(self, self->file_name, 5);
-        ret = self->priv->writer->start();
+        success = self->priv->writer->start();
         break;
     case GST_OPK_COMM_METHOD_WEBSOCKET:
         self->priv->writer = std::make_unique<WebSocketWriter>(
             self, static_cast<uint16_t>(self->ws_port), self->endpoint ? self->endpoint : "/ws", 5);
-        ret = self->priv->writer->start();
+        success = self->priv->writer->start();
         break;
     case GST_OPK_COMM_METHOD_TCP:
         self->priv->writer = std::make_unique<TcpWriter>(
             self, self->tcp_host ? self->tcp_host : "", static_cast<uint16_t>(self->tcp_port), 5);
-        ret = self->priv->writer->start();
+        success = self->priv->writer->start();
         break;
     default:
         GST_WARNING_OBJECT(
@@ -164,13 +168,13 @@ static bool gst_opk_comm_open_io(GstOpkComm *self) {
         break;
     }
 
-    if (ret) {
+    if (success) {
         self->priv->writer_open = true;
     } else {
         self->priv->writer.reset();
     }
 
-    return ret;
+    return success;
 }
 
 static void gst_opk_comm_close_io(GstOpkComm *self) {
@@ -183,8 +187,8 @@ static void gst_opk_comm_close_io(GstOpkComm *self) {
 
 /* ----------------------- GstBaseTransform vfuncs ----------------------- */
 
-static gboolean gst_opk_comm_start(GstBaseTransform *trans) {
-    GstOpkComm *self = GST_OPK_COMM(trans);
+static gboolean gst_opk_comm_start(GstBaseTransform *selfInParentType) {
+    GstOpkComm *self = GST_OPK_COMM(selfInParentType);
     std::unique_lock lock(self->priv->writer_mutex);
 
     self->priv->started = true;
@@ -203,8 +207,8 @@ static gboolean gst_opk_comm_start(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static gboolean gst_opk_comm_stop(GstBaseTransform *trans) {
-    GstOpkComm *self = GST_OPK_COMM(trans);
+static gboolean gst_opk_comm_stop(GstBaseTransform *selfInParentType) {
+    GstOpkComm *self = GST_OPK_COMM(selfInParentType);
     const std::scoped_lock lock(self->priv->writer_mutex);
     self->priv->started = false;
     gst_opk_comm_close_io(self);
@@ -212,21 +216,22 @@ static gboolean gst_opk_comm_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static GstFlowReturn gst_opk_comm_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
-    GstOpkComm *self = GST_OPK_COMM(trans);
+static GstFlowReturn gst_opk_comm_transform_ip(GstBaseTransform *selfInParentType,
+                                               GstBuffer *buffer) {
+    GstOpkComm *self = GST_OPK_COMM(selfInParentType);
     const std::scoped_lock lock(self->priv->writer_mutex);
 
     if (!self->priv->writer_open)
         return GST_FLOW_ERROR;
 
     if (self->priv->writer && self->priv->writer->check_running()) {
-        auto frameResults = opk::FrameResultsMeta::read(buf);
-        OpkCommJob j = {
+        auto frameResults = opk::FrameResultsMeta::read(buffer);
+        OpkCommJob job = {
             .frame_counter = self->frame_counter,
             .frameResults = frameResults,
         };
 
-        self->priv->writer->send(std::move(j));
+        self->priv->writer->send(std::move(job));
     }
 
     ++self->frame_counter;
@@ -237,18 +242,20 @@ static GstFlowReturn gst_opk_comm_transform_ip(GstBaseTransform *trans, GstBuffe
 
 /* ----------------------- GObject plumbing ----------------------- */
 
-static void
-gst_opk_comm_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
+static void gst_opk_comm_set_property(GObject *object,
+                                      guint propertyId,
+                                      const GValue *value,
+                                      GParamSpec *propertySpec) {
     GstOpkComm *self = GST_OPK_COMM(object);
     std::unique_lock lock(self->priv->writer_mutex);
     std::unique_lock propertyLock(self->priv->property_mutex);
 
-    switch (OpkCommProps(prop_id)) {
-    case OpkCommProps::PROP_METHOD:
-        self->method = (GstOpkCommMethod)g_value_get_enum(value);
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::Method:
+        self->method = static_cast<GstOpkCommMethod>(g_value_get_enum(value));
         break;
 
-    case OpkCommProps::PROP_FILE_NAME:
+    case PropertyId::FileName:
         g_free(self->file_name);
         self->file_name = g_value_dup_string(value);
         if (self->file_name == nullptr) {
@@ -256,11 +263,11 @@ gst_opk_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
         }
         break;
 
-    case OpkCommProps::PROP_WS_PORT:
+    case PropertyId::WsPort:
         self->ws_port = g_value_get_uint(value);
         break;
 
-    case OpkCommProps::PROP_ENDPOINT:
+    case PropertyId::Endpoint:
         g_free(self->endpoint);
         self->endpoint = g_value_dup_string(value);
         if (self->endpoint == nullptr) {
@@ -268,7 +275,7 @@ gst_opk_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
         }
         break;
 
-    case OpkCommProps::PROP_TCP_HOST:
+    case PropertyId::TcpHost:
         g_free(self->tcp_host);
         self->tcp_host = g_value_dup_string(value);
         if (self->tcp_host == nullptr) {
@@ -276,13 +283,13 @@ gst_opk_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
         }
         break;
 
-    case OpkCommProps::PROP_TCP_PORT:
+    case PropertyId::TcpPort:
         self->tcp_port = g_value_get_uint(value);
         break;
 
     default:
         propertyLock.unlock();
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         return;
     }
 
@@ -300,38 +307,40 @@ gst_opk_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
     }
 }
 
-static void
-gst_opk_comm_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
+static void gst_opk_comm_get_property(GObject *object,
+                                      guint propertyId,
+                                      GValue *value,
+                                      GParamSpec *propertySpec) {
     const GstOpkComm *self = GST_OPK_COMM(object);
     const std::scoped_lock lock(self->priv->property_mutex);
 
-    switch (OpkCommProps(prop_id)) {
-    case OpkCommProps::PROP_METHOD:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::Method:
         g_value_set_enum(value, self->method);
         break;
 
-    case OpkCommProps::PROP_FILE_NAME:
+    case PropertyId::FileName:
         g_value_set_string(value, self->file_name);
         break;
 
-    case OpkCommProps::PROP_WS_PORT:
+    case PropertyId::WsPort:
         g_value_set_uint(value, self->ws_port);
         break;
 
-    case OpkCommProps::PROP_ENDPOINT:
+    case PropertyId::Endpoint:
         g_value_set_string(value, self->endpoint);
         break;
 
-    case OpkCommProps::PROP_TCP_HOST:
+    case PropertyId::TcpHost:
         g_value_set_string(value, self->tcp_host);
         break;
 
-    case OpkCommProps::PROP_TCP_PORT:
+    case PropertyId::TcpPort:
         g_value_set_uint(value, self->tcp_port);
         break;
 
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         break;
     }
 }
@@ -350,21 +359,21 @@ static void gst_opk_comm_finalize(GObject *object) {
     G_OBJECT_CLASS(gst_opk_comm_parent_class)->finalize(object);
 }
 
-static void gst_opk_comm_class_init(GstOpkCommClass *klass) {
-    auto *gobject_class = G_OBJECT_CLASS(klass);
-    auto *element_class = GST_ELEMENT_CLASS(klass);
-    auto *bt_class = GST_BASE_TRANSFORM_CLASS(klass);
+static void gst_opk_comm_class_init(GstOpkCommClass *self) {
+    auto *objectClass = G_OBJECT_CLASS(self);
+    auto *elementClass = GST_ELEMENT_CLASS(self);
+    auto *baseTransformClass = GST_BASE_TRANSFORM_CLASS(self);
 
-    constexpr auto kRW = static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
-                                                  GST_PARAM_MUTABLE_PLAYING);
+    constexpr auto livePropertyFlags = static_cast<GParamFlags>(
+        G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_PLAYING);
 
-    gobject_class->set_property = gst_opk_comm_set_property;
-    gobject_class->get_property = gst_opk_comm_get_property;
-    gobject_class->finalize = gst_opk_comm_finalize;
+    objectClass->set_property = gst_opk_comm_set_property;
+    objectClass->get_property = gst_opk_comm_get_property;
+    objectClass->finalize = gst_opk_comm_finalize;
 
     g_object_class_install_property(
-        gobject_class,
-        static_cast<guint>(OpkCommProps::PROP_METHOD),
+        objectClass,
+        static_cast<guint>(PropertyId::Method),
         g_param_spec_enum("method",
                           "Method",
                           "Publishing method: file, websocket, or tcp"
@@ -372,22 +381,22 @@ static void gst_opk_comm_class_init(GstOpkCommClass *klass) {
                           "may discard queued output",
                           gst_opk_comm_method_get_type(),
                           GST_OPK_COMM_METHOD_FILE,
-                          kRW));
+                          livePropertyFlags));
 
     g_object_class_install_property(
-        gobject_class,
-        static_cast<guint>(OpkCommProps::PROP_FILE_NAME),
+        objectClass,
+        static_cast<guint>(PropertyId::FileName),
         g_param_spec_string("file-name",
                             "File name",
                             "File path ('-' - std out)"
                             "; Changeable while playing; synchronous reopen disconnects clients "
                             "and may discard queued output",
                             "-",
-                            kRW));
+                            livePropertyFlags));
 
     g_object_class_install_property(
-        gobject_class,
-        static_cast<guint>(OpkCommProps::PROP_WS_PORT),
+        objectClass,
+        static_cast<guint>(PropertyId::WsPort),
         g_param_spec_uint("ws-port",
                           "WebSocket port",
                           "Port used when method=websocket"
@@ -396,33 +405,33 @@ static void gst_opk_comm_class_init(GstOpkCommClass *klass) {
                           1,
                           65535,
                           8002,
-                          kRW));
+                          livePropertyFlags));
 
     g_object_class_install_property(
-        gobject_class,
-        static_cast<guint>(OpkCommProps::PROP_ENDPOINT),
+        objectClass,
+        static_cast<guint>(PropertyId::Endpoint),
         g_param_spec_string("endpoint",
                             "WebSocket endpoint",
                             "Endpoint path used when method=websocket"
                             "; Changeable while playing; synchronous reopen disconnects clients "
                             "and may discard queued output",
                             "/ws",
-                            kRW));
+                            livePropertyFlags));
 
     g_object_class_install_property(
-        gobject_class,
-        static_cast<guint>(OpkCommProps::PROP_TCP_HOST),
+        objectClass,
+        static_cast<guint>(PropertyId::TcpHost),
         g_param_spec_string("tcp-host",
                             "TCP host",
                             "Bind host used when method=tcp"
                             "; Changeable while playing; synchronous reopen disconnects clients "
                             "and may discard queued output",
                             "127.0.0.1",
-                            kRW));
+                            livePropertyFlags));
 
     g_object_class_install_property(
-        gobject_class,
-        static_cast<guint>(OpkCommProps::PROP_TCP_PORT),
+        objectClass,
+        static_cast<guint>(PropertyId::TcpPort),
         g_param_spec_uint("tcp-port",
                           "TCP port",
                           "Listen port used when method=tcp"
@@ -431,20 +440,20 @@ static void gst_opk_comm_class_init(GstOpkCommClass *klass) {
                           1,
                           65535,
                           7001,
-                          kRW));
+                          livePropertyFlags));
 
     /* Add pad templates so the element has sink/src pads */
-    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&sink_template));
+    gst_element_class_add_pad_template(elementClass, gst_static_pad_template_get(&sink_template));
 
-    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&src_template));
+    gst_element_class_add_pad_template(elementClass, gst_static_pad_template_get(&src_template));
 
     /* We are a pure passthrough transform. */
-    bt_class->start = gst_opk_comm_start;
-    bt_class->stop = gst_opk_comm_stop;
-    bt_class->transform_ip = gst_opk_comm_transform_ip;
+    baseTransformClass->start = gst_opk_comm_start;
+    baseTransformClass->stop = gst_opk_comm_stop;
+    baseTransformClass->transform_ip = gst_opk_comm_transform_ip;
 
     gst_element_class_set_static_metadata(
-        element_class,
+        elementClass,
         "OpkComm metadata publisher",
         "Filter/Metadata",
         "Reads buffer metadata and publishes it (FIFO/file/WebSocket/TCP)",

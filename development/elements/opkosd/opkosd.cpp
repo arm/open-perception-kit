@@ -47,10 +47,10 @@ G_BEGIN_DECLS
 
 #define GST_TYPE_OPK_OSD (gst_opk_osd_get_type())
 #define GST_OPK_OSD(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_OPK_OSD, GstOpkOsd))
-#define GST_OPK_OSD_CLASS(klass)                                                                   \
-    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_OPK_OSD, GstOpkOsdClass))
+#define GST_OPK_OSD_CLASS(osdClass)                                                                \
+    (G_TYPE_CHECK_CLASS_CAST((osdClass), GST_TYPE_OPK_OSD, GstOpkOsdClass))
 #define GST_IS_OPK_OSD(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_OPK_OSD))
-#define GST_IS_OPK_OSD_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_OPK_OSD))
+#define GST_IS_OPK_OSD_CLASS(osdClass) (G_TYPE_CHECK_CLASS_TYPE((osdClass), GST_TYPE_OPK_OSD))
 
 typedef struct _GstOpkOsd GstOpkOsd;
 typedef struct _GstOpkOsdClass GstOpkOsdClass;
@@ -89,6 +89,8 @@ namespace Osd = opk::osd;
 #define DEFAULT_BG_IMAGE ""
 
 // Property IDs
+namespace {
+
 enum class PropertyId : guint {
     Reserved = 0,
     Enabled,
@@ -97,46 +99,54 @@ enum class PropertyId : guint {
     CopyInput,
 };
 
+} // namespace
+
 // Function prototypes
-static void
-gst_opk_osd_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
-static void
-gst_opk_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+static void gst_opk_osd_set_property(GObject *object,
+                                     guint propertyId,
+                                     const GValue *value,
+                                     GParamSpec *propertySpec);
+static void gst_opk_osd_get_property(GObject *object,
+                                     guint propertyId,
+                                     GValue *value,
+                                     GParamSpec *propertySpec);
 static void gst_opk_osd_finalize(GObject *object);
-static GstFlowReturn
-gst_opk_osd_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, GstBuffer **output);
-static gboolean gst_opk_osd_set_caps(GstBaseTransform *base, GstCaps *caps, GstCaps *);
-static GstCaps *gst_opk_osd_transform_caps(GstBaseTransform *base,
+static GstFlowReturn gst_opk_osd_prepare_output_buffer(GstBaseTransform *selfInParentType,
+                                                       GstBuffer *input,
+                                                       GstBuffer **output);
+static gboolean gst_opk_osd_set_caps(GstBaseTransform *selfInParentType, GstCaps *caps, GstCaps *);
+static GstCaps *gst_opk_osd_transform_caps(GstBaseTransform *selfInParentType,
                                            GstPadDirection direction,
                                            GstCaps *caps,
                                            GstCaps *filter);
-static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *base, GstBuffer *buffer);
+static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *selfInParentType,
+                                                    GstBuffer *buffer);
 static GstFlowReturn gst_opk_osd_transform_frame_in_place(GstOpkOsd *filter, GstVideoFrame *frame);
-static gboolean gst_opk_osd_start(GstBaseTransform *trans);
-static gboolean gst_opk_osd_stop(GstBaseTransform *trans);
+static gboolean gst_opk_osd_start(GstBaseTransform *selfInParentType);
+static gboolean gst_opk_osd_stop(GstBaseTransform *selfInParentType);
 static bool gst_opk_osd_load_bg_image(GstOpkOsd *self, const gchar *const path);
 
 #define gst_opk_osd_parent_class parent_class
 G_DEFINE_TYPE(GstOpkOsd, gst_opk_osd, GST_TYPE_BASE_TRANSFORM);
 
-static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
-    GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
-    GstBaseTransformClass *trans_class = GST_BASE_TRANSFORM_CLASS(klass);
+static void gst_opk_osd_class_init(GstOpkOsdClass *osdClass) {
+    GObjectClass *objectClass = G_OBJECT_CLASS(osdClass);
+    GstElementClass *elementClass = GST_ELEMENT_CLASS(osdClass);
+    GstBaseTransformClass *baseTransformClass = GST_BASE_TRANSFORM_CLASS(osdClass);
 
-    gobject_class->set_property = gst_opk_osd_set_property;
-    gobject_class->get_property = gst_opk_osd_get_property;
-    gobject_class->finalize = gst_opk_osd_finalize;
+    objectClass->set_property = gst_opk_osd_set_property;
+    objectClass->get_property = gst_opk_osd_get_property;
+    objectClass->finalize = gst_opk_osd_finalize;
 
-    trans_class->prepare_output_buffer = gst_opk_osd_prepare_output_buffer;
-    trans_class->set_caps = gst_opk_osd_set_caps;
-    trans_class->transform_caps = gst_opk_osd_transform_caps;
-    trans_class->transform_ip = gst_opk_osd_transform_in_place;
-    trans_class->start = gst_opk_osd_start;
-    trans_class->stop = gst_opk_osd_stop;
+    baseTransformClass->prepare_output_buffer = gst_opk_osd_prepare_output_buffer;
+    baseTransformClass->set_caps = gst_opk_osd_set_caps;
+    baseTransformClass->transform_caps = gst_opk_osd_transform_caps;
+    baseTransformClass->transform_ip = gst_opk_osd_transform_in_place;
+    baseTransformClass->start = gst_opk_osd_start;
+    baseTransformClass->stop = gst_opk_osd_stop;
 
     g_object_class_install_property(
-        gobject_class,
+        objectClass,
         static_cast<guint>(PropertyId::Enabled),
         g_param_spec_boolean("enabled",
                              "Enabled",
@@ -147,7 +157,7 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
                                                       GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobject_class,
+        objectClass,
         static_cast<guint>(PropertyId::PerformanceOverlayEnabled),
         g_param_spec_boolean("performance-overlay-enabled",
                              "Performance Overlay Enabled",
@@ -158,7 +168,7 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
                                                       GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobject_class,
+        objectClass,
         static_cast<guint>(PropertyId::BgImage),
         g_param_spec_string(
             "bg-image",
@@ -171,7 +181,7 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
                                      GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
-        gobject_class,
+        objectClass,
         static_cast<guint>(PropertyId::CopyInput),
         g_param_spec_boolean(
             "copy-input",
@@ -182,7 +192,7 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                      GST_PARAM_MUTABLE_READY)));
 
-    gst_element_class_set_static_metadata(element_class,
+    gst_element_class_set_static_metadata(elementClass,
                                           "OPK OSD Overlay",
                                           "Filter/Video",
                                           "On-Screen Display overlay for OPK video frames",
@@ -192,8 +202,8 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
     GstPadTemplate *sink_template =
         gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
-    gst_element_class_add_pad_template(element_class, src_template);
-    gst_element_class_add_pad_template(element_class, sink_template);
+    gst_element_class_add_pad_template(elementClass, src_template);
+    gst_element_class_add_pad_template(elementClass, sink_template);
     gst_caps_unref(caps);
 }
 
@@ -280,15 +290,17 @@ static bool gst_opk_osd_load_bg_image(GstOpkOsd *self, const gchar *const path) 
     return true;
 }
 
-static void
-gst_opk_osd_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
+static void gst_opk_osd_set_property(GObject *object,
+                                     guint propertyId,
+                                     const GValue *value,
+                                     GParamSpec *propertySpec) {
     auto *self = GST_OPK_OSD(object);
 
-    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), pspec);
+    const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
     if (!propertyGuard.isChangeAllowed())
         return;
 
-    switch (static_cast<PropertyId>(prop_id)) {
+    switch (static_cast<PropertyId>(propertyId)) {
     case PropertyId::CopyInput:
         g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
         gst_base_transform_reconfigure_src(GST_BASE_TRANSFORM(self));
@@ -312,16 +324,18 @@ gst_opk_osd_set_property(GObject *object, guint prop_id, const GValue *value, GP
         break;
 
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         break;
     }
 }
 
-static void
-gst_opk_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
+static void gst_opk_osd_get_property(GObject *object,
+                                     guint propertyId,
+                                     GValue *value,
+                                     GParamSpec *propertySpec) {
     auto *self = GST_OPK_OSD(object);
 
-    switch (static_cast<PropertyId>(prop_id)) {
+    switch (static_cast<PropertyId>(propertyId)) {
     case PropertyId::CopyInput:
         g_value_set_boolean(value, g_atomic_int_get(&self->copyInput));
         break;
@@ -340,7 +354,7 @@ gst_opk_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSp
         break;
 
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
         break;
     }
 }
@@ -357,8 +371,8 @@ static void gst_opk_osd_finalize(GObject *object) {
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 
-static gboolean gst_opk_osd_start(GstBaseTransform *trans) {
-    auto *self = GST_OPK_OSD(trans);
+static gboolean gst_opk_osd_start(GstBaseTransform *selfInParentType) {
+    auto *self = GST_OPK_OSD(selfInParentType);
 
     GST_INFO_OBJECT(self, "Starting OpkOsd element");
     self->frameCount = 0;
@@ -373,18 +387,19 @@ static gboolean gst_opk_osd_start(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static gboolean gst_opk_osd_stop(GstBaseTransform *trans) {
-    auto *self = GST_OPK_OSD(trans);
+static gboolean gst_opk_osd_stop(GstBaseTransform *selfInParentType) {
+    auto *self = GST_OPK_OSD(selfInParentType);
 
     GST_INFO_OBJECT(self, "Stopping OpkOsd element - processed %u frames", self->frameCount);
 
     return TRUE;
 }
 
-static GstFlowReturn
-gst_opk_osd_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
-    auto *self = GST_OPK_OSD(base);
-    return gst::Tools::prepareVideoBuffer(base,
+static GstFlowReturn gst_opk_osd_prepare_output_buffer(GstBaseTransform *selfInParentType,
+                                                       GstBuffer *input,
+                                                       GstBuffer **output) {
+    auto *self = GST_OPK_OSD(selfInParentType);
+    return gst::Tools::prepareVideoBuffer(selfInParentType,
                                           input,
                                           output,
                                           g_atomic_int_get(&self->copyInput),
@@ -392,20 +407,21 @@ gst_opk_osd_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, GstB
                                               opk::FrameResultsMeta::read(input));
 }
 
-static GstCaps *gst_opk_osd_transform_caps(GstBaseTransform *base,
+static GstCaps *gst_opk_osd_transform_caps(GstBaseTransform *selfInParentType,
                                            GstPadDirection direction,
                                            GstCaps *caps,
                                            GstCaps *filter) {
     return gst::Tools::transformVideoCaps(
-        direction, caps, filter, g_atomic_int_get(&GST_OPK_OSD(base)->copyInput));
+        direction, caps, filter, g_atomic_int_get(&GST_OPK_OSD(selfInParentType)->copyInput));
 }
 
-static gboolean gst_opk_osd_set_caps(GstBaseTransform *base, GstCaps *caps, GstCaps *) {
-    return gst_video_info_from_caps(&GST_OPK_OSD(base)->vinfo, caps);
+static gboolean gst_opk_osd_set_caps(GstBaseTransform *selfInParentType, GstCaps *caps, GstCaps *) {
+    return gst_video_info_from_caps(&GST_OPK_OSD(selfInParentType)->vinfo, caps);
 }
 
-static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *base, GstBuffer *buffer) {
-    auto *self = GST_OPK_OSD(base);
+static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *selfInParentType,
+                                                    GstBuffer *buffer) {
+    auto *self = GST_OPK_OSD(selfInParentType);
     if (!g_atomic_int_get(&self->enabled) || !opk::FrameResultsMeta::read(buffer)) {
         return GST_FLOW_OK;
     }
@@ -419,8 +435,8 @@ static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *base, GstB
                               (nullptr));
             return GST_FLOW_ERROR;
         }
-        for (guint i = 0; i < gst_buffer_n_memory(buffer); ++i) {
-            memory.push_back(gst_buffer_peek_memory(buffer, i));
+        for (guint memoryIndex = 0; memoryIndex < gst_buffer_n_memory(buffer); ++memoryIndex) {
+            memory.push_back(gst_buffer_peek_memory(buffer, memoryIndex));
         }
     }
     const auto flags = static_cast<GstMapFlags>(
@@ -436,9 +452,9 @@ static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *base, GstB
         return GST_FLOW_ERROR;
     }
     // A writable map can silently replace memory when the allocator cannot map it.
-    for (guint i = 0; i < memory.size(); ++i) {
+    for (guint memoryIndex = 0; memoryIndex < memory.size(); ++memoryIndex) {
         if (memory.size() != gst_buffer_n_memory(buffer) ||
-            memory[i] != gst_buffer_peek_memory(buffer, i)) {
+            memory[memoryIndex] != gst_buffer_peek_memory(buffer, memoryIndex)) {
             gst_video_frame_unmap(&frame);
             GST_ELEMENT_ERROR(self,
                               RESOURCE,

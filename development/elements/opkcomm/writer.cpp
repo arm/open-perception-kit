@@ -26,49 +26,49 @@
 
 #include <nlohmann/json.hpp>
 
-bool JobQueue::try_push(OpkCommJob &&j) {
+bool JobQueue::try_push(OpkCommJob &&job) {
 
-    std::scoped_lock lk(m_);
+    std::scoped_lock lock(m_mutex);
 
-    if (stop_ || q_.size() >= max_)
+    if (m_stopped || m_jobs.size() >= m_capacity)
         return false;
 
-    q_.emplace_back(std::move(j));
+    m_jobs.emplace_back(std::move(job));
 
-    cv_.notify_one();
+    m_jobsAvailable.notify_one();
     return true;
 }
 
-bool JobQueue::pop(OpkCommJob &out) {
-    std::unique_lock lk(m_);
+bool JobQueue::pop(OpkCommJob &job) {
+    std::unique_lock lock(m_mutex);
 
-    cv_.wait(lk, [this] { return stop_ || !q_.empty(); });
+    m_jobsAvailable.wait(lock, [this] { return m_stopped || !m_jobs.empty(); });
 
-    if (q_.empty())
+    if (m_jobs.empty())
         return false;
 
-    out = std::move(q_.front());
+    job = std::move(m_jobs.front());
 
-    q_.pop_front();
+    m_jobs.pop_front();
 
     return true;
 }
 
 void JobQueue::stop() {
-    std::scoped_lock lk(m_);
-    stop_ = true;
-    q_.clear();
-    cv_.notify_all();
+    std::scoped_lock lock(m_mutex);
+    m_stopped = true;
+    m_jobs.clear();
+    m_jobsAvailable.notify_all();
 }
 
 void JobQueue::reset() {
-    std::scoped_lock lk(m_);
-    q_.clear();
-    stop_ = false;
+    std::scoped_lock lock(m_mutex);
+    m_jobs.clear();
+    m_stopped = false;
 }
 
 bool Writer::check_running() {
-    if (!running) {
+    if (!m_running) {
         return start();
     } else {
         return true;
@@ -76,26 +76,26 @@ bool Writer::check_running() {
 }
 
 bool Writer::start() {
-    auto ret = false;
-    if (!running) {
-        q.reset();
-        ret = io_open();
+    auto success = false;
+    if (!m_running) {
+        m_queue.reset();
+        success = io_open();
 
-        if (ret) {
-            running = true;
-            th = std::jthread([this] { run(); });
+        if (success) {
+            m_running = true;
+            m_worker = std::jthread([this] { run(); });
         }
     }
 
-    return ret;
+    return success;
 }
 
 void Writer::stop() {
-    if (running) {
-        q.stop();
-        if (th.joinable())
-            th.join();
-        running = false;
+    if (m_running) {
+        m_queue.stop();
+        if (m_worker.joinable())
+            m_worker.join();
+        m_running = false;
 
         io_close();
     }
@@ -105,21 +105,21 @@ void Writer::run() {
     using json = nlohmann::json;
 
     OpkCommJob job;
-    while (q.pop(job)) {
+    while (m_queue.pop(job)) {
 
-        json j;
+        json record;
 
-        j["frame_counter"] = job.frame_counter;
+        record["frame_counter"] = job.frame_counter;
         if (job.frameResults) {
             const auto packet = open_perception_kit::serialize(*job.frameResults);
-            j["frame_results_encoding"] = "perception-frame-results+base64";
-            j["frame_results_packet_b64"] = opk::base64Encode(packet);
+            record["frame_results_encoding"] = "perception-frame-results+base64";
+            record["frame_results_packet_b64"] = opk::base64Encode(packet);
         } else {
-            j["frame_results_encoding"] = nullptr;
-            j["frame_results_packet_b64"] = nullptr;
+            record["frame_results_encoding"] = nullptr;
+            record["frame_results_packet_b64"] = nullptr;
         }
 
-        std::string line = j.dump();
+        std::string line = record.dump();
         line.push_back('\n');
 
         publish(line);
@@ -127,12 +127,12 @@ void Writer::run() {
 }
 
 bool Writer::send(OpkCommJob &&job) {
-    auto ret = false;
-    if (running) {
-        ret = q.try_push(std::move(job));
+    auto success = false;
+    if (m_running) {
+        success = m_queue.try_push(std::move(job));
     } else {
-        ret = false;
+        success = false;
     }
 
-    return ret;
+    return success;
 }

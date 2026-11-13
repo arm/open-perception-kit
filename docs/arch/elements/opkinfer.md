@@ -186,7 +186,7 @@ upstream requirement for each content type needed by its OpChain. Every upstream
 `opkinfer` whose OpChain provides a matching content type becomes active. A newly
 activated provider sends its own requirements, so activation can propagate
 transitively through multiple dependent elements. Set
-`auto-activate-dependencies=false` on a consumer to select its providers manually;
+`auto-activate-model-dependencies=false` on a consumer to select its providers manually;
 that consumer then emits no upstream requirements.
 
 This propagation only enables elements. Setting a `opkinfer` to inactive affects
@@ -314,7 +314,7 @@ writes to those states. Read-only entries cannot be set.
 | --- | --- | --- | --- | --- |
 | `opchain-path` | OpChain JSON descriptor to load. | Unset (`null`) | Path; e.g. `config/models/yolo26n-320/opchain.json`. Required for startup. | NULL/READY |
 | `active` | Enable per-frame OpChain execution. | `true` | `true`, `false` | Live |
-| `auto-activate-dependencies` | Activate upstream content providers when this model is enabled. Set `false` when the caller selects providers explicitly. | `true` | `true`, `false` | NULL/READY |
+| `auto-activate-model-dependencies` | Activate upstream content providers when this model is enabled. Set `false` when the caller selects providers explicitly. | `true` | `true`, `false` | NULL/READY |
 | `infer-id` | Producer identifier attached to result layers. | `""` → element name | String; e.g. `detector`. Empty uses the element name. | NULL/READY |
 | `qos-enabled` | Enable experimental inference skipping from QoS feedback. | `false` | `true`, `false` | Live |
 | `qos-accepted-events-debug` | Count of QoS events committed by the element. | `0` | Unsigned 64-bit counter, 0–18446744073709551615; e.g. observed `12`. | Read-only |
@@ -322,7 +322,7 @@ writes to those states. Read-only entries cannot be set.
 | `audio-hop-samples` | New mono 16 kHz samples between audio windows. | `0` | Unsigned integer, 0–4294967295; `0` uses the model PCM window size. A nonzero value must not exceed that window; e.g. `160` for a window of at least 160 samples. | NULL/READY |
 
 `opchain-path`, `infer-id`, `audio-hop-samples`, `copy-input`, and
-`auto-activate-dependencies` require NULL
+`auto-activate-model-dependencies` require NULL
 or READY. Stop to READY before changing them; the next start recreates the
 OpChain and renegotiates its inputs. A missing/invalid OpChain fails startup even
 with `active=false`. `active` and `qos-enabled` remain live controls.
