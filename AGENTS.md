@@ -113,6 +113,13 @@ Start in:
 - `docs/public/how-to/media-input.md` for a concrete walkthrough.
 
 ### Bring a new model into the system
+
+Prefer existing generic preprocessing and postprocessing for new models. Keep
+model-specific tensor selection, activation, labels and thresholds in the
+model-local configuration. Name reusable runtime code after its operation or
+task. Add model-specific runtime code only when the model's verified contract
+cannot be expressed by the existing generic extension surfaces; document that gap.
+
 Start in:
 
 - `config/models/<your-model>/`

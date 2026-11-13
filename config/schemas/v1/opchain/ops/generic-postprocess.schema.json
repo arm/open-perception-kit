@@ -515,6 +515,58 @@
         }
       }
     },
+    "voiceActivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "outputTensorIndex",
+        "scoreIndex",
+        "activation",
+        "thresholdOn",
+        "thresholdOff",
+        "attackMs",
+        "releaseMs"
+      ],
+      "properties": {
+        "parser": {
+          "const": "VoiceActivityParser"
+        },
+        "thresholdOn": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "thresholdOff": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "attackMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "releaseMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "scoreIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "activation": {
+          "enum": [
+            "sigmoid",
+            "none"
+          ]
+        }
+      }
+    },
     "smartTurn": {
       "type": "object",
       "additionalProperties": false,
@@ -614,6 +666,9 @@
           },
           {
             "$ref": "#/$defs/sileroVad"
+          },
+          {
+            "$ref": "#/$defs/voiceActivity"
           },
           {
             "$ref": "#/$defs/smartTurn"

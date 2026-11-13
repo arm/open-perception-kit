@@ -41,9 +41,9 @@
 #include "postproc/RetinaFaceParser.h"
 #include "postproc/RvmParser.h"
 #include "postproc/ScrfdParser.h"
-#include "postproc/SileroVadParser.h"
 #include "postproc/SmartTurnParser.h"
 #include "postproc/UltrafaceParser.h"
+#include "postproc/VoiceActivityParser.h"
 #include "postproc/Yolo26InstanceSegmentationParser.h"
 #include "postproc/Yolo26SemanticSegmentationParser.h"
 #include "postproc/YoloParser.h"
@@ -77,9 +77,10 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
         {"RetinaFaceParser", make<opk::stdop::postproc::RetinaFaceParser>()},
         {"RvmParser", make<opk::stdop::postproc::RvmParser>()},
         {"ScrfdParser", make<opk::stdop::postproc::ScrfdParser>()},
-        {"SileroVadParser", make<opk::stdop::postproc::SileroVadParser>()},
+        {"SileroVadParser", make<opk::stdop::postproc::VoiceActivityParser>()},
         {"SmartTurnParser", make<opk::stdop::postproc::SmartTurnParser>()},
         {"UltrafaceParser", make<opk::stdop::postproc::UltraFaceParser>()},
+        {"VoiceActivityParser", make<opk::stdop::postproc::VoiceActivityParser>()},
         {"Yolo26InstanceSegmentationParser",
          make<opk::stdop::postproc::Yolo26InstanceSegmentationParser>()},
         {"Yolo26SemanticSegmentationParser",
@@ -121,6 +122,20 @@ opk::Result<void> GenericPostprocessOp::configure(const opk::AttributeMap &attri
                       fmt::format("No tensor parser with name: [{}]", parserName)));
     }
 
+    if (parserName == "SileroVadParser") {
+        // Preserve the configuration contract published in OPK 0.1.3.
+        this->attributes.set("outputTensorIndex", int64_t{0});
+        this->attributes.set("scoreIndex", int64_t{0});
+        this->attributes.set("activation", "none");
+        if (!attributes.contains("thresholdOn"))
+            this->attributes.set("thresholdOn", 0.6);
+        if (!attributes.contains("thresholdOff"))
+            this->attributes.set("thresholdOff", 0.45);
+        if (!attributes.contains("attackMs"))
+            this->attributes.set("attackMs", int64_t{50});
+        if (!attributes.contains("releaseMs"))
+            this->attributes.set("releaseMs", int64_t{50});
+    }
     this->parser = it->second();
 
     return {};
@@ -150,6 +165,12 @@ GenericPostprocessOp::process(opk::op::OpChainContext &opChainContext) {
             tensorParserInput.tensors[i] = nullptr;
         }
     }
+
+    if (parserName == "SileroVadParser" &&
+        (!tensorParserInput.tensors[0] ||
+         !(tensorParserInput.tensors[0]->getShape() == opk::Shape(1, 1))))
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                        "SileroVadParser requires a [1,1] probability tensor"));
 
     // copy active inference info
     tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;

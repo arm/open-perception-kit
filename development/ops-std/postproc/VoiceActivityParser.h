@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-#ifndef OPK_SILERO_VAD_PARSER_H
-#define OPK_SILERO_VAD_PARSER_H
+#pragma once
+
 #include "opk/TensorParser.h"
 
 namespace opk::stdop::postproc {
 
-/// Parses Silero's single [1,1] Float32 speech probability.
-/// Attack/release durations use 16 kHz audio sample counts, never wall time.
-struct SileroVadParser : public opk::TensorParser {
+/// Decodes a configured speech score and applies sample-based VAD hysteresis.
+struct VoiceActivityParser : public opk::TensorParser {
     static constexpr std::string_view k_content_type = "voiceActivity";
     std::vector<std::string_view> getProvidedContentTypes() const override {
         return {k_content_type};
@@ -32,11 +31,11 @@ struct SileroVadParser : public opk::TensorParser {
                             open_perception_kit::FrameResults &results) override;
 
   private:
+    void
+    advanceTransition(const bool requested, const uint64_t delaySamples, const uint64_t hopSamples);
+
     bool speechActive_ = false;
-    uint64_t attackSamples_ = 0;
-    uint64_t releaseSamples_ = 0;
+    uint64_t pendingSamples_ = 0;
 };
 
 } // namespace opk::stdop::postproc
-
-#endif // OPK_SILERO_VAD_PARSER_H

@@ -206,14 +206,32 @@ range cannot be represented. Timestamp zero is valid. Separate inference calls
 append separate payloads, including when one source buffer produces several
 windows. Consumers must iterate all payloads rather than reading only the first.
 
-`SileroVadParser` reads the single speech probability from the `[1,1]` Float32
-output; it does not apply softmax. `thresholdOn` (0.60) and
-`thresholdOff` (0.45) provide hysteresis. `attackMs` and `releaseMs` (both 50)
-are converted to exact sample thresholds using 16 samples/ms. Each consecutive
-qualifying window contributes the effective audio hop. Decisions change only
-at window boundaries; a 50 ms threshold with a 512-sample hop takes two calls
-(64 ms). The parser rejects the obsolete `windowMs` attribute and resets its
-state on `inferenceInfo.audio.discontinuity`. Each parser instance owns its counters.
+`VoiceActivityParser.{h,cpp}` owns tensor decoding, shared hysteresis and VAD
+payload production. New configurations explicitly supply `outputTensorIndex`
+(0–15), `scoreIndex` (flat index), `activation` (`sigmoid` or `none`),
+`thresholdOn`, `thresholdOff`, `attackMs` and `releaseMs`. Select a finite
+Float32 value from any fixed tensor shape; `none` requires a probability in
+[0,1], while `sigmoid` converts a logit stably. Thresholds are finite with
+0 <= off <= on <= 1; attack/release are nonnegative integer milliseconds.
+Invalid input must not change state or append a partial payload.
+
+`GenericPostprocess` also accepts the `SileroVadParser` name published in OPK
+0.1.3. This compatibility path preserves its Float32 `[1,1]` probability input,
+defaults of 0.60 on / 0.45 off and 50 ms attack/release, and the
+`SileroVadParser` producer implementation. It supplies fixed tensor selection
+and delegates to `VoiceActivityParser` rather than duplicating hysteresis.
+
+The Silero standalone and VAD/SmartTurn chains use this same parser with
+`activation: "none"`, `outputTensorIndex: 0` and `scoreIndex: 0` for their
+`[1,1]` probability output. Their explicit thresholds remain 0.60 on / 0.45 off,
+with 50 ms attack and release. These settings belong to the model profiles;
+the generic parser owns hysteresis, timing, reset and payload production.
+
+
+Durations use 16 samples/ms, and each consecutive qualifying window contributes
+the effective audio hop. Decisions change only at window boundaries: the Silero
+profile's 50 ms delay with a 512-sample hop takes two calls (64 ms). State resets
+on `inferenceInfo.audio.discontinuity`; each parser instance owns its counters.
 
 This additive payload is included in OPK/SDK 0.1.3 under the approved
 release-specific version exception ([EXPKITS-1570](https://jira.arm.com/browse/EXPKITS-1570)).
