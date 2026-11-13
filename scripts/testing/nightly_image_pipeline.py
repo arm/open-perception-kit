@@ -13,11 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Use a packaged pipeline's image source for its nightly dry run."""
+"""Prepare the image pipelines used by nightly smoke tests."""
 
+import argparse
 import json
-import sys
+import shlex
+import subprocess
 from pathlib import Path
+from string import Template
 
 
 def image_pipeline(preset):
@@ -33,8 +36,35 @@ def image_pipeline(preset):
     }
 
 
+def cascade_pipeline(opk_data, image, results):
+    preset = json.loads(Path(__file__).with_name("nightly-deployment-pipeline.json").read_text(encoding="utf-8"))
+    preset["pipeline"] = [Template(stage).substitute(opk_data=opk_data, image=image, results=results)
+                          for stage in preset["pipeline"]]
+    return preset
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    image = commands.add_parser("image", help="Use a packaged preset's image source")
+    image.add_argument("source", type=Path)
+    image.add_argument("output", type=Path)
+    cascade = commands.add_parser("cascade", help="Run the finite cascade or write its pipeline JSON")
+    cascade.add_argument("opk_data")
+    cascade.add_argument("image")
+    cascade.add_argument("results")
+    cascade.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    if args.command == "image":
+        preset = image_pipeline(json.loads(args.source.read_text(encoding="utf-8")))
+    else:
+        preset = cascade_pipeline(args.opk_data, args.image, args.results)
+    if args.output is not None:
+        args.output.write_text(json.dumps(preset), encoding="utf-8")
+    else:
+        pipeline_args = shlex.split(" ".join(preset["pipeline"]))
+        subprocess.run(["timeout", "120s", "gst-launch-1.0", "-q", *pipeline_args], check=True)
+
+
 if __name__ == "__main__":
-    source = Path(sys.argv[1])
-    destination = Path(sys.argv[2])
-    preset = json.loads(source.read_text(encoding="utf-8"))
-    destination.write_text(json.dumps(image_pipeline(preset)), encoding="utf-8")
+    main()

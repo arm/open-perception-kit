@@ -28,9 +28,13 @@ mkdir -p "$3"
 logs_dir="$(realpath "$3")"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+python3 "$script_dir/nightly_image_pipeline.py" cascade /work/config \
+    /work/data/images/GettyImages-1140581459-thumbnail.jpg /tmp/nightly-deployment-cascade.ndjson \
+    --output "$logs_dir/deployment-pipeline.json"
+
 container_id="$(docker create \
     -e OPK_PIPELINE=/nightly/pipeline.json \
-    -v "$script_dir/nightly-deployment-pipeline.json:/nightly/pipeline.json:ro" \
+    -v "$logs_dir/deployment-pipeline.json:/nightly/pipeline.json:ro" \
     -v "$models_dir/ultraface-rfb-320:/work/config/models/ultraface-rfb-320:ro" \
     -v "$models_dir/nitec-resnet-18-executorch:/work/config/models/nitec-resnet-18-executorch:ro" \
     "$image")"

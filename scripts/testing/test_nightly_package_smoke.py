@@ -16,15 +16,16 @@
 import json
 import os
 import subprocess
+import sys
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.testing.nightly_image_pipeline import image_pipeline
+from scripts.testing.nightly_image_pipeline import cascade_pipeline, image_pipeline
 
 SCRIPT = Path(__file__).with_name("nightly-deb-and-archive-smoke.sh")
 DEPLOYMENT_SCRIPT = Path(__file__).with_name("nightly-deployment-entrypoint-smoke.sh")
-DEPLOYMENT_PIPELINE = Path(__file__).with_name("nightly-deployment-pipeline.json")
 
 
 class PackageSmokeTest(unittest.TestCase):
@@ -52,16 +53,39 @@ class PackageSmokeTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             image_pipeline({"pipeline": ["opkinfer !"], "alternative-source-image": []})
 
+    def test_cascade_run_and_json_use_the_same_fixture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            gst = root / "gst-launch-1.0"
+            gst.write_text(
+                f"#!{sys.executable}\nimport json, sys\n"
+                f"open({str(root / 'args.json')!r}, 'w').write(json.dumps(sys.argv[1:]))\n",
+                encoding="utf-8",
+            )
+            gst.chmod(0o755)
+            arguments = [str(root / "config with spaces"), "/images/face.jpg", str(root / "results.ndjson")]
+            helper = Path(__file__).with_name("nightly_image_pipeline.py")
+            command = [sys.executable, str(helper), "cascade", *arguments]
+            subprocess.run(command, env=dict(os.environ, PATH=f"{root}:{os.environ['PATH']}"), check=True)
+            output = root / "pipeline.json"
+            subprocess.run([*command, "--output", str(output)], check=True)
+            preset = json.loads(output.read_text())
+            expected = ["-q", *shlex.split(" ".join(preset["pipeline"]))]
+            self.assertEqual(json.loads((root / "args.json").read_text()), expected)
+            self.assertIn(f"opchain-path={arguments[0]}/opchains/nitec-resnet-18/opchain-executorch.json", expected)
+            self.assertFalse(preset["loop"])
+
 
 class DeploymentSmokeTest(unittest.TestCase):
     def test_pipeline_is_finite_and_captures_cascade_results(self):
-        preset = json.loads(DEPLOYMENT_PIPELINE.read_text(encoding="utf-8"))
+        preset = cascade_pipeline("/work/config", "/work/data/images/GettyImages-1140581459-thumbnail.jpg",
+                                  "/tmp/nightly-deployment-cascade.ndjson")
         pipeline = " ".join(preset["pipeline"])
         self.assertFalse(preset["loop"])
         self.assertIn("GettyImages-1140581459-thumbnail.jpg", pipeline)
         self.assertIn("imagefreeze num-buffers=1", pipeline)
         self.assertIn("nitec-resnet-18/opchain-executorch.json", pipeline)
-        self.assertIn("file-name=/tmp/nightly-deployment-cascade.ndjson", pipeline)
+        self.assertIn("file-name=/tmp/nightly-deployment-cascade.ndjson", shlex.split(pipeline))
 
     def test_deployment_smoke_propagates_failures_and_removes_container(self):
         with tempfile.TemporaryDirectory() as directory:
