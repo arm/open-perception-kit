@@ -1,13 +1,13 @@
 {
-  "version": "1.0.0",
-  "description": "Nightly deployment entrypoint smoke test.",
+  "version": "1.0.1",
+  "description": "Finite nightly face and camera-contact cascade.",
   "loop": false,
   "pipeline": [
-    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
+    "filesrc location=\"${image}\" !",
     "jpegdec ! imagefreeze num-buffers=1 !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "opkinfer opchain-path=/work/config/opchains/nitec-resnet-18/opchain-executorch.json active=true !",
-    "opkcomm method=file file-name=/tmp/nightly-deployment-cascade.ndjson !",
+    "opkinfer opchain-path=\"${opk_data}/opchains/nitec-resnet-18/opchain-executorch.json\" active=true !",
+    "opkcomm method=file file-name=\"${results}\" !",
     "fakesink sync=false"
   ]
 }

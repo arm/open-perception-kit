@@ -62,11 +62,7 @@ smoke_runtime() {
 smoke_cascade() {
     local opk_data="$1" image="$2"
     local results=/tmp/nightly-cascade.ndjson
-    timeout 120s gst-launch-1.0 -q \
-        filesrc location="$image" ! jpegdec ! imagefreeze num-buffers=1 ! \
-        videoconvert ! video/x-raw,format=BGRA ! \
-        opkinfer opchain-path="$opk_data/opchains/nitec-resnet-18/opchain-executorch.json" ! \
-        opkcomm method=file file-name="$results" ! fakesink sync=false
+    python3 /source/scripts/testing/nightly_image_pipeline.py cascade "$opk_data" "$image" "$results"
     echo 'Cascade FrameResults:'
     cat "$results"
     /tmp/opk-python/bin/python /source/scripts/testing/check-nightly-cascade.py "$results"
@@ -78,7 +74,7 @@ if [[ "$1" == debian ]]; then
     apt-get install -y --no-install-recommends "${runtime[0]}" "${demo[0]}" gstreamer1.0-tools python3-venv
     dpkg-query -W -f='${db:Status-Status}\n' opk-runtime opk-demo | grep -x -c installed | grep -x 2
     smoke_runtime
-    python3 /source/scripts/testing/nightly_image_pipeline.py \
+    python3 /source/scripts/testing/nightly_image_pipeline.py image \
         /usr/share/opk/config/pipelines/yolo26n-320.json /tmp/nightly-image-pipeline.json
     NO_COLOR=1 opk-menu --dry-run /tmp/nightly-image-pipeline.json | tee /tmp/opk-menu-smoke.log
     grep -q '^Model: OK ' /tmp/opk-menu-smoke.log
