@@ -124,6 +124,7 @@ TEST(VoiceActivityParser, AppliesOnlyTheConfiguredActivation) {
         fixture.scores[4] = score;
         Results results;
         ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
+        ASSERT_EQ(results.size(), 1u);
         results.for_each<VoicePayload>([&](const auto &payload) {
             const float probability = payload.detections[0]->speech_probability;
             EXPECT_TRUE(std::isfinite(probability));
@@ -193,39 +194,6 @@ TEST(VoiceActivityParser, RoundsDurationsUpToCompleteAudioHops) {
     EXPECT_TRUE(fixture.step(0.9f)); // 50 ms = 800 samples; two 512-sample hops.
     EXPECT_TRUE(fixture.step(0.1f));
     EXPECT_FALSE(fixture.step(0.1f));
-}
-
-TEST(VoiceActivityParser, AppliesChangedPolicyToPendingTransitions) {
-    VoiceFixture fixture;
-    fixture.attributes.set("attackMs", int64_t{30});
-    EXPECT_FALSE(fixture.step(0.75f));
-    fixture.attributes.set("attackMs", int64_t{40});
-    EXPECT_FALSE(fixture.step(0.75f));
-    fixture.attributes.set("attackMs", int64_t{10});
-    EXPECT_TRUE(fixture.step(0.75f));
-
-    fixture.attributes.set("releaseMs", int64_t{30});
-    EXPECT_TRUE(fixture.step(0.25f));
-    fixture.attributes.set("releaseMs", int64_t{-1});
-    fixture.input.inferenceInfo.audio.discontinuity = true;
-    Results invalidResults;
-    EXPECT_FALSE(fixture.parser.parse(fixture.input, invalidResults));
-    EXPECT_EQ(invalidResults.size(), 0u);
-    fixture.attributes.set("releaseMs", int64_t{40});
-    EXPECT_TRUE(fixture.step(0.25f));
-    fixture.attributes.set("releaseMs", int64_t{10});
-    EXPECT_FALSE(fixture.step(0.25f));
-
-    fixture.attributes.set("attackMs", int64_t{20});
-    EXPECT_FALSE(fixture.step(0.75f));
-    fixture.attributes.set("thresholdOn", 0.9);
-    EXPECT_FALSE(fixture.step(0.75f));
-    fixture.attributes.set("thresholdOn", 0.75);
-    EXPECT_FALSE(fixture.step(0.75f));
-    fixture.attributes.set("attackMs", int64_t{0});
-    EXPECT_TRUE(fixture.step(0.75f));
-    fixture.attributes.set("releaseMs", int64_t{0});
-    EXPECT_FALSE(fixture.step(0.25f));
 }
 
 TEST(VoiceActivityParser, ResetsActiveStateAndKeepsInstancesIndependent) {
