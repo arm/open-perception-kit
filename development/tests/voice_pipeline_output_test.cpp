@@ -27,10 +27,10 @@
 TEST(VoicePipelineOutput, QuotesLabelsAndEscapesTerminalControlsAfterSerialization) {
     const std::array<std::pair<std::string, std::string>, 6> labels{{
         {"go", "\"go\""},
-        {std::string("go\0stop", 7), "\"go\\x00stop\""},
-        {"go\nstop", "\"go\\nstop\""},
-        {"\033[31mgo", "\"\\x1b[31mgo\""},
-        {"go\\stop\"", "\"go\\\\stop\\\"\""},
+        {std::string("go\0stop", 7), R"("go\x00stop")"},
+        {"go\nstop", R"("go\nstop")"},
+        {"\033[31mgo", R"("\x1b[31mgo")"},
+        {"go\\stop\"", R"("go\\stop\"")"},
         {"árvíz", "\"árvíz\""},
     }};
     for (const auto &[label, expected] : labels) {
