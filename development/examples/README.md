@@ -33,7 +33,7 @@ stages their binaries into `tools/` beside `opk-menu`.
 - `pipeline-exec`: C++ application facade proof of concept for loading an OPK
   pipeline JSON through `opk::runtime::Pipeline` and receiving serialized
   FrameResults packet callbacks.
-- `voice-pipeline`: single-file browser-microphone demo with VAD and SmartTurn,
+- `voice-pipeline`: browser-microphone demo with VAD and SmartTurn,
   live speech status, and one `TURN (reason)` per completed utterance. See its
   [run instructions](voice-pipeline/README.md).
 - `byom-blazeface`: Python/config application sketch that brings a BlazeFace
