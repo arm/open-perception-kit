@@ -61,16 +61,7 @@ numeric behavior. Configuration limits and the feature
 shape calculation have one implementation owner, reused during validation and
 binding rather than copied into the Op.
 
-Use the repository's C++20 support to express the supported conversions as
-distinct types, each owning its configuration and bound kernel. The builder
-dispatches their common lifecycle with `std::variant`/`std::visit`; adding a
-conversion extends this local specialization point. Normalization likewise
-uses separate none, window and rolling policies, with history owned only by
-the rolling policy. Keep configuration decoding, feature extraction,
-normalization and output layout separate, preserving failure atomicity and
-allocation-free processing. Parsers retain the existing `TensorParser`
-polymorphic boundary and separate input validation, score decoding, state
-transitions and payload construction.
+Processing is allocation-free after binding.
 
 For an audio inference stage, `OpChain` first uses the immediately preceding
 `OpInterfaceAudioPreprocessor`'s scheduled PCM window. Without that interface,

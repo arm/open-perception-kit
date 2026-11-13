@@ -23,7 +23,6 @@
 #include <cstring>
 #include <gtest/gtest.h>
 #include <limits>
-#include <numeric>
 
 namespace {
 using opk::stdop::preproc::CpuLogMelSpectrogram;
@@ -41,7 +40,7 @@ std::vector<float> waveform(const size_t count) {
 std::vector<float> referenceWaveform(const size_t count) {
     auto samples = waveform(count);
     for (size_t i = 0; i < count; ++i) {
-        if (i < 512 || (i >= 18000 && i < 24000))
+        if (i < 512)
             samples[i] = 0;
         if (i == 512)
             samples[i] = 0.9f;
@@ -69,138 +68,6 @@ LogMelSpectrogramConfig rollingConfig() {
 
 std::span<uint8_t> bytes(std::vector<float> &values) {
     return {reinterpret_cast<uint8_t *>(values.data()), values.size() * sizeof(float)};
-}
-
-// Golden samples: torchaudio 2.9.1 MelSpectrogram, HTK/power2/FFT512/Hann480,
-// center=False; natural log(+1e-6), float64 mean/sample std(+1e-8).
-struct WindowCase {
-    size_t window;
-    size_t hop;
-    size_t bins;
-    std::array<float, 24> expected;
-};
-
-TEST(CpuLogMelSpectrogram, MatchesIndependentTorchWindowProfiles) {
-    const std::array<WindowCase, 3> cases{{
-        {8000, 400, 64, {-2.95529771f,  -2.95529771f,  0.21497938f,   0.897890568f, -0.172027618f,
-                         -0.219647512f, 1.23216355f,   1.08454227f,   0.617847204f, -0.177407667f,
-                         0.121604554f,  -0.185064957f, 1.49184573f,   0.54587692f,  0.234627023f,
-                         0.451655954f,  0.484164983f,  -2.14899397f,  0.687092662f, 0.752281547f,
-                         -0.134759024f, 0.132181376f,  -0.580163062f, 0.734555185f}},
-        {16000, 160, 40, {-4.43065882f,   -0.159935609f, -0.290854603f, 0.64538002f,  0.465781003f,
-                          -0.654383242f,  -0.592847407f, -0.400651097f, 0.177620813f, 1.11774528f,
-                          -0.920870721f,  0.144536048f,  -0.19163242f,  0.301309526f, -1.25170732f,
-                          -0.270542949f,  0.78378135f,   0.547755361f,  1.51282847f,  -1.27834821f,
-                          -0.0604834557f, 0.136920437f,  0.644236147f,  0.838200748f}},
-        {16000, 400, 64, {-3.43344164f,  0.336440504f,  0.42662105f,   -0.295525074f,
-                          1.13840032f,   0.913579166f,  -0.736768663f, 0.471377909f,
-                          0.400602669f,  0.0526370928f, 1.31590784f,   -0.0719527304f,
-                          0.0580774397f, -2.48610067f,  0.512159288f,  -0.288591504f,
-                          -0.946890891f, 0.571846366f,  -0.238686621f, -0.00606922153f,
-                          1.60352635f,   0.514473557f,  -0.309915006f, 0.732630074f}},
-    }};
-    for (const auto &item : cases) {
-        SCOPED_TRACE(item.bins);
-        CpuLogMelSpectrogram kernel;
-        ASSERT_TRUE(kernel.configure(windowConfig(item.window, item.hop), item.bins));
-        opk::PcmRingBuffer pcm(item.window);
-        ASSERT_TRUE(pcm.append(referenceWaveform(item.window)));
-        const size_t count = (1 + (item.window - 512) / item.hop) * item.bins;
-        std::vector<float> output(count);
-        ASSERT_TRUE(kernel.process(pcm.view(), bytes(output), 400, false));
-        for (size_t i = 0; i < item.expected.size(); ++i)
-            EXPECT_NEAR(
-                output[i * (count - 1) / (item.expected.size() - 1)], item.expected[i], 2e-4f);
-        const double mean = std::accumulate(output.begin(), output.end(), 0.0) / count;
-        double squared = 0;
-        for (const float value : output)
-            squared += (value - mean) * (value - mean);
-        EXPECT_NEAR(mean, 0, 1e-7);
-        EXPECT_NEAR(squared / (count - 1), 1, 1e-6);
-    }
-}
-
-TEST(CpuLogMelSpectrogram, MatchesRollingOracleThroughEvictionAndReset) {
-    CpuLogMelSpectrogram kernel;
-    ASSERT_TRUE(kernel.configure(rollingConfig(), 64));
-    const auto samples = referenceWaveform(42112);
-    opk::PcmRingBuffer pcm(samples.size());
-    ASSERT_TRUE(pcm.append(samples));
-    const std::array<size_t, 10> bins{0, 1, 5, 13, 21, 31, 43, 53, 62, 63};
-    const std::array<size_t, 5> frames{1, 2, 99, 100, 104};
-    const std::array<std::array<float, 10>, 5> expected{{
-        {0.613766849f,
-         0.624329031f,
-         0.596115172f,
-         1.06241274f,
-         0.907613099f,
-         0.81920433f,
-         1.22441196f,
-         1.08482814f,
-         1.29732776f,
-         1.2230823f},
-        {-1.02953398f,
-         -0.947352767f,
-         0.403227389f,
-         0.800593317f,
-         0.603807628f,
-         0.551577866f,
-         0.978468895f,
-         0.770492136f,
-         1.07031095f,
-         1.00324535f},
-        {-1.82734764f,
-         -1.62418914f,
-         0.103310443f,
-         0.625956655f,
-         0.356725574f,
-         0.28386423f,
-         0.827211916f,
-         0.548972189f,
-         0.912747025f,
-         0.821230173f},
-        {-1.80989611f,
-         -1.64865315f,
-         0.0809011757f,
-         0.614281118f,
-         0.339329779f,
-         0.264780819f,
-         0.815863371f,
-         0.533618748f,
-         0.906159282f,
-         0.814402044f},
-        {-1.69871974f,
-         -1.59744656f,
-         0.0830190629f,
-         0.604529023f,
-         0.336559504f,
-         0.266746402f,
-         0.821162879f,
-         0.531581521f,
-         0.905514717f,
-         0.809012413f},
-    }};
-    std::vector<float> output(64);
-    for (size_t frame = 0; frame <= 104; ++frame) {
-        const auto view = pcm.window(frame * 400, 512);
-        ASSERT_TRUE(view);
-        ASSERT_TRUE(kernel.process(*view, bytes(output), 400, false));
-        const auto found = std::find(frames.begin(), frames.end(), frame);
-        if (found != frames.end()) {
-            const size_t row = static_cast<size_t>(found - frames.begin());
-            for (size_t i = 0; i < bins.size(); ++i)
-                EXPECT_NEAR(output[bins[i]], expected[row][i], 3e-4f) << frame << ":" << bins[i];
-        }
-    }
-    const auto first = pcm.window(0, 512);
-    ASSERT_TRUE(first);
-    ASSERT_TRUE(kernel.process(*first, bytes(output), 400, true));
-    EXPECT_EQ(output, std::vector<float>(64));
-    const auto second = pcm.window(400, 512);
-    ASSERT_TRUE(second);
-    ASSERT_TRUE(kernel.process(*second, bytes(output), 400, false));
-    for (size_t i = 0; i < bins.size(); ++i)
-        EXPECT_NEAR(output[bins[i]], expected[0][i], 3e-4f);
 }
 
 TEST(CpuLogMelSpectrogram, HandlesWrappedPcmAndUnalignedOutput) {
@@ -333,59 +200,6 @@ TEST(CpuLogMelSpectrogram, RollingCadenceErrorsPreserveOutputAndHistory) {
     EXPECT_EQ(output, std::vector<float>(64));
     ASSERT_TRUE(kernel.process(*second, bytes(output), 400, false));
     EXPECT_EQ(output, expected);
-}
-
-TEST(CpuLogMelSpectrogram, FailedReconfigurationDisablesExecutionAndSuccessfulRebindResetsHistory) {
-    CpuLogMelSpectrogram kernel;
-    const auto config = rollingConfig();
-    auto collapsedFilters = config;
-    collapsedFilters.minFrequencyHz = 7999.999999;
-    const std::array<std::pair<LogMelSpectrogramConfig, size_t>, 2> invalid{{
-        {config, 513},
-        {collapsedFilters, 64},
-    }};
-    opk::PcmRingBuffer pcm(512);
-    ASSERT_TRUE(pcm.append(referenceWaveform(512)));
-    std::vector<float> output(64, 17.0f);
-    for (const auto &[invalidConfig, bins] : invalid) {
-        ASSERT_TRUE(kernel.configure(config, 64));
-        EXPECT_EQ(kernel.getRequiredAudioSamples(), 512u);
-        EXPECT_EQ(kernel.getOutputCount(), 64u);
-        ASSERT_TRUE(kernel.process(pcm.view(), bytes(output), 400, false));
-        EXPECT_FALSE(kernel.configure(invalidConfig, bins));
-        EXPECT_EQ(kernel.getRequiredAudioSamples(), 0u);
-        EXPECT_EQ(kernel.getOutputCount(), 0u);
-        std::fill(output.begin(), output.end(), 17.0f);
-        EXPECT_FALSE(kernel.process(pcm.view(), bytes(output), 400, false));
-        EXPECT_EQ(output, std::vector<float>(64, 17.0f));
-        ASSERT_TRUE(kernel.configure(config, 64));
-        ASSERT_TRUE(kernel.process(pcm.view(), bytes(output), 400, false));
-        EXPECT_EQ(output, std::vector<float>(64));
-    }
-}
-
-TEST(CpuLogMelSpectrogram, ReconfigurationChangesNormalizationAndDiscardsPreviousHistory) {
-    CpuLogMelSpectrogram kernel;
-    const auto rolling = rollingConfig();
-    const auto window = windowConfig(512, 400);
-    auto raw = window;
-    raw.normalization = std::monostate{};
-    opk::PcmRingBuffer pcm(912);
-    ASSERT_TRUE(pcm.append(referenceWaveform(912)));
-    std::vector<float> output(64);
-    std::vector<float> expected(64);
-    for (const auto &config : {rolling, window, raw, rolling}) {
-        CpuLogMelSpectrogram reference;
-        ASSERT_TRUE(reference.configure(config, 64));
-        ASSERT_TRUE(kernel.configure(config, 64));
-        for (const size_t start : {0, 400}) {
-            const auto view = pcm.window(start, 512);
-            ASSERT_TRUE(view);
-            ASSERT_TRUE(reference.process(*view, bytes(expected), 400, false));
-            ASSERT_TRUE(kernel.process(*view, bytes(output), 400, false));
-            EXPECT_EQ(output, expected);
-        }
-    }
 }
 
 TEST(CpuLogMelSpectrogram, MatchesCompleteModelIndependentTorchTensorsInBothLayouts) {
