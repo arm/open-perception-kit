@@ -21,9 +21,9 @@ Status: model-independent implementation validated in the development container 
 
 ## Goal and existing boundaries
 
-Provide model-independent log-mel preprocessing and voice-activity decoding
-through the existing OPK audio path. Preserve the supported Silero PCM path;
-model-specific settings belong in model-local configuration.
+Provide model-independent log-mel preprocessing, voice-activity decoding and
+keyword classification through the existing OPK audio path. Preserve the supported
+Silero PCM path; model-specific settings belong in model-local configuration.
 
 Keep the existing ownership split:
 
@@ -33,7 +33,7 @@ Keep the existing ownership split:
 - The builder configures one PCM or log-mel conversion and binds its kernel.
   The selected implementation owns its processing state and numerical rules.
 - Inference owns tensors and recurrent feedback; parsers emit existing
-  `VoiceActivityDetections` payloads.
+  `VoiceActivityDetections` and `Classifications` payloads.
 - `TurnDetector` owns retained conversation audio and pause-based assessment.
 - `opksrc` and the existing web frontend own browser microphone capture.
 
@@ -153,6 +153,19 @@ a history vector. Output layout must not change normalization semantics.
 Voice-activity decoding, hysteresis and Silero configuration use the existing
 [voice-activity parser contract](perception.md#voice-activity-results).
 
+`KeywordClassificationParser.{h,cpp}` consumes a Float32 class vector with
+optional singleton leading dimensions. Required configuration is
+`outputTensorIndex` (0–15), `activation` (`softmax` or `none`),
+`confidenceThreshold` (finite, [0,1]) and `labels` (nonempty array of nonempty
+strings or nulls, at least one string). Its length must match the tensor's
+class axis. Null suppresses that class at any position; there is no fixed
+class count, keyword list or unknown/noise index. Softmax and argmax include
+all classes. If the winning label is null, publish nothing; do not select a
+runner-up. `none` accepts finite scores in [0,1]. Publish one winner when its
+score is >= the configured threshold, compared in the Float32 score domain;
+ties select the first index. Keep the
+existing `keyword` semantic content type and producer/model identity.
+
 Parser IDs name the operation rather than a model. Model names belong in
 model-local descriptors, runnable profiles and artifact integration tests.
 Shared algorithms and their unit tests use algorithm or payload-based filenames.
@@ -163,6 +176,12 @@ The voice-pipeline demo accepts `--pipeline PATH` through the existing JSON
 loader. Its default uses Silero VAD and SmartTurn; custom pipelines keep their
 VAD/turn inference element named `voice`. See the
 [voice demo](../../development/examples/voice-pipeline/README.md).
+
+Custom pipelines can add independently scheduled keyword inference in an
+`opkinfer name=keywords` branch. Keep it separate from the conversation's
+terminal turn-detection branch: `AbortChain` skips the remaining Op stages.
+The demo receives its classifications through the runtime callback; keyword
+assessments do not control conversation completion.
 
 Before microphone audio arrives, `opksrc` emits placeholder silence marked
 `GAP`. The audio scheduler resets and skips those buffers, so they do not advance
@@ -193,7 +212,7 @@ trigger turn inference.
 
 ## Compatibility and validation
 
-Model reader 1.4.0 and OpChain reader 1.12.0 support these features; see
+Model reader 1.4.0 and OpChain reader 1.13.0 support these features; see
 [configuration compatibility](../public/concepts/configuration-compatibility.md).
 No payload or product release version changes are required.
 

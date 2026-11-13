@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "KeywordOutput.h"
 #include "open_perception_kit.h"
 #include "runtime/Pipeline.h"
 
@@ -132,6 +133,7 @@ struct Conversation {
     }
 
     void consume(const Results &results) {
+        voice_pipeline::printKeywords(results);
         // A buffer can carry several windows. Process them in audio order,
         // with VAD before SmartTurn at the same endpoint. The pointers below
         // remain valid while this decoded FrameResults object is alive.

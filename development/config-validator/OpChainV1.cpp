@@ -400,7 +400,7 @@ void validateAudioParserIntegers(ValidationReport &report,
         if (op.id != Postprocess)
             continue;
         const auto parser = stringAttribute(op.attributes, "parser");
-        if (parser != "VoiceActivityParser")
+        if (parser != "VoiceActivityParser" && parser != "KeywordClassificationParser")
             continue;
         for (const auto *const attribute :
              {"outputTensorIndex", "scoreIndex", "attackMs", "releaseMs"}) {

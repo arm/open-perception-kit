@@ -268,7 +268,7 @@ window. The Op does not resample. Its audio tensor builder binds the PCM or
 log-mel implementation, which owns its context and reset handling. `AudioLogMel`
 uses explicit `logMel` configuration; PCM context prepending and log-mel are
 mutually exclusive. See the [log-mel contract](../audio-log-mel.md)
-for numerical semantics and lifecycle behavior.
+for numerical semantics, cold-start behavior and mic usage.
 
 `inputAudioSourceName` defaults to `pipelineAudioData`. `inputAudioTensorIndex`
 selects an input explicitly; omitted or `-1` requires a unique `AudioPcm` or `AudioLogMel` input.

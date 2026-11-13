@@ -876,12 +876,21 @@ test('cpu_log_mel_spectrogram_tests', cpu_log_mel_spectrogram_tests)
 
 audio_parser_tests = executable(
   'audio_parser_tests',
-  ['audio_parser_test.cpp', '../ops-std/postproc/VoiceActivityParser.cpp'],
+  ['audio_parser_test.cpp', '../ops-std/postproc/VoiceActivityParser.cpp',
+   '../ops-std/postproc/KeywordClassificationParser.cpp'],
   include_directories: [common_include, include_directories('../ops-std')],
   dependencies: [gtest_main_dep, gtest_dep, opk_deps],
   link_with: [common],
 )
 test('audio_parser_tests', audio_parser_tests)
+
+voice_pipeline_output_tests = executable(
+  'voice_pipeline_output_tests',
+  'voice_pipeline_output_test.cpp',
+  include_directories: include_directories('../examples/voice-pipeline'),
+  dependencies: [gtest_main_dep, gtest_dep, fmt_dep, open_perception_kit_dep],
+)
+test('voice_pipeline_output_tests', voice_pipeline_output_tests)
 
 test('voice_pipeline_cli', python,
   args: [files('voice_pipeline_cli_test.py'), voice_pipeline.full_path()],

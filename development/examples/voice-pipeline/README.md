@@ -17,8 +17,8 @@ limitations under the License.
 
 # voice-pipeline
 
-A minimal microphone/turn demo. All application code is in `main.cpp`, using
-`opk::runtime::Pipeline` and the generated VAD/turn perception types. The app
+A minimal microphone/turn demo using `opk::runtime::Pipeline` and the generated
+VAD/turn perception types. The app
 introduces the demo, shows the pipeline in color, and explains how to use the
 OPK web frontend for microphone input. The live status line starts with
 `ESC - Quit`, with only `ESC` inverted, followed by audio progress, detected
@@ -61,6 +61,12 @@ building turn history. Set `inputWindowSampleCount` to the VAD context and
 `hopSampleCount` to the inference cadence; see
 [the audio preprocessing contract](../../../docs/arch/audio-log-mel.md#conversation-audio-and-metadata).
 
+Custom pipelines can add an independently scheduled microphone inference branch
+named `keywords`. The console prints `KEYWORD "<label>" (<probability>%)` for its
+accepted classifications, escaping control characters in labels. These are rolling
+model assessments, so the same word may appear repeatedly; they do not start or
+stop the conversation state machine.
+
 The application applies this policy:
 
 - Speech opens an utterance. Initial silence produces nothing.
@@ -78,8 +84,8 @@ are conveyed by VAD's discontinuity flag.
 
 To use another model or cadence, copy a pipeline preset and change its OpChain
 path and `audio-hop-samples`, then pass that file with `--pipeline`. Keep the
-VAD/turn inference element named `voice`; the app routes its existing perception
-payloads by identity.
+VAD/turn inference element named `voice`, and an optional keyword element named
+`keywords`; the app routes their existing perception payloads by identity.
 For checkout paths outside `/work`, set `OPK_PROJECT_ROOT`.
 `OPK_PLUGIN_PATH` can override the default `development/build-active/meson-out`
 plugin directory.
