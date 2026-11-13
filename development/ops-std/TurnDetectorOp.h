@@ -24,8 +24,9 @@ namespace opk::stdop {
 /// @brief Gates turn inference using VAD results and retained mono Float32 16 kHz PCM.
 ///
 /// Must immediately follow a VAD postprocessor and precede a PCM inference Op in an
-/// unlooped chain. Each call consumes one fresh, nonoverlapping VAD hop. After speech
-/// followed by the configured silence, it prepares a model-sized history window,
+/// unlooped chain. Each call consumes a VAD window, retaining only new samples when
+/// successive windows overlap. After speech followed by the configured silence,
+/// it prepares a model-sized history window,
 /// left-padded with zeros when necessary. It performs no resampling or log-mel extraction.
 ///
 /// Retries are bounded per pause, and new speech rearms them. Initial silence never
@@ -34,7 +35,8 @@ namespace opk::stdop {
 class TurnDetectorOp : public opk::op::Op, public opk::op::OpInterfaceAudioPreprocessor {
   public:
     /// @brief Validates configuration and clears the previous binding and retained history.
-    /// @param attributes Supports hopSampleCount (512), silenceMs (300), retryMs (500),
+    /// @param attributes Supports hopSampleCount (512), inputWindowSampleCount (hopSampleCount),
+    ///        silenceMs (300), retryMs (500),
     ///        maxAttempts (3), inputAudioSourceName (pipelineAudioData), and vadModel
     ///        (silero-vad). Durations are converted to sample counts at 16 kHz.
     /// @return Success, or InvalidOpChain for invalid attribute values.
@@ -45,31 +47,38 @@ class TurnDetectorOp : public opk::op::Op, public opk::op::OpInterfaceAudioPrepr
     /// @param ops Chain Ops; the predecessor must provide voiceActivity and the successor
     ///        must expose one fixed Float32 AudioPcm input with shape [1,N].
     /// @return Success, or InvalidOpChain for an unsupported layout, loop, or input window.
-    opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
+    opk::Result<void> bind(const size_t index, const std::vector<opk::op::Op *> &ops) override;
 
-    /// @brief Retains the current hop and prepares turn inference when the gate opens.
-    /// @param[in,out] context PCM hop, audio timing, and accumulated FrameResults. Exactly
-    ///        one VAD result must match the hop bounds, configured model, and infer element.
+    /// @brief Retains new samples and prepares turn inference when the gate opens.
+    /// @param[in,out] context PCM window, audio timing, and accumulated FrameResults. Exactly
+    ///        one VAD result must match the window bounds, configured model, and infer element.
     ///        On Continue, model identity and audio bounds describe the prepared history;
     ///        synthetic padding is excluded from sample bounds and timestamps.
     /// @return Continue when input is ready, AbortChain when evaluation is skipped, or
     ///         InvalidData when binding, input, VAD results, or history preparation is invalid.
     opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &context) override;
 
-    /// @brief Returns the fresh PCM hop required by the audio scheduler.
-    /// @return Samples per call, rather than the longer turn-model input window.
+    /// @brief Returns the scheduled PCM window required by the audio scheduler.
+    /// @return Input window samples, rather than the longer turn-model input window.
     size_t getRequiredAudioSamples() const override {
-        return hopSampleCount;
+        return inputWindowSampleCount;
     }
 
   private:
     /// @brief Clears history and gating state and marks the next assessment discontinuous.
     /// @pre History has been allocated by bind().
     /// @param nextPosition Absolute sample position at which retained history restarts.
-    void reset(uint64_t nextPosition);
+    void reset(const uint64_t nextPosition);
+    opk::Result<bool> findSpeech(const opk::op::OpChainContext &context) const;
+    opk::Result<void> retainWindow(const opk::PcmRingBuffer::View &window,
+                                   const bool discontinuity);
+    bool updateSpeechGate(const uint64_t windowEnd, const bool speech);
+    opk::Result<opk::op::OpSignal> prepareAssessment(opk::op::OpChainContext &context);
 
     /// Number of fresh 16 kHz samples consumed per process() call.
     size_t hopSampleCount = 512;
+    /// Scheduled VAD window, which may include samples from preceding calls.
+    size_t inputWindowSampleCount = 512;
     /// Minimum VAD-inactive samples after the latest voiced hop before an assessment.
     uint64_t silenceSamples = 4800;
     /// Minimum samples between assessments during the same pause.
@@ -84,7 +93,7 @@ class TurnDetectorOp : public opk::op::Op, public opk::op::OpInterfaceAudioPrepr
     const opk::op::OpInterfaceInference *inference = nullptr;
     /// Real PCM history, with capacity equal to the bound model's input sample count.
     std::unique_ptr<opk::PcmRingBuffer> history;
-    /// Expected start of the next hop; a mismatch indicates a gap or overlap.
+    /// Expected start of the next window; forward gaps reset retained history.
     std::optional<uint64_t> nextPosition;
     /// Exclusive end of the latest voiced hop since the last reset.
     std::optional<uint64_t> lastSpeechEnd;

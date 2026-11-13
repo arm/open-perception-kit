@@ -226,6 +226,10 @@ readers before adopting it. Voice-activity decoding requires explicit activation
 output selection and decision parameters; see the
 [voice-activity contract](../../arch/perception.md#voice-activity-results).
 
+OpChain reader schema `1.12.0` adds `TurnDetector.inputWindowSampleCount`,
+which lets a turn detector retain overlapping
+VAD windows once; omission retains its previous hop-sized window behavior.
+
 `SileroVadParser`, shipped in OPK 0.1.3, remains supported for existing v1
 configurations. It retains its `[1,1]` probability input, defaults and producer
 identity, and delegates decisions to the shared voice-activity implementation.

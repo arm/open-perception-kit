@@ -157,9 +157,43 @@ Parser IDs name the operation rather than a model. Model names belong in
 model-local descriptors, runnable profiles and artifact integration tests.
 Shared algorithms and their unit tests use algorithm or payload-based filenames.
 
+## Conversation audio and metadata
+
+The voice-pipeline demo accepts `--pipeline PATH` through the existing JSON
+loader. Its default uses Silero VAD and SmartTurn; custom pipelines keep their
+VAD/turn inference element named `voice`. See the
+[voice demo](../../development/examples/voice-pipeline/README.md).
+
+Before microphone audio arrives, `opksrc` emits placeholder silence marked
+`GAP`. The audio scheduler resets and skips those buffers, so they do not advance
+normalization state or conversation timers. Inference waits for a complete
+window of real audio.
+
+The web frontend displays the existing VAD/turn probabilities, state and
+audio-window bounds. Its view model preserves 64-bit sample/timestamp values
+and absent timestamps. VAD and turn assessments stay visible between inference
+windows and clear when the source resets or stops. Video results describe the
+current frame. Turn-model assessments remain distinct from the conversation
+controller's final turn decisions.
+
+`TurnDetector` accepts `inputWindowSampleCount`; omission uses `hopSampleCount`
+for existing callers. It requires window >= hop, a matching scheduler
+window/hop, ordered bounds and exactly one matching VAD assessment. On the
+first/reset call it retains the whole window; on successive overlapping calls
+it retains only the newest hop. Expected starts and ends advance by one hop.
+A gap resets history and speech gating. Duplicate/backward windows, malformed
+bounds and wrong hops are errors. An explicit discontinuity may establish a new
+sample origin. Matching uses the complete VAD-window bounds before metadata is
+replaced with turn-history bounds.
+
+Turn timing follows new sample progress. VAD hysteresis advances by the effective
+scheduler hop. The first turn assessment after a reset retains its discontinuity
+marker even if intermediate assessments were skipped. Initial silence does not
+trigger turn inference.
+
 ## Compatibility and validation
 
-Model reader 1.4.0 and OpChain reader 1.11.0 support these features; see
+Model reader 1.4.0 and OpChain reader 1.12.0 support these features; see
 [configuration compatibility](../public/concepts/configuration-compatibility.md).
 No payload or product release version changes are required.
 
@@ -170,7 +204,8 @@ No payload or product release version changes are required.
   cover tensor binding, wrapped PCM, invalid data and lifecycle;
   [descriptor tests](../../development/tests/opchain_descriptor_test.cpp) cover
   configuration validation before startup.
-- [Parser tests](../../development/tests/audio_parser_test.cpp) and
+- [Parser tests](../../development/tests/audio_parser_test.cpp),
+  [turn detector tests](../../development/tests/turn_detector_test.cpp) and
   [scheduler tests](../../development/tests/audio_window_pipeline_test.py) cover
   score decoding, debounce, timing and discontinuities.
 

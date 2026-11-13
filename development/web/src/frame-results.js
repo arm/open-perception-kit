@@ -27,6 +27,8 @@ import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/o
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
+import {TurnDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.js';
+import {VoiceActivityDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.js';
 
 export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
 
@@ -47,6 +49,17 @@ function objectData(object) {
         uuid: identifier(object?.id),
         parentUuid: identifier(object?.parentId),
         creationTsNs: identifier(object?.creationTsNs),
+    };
+}
+
+function audioData(item) {
+    return {
+        ...objectData(item.object),
+        windowStartSample: identifier(item.windowStartSample),
+        windowEndSample: identifier(item.windowEndSample),
+        windowStartTsNs: item.windowStartTsNs == null ? null : identifier(item.windowStartTsNs),
+        windowEndTsNs: item.windowEndTsNs == null ? null : identifier(item.windowEndTsNs),
+        discontinuity: Boolean(item.discontinuity),
     };
 }
 
@@ -206,6 +219,26 @@ export function decodeFrameResultsMessage(message) {
             },
         })),
     ], layers);
+
+    addPayloadLayers(envelope, VoiceActivityDetectionsT, 'VoiceActivityDetections', (payload) =>
+        payload.detections.map((item) => ({
+            type: 'VoiceActivityDetection',
+            data: {
+                ...audioData(item),
+                speechProbability: Number(item.speechProbability),
+                speechActive: Boolean(item.speechActive),
+            },
+        })), layers);
+
+    addPayloadLayers(envelope, TurnDetectionsT, 'TurnDetections', (payload) =>
+        payload.detections.map((item) => ({
+            type: 'TurnDetection',
+            data: {
+                ...audioData(item),
+                turnProbability: Number(item.turnProbability),
+                turnComplete: Boolean(item.turnComplete),
+            },
+        })), layers);
 
     addPayloadLayers(envelope, PoseEstimationsT, 'PoseEstimations', (payload) =>
         payload.poses.map((item) => ({

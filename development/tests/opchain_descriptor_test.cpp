@@ -274,6 +274,7 @@ TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
 
 TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
     for (const auto &[attribute, number] : {std::pair{"hopSampleCount", "512"},
+                                            std::pair{"inputWindowSampleCount", "8000"},
                                             std::pair{"silenceMs", "700"},
                                             std::pair{"retryMs", "500"},
                                             std::pair{"maxAttempts", "3"}}) {

@@ -27,6 +27,7 @@ test('control availability gates microphone capture and hides it on disconnect',
     let grant;
     let requests = 0;
     let stopped = false;
+    const events = [];
     const button = {
         style: {display: 'none'}, disabled: true,
         setAttribute() {},
@@ -43,7 +44,7 @@ test('control availability gates microphone capture and hides it on disconnect',
     elements.cameraStatus = {};
     const mocks = {
         document: {getElementById: id => elements[id]},
-        window: {addEventListener() {}},
+        window: {addEventListener() {}, dispatchEvent(event) { events.push(event); }},
         location: {href: 'http://localhost:9999/', protocol: 'http:'},
         navigator: {mediaDevices: {getUserMedia() {
             requests++;
@@ -66,7 +67,10 @@ test('control availability gates microphone capture and hides it on disconnect',
         click();
         assert.equal(requests, 1);
         assert.equal(icon.dataset.icon, 'mic');
+        assert.equal(events.at(-1).type, 'microphone-state');
+        assert.equal(events.at(-1).detail.active, true);
         enableMicrophoneButton(false);
+        assert.equal(events.at(-1).detail.active, false);
         assert.equal(icon.dataset.icon, 'mic-off');
         assert.equal(button.style.display, 'none');
         assert.equal(button.disabled, true);

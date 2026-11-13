@@ -882,3 +882,8 @@ audio_parser_tests = executable(
   link_with: [common],
 )
 test('audio_parser_tests', audio_parser_tests)
+
+test('voice_pipeline_cli', python,
+  args: [files('voice_pipeline_cli_test.py'), voice_pipeline.full_path()],
+  depends: voice_pipeline,
+)

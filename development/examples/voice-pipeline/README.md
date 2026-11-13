@@ -35,20 +35,31 @@ From an interactive container terminal at the repository root:
 ```
 
 Open `http://localhost:9999`, click **Mic**, and allow microphone access.
+Before microphone audio arrives, the status remains `Waiting for audio...`;
+placeholder silence does not advance inference or conversation timers.
 Stop other pipelines using ports 9999, 8000, 8001 or 8003 first. The local
 Silero VAD and SmartTurn ONNX artifacts must already be downloaded through
-the normal model downloader.
+the normal model downloader. The demo never downloads models.
+Use `--pipeline PATH` to load any compatible pipeline JSON through the existing
+runtime loader. There is no model list in the application. With no option, the
+embedded default uses Silero VAD and SmartTurn.
 
-The pipeline is embedded directly in `main.cpp`:
+The default conversation pipeline uses this structure:
 
 ```text
 browser microphone -> opksrc -> VAD + SmartTurn -> opksink audio
 ```
 
-Black generated video supplies the web viewer's video branch. VAD and SmartTurn
-share one `opkinfer name=voice`, so their sample positions have the same origin.
-The app handles only perceptions from that element. There is no diarization,
+The default uses black video for the web viewer. When using a turn
+OpChain, VAD and SmartTurn share one `opkinfer name=voice`, so their sample
+positions have the same origin.
+Conversation handling consumes only perceptions from that element. There is no diarization,
 STT submission or speaker identity logic.
+
+For overlapping VAD windows, `TurnDetector` retains each sample only once when
+building turn history. Set `inputWindowSampleCount` to the VAD context and
+`hopSampleCount` to the inference cadence; see
+[the audio preprocessing contract](../../../docs/arch/audio-log-mel.md#conversation-audio-and-metadata).
 
 The application applies this policy:
 
@@ -56,7 +67,7 @@ The application applies this policy:
 - Two consecutive positive SmartTurn assessments at distinct window ends close it.
 - New speech or a negative assessment clears pending confirmations.
 - Continuous VAD silence closes it after 2.5 seconds even without a positive model
-  result (2528 ms at the configured 512-sample hop).
+  result (2528 ms with the default 512-sample hop).
 - Further silence and model retries produce no additional event until new speech.
 - VAD discontinuities and missing sample coverage discard pending state.
 
@@ -65,7 +76,10 @@ Multiple assessments in one packet are sorted by sample time, VAD first at equal
 endpoints. The app receives metadata rather than GStreamer stream events; resets
 are conveyed by VAD's discontinuity flag.
 
-Edit the pipeline string in `main.cpp` to change the source. Keep the inference
-element named `voice`. For checkout paths outside `/work`, set `OPK_PROJECT_ROOT`.
+To use another model or cadence, copy a pipeline preset and change its OpChain
+path and `audio-hop-samples`, then pass that file with `--pipeline`. Keep the
+VAD/turn inference element named `voice`; the app routes its existing perception
+payloads by identity.
+For checkout paths outside `/work`, set `OPK_PROJECT_ROOT`.
 `OPK_PLUGIN_PATH` can override the default `development/build-active/meson-out`
 plugin directory.
