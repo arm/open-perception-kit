@@ -23,7 +23,7 @@ from tempfile import TemporaryDirectory
 
 import yaml
 
-from generate import apply_coverage_thresholds, build_report, container_sizes, coverage_results, nightly_success_rate
+from generate import apply_coverage_thresholds, build_report, container_sizes, coverage_results, nightly_success_rate, validate_thresholds
 
 THRESHOLDS = {
     "coverage": {"python": {"minimum_percent": 57}, "native": {"minimum_percent": 75}},
@@ -131,22 +131,29 @@ class GenerateReportTest(unittest.TestCase):
             "python": {"status": "available", "covered_lines": 56999, "executable_lines": 100000},
             "native": {"status": "unavailable"},
         }
-        apply_coverage_thresholds(coverage, THRESHOLDS)
+        apply_coverage_thresholds(coverage, THRESHOLDS["coverage"])
         self.assertEqual(coverage["python"]["threshold_status"], "failed")
         self.assertEqual(coverage["native"]["threshold_status"], "unavailable")
 
         coverage["python"]["covered_lines"] = 57000
         coverage["native"] = {"status": "available", "covered_lines": 3, "executable_lines": 4}
-        apply_coverage_thresholds(coverage, THRESHOLDS)
+        apply_coverage_thresholds(coverage, THRESHOLDS["coverage"])
         self.assertEqual(coverage["python"]["threshold_status"], "passed")
         self.assertEqual(coverage["native"]["threshold_status"], "passed")
 
     def test_invalid_threshold_is_rejected(self):
-        coverage = {"python": {"status": "unavailable"}, "native": {"status": "unavailable"}}
         with self.assertRaises(ValueError):
-            apply_coverage_thresholds(coverage, {**THRESHOLDS, "coverage": {
+            validate_thresholds({**THRESHOLDS, "coverage": {
                 "python": {"minimum_percent": True}, "native": {"minimum_percent": 75},
             }})
+
+    def test_invalid_deployment_thresholds_are_rejected(self):
+        for maximum in (True, 0, -1, 1.5, "100"):
+            with self.subTest(maximum=maximum), self.assertRaises(ValueError):
+                validate_thresholds({**THRESHOLDS, "deployment_image": {
+                    "x86_64": {"maximum_bytes": maximum}, "aarch64": {"maximum_bytes": None},
+                }})
+        validate_thresholds(THRESHOLDS)
 
     def test_container_sizes_check_each_architecture_and_missing_measurements(self):
         thresholds = {**THRESHOLDS, "deployment_image": {
@@ -156,22 +163,26 @@ class GenerateReportTest(unittest.TestCase):
             root = Path(temp_dir)
             deployment = root / "nightly-archive-logs-x86_64"
             deployment.mkdir()
-            development = root / "nightly-development-logs-x86_64" / "nightly-logs"
+            development = root / "nightly-development-logs-x86_64"
             development.mkdir(parents=True)
             measurement = {"image_bytes": 105, "writable_layer_bytes": 2,
                            "external_model_bytes": 3, "total_bytes": 110}
             (deployment / "container-size.json").write_text(json.dumps(measurement), encoding="utf-8")
             (development / "container-size.json").write_text(json.dumps(measurement), encoding="utf-8")
-            results = container_sizes("nightly", root, root, thresholds)
+            results = container_sizes("nightly", root, root, thresholds["deployment_image"])
             self.assertEqual(results["development"]["x86_64"]["image_bytes"], 105)
             self.assertEqual(results["deployment"]["x86_64"]["threshold_status"], "passed")
             self.assertEqual(results["deployment"]["aarch64"]["threshold_status"], "unavailable")
             measurement["image_bytes"] = 106
             measurement["total_bytes"] = 111
             (deployment / "container-size.json").write_text(json.dumps(measurement), encoding="utf-8")
-            results = container_sizes("nightly", root, root, thresholds)
+            results = container_sizes("nightly", root, root, thresholds["deployment_image"])
             self.assertEqual(results["deployment"]["x86_64"]["threshold_status"], "failed")
             self.assertNotIn("threshold_status", results["development"]["x86_64"])
+            results = container_sizes("nightly", root, root, THRESHOLDS["deployment_image"])
+            self.assertEqual(results["deployment"]["x86_64"]["threshold_status"], "pending_baseline")
+            results = container_sizes("release", root, root, thresholds["deployment_image"])
+            self.assertNotIn("threshold_status", results["deployment"]["x86_64"])
 
     def test_container_measurement_script_uses_docker_and_model_directories(self):
         with TemporaryDirectory() as temp_dir:
@@ -200,7 +211,7 @@ class GenerateReportTest(unittest.TestCase):
             for filename, contents in (("jobs.json", "[]"), ("releases.json", "null"),
                                        ("nightlies.json", "null")):
                 (root / filename).write_text(contents, encoding="utf-8")
-            for directory in (root / "logs/nightly-development-logs-x86_64/nightly-logs",
+            for directory in (root / "logs/nightly-development-logs-x86_64",
                               root / "deployment/nightly-archive-logs-x86_64"):
                 directory.mkdir(parents=True)
                 (directory / "container-size.json").write_text("", encoding="utf-8")

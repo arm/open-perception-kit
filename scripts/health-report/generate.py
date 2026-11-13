@@ -135,19 +135,32 @@ def coverage_results(coverage_dir):
     return results
 
 
-def apply_coverage_thresholds(coverage, thresholds):
+def validate_thresholds(thresholds):
     if not isinstance(thresholds, dict) or set(thresholds) != {"coverage", "deployment_image"}:
-        raise ValueError("Expected coverage thresholds")
-    if not isinstance(thresholds["coverage"], dict) or set(thresholds["coverage"]) != set(coverage):
+        raise ValueError("Expected coverage and deployment image thresholds")
+    coverage = thresholds["coverage"]
+    if not isinstance(coverage, dict) or set(coverage) != {"python", "native"}:
         raise ValueError("Expected thresholds for Python and native coverage")
-
-    for name, result in coverage.items():
-        settings = thresholds["coverage"][name]
+    for name, settings in coverage.items():
         if not isinstance(settings, dict) or set(settings) != {"minimum_percent"}:
             raise ValueError(f"Invalid {name} coverage threshold")
         minimum = settings["minimum_percent"]
         if isinstance(minimum, bool) or not isinstance(minimum, (int, float)) or not math.isfinite(minimum) or not 0 <= minimum <= 100:
             raise ValueError(f"Invalid {name} coverage minimum")
+    deployment = thresholds["deployment_image"]
+    if not isinstance(deployment, dict) or set(deployment) != {"x86_64", "aarch64"}:
+        raise ValueError("Expected deployment image thresholds for both architectures")
+    for arch, settings in deployment.items():
+        if not isinstance(settings, dict) or set(settings) != {"maximum_bytes"}:
+            raise ValueError(f"Invalid deployment image threshold for {arch}")
+        maximum = settings["maximum_bytes"]
+        if maximum is not None and (type(maximum) is not int or maximum <= 0):
+            raise ValueError(f"Invalid deployment image threshold for {arch}")
+
+
+def apply_coverage_thresholds(coverage, settings):
+    for name, result in coverage.items():
+        minimum = settings[name]["minimum_percent"]
         result["minimum_percent"] = minimum
         if result["status"] != "available" or not result["executable_lines"]:
             result["threshold_status"] = "unavailable"
@@ -157,27 +170,15 @@ def apply_coverage_thresholds(coverage, thresholds):
             result["threshold_status"] = "failed"
 
 
-def container_sizes(kind, development_logs, deployment_logs, thresholds):
-    settings = thresholds.get("deployment_image")
+def container_sizes(kind, development_logs, deployment_logs, deployment_limits):
     architectures = ("x86_64", "aarch64")
-    if not isinstance(settings, dict) or set(settings) != set(architectures):
-        raise ValueError("Expected deployment image thresholds for both architectures")
 
     results = {}
     for name, root, prefix in (("development", development_logs, "nightly-development-logs-"),
                                ("deployment", deployment_logs, "nightly-archive-logs-")):
         results[name] = {}
         for arch in architectures:
-            maximum = settings[arch]
-            if not isinstance(maximum, dict) or set(maximum) != {"maximum_bytes"}:
-                raise ValueError(f"Invalid deployment image threshold for {arch}")
-            maximum = maximum["maximum_bytes"]
-            if maximum is not None and (type(maximum) is not int or maximum <= 0):
-                raise ValueError(f"Invalid deployment image threshold for {arch}")
-            path = root / f"{prefix}{arch}"
-            if name == "development":
-                path = path / "nightly-logs"
-            path = path / "container-size.json"
+            path = root / f"{prefix}{arch}" / "container-size.json"
             result = {"status": "unavailable"}
             if kind == "nightly" and path.is_file():
                 try:
@@ -199,18 +200,23 @@ def container_sizes(kind, development_logs, deployment_logs, thresholds):
                     **measurement,
                 }
             if name == "deployment" and kind == "nightly":
+                maximum = deployment_limits[arch]["maximum_bytes"]
                 result["maximum_image_bytes"] = maximum
-                result["threshold_status"] = (
-                    "unavailable" if result["status"] != "available" else
-                    "pending_baseline" if maximum is None else
-                    "passed" if result["image_bytes"] <= maximum else "failed"
-                )
+                if result["status"] != "available":
+                    result["threshold_status"] = "unavailable"
+                elif maximum is None:
+                    result["threshold_status"] = "pending_baseline"
+                elif result["image_bytes"] <= maximum:
+                    result["threshold_status"] = "passed"
+                else:
+                    result["threshold_status"] = "failed"
             results[name][arch] = result
     return results
 
 
 def build_report(kind, source_commit, run_id, run_attempt, run_url, needs, pages, logs_dir,
                  releases, valgrind_dir, nightlies, coverage_dir, thresholds, deployment_logs_dir=Path("health-deployment-logs")):
+    validate_thresholds(thresholds)
     jobs = []
     for page in pages:
         for job in page["jobs"]:
@@ -230,7 +236,7 @@ def build_report(kind, source_commit, run_id, run_attempt, run_url, needs, pages
 
     jobs.sort(key=lambda job: job["name"])
     coverage = coverage_results(coverage_dir)
-    apply_coverage_thresholds(coverage, thresholds)
+    apply_coverage_thresholds(coverage, thresholds["coverage"])
     return {
         "schema_version": 1,
         "report": {
@@ -249,7 +255,7 @@ def build_report(kind, source_commit, run_id, run_attempt, run_url, needs, pages
         "release_downloads": release_downloads(releases),
         "nightly_success_rate": nightly_success_rate(nightlies),
         "coverage": coverage,
-        "container_sizes": container_sizes(kind, logs_dir, deployment_logs_dir, thresholds),
+        "container_sizes": container_sizes(kind, logs_dir, deployment_logs_dir, thresholds["deployment_image"]),
     }
 
 
