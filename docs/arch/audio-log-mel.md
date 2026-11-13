@@ -171,8 +171,10 @@ window of real audio.
 
 The web frontend displays the existing VAD/turn probabilities, state and
 audio-window bounds. Its view model preserves 64-bit sample/timestamp values
-and absent timestamps. Turn-model assessments remain distinct from the
-conversation controller's final turn decisions.
+and absent timestamps. VAD and turn assessments stay visible between inference
+windows and clear when the source resets or stops. Video results describe the
+current frame. Turn-model assessments remain distinct from the conversation
+controller's final turn decisions.
 
 `TurnDetector` accepts `inputWindowSampleCount`; omission uses `hopSampleCount`
 for existing callers. It requires window >= hop, a matching scheduler

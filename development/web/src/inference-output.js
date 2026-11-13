@@ -16,11 +16,28 @@
  */
 
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
+import {collectOutputs} from './overlay-sources.js';
 
 const body = document.getElementById('inferenceOutputBody');
 const copyButton = document.getElementById('copyInferenceOutputBtn');
 let currentLayers = [];
 let latestOutput = null;
+const audioAssessments = new Map();
+let disabledModels = new Set();
+
+const isAudioAssessment = layer => ['VoiceActivityDetections', 'TurnDetections'].includes(layer.payloadType);
+
+function renderWithAudio(layers) {
+    renderInferenceOutput({layers: [
+        ...layers.filter(layer => !isAudioAssessment(layer)),
+        ...[...audioAssessments.values()].flatMap(output => output.layers),
+    ]});
+}
+
+function resetAudioAssessments() {
+    audioAssessments.clear();
+    renderWithAudio(latestOutput?.layers || []);
+}
 
 const number = (value, digits = 2) => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return '';
@@ -218,13 +235,37 @@ copyButton?.addEventListener('click', () => {
 });
 
 window.addEventListener('metadata-message', (event) => {
-    if (event.detail?.inference_output) {
-        renderInferenceOutput(event.detail.inference_output);
+    const layers = event.detail?.inference_output?.layers;
+    if (!Array.isArray(layers)) return;
+    if (window.OPK_FEED_PAUSED || event.detail.decode_error || layers.some(layer =>
+        isAudioAssessment(layer) && layer.detections?.some(item => item.data?.discontinuity))) {
+        audioAssessments.clear();
     }
+    if (!window.OPK_FEED_PAUSED && !event.detail.decode_error)
+        for (const [key, output] of collectOutputs({layers}))
+            if (isAudioAssessment(output.source) && !disabledModels.has(output.source.inferElementId))
+                audioAssessments.set(key, output);
+    renderWithAudio(layers);
+});
+
+window.addEventListener('models-change', (event) => {
+    disabledModels = new Set(event.detail.filter(model => !model.active).map(model => model.element_name));
+    for (const [key, output] of audioAssessments)
+        if (disabledModels.has(output.source.inferElementId)) audioAssessments.delete(key);
+    renderWithAudio(latestOutput?.layers || []);
+});
+
+window.addEventListener('metadata-connection', (event) => {
+    if (!event.detail.connected) resetAudioAssessments();
+});
+
+window.addEventListener('microphone-state', (event) => {
+    if (!event.detail.active) resetAudioAssessments();
 });
 
 window.addEventListener('feed-pause-change', () => {
-    renderInferenceOutput(latestOutput);
+    if (window.OPK_FEED_PAUSED) resetAudioAssessments();
+    else renderInferenceOutput(latestOutput);
 });
 
 

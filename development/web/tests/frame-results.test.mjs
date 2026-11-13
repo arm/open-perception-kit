@@ -224,7 +224,7 @@ test('decodes audio assessments with exact sample positions, timestamp presence 
     assert.equal(turn.detections[0].data.discontinuity, false);
 });
 
-test('renders and copies speech states and model turn assessments as plain text', async () => {
+test('renders, copies and retains audio assessments until their source resets or stops', async () => {
     const originals = Object.fromEntries(['document', 'window', 'navigator']
         .map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
     const element = () => ({
@@ -239,7 +239,8 @@ test('renders and copies speech states and model turn assessments as plain text'
     let copied;
     globalThis.document = {getElementById: id => id === 'inferenceOutputBody' ? body : button,
         createElement: element};
-    globalThis.window = {addEventListener() {}};
+    const listeners = new Map();
+    globalThis.window = {addEventListener(name, listener) { listeners.set(name, listener); }};
     Object.defineProperty(globalThis, 'navigator', {configurable: true,
         value: {clipboard: {async writeText(value) { copied = value; }}}});
     try {
@@ -264,6 +265,79 @@ test('renders and copies speech states and model turn assessments as plain text'
         assert.ok(copied.includes('Silence [0.00]'));
         assert.ok(copied.includes('Turn assessment: complete [0.75]'));
         assert.ok(copied.includes('Turn assessment: ongoing [0.25]'));
+
+        const audioLayer = (model, payloadType, type, data) => ({
+            model, payloadType, contentType: 'custom-audio', inferElementId: 'voice',
+            producer: {instanceId: `voice/${model}`}, count: 1, detections: [{type, data}],
+        });
+        const voice = audioLayer('voice-score', 'VoiceActivityDetections', 'VoiceActivityDetection',
+            {...bounds, discontinuity: false, speechProbability: 0.8, speechActive: true});
+        const turn = audioLayer('turn-score', 'TurnDetections', 'TurnDetection',
+            {...bounds, discontinuity: false, turnProbability: 0.2, turnComplete: false});
+        const video = {model: 'video-boxes', contentType: 'genericObject', count: 1,
+            detections: [{type: 'Rect', data: {text: 'person'}}]};
+        const send = layers => listeners.get('metadata-message')({detail: {inference_output: {layers}}});
+        const renderedText = () => texts(body).join('\n');
+        send([voice, {...voice, detections: [{type: 'VoiceActivityDetection',
+            data: {...voice.detections[0].data, speechActive: false}}]}]);
+        send([]);
+        assert.ok(renderedText().includes('Speech active'));
+        assert.ok(renderedText().includes('Silence'));
+        send([voice]);
+        send([turn]);
+        send([]);
+        assert.ok(renderedText().includes('Speech active'));
+        assert.ok(renderedText().includes('Turn assessment: ongoing'));
+        assert.equal(button.disabled, false);
+        button.listeners.get('click')();
+        await new Promise(resolve => setImmediate(resolve));
+        assert.ok(copied.includes('Speech active [0.80]'));
+        assert.ok(copied.includes('Turn assessment: ongoing [0.20]'));
+
+        send([video]);
+        assert.ok(renderedText().includes('person'));
+        send([]);
+        assert.ok(!renderedText().includes('person'));
+        assert.ok(renderedText().includes('Speech active'));
+        send([{...voice, detections: [{type: 'VoiceActivityDetection',
+            data: {...voice.detections[0].data, speechActive: false}}]}]);
+        assert.ok(renderedText().includes('Silence'));
+        assert.ok(renderedText().includes('Turn assessment: ongoing'));
+
+        send([{...voice, detections: [{type: 'VoiceActivityDetection',
+            data: {...voice.detections[0].data, discontinuity: true}}]}]);
+        assert.ok(renderedText().includes('Speech active'));
+        assert.ok(!renderedText().includes('Turn assessment: ongoing'));
+        listeners.get('models-change')({detail: [{element_name: 'voice', active: false}]});
+        assert.equal(button.disabled, true);
+        send([voice]);
+        assert.equal(button.disabled, true);
+        listeners.get('models-change')({detail: [{element_name: 'voice', active: true}]});
+        assert.equal(button.disabled, true);
+
+        send([voice]);
+        listeners.get('metadata-connection')({detail: {connected: false}});
+        assert.equal(button.disabled, true);
+        listeners.get('metadata-connection')({detail: {connected: true}});
+        assert.equal(button.disabled, true);
+
+        send([voice, video]);
+        window.OPK_FEED_PAUSED = true;
+        listeners.get('feed-pause-change')();
+        assert.equal(button.disabled, true);
+        window.OPK_FEED_PAUSED = false;
+        listeners.get('feed-pause-change')();
+        assert.ok(renderedText().includes('person'));
+        assert.ok(!renderedText().includes('Speech active'));
+        send([]);
+        assert.equal(button.disabled, true);
+
+        send([voice]);
+        listeners.get('microphone-state')({detail: {active: false}});
+        assert.equal(button.disabled, true);
+        send([voice]);
+        listeners.get('metadata-message')({detail: {inference_output: {layers: []}, decode_error: 'invalid packet'}});
+        assert.equal(button.disabled, true);
     } finally {
         clearTimeout(button.copyFeedbackTimer);
         for (const [name, descriptor] of Object.entries(originals)) {

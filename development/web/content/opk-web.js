@@ -1051,6 +1051,8 @@ var client2 = new MicrophoneClient({
   signalingUrl: signalingUrl.href,
   ...resolveWebRtcIceConfig(microphoneConfig),
   onStatus: (active, message, kind) => {
+    if (kind === "audio")
+      window.dispatchEvent(new CustomEvent("microphone-state", { detail: { active } }));
     const control = kind === "video" ? cameraButton : button;
     const indicator = kind === "video" ? cameraIcon : icon;
     const output = kind === "video" ? cameraStatus : status;
@@ -1314,6 +1316,7 @@ function connectCtrl(manual = false) {
     enableAudioButton(data.pipeline_state.audio);
     enableMicrophoneButton(data.pipeline_state.microphone);
     setPlayPause(data.pipeline_state.playing);
+    window.dispatchEvent(new CustomEvent("models-change", { detail: data.models }));
     modelsManager.render(data.models);
   };
   ctrl.onerror = () => {
@@ -2173,11 +2176,146 @@ window.addEventListener("metadata-message", (event) => {
 });
 updateCopyButtonState();
 
+// development/web/src/overlay-sources.js
+var SOURCE_FIELDS = [
+  "payloadType",
+  "contentType",
+  "engine",
+  "model",
+  "inferElementId",
+  "labelFamily",
+  "producerInstanceId",
+  "producerComponent",
+  "producerImplementation"
+];
+var SOURCE_FIELD_LABELS = {
+  payloadType: "Payload type",
+  contentType: "Content type",
+  engine: "Engine",
+  model: "Model",
+  inferElementId: "Inference element",
+  labelFamily: "Label family",
+  producerInstanceId: "Producer instance",
+  producerComponent: "Component",
+  producerImplementation: "Implementation"
+};
+function outputSource(layer2) {
+  return {
+    payloadType: layer2.payloadType || "",
+    contentType: layer2.contentType || "",
+    engine: layer2.engine || "",
+    model: layer2.model || "",
+    inferElementId: layer2.inferElementId || "",
+    labelFamily: layer2.labelFamily || "",
+    producerInstanceId: layer2.producer?.instanceId || "",
+    producerComponent: layer2.producer?.component || "",
+    producerImplementation: layer2.producer?.implementation || ""
+  };
+}
+function sourceKey(source) {
+  return JSON.stringify(SOURCE_FIELDS.map((field) => source[field]));
+}
+function validSource(source) {
+  return SOURCE_FIELDS.every((field) => typeof source?.[field] === "string") && source.payloadType.length > 0;
+}
+function producerKey(source) {
+  return source.producerInstanceId ? JSON.stringify([source.producerComponent, source.producerInstanceId]) : null;
+}
+function objectId(value) {
+  return value == null || String(value) === "0" ? "" : String(value);
+}
+function trackKey(source, id) {
+  const producer = producerKey(source);
+  return producer && objectId(id) ? JSON.stringify([producer, objectId(id)]) : null;
+}
+function sourceLabel(source) {
+  if (source.payloadType === "PerformanceOverlay") return "Pipeline performance";
+  return source.model || source.producerImplementation || source.producerInstanceId || source.inferElementId || source.producerComponent || "Unspecified source";
+}
+function sourceDetails(source) {
+  return SOURCE_FIELDS.map((field) => [SOURCE_FIELD_LABELS[field], source[field] || "Not provided"]);
+}
+function sourceLabels(sources, groupByPayload = true) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const source of new Map([...sources].map((source2) => [sourceKey(source2), source2])).values()) {
+    const groupKey = JSON.stringify([groupByPayload ? source.payloadType : "", sourceLabel(source)]);
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey).push(source);
+  }
+  const labels = /* @__PURE__ */ new Map();
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      labels.set(sourceKey(group[0]), sourceLabel(group[0]));
+      continue;
+    }
+    const fields = SOURCE_FIELDS.filter((field) => new Set(group.map((source) => source[field])).size > 1);
+    const qualify = (source, selected) => selected.map((field) => source[field] || `${SOURCE_FIELD_LABELS[field]} not provided`).join(" \xB7 ");
+    const choices = [[]];
+    for (const field of fields) choices.push(...choices.map((choice2) => [...choice2, field]));
+    const length = (choice2) => group.reduce((total, source) => total + qualify(source, choice2).length, 0);
+    choices.sort((a, b) => a.length - b.length || length(a) - length(b));
+    const choice = choices.find((candidate) => new Set(group.map((source) => qualify(source, candidate))).size === group.length);
+    for (const source of group) {
+      const qualifier = choice ? qualify(source, choice) : JSON.stringify(Object.fromEntries(fields.map((field) => [SOURCE_FIELD_LABELS[field], source[field]])));
+      labels.set(sourceKey(source), `${sourceLabel(source)} (${qualifier})`);
+    }
+  }
+  return labels;
+}
+function collectOutputs(frame) {
+  const outputs = /* @__PURE__ */ new Map();
+  for (const layer2 of frame?.layers || []) {
+    if (!layer2.payloadType || layer2.payloadType === "FrameContext") continue;
+    const source = outputSource(layer2);
+    const key = sourceKey(source);
+    if (!outputs.has(key)) outputs.set(key, { key, source, layers: [] });
+    outputs.get(key).layers.push(layer2);
+  }
+  return outputs;
+}
+function append(index, key, value) {
+  if (!key) return;
+  if (!index.has(key)) index.set(key, []);
+  index.get(key).push(value);
+}
+function indexFrame(frame) {
+  const outputs = collectOutputs(frame);
+  const index = { frame, outputs, byPayload: /* @__PURE__ */ new Map(), byProducer: /* @__PURE__ */ new Map(), objects: /* @__PURE__ */ new Map(), byTrack: /* @__PURE__ */ new Map() };
+  for (const output of outputs.values()) {
+    append(index.byPayload, output.source.payloadType, output);
+    append(index.byProducer, producerKey(output.source), output);
+    output.items = [];
+    for (const layer2 of output.layers) {
+      for (const item of layer2.detections || []) {
+        if (!item?.data) continue;
+        const entry = { ...item, layer: layer2, source: output.source };
+        output.items.push(entry);
+        append(index.objects, objectId(item.data.uuid), entry);
+        append(index.byTrack, trackKey(output.source, item.data.trackId), entry);
+      }
+    }
+  }
+  return index;
+}
+
 // development/web/src/inference-output.js
 var body2 = document.getElementById("inferenceOutputBody");
 var copyButton2 = document.getElementById("copyInferenceOutputBtn");
 var currentLayers = [];
 var latestOutput = null;
+var audioAssessments = /* @__PURE__ */ new Map();
+var disabledModels = /* @__PURE__ */ new Set();
+var isAudioAssessment = (layer2) => ["VoiceActivityDetections", "TurnDetections"].includes(layer2.payloadType);
+function renderWithAudio(layers) {
+  renderInferenceOutput({ layers: [
+    ...layers.filter((layer2) => !isAudioAssessment(layer2)),
+    ...[...audioAssessments.values()].flatMap((output) => output.layers)
+  ] });
+}
+function resetAudioAssessments() {
+  audioAssessments.clear();
+  renderWithAudio(latestOutput?.layers || []);
+}
 var number = (value, digits = 2) => {
   if (typeof value !== "number" || !Number.isFinite(value)) return "";
   return value.toFixed(digits);
@@ -2340,12 +2478,33 @@ copyButton2?.addEventListener("click", () => {
   copyTextWithFeedback(copyButton2, getInferenceText());
 });
 window.addEventListener("metadata-message", (event) => {
-  if (event.detail?.inference_output) {
-    renderInferenceOutput(event.detail.inference_output);
+  const layers = event.detail?.inference_output?.layers;
+  if (!Array.isArray(layers)) return;
+  if (window.OPK_FEED_PAUSED || event.detail.decode_error || layers.some((layer2) => isAudioAssessment(layer2) && layer2.detections?.some((item) => item.data?.discontinuity))) {
+    audioAssessments.clear();
   }
+  if (!window.OPK_FEED_PAUSED && !event.detail.decode_error) {
+    for (const [key, output] of collectOutputs({ layers }))
+      if (isAudioAssessment(output.source) && !disabledModels.has(output.source.inferElementId))
+        audioAssessments.set(key, output);
+  }
+  renderWithAudio(layers);
+});
+window.addEventListener("models-change", (event) => {
+  disabledModels = new Set(event.detail.filter((model) => !model.active).map((model) => model.element_name));
+  for (const [key, output] of audioAssessments)
+    if (disabledModels.has(output.source.inferElementId)) audioAssessments.delete(key);
+  renderWithAudio(latestOutput?.layers || []);
+});
+window.addEventListener("metadata-connection", (event) => {
+  if (!event.detail.connected) resetAudioAssessments();
+});
+window.addEventListener("microphone-state", (event) => {
+  if (!event.detail.active) resetAudioAssessments();
 });
 window.addEventListener("feed-pause-change", () => {
-  renderInferenceOutput(latestOutput);
+  if (window.OPK_FEED_PAUSED) resetAudioAssessments();
+  else renderInferenceOutput(latestOutput);
 });
 updateCopyButtonState2();
 
@@ -7819,128 +7978,6 @@ function hexToRgba(hex, alpha) {
   const g = parseInt(clean.slice(2, 4), 16);
   const b = parseInt(clean.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-// development/web/src/overlay-sources.js
-var SOURCE_FIELDS = [
-  "payloadType",
-  "contentType",
-  "engine",
-  "model",
-  "inferElementId",
-  "labelFamily",
-  "producerInstanceId",
-  "producerComponent",
-  "producerImplementation"
-];
-var SOURCE_FIELD_LABELS = {
-  payloadType: "Payload type",
-  contentType: "Content type",
-  engine: "Engine",
-  model: "Model",
-  inferElementId: "Inference element",
-  labelFamily: "Label family",
-  producerInstanceId: "Producer instance",
-  producerComponent: "Component",
-  producerImplementation: "Implementation"
-};
-function outputSource(layer2) {
-  return {
-    payloadType: layer2.payloadType || "",
-    contentType: layer2.contentType || "",
-    engine: layer2.engine || "",
-    model: layer2.model || "",
-    inferElementId: layer2.inferElementId || "",
-    labelFamily: layer2.labelFamily || "",
-    producerInstanceId: layer2.producer?.instanceId || "",
-    producerComponent: layer2.producer?.component || "",
-    producerImplementation: layer2.producer?.implementation || ""
-  };
-}
-function sourceKey(source) {
-  return JSON.stringify(SOURCE_FIELDS.map((field) => source[field]));
-}
-function validSource(source) {
-  return SOURCE_FIELDS.every((field) => typeof source?.[field] === "string") && source.payloadType.length > 0;
-}
-function producerKey(source) {
-  return source.producerInstanceId ? JSON.stringify([source.producerComponent, source.producerInstanceId]) : null;
-}
-function objectId(value) {
-  return value == null || String(value) === "0" ? "" : String(value);
-}
-function trackKey(source, id) {
-  const producer = producerKey(source);
-  return producer && objectId(id) ? JSON.stringify([producer, objectId(id)]) : null;
-}
-function sourceLabel(source) {
-  if (source.payloadType === "PerformanceOverlay") return "Pipeline performance";
-  return source.model || source.producerImplementation || source.producerInstanceId || source.inferElementId || source.producerComponent || "Unspecified source";
-}
-function sourceDetails(source) {
-  return SOURCE_FIELDS.map((field) => [SOURCE_FIELD_LABELS[field], source[field] || "Not provided"]);
-}
-function sourceLabels(sources, groupByPayload = true) {
-  const groups = /* @__PURE__ */ new Map();
-  for (const source of new Map([...sources].map((source2) => [sourceKey(source2), source2])).values()) {
-    const groupKey = JSON.stringify([groupByPayload ? source.payloadType : "", sourceLabel(source)]);
-    if (!groups.has(groupKey)) groups.set(groupKey, []);
-    groups.get(groupKey).push(source);
-  }
-  const labels = /* @__PURE__ */ new Map();
-  for (const group of groups.values()) {
-    if (group.length === 1) {
-      labels.set(sourceKey(group[0]), sourceLabel(group[0]));
-      continue;
-    }
-    const fields = SOURCE_FIELDS.filter((field) => new Set(group.map((source) => source[field])).size > 1);
-    const qualify = (source, selected) => selected.map((field) => source[field] || `${SOURCE_FIELD_LABELS[field]} not provided`).join(" \xB7 ");
-    const choices = [[]];
-    for (const field of fields) choices.push(...choices.map((choice2) => [...choice2, field]));
-    const length = (choice2) => group.reduce((total, source) => total + qualify(source, choice2).length, 0);
-    choices.sort((a, b) => a.length - b.length || length(a) - length(b));
-    const choice = choices.find((candidate) => new Set(group.map((source) => qualify(source, candidate))).size === group.length);
-    for (const source of group) {
-      const qualifier = choice ? qualify(source, choice) : JSON.stringify(Object.fromEntries(fields.map((field) => [SOURCE_FIELD_LABELS[field], source[field]])));
-      labels.set(sourceKey(source), `${sourceLabel(source)} (${qualifier})`);
-    }
-  }
-  return labels;
-}
-function collectOutputs(frame) {
-  const outputs = /* @__PURE__ */ new Map();
-  for (const layer2 of frame?.layers || []) {
-    if (!layer2.payloadType || layer2.payloadType === "FrameContext") continue;
-    const source = outputSource(layer2);
-    const key = sourceKey(source);
-    if (!outputs.has(key)) outputs.set(key, { key, source, layers: [] });
-    outputs.get(key).layers.push(layer2);
-  }
-  return outputs;
-}
-function append(index, key, value) {
-  if (!key) return;
-  if (!index.has(key)) index.set(key, []);
-  index.get(key).push(value);
-}
-function indexFrame(frame) {
-  const outputs = collectOutputs(frame);
-  const index = { frame, outputs, byPayload: /* @__PURE__ */ new Map(), byProducer: /* @__PURE__ */ new Map(), objects: /* @__PURE__ */ new Map(), byTrack: /* @__PURE__ */ new Map() };
-  for (const output of outputs.values()) {
-    append(index.byPayload, output.source.payloadType, output);
-    append(index.byProducer, producerKey(output.source), output);
-    output.items = [];
-    for (const layer2 of output.layers) {
-      for (const item of layer2.detections || []) {
-        if (!item?.data) continue;
-        const entry = { ...item, layer: layer2, source: output.source };
-        output.items.push(entry);
-        append(index.objects, objectId(item.data.uuid), entry);
-        append(index.byTrack, trackKey(output.source, item.data.trackId), entry);
-      }
-    }
-  }
-  return index;
 }
 
 // development/web/src/overlay-image.js
