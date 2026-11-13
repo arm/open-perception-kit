@@ -76,13 +76,14 @@ runtime. Treat these as constraints when extending the system.
   upstream conversion.
 - `opkinfer` supports interleaved raw PCM input, converted to mono Float32 at
   16 kHz with up to 60 seconds of buffered history. Inference runs on complete
-  PCM windows; `audio-hop-samples=0` defaults to the required fresh sample count.
+  PCM windows; `audio-hop-samples=0` defaults to the scheduled PCM window length.
   The Silero VAD ONNX chain uses 512 fresh samples (32 ms) plus 64 context samples
   and emits speech probability, speech-active state, sample bounds, and optional
   presentation timestamps through `VoiceActivityDetections` in `FrameResults`.
-- Audio inference currently requires an unlooped chain with fixed PCM input
-  shapes and a common fresh window size. Dynamic/batched inputs, log-mel
-  preprocessing, and planar PCM input are unsupported. The hop cannot exceed the
+- Audio inference requires an unlooped chain with fixed input shapes and a
+  common scheduled PCM window size. Native log-mel supports the documented
+  [configurable HTK frontend](audio-log-mel.md); other mel scales, waveform padding,
+  dynamic/batched inputs and planar PCM input are unsupported. The hop cannot exceed the
   window; Silero's context requires contiguous, nonoverlapping 512-sample hops.
   EOS does not pad or infer a partial window or drain the resampler's filter tail.
   See [PCM Audio Scheduling](elements/opkinfer.md#pcm-audio-scheduling) for the

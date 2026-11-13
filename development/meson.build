@@ -49,6 +49,7 @@ gst_dep      = dependency('gstreamer-1.0',        required: true)
 gstbase_dep  = dependency('gstreamer-base-1.0',   required: true)
 gstv_dep     = dependency('gstreamer-video-1.0',  required: true)
 gsta_dep     = dependency('gstreamer-audio-1.0',  required: true)
+gstfft_dep   = dependency('gstreamer-fft-1.0',    required: true)
 gstalloc_dep = dependency('gstreamer-allocators-1.0', required: true)
 
 glib_dep     = dependency('glib-2.0',             required: true)

@@ -813,8 +813,8 @@ audio_window_op = shared_module(
 test(
   'audio_window_pipeline_tests',
   gst_python,
-  args : [files('audio_window_pipeline_test.py'), audio_window_op.full_path(), gstopkinfer.full_path()],
-  depends : [gstopkinfer, audio_window_op],
+  args : [files('audio_window_pipeline_test.py'), audio_window_op.full_path(), gstopkinfer.full_path(), stdops.full_path()],
+  depends : [gstopkinfer, audio_window_op, stdops],
 )
 
 turn_detector_tests = executable(
@@ -837,9 +837,9 @@ test('smart_turn_parser_tests', smart_turn_parser_tests)
 
 generic_audio_preprocess_tests = executable(
   'generic_audio_preprocess_tests',
-  ['generic_audio_preprocess_test.cpp', '../ops-std/GenericAudioPreprocessOp.cpp'],
+  ['generic_audio_preprocess_test.cpp', '../ops-std/GenericAudioPreprocessOp.cpp', '../ops-std/preproc/GenericAudioTensorBuilder.cpp', '../ops-std/preproc/CpuLogMelSpectrogram.cpp'],
   include_directories : [common_include, include_directories('../ops-std')],
-  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps, gstfft_dep],
   link_with : [common],
 )
 test('generic_audio_preprocess_tests', generic_audio_preprocess_tests)
@@ -864,6 +864,15 @@ ultraface_parser_tests = executable(
   link_with : [common],
 )
 test('ultraface_parser_tests', ultraface_parser_tests, workdir : opk_repository_root)
+
+cpu_log_mel_spectrogram_tests = executable(
+  'cpu_log_mel_spectrogram_tests',
+  ['cpu_log_mel_spectrogram_test.cpp', '../ops-std/preproc/CpuLogMelSpectrogram.cpp'],
+  include_directories: [common_include, include_directories('../ops-std')],
+  dependencies: [gtest_main_dep, gtest_dep, opk_deps, gstfft_dep],
+  link_with: [common],
+)
+test('cpu_log_mel_spectrogram_tests', cpu_log_mel_spectrogram_tests)
 
 audio_parser_tests = executable(
   'audio_parser_tests',

@@ -135,12 +135,15 @@ converted mono 16 kHz samples. Its default, `0`, uses the window size. Set the
 property in NULL or READY; it cannot change while streaming.
 
 The window is derived from the bound inference Ops' `AudioPcm` input shape,
-excluding any context supplied by the preceding audio preprocessor.
-Accepted shapes have a fixed positive final sample dimension and singleton
-preceding dimensions, such as `[512]` or `[1, 512]`. All PCM inputs in the chain
-must agree on the window size. Audio caps fail negotiation for a missing PCM
-input, dynamic/batched shapes, log-mel inputs, a window larger than the ring, or
-a hop larger than the window. Log-mel window calculation is not implemented.
+excluding any context supplied by the preceding audio preprocessor. For
+`AudioLogMel`, the adjacent preprocessor supplies `logMel.windowSampleCount`.
+PCM shapes have a fixed positive final sample dimension and singleton
+preceding dimensions, such as `[512]` or `[1, 512]`. Log-mel shapes end in
+`[frames, melBins]` or `[melBins, frames]` according to the frontend layout, with
+singleton leading dimensions. All audio inputs in the chain
+must agree on the scheduled PCM window size. Audio caps fail negotiation for a
+missing audio input/preprocessor, unsupported shapes, a window larger than the
+ring, or a hop larger than the window.
 PCM scheduling also rejects any nonzero Op `loopId` in the chain before executing
 a window. The scheduler repeats the entire chain for each window; generic Op loops
 remain available for video and custom execution paths. Repeating an input audio
@@ -261,10 +264,14 @@ the scheduler requests `N-C` fresh samples and the Op prepends the last `C` samp
 from the preceding execution. Context starts at zero and resets on discontinuity.
 This mode requires contiguous windows and a hop of `N-C`; the default hop uses
 that fresh sample count. Timestamps and sample positions describe only the fresh
-window. The Op does not resample or generate log-mel features.
+window. The Op does not resample. Its audio tensor builder binds the PCM or
+log-mel implementation, which owns its context and reset handling. `AudioLogMel`
+uses explicit `logMel` configuration; PCM context prepending and log-mel are
+mutually exclusive. See the [log-mel contract](../audio-log-mel.md)
+for numerical semantics and lifecycle behavior.
 
 `inputAudioSourceName` defaults to `pipelineAudioData`. `inputAudioTensorIndex`
-selects an input explicitly; omitted or `-1` requires a unique `AudioPcm` input.
+selects an input explicitly; omitted or `-1` requires a unique `AudioPcm` or `AudioLogMel` input.
 Other model inputs, including recurrent state, are untouched. Scheduler timing
 and discontinuity metadata are preserved.
 

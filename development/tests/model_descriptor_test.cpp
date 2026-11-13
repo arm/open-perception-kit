@@ -329,3 +329,24 @@ TEST(OpRef, RejectsMissingLibrary) {
     opk::op::OpRef operation;
     EXPECT_FALSE(operation.bind("lib-opk-does-not-exist", "missing").has_value());
 }
+
+TEST(ModelDescriptor, RoundTripsLogMelAndAppliesItToRuntimeInputs) {
+    const auto descriptor = opk::ModelDescriptor::fromJson(R"({
+        "version":"1.4.0","name":"log-mel","modelFile":"model.onnx",
+        "dynamicOutput":false,
+        "inputTensors":[{"shape":[1,11,32],"dataKind":"AudioLogMel","valueType":"Float32"}],
+        "outputTensors":[{"shape":[1,11],"dataKind":"RawTensorData","valueType":"Float32"}]
+    })");
+    ASSERT_TRUE(descriptor);
+    EXPECT_EQ(descriptor->inputTensors[0].dataKind, opk::DataKind::AudioLogMel);
+    const nlohmann::json serialized = *descriptor;
+    EXPECT_EQ(serialized["inputTensors"][0]["dataKind"], "AudioLogMel");
+    const auto roundTrip = opk::ModelDescriptor::fromJson(serialized.dump());
+    ASSERT_TRUE(roundTrip);
+    EXPECT_EQ(roundTrip->inputTensors[0].dataKind, opk::DataKind::AudioLogMel);
+    auto model = makeRuntimeModel();
+    model.inputs[0].shape = opk::Shape(1, 11, 32);
+    model.outputs[0].shape = opk::Shape(1, 11);
+    ASSERT_TRUE(model.applyModelFromDescriptor(*roundTrip));
+    EXPECT_EQ(model.inputs[0].dataKind, opk::DataKind::AudioLogMel);
+}

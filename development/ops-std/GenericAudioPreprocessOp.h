@@ -19,32 +19,31 @@
 #define OPK_GENERIC_AUDIO_PREPROCESS_OP_H
 
 #include "op/Op.h"
+#include "preproc/GenericAudioTensorBuilder.h"
 
 namespace opk::stdop {
 
-/// Copies one scheduled mono Float32 16 kHz PCM window into the next inference Op.
+/// Converts one scheduled mono Float32 16 kHz PCM window for the next inference Op.
 /// Attributes: inputAudioSourceName (pipelineAudioData), inputAudioTensorIndex
-/// (auto-detect a unique AudioPcm input when omitted or -1).
+/// (auto-detect a unique AudioPcm/AudioLogMel input when omitted or -1).
 /// contextSampleCount prepends retained history, zero-initialized on discontinuities.
-/// Supports [N] and singleton leading dimensions; no resampling or log-mel.
+/// logMel selects the configured HTK frontend; resampling remains owned by opkinfer.
 class GenericAudioPreprocessOp : public opk::op::Op, public opk::op::OpInterfaceAudioPreprocessor {
   public:
     opk::Result<void> configure(const opk::AttributeMap &attributes) override;
-    opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
+    opk::Result<void> bind(const size_t index, const std::vector<opk::op::Op *> &ops) override;
     opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &context) override;
 
     size_t getRequiredAudioSamples() const override {
-        return sampleCount - contextSamples.size();
+        return tensorBuilder.getRequiredAudioSamples();
     }
 
   private:
-    size_t contextSampleCount = 0;
-    std::vector<float> contextSamples;
-    std::optional<uint64_t> nextPosition;
+    preproc::GenericAudioTensorBuilder tensorBuilder;
     std::string inputAudioSourceName = "pipelineAudioData";
     size_t inputAudioTensorIndex = opk::InvalidTensorIndex;
     const opk::op::OpInterfaceInference *inference = nullptr;
-    size_t sampleCount = 0;
+    size_t boundAudioTensorIndex = opk::InvalidTensorIndex;
 };
 
 } // namespace opk::stdop

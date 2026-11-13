@@ -62,10 +62,10 @@ struct OpInterfaceInference {
     virtual uint8_t *getTensorDataAddress(size_t index) const = 0;
 };
 
-/// Exposes the fresh audio window required by the immediately following inference Op.
+/// Exposes the scheduled PCM window required by the immediately following inference Op.
 struct OpInterfaceAudioPreprocessor {
     virtual ~OpInterfaceAudioPreprocessor() = default;
-    /// Fresh PCM samples required per execution, excluding model context.
+    /// Scheduled PCM samples per execution; successive windows may overlap.
     virtual size_t getRequiredAudioSamples() const = 0;
 };
 
