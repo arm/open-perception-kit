@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+
+name: Nightly builds (build coverage)
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      upload_packages:
+        description: Retain the generated packages for 14 days
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  health-report:
+    name: Health report
+    if: always()
+    needs: [development, images, packages, valgrind, coverage, formatting, docs]
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/health-report.yml
+    with:
+      kind: nightly
+      source_commit: ${{ github.sha }}
+      needs_json: ${{ toJSON(needs) }}
+
+  valgrind:
+    name: Valgrind
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/valgrind-tests.yml
+
+  coverage:
+    name: Code coverage
+    uses: ./.github/workflows/coverage.yml
+
+  formatting:
+    name: Formatting
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/formatting.yml
+
+  docs:
+    name: Documentation validation
+    uses: ./.github/workflows/docs-validate.yml
+
+  development:
+    name: Development build
+    uses: ./.github/workflows/nightly-development.yml
+
+  images:
+    name: Images
+    uses: ./.github/workflows/nightly-images.yml
+
+  packages:
+    name: Packages
+    uses: ./.github/workflows/nightly-packages.yml
+    with:
+      upload_packages: ${{ inputs.upload_packages == true }}

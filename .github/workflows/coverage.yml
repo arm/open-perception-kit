@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Code coverage
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python tools and scripts coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/coverage-venv"
+          "$RUNNER_TEMP/coverage-venv/bin/pip" install -r requirements/health-report.txt "$(grep '^PyYAML==' requirements/sdk.txt)" -e tools/opk-ci
+          echo "$RUNNER_TEMP/coverage-venv/bin" >> "$GITHUB_PATH"
+      - name: Measure Python coverage
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/python-coverage
+        run: bash scripts/health-report/python-coverage.sh python-coverage.json
+      - name: Retain Python coverage
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: health-python-coverage
+          path: python-coverage.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  native:
+    name: Native coverage (aarch64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up build environment
+        uses: ./.github/actions/setup-build
+      - name: Install test and coverage dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcovr
+          python3 -m pip install -r requirements/tests.txt
+          # Gcov must match the compiler selected by setup-build.
+          mkdir -p "$RUNNER_TEMP/gcov-bin"
+          gcc_version="$(jq -r '.gcc' requirements/build.json)"
+          ln -s "$(command -v "gcov-$gcc_version")" "$RUNNER_TEMP/gcov-bin/gcov"
+          echo "$RUNNER_TEMP/gcov-bin" >> "$GITHUB_PATH"
+      - name: Build and run tests with coverage
+        run: |
+          ./scripts/build.sh debug true --extra-setup-args=-Db_coverage=true,--wipe
+          # Instrumented tests need more time and bounded parallelism.
+          meson test -C development/build-active --print-errorlogs --num-processes 4 --timeout-multiplier 3
+          ninja -C development/build-active coverage-xml
+      - name: Retain native coverage
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: health-native-coverage
+          path: development/build-active/meson-logs/
+          if-no-files-found: warn
+          retention-days: 14
