@@ -46,9 +46,24 @@ CtrlWebSocket::CtrlWebSocket(_GstOpkSink *self) : self_(self) {
     };
 }
 
+static void toggleModel(gpointer element, gpointer) {
+    g_autoptr(GstElement) targetElement = GST_ELEMENT(element);
+    gboolean active = FALSE;
+    g_object_get(targetElement, "active", &active, nullptr);
+    g_object_set(targetElement, "active", !active, nullptr);
+    GST_INFO_OBJECT(targetElement, "Set active=%d", !active);
+}
+
 CtrlSockerError CtrlWebSocket::setup() {
     std::lock_guard<std::mutex> g(hdl_lock);
     ws = std::make_shared<ws_server>();
+    constexpr int modelToggleWorkerCount = 1;
+    auto *const toggleQueue = g_thread_pool_new_full(
+        toggleModel, nullptr, gst_object_unref, modelToggleWorkerCount, FALSE, nullptr);
+    model_toggle_queue.reset(toggleQueue, [](GThreadPool *const queue) {
+        // A callback may stop this server; discard queued work without joining it.
+        g_thread_pool_free(queue, TRUE, FALSE);
+    });
 
     ws->init_asio();
     ws->clear_access_channels(websocketpp::log::alevel::all);
@@ -104,6 +119,7 @@ CtrlSockerError CtrlWebSocket::stop() {
         ws->run(); // Startup may have failed before the worker was created.
     }
 
+    model_toggle_queue.reset();
     std::lock_guard<std::mutex> g(hdl_lock);
     hdls.clear();
     ws.reset();
@@ -306,15 +322,8 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
             return;
         }
 
-        gboolean active;
-        g_object_get(target_element, "active", &active, NULL);
-        active = !active;
-        g_object_set(target_element, "active", active, NULL);
-        gst_object_unref(target_element);
-
-        GST_INFO_OBJECT(
-            self_, "Set element %s active=%d", opk::log::escape(element_name).c_str(), active);
-
+        // Transfer the reference to the FIFO worker, outside the server thread.
+        g_thread_pool_push(model_toggle_queue.get(), target_element, nullptr);
     } catch (const json::exception &e) {
         opk::log::debug("Dropping invalid model toggle: {}", e.what());
     }

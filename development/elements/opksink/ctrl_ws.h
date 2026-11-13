@@ -18,6 +18,7 @@
 #ifndef __CTRL_WS_H__
 #define __CTRL_WS_H__
 
+#include <glib.h>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -54,6 +55,7 @@ class CtrlWebSocket {
     std::thread ws_server_thread;
 
     std::shared_ptr<ws_server> ws = nullptr;
+    std::shared_ptr<GThreadPool> model_toggle_queue;
 
     std::unordered_map<std::string, std::shared_ptr<StatusReporter>> status_reporters;
 
