@@ -237,9 +237,14 @@ copyButton?.addEventListener('click', () => {
 window.addEventListener('metadata-message', (event) => {
     const layers = event.detail?.inference_output?.layers;
     if (!Array.isArray(layers)) return;
-    if (window.OPK_FEED_PAUSED || event.detail.decode_error || layers.some(layer =>
-        isAudioAssessment(layer) && layer.detections?.some(item => item.data?.discontinuity))) {
+    if (window.OPK_FEED_PAUSED || event.detail.decode_error) {
         audioAssessments.clear();
+    } else {
+        const resetElements = new Set(layers.filter(layer =>
+            isAudioAssessment(layer) && layer.detections?.some(item => item.data?.discontinuity))
+            .map(layer => layer.inferElementId || ''));
+        for (const [key, output] of audioAssessments)
+            if (resetElements.has(output.source.inferElementId)) audioAssessments.delete(key);
     }
     if (!window.OPK_FEED_PAUSED && !event.detail.decode_error)
         for (const [key, output] of collectOutputs({layers}))

@@ -304,11 +304,17 @@ test('renders, copies and retains audio assessments until their source resets or
         assert.ok(renderedText().includes('Silence'));
         assert.ok(renderedText().includes('Turn assessment: ongoing'));
 
+        const independent = {...voice, model: 'independent-score', inferElementId: 'other-voice',
+            producer: {instanceId: 'other-voice/post'}};
+        send([independent]);
         send([{...voice, detections: [{type: 'VoiceActivityDetection',
             data: {...voice.detections[0].data, discontinuity: true}}]}]);
         assert.ok(renderedText().includes('Speech active'));
         assert.ok(!renderedText().includes('Turn assessment: ongoing'));
-        listeners.get('models-change')({detail: [{element_name: 'voice', active: false}]});
+        assert.ok(renderedText().includes('independent-score'));
+        listeners.get('models-change')({detail: [
+            {element_name: 'voice', active: false}, {element_name: 'other-voice', active: false},
+        ]});
         assert.equal(button.disabled, true);
         send([voice]);
         assert.equal(button.disabled, true);
