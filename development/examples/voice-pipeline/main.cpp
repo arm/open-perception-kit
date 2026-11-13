@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "KeywordOutput.h"
 #include "open_perception_kit.h"
 #include "runtime/Pipeline.h"
 
@@ -52,24 +53,6 @@ void printUsage(const char *const program, FILE *const output) {
 
 void interrupt(int) {
     interrupted = 1;
-}
-
-void printKeywords(const Results &results) {
-    results.for_each<open_perception_kit::metadata::ClassificationsT>([](const auto &payload) {
-        if (!payload.layer || payload.layer->infer_element_id != "keywords" ||
-            payload.layer->content_type != "keyword")
-            return;
-        for (const auto &classification : payload.classifications) {
-            if (!classification)
-                continue;
-            for (const auto &candidate : classification->candidates) {
-                if (candidate)
-                    std::printf("\r\033[2KKEYWORD %s (%.1f%%)\n",
-                                candidate->text.c_str(),
-                                static_cast<double>(candidate->confidence) * 100.0);
-            }
-        }
-    });
 }
 
 struct Conversation {
@@ -150,7 +133,7 @@ struct Conversation {
     }
 
     void consume(const Results &results) {
-        printKeywords(results);
+        voice_pipeline::printKeywords(results);
         // A buffer can carry several windows. Process them in audio order,
         // with VAD before SmartTurn at the same endpoint. The pointers below
         // remain valid while this decoded FrameResults object is alive.

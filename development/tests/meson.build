@@ -884,6 +884,14 @@ audio_parser_tests = executable(
 )
 test('audio_parser_tests', audio_parser_tests)
 
+voice_pipeline_output_tests = executable(
+  'voice_pipeline_output_tests',
+  'voice_pipeline_output_test.cpp',
+  include_directories: include_directories('../examples/voice-pipeline'),
+  dependencies: [gtest_main_dep, gtest_dep, fmt_dep, open_perception_kit_dep],
+)
+test('voice_pipeline_output_tests', voice_pipeline_output_tests)
+
 test('voice_pipeline_cli', python,
   args: [files('voice_pipeline_cli_test.py'), voice_pipeline.full_path()],
   depends: voice_pipeline,

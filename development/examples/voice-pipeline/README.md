@@ -17,8 +17,8 @@ limitations under the License.
 
 # voice-pipeline
 
-A minimal microphone/turn demo. All application code is in `main.cpp`, using
-`opk::runtime::Pipeline` and the generated VAD/turn perception types. The app
+A minimal microphone/turn demo using `opk::runtime::Pipeline` and the generated
+VAD/turn perception types. The app
 introduces the demo, shows the pipeline in color, and explains how to use the
 OPK web frontend for microphone input. The live status line starts with
 `ESC - Quit`, with only `ESC` inverted, followed by audio progress, detected
@@ -62,9 +62,10 @@ building turn history. Set `inputWindowSampleCount` to the VAD context and
 [the audio preprocessing contract](../../../docs/arch/audio-log-mel.md#conversation-audio-and-metadata).
 
 Custom pipelines can add an independently scheduled microphone inference branch
-named `keywords`. The console prints `KEYWORD <label> (<probability>%)` for its
-accepted classifications. These are rolling model assessments, so the same word
-may appear repeatedly; they do not start or stop the conversation state machine.
+named `keywords`. The console prints `KEYWORD "<label>" (<probability>%)` for its
+accepted classifications, escaping control characters in labels. These are rolling
+model assessments, so the same word may appear repeatedly; they do not start or
+stop the conversation state machine.
 
 The application applies this policy:
 
