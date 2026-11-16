@@ -129,12 +129,15 @@ class ElementPropertiesTest(unittest.TestCase):
                     message = pipeline.get_bus().timed_pop_filtered(
                         self.Gst.SECOND, self.Gst.MessageType.WARNING)
                     self.assertIsNotNone(message)
-                    self.assertIn(prop.name, message.parse_warning()[0].message)
-                    changes.append((element, prop.name, candidate))
+                    warning = message.parse_warning()[0].message
+                    self.assertIn(prop.name, warning)
+                    self.assertIn("READY or a lower state", warning)
+                    changes.append((element, prop.name, current, candidate))
         pipeline.set_state(self.Gst.State.READY)
         self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
                          self.Gst.State.READY)
-        for element, name, candidate in changes:
+        for element, name, current, candidate in changes:
+            self.assertEqual(element.get_property(name), current)
             element.set_property(name, candidate)
             self.assertEqual(element.get_property(name), candidate)
         self.assertNotEqual(pipeline.set_state(self.Gst.State.PLAYING),

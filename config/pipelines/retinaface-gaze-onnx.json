@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Switch between all four RetinaFace and gaze combinations in the WebUI; enable one face detector and one gaze model at a time.",
   "sourceInfo": "bundled video file",
   "loop": true,
@@ -8,8 +8,8 @@
     "decodebin ! videoconvert ! video/x-raw,format=BGRA !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/retinaface-resnet34/opchain-1080x1080.json\" active=true !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/retinaface-resnet34/opchain-1920x1080.json\" active=false !",
-    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/gaze-resnet34/opchain.json\" auto-activate-dependencies=false active=true !",
-    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/gaze-resnet50/opchain.json\" auto-activate-dependencies=false active=false !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/gaze-resnet34/opchain.json\" auto-activate-model-dependencies=false active=true !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/gaze-resnet50/opchain.json\" auto-activate-model-dependencies=false active=false !",
     "opkperformance show-all-metrics=true update-interval=1 !",
     "opkcomm method=websocket endpoint=/ws !",
     "videorate drop-only=true ! videoscale !",

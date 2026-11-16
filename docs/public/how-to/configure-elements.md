@@ -53,7 +53,9 @@ cannot be configured.
 identify the highest supported state: `GST_PARAM_MUTABLE_READY` allows NULL and
 READY, while `GST_PARAM_MUTABLE_PLAYING` also allows PAUSED and PLAYING. OPK
 startup-only properties without a mutation flag require NULL. Flags describe
-permission, not the cost or success of changing a value.
+permission, not the cost or success of changing a value. They do not enforce
+state restrictions; OPK's property setters use `PropertyGuard` to reject writes
+outside the allowed states and report a warning.
 
 Most defaults are fixed. Read back the instance for these resolved defaults:
 
@@ -116,7 +118,7 @@ negotiation; `videoconvert` performs conversion when needed.
 
 | Element | Properties | Supported change and effects |
 | --- | --- | --- |
-| `opkinfer` | `opchain-path`, `infer-id`, `audio-hop-samples`, `copy-input`, `auto-activate-dependencies` | NULL or READY. Returning to READY stops the OpChain and clears audio/QoS state. The next start loads the model and renegotiates media/memory. Identity must remain stable while processing. |
+| `opkinfer` | `opchain-path`, `infer-id`, `audio-hop-samples`, `copy-input`, `auto-activate-model-dependencies` | NULL or READY. Returning to READY stops the OpChain and clears audio/QoS state. The next start loads the model and renegotiates media/memory. Identity must remain stable while processing. |
 | `opkinfer` | `active`, `qos-enabled` | Live. Changes affect subsequent inference decisions; an execution already in progress can finish. Activation can enable upstream content providers. Disabling QoS resets skipping. |
 | `opktracker` | `content-type`, `embedding-content-type`, `infer-id` | NULL or READY. Restart clears tracking history so identities from different sources cannot mix. |
 | `opktracker` | All other writable properties | Live. Each frame takes a synchronized configuration snapshot. Initial Kalman covariance only affects newly created tracks; existing state is retained. See [tracker](https://github.com/arm/open-perception-kit/blob/main/docs/arch/elements/opktracker.md#properties). |
@@ -131,7 +133,7 @@ negotiation; `videoconvert` performs conversion when needed.
 An unsupported-state write is rejected with a bus WARNING naming the property.
 Readback stays unchanged. Writes racing a state transition can also be rejected;
 wait for the transition to finish before retrying. There is no pending-value
-queue in this version. In particular, setting a restricted property while
+queue. In particular, setting a restricted property while
 PLAYING does **not** save it for the next restart.
 
 Serialize configuration and state requests for each element in the application's
@@ -147,9 +149,6 @@ values. Setters return no success status and `notify` alone is not proof of
 acceptance. GObject rejects type/range violations through its normal diagnostics;
 OPK reports resource failures through the bus. A failed startup must be corrected
 by the caller before retrying. OPK does not save or restore working combinations.
-
-Automatic pause/resume, deferred restart requests, atomic batches and
-queue-preserving output handoff are not implemented in this first phase.
 
 ## Platform validation
 

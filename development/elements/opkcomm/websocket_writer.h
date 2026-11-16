@@ -50,9 +50,9 @@ class WebSocketWriter : public Writer {
     std::set<OpkCommConnectionHdl, std::owner_less<OpkCommConnectionHdl>> m_connections;
     mutable std::mutex m_connection_lock;
 
-    bool validate(const OpkCommConnectionHdl &hdl);
-    void on_open(const OpkCommConnectionHdl &hdl);
-    void on_close(const OpkCommConnectionHdl &hdl);
+    bool validate(const OpkCommConnectionHdl &connectionHandle);
+    void on_open(const OpkCommConnectionHdl &connectionHandle);
+    void on_close(const OpkCommConnectionHdl &connectionHandle);
 
   protected:
     bool io_open() override;

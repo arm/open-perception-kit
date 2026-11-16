@@ -21,15 +21,19 @@
 #include "TrackLifecycle.h"
 #include "opk/FrameResults.h"
 
+#include <limits>
 #include <vector>
 
 namespace {
 
-open_perception_kit::metadata::BoxDetectionT
-makeDetection(uint64_t id, float x, float y, float width, float height) {
+open_perception_kit::metadata::BoxDetectionT makeDetection(const uint64_t objectId,
+                                                           const float xCoordinate,
+                                                           const float yCoordinate,
+                                                           const float width,
+                                                           const float height) {
     open_perception_kit::metadata::BoxDetectionT detection;
-    detection.object = open_perception_kit::makeObjectMeta(id);
-    detection.box = open_perception_kit::makeBoundingBox(x, y, width, height);
+    detection.object = open_perception_kit::makeObjectMeta(objectId);
+    detection.box = open_perception_kit::makeBoundingBox(xCoordinate, yCoordinate, width, height);
     detection.confidence = 1.0f;
     return detection;
 }
@@ -56,6 +60,20 @@ opk::tracker::Config matchingConfig(opk::tracker::AssociationMode mode) {
 }
 
 } // namespace
+
+TEST(OpkTrackerTiming, LargeTraceDurationRetainsPointsAndShrinkingTrimsThem) {
+    opk::tracker::TrackState track;
+    opk::tracker::Config config;
+    config.traceHistorySeconds = std::numeric_limits<float>::max();
+    const opk::tracker::Point2f point;
+    opk::tracker::trackstate::appendTracePoint(track, point, config.kalmanDtFallback, config);
+    opk::tracker::trackstate::appendTracePoint(track, point, config.kalmanDtFallback, config);
+    EXPECT_EQ(track.traceHistoryPoints.size(), 2U);
+
+    config.traceHistorySeconds = 0.0f;
+    opk::tracker::trackstate::appendTracePoint(track, point, config.kalmanDtFallback, config);
+    EXPECT_EQ(track.traceHistoryPoints.size(), 1U);
+}
 
 TEST(OpkTrackerMatching, HybridRejectsNonOverlappingEmbeddingOnlyAssignment) {
     const std::vector<float> embedding{1.0f, 0.0f};

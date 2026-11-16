@@ -112,7 +112,7 @@ struct _GstOpkInfer {
     // Properties
     gchar *opChainPath;
     gboolean active;
-    gboolean autoActivateDependencies;
+    gboolean autoActivateModelDependencies;
     gboolean copyInput;
     gchar *inferId;
 
@@ -158,7 +158,7 @@ static std::shared_ptr<GstOpkInferMembers> gst_opkinfer_get_members(GstOpkInfer 
 }
 
 static void gst_opkinfer_emit_content_requirements(GstOpkInfer *self) {
-    if (!g_atomic_int_get(&self->autoActivateDependencies))
+    if (!g_atomic_int_get(&self->autoActivateModelDependencies))
         return;
     const auto members = gst_opkinfer_get_members(self);
     if (members == nullptr)
@@ -906,14 +906,21 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *selfInParentTyp
 
 // ---------------- properties & class init ----------------
 
-constexpr guint PROP_OPCHAIN_PATH = 1;
-constexpr guint PROP_MODEL_ACTIVE = 2;
-constexpr guint PROP_INFER_ID = 4;
-constexpr guint PROP_QOS_ENABLED = 5;
-constexpr guint PROP_QOS_ACCEPTED_EVENTS_DEBUG = 6;
-constexpr guint PROP_COPY_INPUT = 7;
-constexpr guint PROP_AUDIO_HOP_SAMPLES = 8;
-constexpr guint PROP_AUTO_ACTIVATE_DEPENDENCIES = 9;
+namespace {
+
+enum class PropertyId : guint {
+    Reserved = 0,
+    OpChainPath,
+    ModelActive,
+    InferId = 4, // ID 3 belonged to the removed format property.
+    QosEnabled,
+    QosAcceptedEventsDebug,
+    CopyInput,
+    AudioHopSamples,
+    AutoActivateModelDependencies,
+};
+
+} // namespace
 
 static void gst_opkinfer_set_property(GObject *selfInParentType,
                                       guint propertyId,
@@ -923,21 +930,21 @@ static void gst_opkinfer_set_property(GObject *selfInParentType,
     const gst::PropertyGuard propertyGuard(GST_ELEMENT(self), propertySpec);
     if (!propertyGuard.isChangeAllowed())
         return;
-    switch (propertyId) {
-    case PROP_COPY_INPUT:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::CopyInput:
         g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
         gst_base_transform_reconfigure_src(GST_BASE_TRANSFORM(self));
         break;
-    case PROP_OPCHAIN_PATH:
+    case PropertyId::OpChainPath:
         GST_OBJECT_LOCK(self);
         g_free(self->opChainPath);
         self->opChainPath = g_value_dup_string(value);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_AUTO_ACTIVATE_DEPENDENCIES:
-        g_atomic_int_set(&self->autoActivateDependencies, g_value_get_boolean(value));
+    case PropertyId::AutoActivateModelDependencies:
+        g_atomic_int_set(&self->autoActivateModelDependencies, g_value_get_boolean(value));
         break;
-    case PROP_MODEL_ACTIVE: {
+    case PropertyId::ModelActive: {
         gboolean activeChanged = FALSE;
         gboolean emitContentRequirements = FALSE;
         const gboolean active = g_value_get_boolean(value);
@@ -954,18 +961,18 @@ static void gst_opkinfer_set_property(GObject *selfInParentType,
             gst_opkinfer_emit_content_requirements(self);
         break;
     }
-    case PROP_INFER_ID:
+    case PropertyId::InferId:
         GST_OBJECT_LOCK(self);
         g_free(self->inferId);
         self->inferId = g_value_dup_string(value);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_AUDIO_HOP_SAMPLES:
+    case PropertyId::AudioHopSamples:
         GST_OBJECT_LOCK(self);
         self->audioHopSamples = g_value_get_uint(value);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_QOS_ENABLED:
+    case PropertyId::QosEnabled:
         GST_OBJECT_LOCK(self);
         self->qosEnabled = g_value_get_boolean(value);
         if (!self->qosEnabled)
@@ -982,37 +989,37 @@ static void gst_opkinfer_get_property(GObject *selfInParentType,
                                       GValue *value,
                                       GParamSpec *propertySpec) {
     auto *self = reinterpret_cast<GstOpkInfer *>(selfInParentType);
-    switch (propertyId) {
-    case PROP_COPY_INPUT:
+    switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::CopyInput:
         g_value_set_boolean(value, g_atomic_int_get(&self->copyInput));
         break;
-    case PROP_OPCHAIN_PATH:
+    case PropertyId::OpChainPath:
         GST_OBJECT_LOCK(self);
         g_value_set_string(value, self->opChainPath);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_AUTO_ACTIVATE_DEPENDENCIES:
-        g_value_set_boolean(value, g_atomic_int_get(&self->autoActivateDependencies));
+    case PropertyId::AutoActivateModelDependencies:
+        g_value_set_boolean(value, g_atomic_int_get(&self->autoActivateModelDependencies));
         break;
-    case PROP_MODEL_ACTIVE:
+    case PropertyId::ModelActive:
         g_value_set_boolean(value, gst_opkinfer_is_active(self));
         break;
-    case PROP_INFER_ID:
+    case PropertyId::InferId:
         GST_OBJECT_LOCK(self);
         g_value_set_string(value, gst_opkinfer_get_effective_inferId(self));
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_AUDIO_HOP_SAMPLES:
+    case PropertyId::AudioHopSamples:
         GST_OBJECT_LOCK(self);
         g_value_set_uint(value, self->audioHopSamples);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_QOS_ENABLED:
+    case PropertyId::QosEnabled:
         GST_OBJECT_LOCK(self);
         g_value_set_boolean(value, self->qosEnabled);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_QOS_ACCEPTED_EVENTS_DEBUG:
+    case PropertyId::QosAcceptedEventsDebug:
         GST_OBJECT_LOCK(self);
         g_value_set_uint64(value, self->qosAcceptedEventsDebug);
         GST_OBJECT_UNLOCK(self);
@@ -1043,7 +1050,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_OPCHAIN_PATH,
+        static_cast<guint>(PropertyId::OpChainPath),
         g_param_spec_string(
             "opchain-path",
             "OpChain path",
@@ -1056,7 +1063,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_MODEL_ACTIVE,
+        static_cast<guint>(PropertyId::ModelActive),
         g_param_spec_boolean("active",
                              "Active",
                              "Do or not do"
@@ -1067,9 +1074,9 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_AUTO_ACTIVATE_DEPENDENCIES,
-        g_param_spec_boolean("auto-activate-dependencies",
-                             "Auto-activate dependencies",
+        static_cast<guint>(PropertyId::AutoActivateModelDependencies),
+        g_param_spec_boolean("auto-activate-model-dependencies",
+                             "Auto-activate model dependencies",
                              "Activate upstream content providers when enabled"
                              "; Disable for manual provider selection; Set in NULL or READY",
                              true,
@@ -1078,7 +1085,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_INFER_ID,
+        static_cast<guint>(PropertyId::InferId),
         g_param_spec_string(
             "infer-id",
             "ID of the inference element",
@@ -1092,7 +1099,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_QOS_ENABLED,
+        static_cast<guint>(PropertyId::QosEnabled),
         g_param_spec_boolean("qos-enabled",
                              "QoS enabled",
                              "Enable experimental inference skipping from QoS feedback"
@@ -1102,7 +1109,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
                                                       GST_PARAM_MUTABLE_PLAYING)));
     g_object_class_install_property(
         objectClass,
-        PROP_QOS_ACCEPTED_EVENTS_DEBUG,
+        static_cast<guint>(PropertyId::QosAcceptedEventsDebug),
         g_param_spec_uint64("qos-accepted-events-debug",
                             "QoS accepted events debug",
                             "Debug-only count of QoS events committed by opkinfer",
@@ -1122,7 +1129,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_AUDIO_HOP_SAMPLES,
+        static_cast<guint>(PropertyId::AudioHopSamples),
         g_param_spec_uint(
             "audio-hop-samples",
             "Audio hop samples",
@@ -1137,7 +1144,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 
     g_object_class_install_property(
         objectClass,
-        PROP_COPY_INPUT,
+        static_cast<guint>(PropertyId::CopyInput),
         g_param_spec_boolean("copy-input",
                              "Copy input",
                              "Copy video into CPU memory instead of retaining the input DMA-BUF"
@@ -1177,7 +1184,7 @@ static void gst_opkinfer_class_init(GstOpkInferClass *inferClass) {
 static void gst_opkinfer_init(GstOpkInfer *self) {
     self->opChainPath = nullptr;
     self->active = true;
-    self->autoActivateDependencies = true;
+    self->autoActivateModelDependencies = true;
     self->copyInput = false;
     std::construct_at(&self->runtimeMembers);
     self->inferId = nullptr;

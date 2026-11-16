@@ -126,9 +126,9 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         self.create_pipeline(initially_active={"contact", "face-a"},
                              is_live=False, source_name="source")
         contact = self.elements["contact"]
-        self.assertTrue(contact.get_property("auto-activate-dependencies"))
-        contact.set_property("auto-activate-dependencies", False)
-        self.assertFalse(contact.get_property("auto-activate-dependencies"))
+        self.assertTrue(contact.get_property("auto-activate-model-dependencies"))
+        contact.set_property("auto-activate-model-dependencies", False)
+        self.assertFalse(contact.get_property("auto-activate-model-dependencies"))
         self.start_pipeline()
         self.assertEqual(self.pipeline.get_by_name("source").emit(
             "push-buffer", self.Gst.Buffer.new_allocate(None, 16 * 16 * 4, None)),

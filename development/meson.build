@@ -52,7 +52,7 @@ gsta_dep     = dependency('gstreamer-audio-1.0',  required: true)
 gstfft_dep   = dependency('gstreamer-fft-1.0',    required: true)
 gstalloc_dep = dependency('gstreamer-allocators-1.0', required: true)
 
-glib_dep     = dependency('glib-2.0',             required: true)
+glib_dep     = dependency('glib-2.0', version: '>=2.70', required: true)
 gobject_dep  = dependency('gobject-2.0',          required: true)
 
 # -------- Web deps (Web output ALWAYS ON)
