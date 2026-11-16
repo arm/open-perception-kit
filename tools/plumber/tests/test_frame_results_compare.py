@@ -37,6 +37,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerI
 from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.AudioFrameContext import AudioFrameContextT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements import PerformanceMeasurementsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.FrameRate import FrameRateT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT  # noqa: E402
@@ -144,6 +145,58 @@ def gaze_frame(measurements, subjects=None, tracks=False):
 class FrameResultsCompareTests(unittest.TestCase):
     def setUp(self) -> None:
         self.args = SimpleNamespace(verbose=False)
+
+    def test_subjectless_keyword_classifications_preserve_identity_and_subject_checks(self):
+        def frame(subject=None, producer="keywords/output", parent=0, **changes):
+            result = FrameResults()
+            # Both modalities may share a packet; neither supplies an implicit subject.
+            context = frame_payload()
+            context.audio = AudioFrameContextT(object=ObjectMetaT(id=2), originalChannels=1,
+                                               originalFrequency=16000, originalSampleCount=512)
+            result.add(context)
+            result.add(ClassificationsT(
+                layer=LayerInfoT(model="commands", inferElementId="keywords",
+                                 producer=ProducerInfoT(instanceId=producer, component="test")),
+                classifications=[ClassificationT(**{
+                    "object": ObjectMetaT(id=3, parentId=parent), "subjectId": subject,
+                    "kind": ClassificationKind.Categorical, "labelSet": "test:commands-v1",
+                    "candidates": [ClassificationCandidateT(classId=0, text="open", confidence=.9)],
+                    **changes})]))
+            return frame_results_frame(FrameResults(result.serialize()))
+
+        reference = frame()
+        for equivalent in (
+            frame(), frame(parent=999),
+            frame(candidates=[ClassificationCandidateT(classId=0, text="renamed", confidence=0)]),
+            frame(candidates=[ClassificationCandidateT(classId=0, text="open", confidence=None)]),
+        ):
+            ok, message = compare_frame_results_frame(self.args, reference, equivalent)
+            self.assertTrue(ok, message)
+
+        for different in (
+            frame(producer="other/output"), frame(labelSet="other:v1"),
+            frame(candidates=[ClassificationCandidateT(classId=1, text="open", confidence=.9)]),
+            frame(subject=1),
+        ):
+            self.assertFalse(compare_frame_results_frame(self.args, reference, different)[0])
+            self.assertFalse(compare_frame_results_frame(self.args, different, reference)[0])
+
+        for invalid in (
+            frame(labelSet=""), frame(kind=ClassificationKind.Unspecified),
+            frame(candidates=[ClassificationCandidateT(text="open", confidence=.9)]),
+            frame(candidates=[ClassificationCandidateT(classId=0, confidence=float("nan"))]),
+            frame(candidates=[ClassificationCandidateT(classId=0, confidence=1.1)]),
+            frame(kind=ClassificationKind.RecognizedText, labelSet="",
+                  candidates=[ClassificationCandidateT(text="open")]),
+            frame(subject=0), frame(subject=999), frame(subject=2),
+        ):
+            self.assertFalse(compare_frame_results_frame(self.args, invalid, invalid)[0])
+
+        bound = frame(subject=1)
+        self.assertTrue(compare_frame_results_frame(self.args, bound, bound)[0])
+        bound.frame_results.add(frame_payload())
+        ambiguous = frame_results_frame(FrameResults(bound.frame_results.serialize()))
+        self.assertFalse(compare_frame_results_frame(self.args, ambiguous, ambiguous)[0])
 
     def test_empty_candidates_respect_subject_kind_and_label_set(self):
         def make(kind=ClassificationKind.Categorical, label_set="test:labels", subject=1, candidates=()):

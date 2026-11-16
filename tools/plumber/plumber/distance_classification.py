@@ -19,12 +19,19 @@ from .distance_subject import distance_subject
 from .distance_rect import GEOMETRY_THRESHOLD
 
 
+def is_subjectless_categorical(item: dict) -> bool:
+    data = item.get("data", {})
+    return (item.get("item_type") == "Classification" and data.get("kind") == ClassificationKind.Categorical
+            and data.get("subjectId") is None)
+
+
 def distance_classification(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item) -> float:
-    """Compare declared kind/identity or literal text for the corresponding subject."""
+    """Compare classification identity, enforcing correspondence for declared subjects."""
     if gt_item["data"].get("invalidCandidates") or out_item["data"].get("invalidCandidates"):
         return 1.0
-    if distance_subject(gt_item, out_item, _gt_parent_item, _out_parent_item) > GEOMETRY_THRESHOLD:
-        return 1.0
+    if not (is_subjectless_categorical(gt_item) and is_subjectless_categorical(out_item)):
+        if distance_subject(gt_item, out_item, _gt_parent_item, _out_parent_item) > GEOMETRY_THRESHOLD:
+            return 1.0
 
     g_cands = gt_item.get("data", {}).get("candidates", [])
     o_cands = out_item.get("data", {}).get("candidates", [])

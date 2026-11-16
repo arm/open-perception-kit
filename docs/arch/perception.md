@@ -436,14 +436,20 @@ All three result families carry optional `subject_id` independently of derivatio
 `parent_id`. Contact requires a unique box or track; classification and presence
 also accept a video-frame observation. Duplicates are ambiguous before geometry
 validation. Native/browser contact consumers share these rules without content-type
-filters or parent fallback. Plumber compares the corresponding subject source and
-geometry before matching categorical identities, literal text or semantic decisions.
+filters or parent fallback. For subject-bound results, Plumber compares the
+corresponding subject source and geometry before matching categorical identities,
+literal text or semantic decisions.
 Reordering observations can match; swapping outcomes between subjects cannot.
 Plumber retains producer component and instance identity in payload groups and
 subject sources. Whole-frame subjects require exactly one addressable video
 frame in each source group; ambiguous multi-frame groups fail comparison rather
 than guessing correspondence from packet-local IDs, order, or image dimensions.
 Empty collections report no observations; unavailable results do not establish matches.
+
+Subjectless categorical results, such as keyword detections, compare by label-set
+and class identity within their producer-scoped payload group. Both sides must
+omit `subject_id`; any declared subject still requires normal resolution and
+correspondence. Display text remains a label rather than categorical identity.
 
 ## Gaze measurements
 
