@@ -26,6 +26,7 @@
 
 #include <gst/gst.h>
 
+#include "opk/OutputCapability.h"
 #include "status_reporter.h"
 
 struct ModelStatus {
@@ -35,8 +36,8 @@ struct ModelStatus {
     std::string display_name{};
     std::string task{};
     std::string runtime{};
-    std::vector<std::string> provided_content_types{};
-    std::vector<std::string> required_content_types{};
+    std::vector<opk::OutputCapability> provided_outputs{};
+    std::vector<opk::OutputCapability> required_outputs{};
 };
 
 std::optional<ModelStatus> model_status_from_registration(const GstStructure *structure);

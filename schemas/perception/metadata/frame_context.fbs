@@ -17,6 +17,8 @@ table AudioFrameContext {
   original_sample_count:ulong;
   cut_left_sample_count:ulong;
   cut_right_sample_count:ulong;
+  // Original input buffer PTS; not the normalized inference-window clock.
+  presentation_ts_ns:ulong = null;
 }
 
 table FrameContext {

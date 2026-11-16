@@ -45,8 +45,8 @@
     },
     {
       "path": "cpp/fb/frame_context_generated.h",
-      "sha256": "5ab7c671413ee3a3d2ef62fc1b65811eb094b28ae9e3950b18d1d572f2cf5060",
-      "size": 29319
+      "sha256": "b9e92545856689458716551e579be3118adc917097d1006a4054e496f6ebe279",
+      "size": 30220
     },
     {
       "path": "cpp/fb/gaze_measurements_generated.h",
@@ -105,13 +105,13 @@
     },
     {
       "path": "cpp/fb/turn_detections_generated.h",
-      "sha256": "11259dcbdf47f019a7d71f9481be8912dcb82df1669afe38b02005bb28b404c8",
-      "size": 23953
+      "sha256": "dda7ce271b03a72f10c766735211e61dd167c2c0b1c9c700077c757d01f6c55a",
+      "size": 24264
     },
     {
       "path": "cpp/fb/voice_activity_detections_generated.h",
-      "sha256": "6308ec91ac0f6c3487c2cb4c7221ae45d718e8a0139a9e858c19bcc0d3d3869e",
-      "size": 25706
+      "sha256": "70337ff23cfd2c8dcfaca17abc2db54802f11c2589f89b4f98c413b8a687d4b3",
+      "size": 26006
     },
     {
       "path": "cpp/meson/open_perception_kit/meson.build",
@@ -125,13 +125,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "88101f77937cc9d6d1896ecbf240d189792a2fe56f39886c5f4d536d6b15d02d",
+      "sha256": "e42e2e5968f07af89fd24fbe17593005e704c8538c4bbe6fbc3df1a167ab3b59",
       "size": 37133
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "4d748812f374a155253fab36856270ff2eb6523298926b8cd926d875a6689983",
-      "size": 447101
+      "sha256": "245d2431657bd9a7f8f121521cb7d0091bfedca992cd4962ce4f09f83507ad67",
+      "size": 448305
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -155,7 +155,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "6c961daa4d237fb62274db0e1abf03123bbedf690cb9c13675fe69ee32a0e141",
+      "sha256": "aa76a1162c770625843c6bb620e81a4e372ebe22eb4b66982fc42c2acf8d613a",
       "size": 1166
     },
     {
@@ -170,8 +170,8 @@
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/AudioFrameContext.py",
-      "sha256": "1bd6a3e741983a8953b61f2f5b86ba540f3a282d4727dfb5197c766e9a421117",
-      "size": 7986
+      "sha256": "a70dc7f2be1857e402437a6e5b3850ad5bfd4672fa5170e7acac8df9f04a6dbb",
+      "size": 8752
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/BitmapData.py",
@@ -420,8 +420,8 @@
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TurnDetection.py",
-      "sha256": "2af9c2bd20a37b839349eeaa86de2c96c00ecb3f87e1c2e1aca1a8e70b8a173f",
-      "size": 8967
+      "sha256": "3c00cf83845cf5ad0ed4224e05dff48bff0d48df5b7480767f4d8b25fee17cd8",
+      "size": 8991
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TurnDetections.py",
@@ -435,8 +435,8 @@
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetection.py",
-      "sha256": "abbf0c7caef435af620e1d705a1eb543e4a6ed2db11242574b89e819029902e8",
-      "size": 9600
+      "sha256": "a4be8d1b0ebc87593d650f027c0e137520b56673f8a04255629ca5dd3673f7ea",
+      "size": 9624
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetections.py",
@@ -490,7 +490,7 @@
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "884301470cefc93ae14486a07fb7e2cf967511055ac9292688dbc2e6f6e27a13",
+      "sha256": "c7fb038c03d38adb8b64ca447368482bab6fa67c495da9b5159593ddfcc39f04",
       "size": 15484
     },
     {
@@ -515,8 +515,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/audio_frame_context_generated.rs",
-      "sha256": "bb2e3a5c2619f7178b7ee7ef0ef68df13dc731efa00c2b054298558e5b88ff9d",
-      "size": 11769
+      "sha256": "99f5094f0d6a8682a0beb785154629517f390b5566e3e4176a15596b9de2ac42",
+      "size": 12978
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/bitmap_data_generated.rs",
@@ -770,8 +770,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/turn_detection_generated.rs",
-      "sha256": "c162dac22278b065725b4ce8871c3d55c4679b9b28d02b737f04169a0bc1037b",
-      "size": 13211
+      "sha256": "6003b364ebb3a5ef1440a3944987d58168e80e799744478ad887d9536643c135",
+      "size": 13246
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/turn_detections_generated.rs",
@@ -785,8 +785,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/voice_activity_detection_generated.rs",
-      "sha256": "054fe41f4226ff60fedb9e9972e7e792dc942e8c86b01212a37d4accd170560a",
-      "size": 13863
+      "sha256": "c6b192a6b24ce4a3b8c3f3cd262f5475c0ab10455c027a4db5938e5144ea482b",
+      "size": 13889
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/voice_activity_detections_generated.rs",
@@ -820,12 +820,12 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "48572e17d538771bbb4ffc3486dead0408389d39b6f530853a21ed5aab03e440",
+      "sha256": "d5ca2f40e7fa3ff75917836557c5e2977f5660a5aaa4acc37b865e5ca981daa3",
       "size": 58636
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
-      "sha256": "50ce6db6e18f66881ebe60770b40a333e2949d1aeae292adcced094471c65fcd",
+      "sha256": "938cbc3ab7c75070497386a780e7aae83ce09e644e96a7a05ae7678d564a6812",
       "size": 1025
     },
     {
@@ -845,12 +845,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "cf071b2e9956fc792e87f3aba94261058f325d75c71e56a17690ac4fc49246f9",
+      "sha256": "19442c1c46415762adb5e9949f9aa3a22c40f7effc38e89ed357c895c69f962a",
       "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "f74647fbd51179ace0dd653041baf89477b716c9e32182317c5e1227599847ad",
+      "sha256": "599dd020d4c26684c222f95c2584f381eed60069ff1b5a522ef1ec49717a6d20",
       "size": 14047
     },
     {
@@ -885,13 +885,13 @@
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.d.ts",
-      "sha256": "fbae585e0dae0ee20177add498aa0ae9e328af60a4399abfa1bf4efd21c9ee09",
-      "size": 3208
+      "sha256": "77bc482984c3a6f1982f2eb6be8b7bce415a01390a539874296f338d1a93107b",
+      "size": 3445
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.js",
-      "sha256": "7339c93c0c01bd2b000a66c55ff0879092153c2ef303baa9dd987df9bbe82bdb",
-      "size": 5880
+      "sha256": "bb86726ab362c4426f3f7ff1cec1390b1c8b2dca3cfb69276fa97c39fe1166a6",
+      "size": 6479
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.d.ts",
@@ -1385,13 +1385,13 @@
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.d.ts",
-      "sha256": "24efad46873e17c217319a12a7b1087cc6794eb139bd09d7b5690454f2ff2620",
-      "size": 3506
+      "sha256": "cee63c6ce325469b7aefecfa9393dad1ad02c76605c2e0a8e70a5b0d86aab8cb",
+      "size": 3562
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.js",
-      "sha256": "ac5b3857a249bbd85d283707a2b680d0b2f2949047042608aa30da218b5e58c2",
-      "size": 6629
+      "sha256": "bb9e775ad31226f3789e136d7ca3b7b520bacb0b71054144667873f417517132",
+      "size": 6709
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.d.ts",
@@ -1415,13 +1415,13 @@
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.d.ts",
-      "sha256": "cd44ad1657da6b0e8bf6a81a200e8f12e04434c318d5b4cc58b0650a847f9b0a",
-      "size": 3653
+      "sha256": "ec53805aa8f8961609dc5cbbefd3292b27d47f27039e773b83f9aceb1604b623",
+      "size": 3709
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.js",
-      "sha256": "a3a8218b553f0ea67b46839b611a00ec6a657330fa7ce9d28563e94342f60dd4",
-      "size": 6873
+      "sha256": "4190435813aec5c204a32388d1d020cd7cab4a819c02a4728007b8c9248f47e0",
+      "size": 6955
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.d.ts",
@@ -1445,12 +1445,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "cfa623ef9514392419b3a0c63316998d65f758a45d6d053d82473251e47152b1",
+      "sha256": "9a158a559d04289234bb1cb5fbee3432dc9bd5a1253e7ed52c3b86a6b7e30c79",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "ae8e48d0c9cc30d129be8aaf3919b05788ec4521516ab9919ec37cd2a2529d26",
+      "sha256": "d9a9d00d551a96f9a6fd51ef5d05398b8c1d1afefecd0798de089474c59d4986",
       "size": 1203
     },
     {
@@ -1470,7 +1470,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "35c7542a7e4bcccb8af82d192f207cba43102640586d96572015aac6d6fad171",
+      "sha256": "ec5a1912bc76363055faa7a4f9d63c9eb9e4ea6c488a5c62ec6c5850f198f16f",
       "size": 12726
     },
     {
@@ -1490,8 +1490,8 @@
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.ts",
-      "sha256": "7e481e23f8a4e3be1fcbdac490a9cae57ac7520fea0063f45c9344043a627772",
-      "size": 6094
+      "sha256": "6f951f84568baa3d646e2bfdd83402dabf8009ca75a4106a1f381f43d58a31b0",
+      "size": 6674
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.ts",
@@ -1740,8 +1740,8 @@
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.ts",
-      "sha256": "cfb74f9cdd6d2c1103a947540c806ad61ec75f74b67dca3adc52f567f22f468a",
-      "size": 6823
+      "sha256": "e28f0978161fa2b2ce02e79c2985ed251179eb1e4b535177acb4685946ebe293",
+      "size": 6917
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.ts",
@@ -1755,8 +1755,8 @@
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.ts",
-      "sha256": "6a1a07fb518fc71f69a59cf65638a3784a3eb0f63ce2a3a50623ae9dda93156a",
-      "size": 7135
+      "sha256": "45bff4f0fdc928724439f9b01b9ade67a16ea50a2827b6335661daf63d23ce8d",
+      "size": 7231
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.ts",
@@ -1770,7 +1770,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "fa2cef89d64eda6b3fec4557f98fb20cfbe7f963f990d4ec0e189a0a34451fe0",
+      "sha256": "745abbd2bf4e658f3ef5896fbeebf030d5d0bcfad4e5ca4575d6092568e2617d",
       "size": 1216
     },
     {
@@ -2119,8 +2119,8 @@
         },
         {
           "path": "fb/frame_context_generated.h",
-          "sha256": "29d5aa0253a3cb21cbe583d2c146340e1898787d08c2b7ce73972a3745236ad1",
-          "size": 25876
+          "sha256": "96adb1b77012ff82493776db12229142d45d419881e66967468d7a7f739e6047",
+          "size": 26773
         },
         {
           "path": "fb/gaze_measurements_generated.h",
@@ -2179,13 +2179,13 @@
         },
         {
           "path": "fb/turn_detections_generated.h",
-          "sha256": "3e8a1791551be051d6a3c622d6501aab5d7398d97f84b4dc5f243f4c7922d65d",
-          "size": 20713
+          "sha256": "777533596c5cd09386bf8a87a4f92bcbe7b7f1c13edcbb638706a9706258f58f",
+          "size": 20978
         },
         {
           "path": "fb/voice_activity_detections_generated.h",
-          "sha256": "005f2f67ff927da9def057bf5841bec27ff799dccebb8a9069e3f67b7bd27a30",
-          "size": 22213
+          "sha256": "63afdedfe81680383e0089c0e64193b227cb0ec47b08c06803597285ecd6df15",
+          "size": 22480
         },
         {
           "path": "meson/open_perception_kit/meson.build",
@@ -2199,13 +2199,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "afee8073e4e6a7d090840a863bb7150935b17dea623091eef51d91864cc72c11",
+          "sha256": "ecb5d8928998a5947dd86a485aeb262432d02000d7a76041dcbe2faacfdd1660",
           "size": 35746
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "d1c466b16df6e6531c7963aab7f60ae0ca6dffb7e0dc8f011b4b99ccfd17093a",
-          "size": 424933
+          "sha256": "b562ae89bee47a05b22de1437715e9907fa9f0f84117e040ec5b401ff276f72c",
+          "size": 426112
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -2366,8 +2366,8 @@
         },
         {
           "path": "frame_context.fbs",
-          "sha256": "e8bafd951fac26ce76176e1501a34e260c2c34ee27ad825ac4d48e5210dc0ad0",
-          "size": 822
+          "sha256": "0a503997680193ee078b32c47400807c51daf9252420da27ccdd78013ed3473e",
+          "size": 932
         },
         {
           "path": "gaze_measurements.fbs",
@@ -2421,16 +2421,16 @@
         },
         {
           "path": "turn_detections.fbs",
-          "sha256": "7dede792ea99066b7e52eca3d8d3db4ff1d965a9e6a19397cb28e807e38bf456",
-          "size": 1138
+          "sha256": "cdfe6e50614812f17fa2c2123e9e10fca169e6471041d3e9d31f6b1eb5fb74d0",
+          "size": 1152
         },
         {
           "path": "voice_activity_detections.fbs",
-          "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
-          "size": 994
+          "sha256": "56fc3fef8fa4f38b22162515fd18e4a22b16158f922f26d9113e18873e7bebe5",
+          "size": 1082
         }
       ],
-      "schema_set_sha256": "2e35be6418caff504add5bf4443a81ca5c8ad0c6c0a45373fee24a234b07d6f3",
+      "schema_set_sha256": "4e701a0bbb27a37bf8f6f171f35506f4a48a697cb8a4e93642a646c4fd171093",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2445,7 +2445,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "37ad30d1542e1b313ca4353845e80e4c93be90afd19a7f9b7803b6522e9a2161",
+          "sha256": "3ebe9258d94c6a6d99a8f0f183184d5bf1ef6678784cbceeaa44c2f69d7ce46f",
           "size": 506
         },
         {
@@ -2460,8 +2460,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/AudioFrameContext.py",
-          "sha256": "99121acecfdd74300b8d5ab0d134c033bd93b0c2edb8ee41a668463844d32288",
-          "size": 7293
+          "sha256": "67cd377014f3dbd2bc78c75bafaeac042145e7a957693d53c32bf6fafd3d3030",
+          "size": 8059
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/BitmapData.py",
@@ -2710,8 +2710,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TurnDetection.py",
-          "sha256": "d773375ab0a732d08bfd61963b8888e4960eff52e1ca24b8cdcb98945d45cd53",
-          "size": 8274
+          "sha256": "50f978d4ff5a5d90032e8f778e9782e33cc3dd3cb652d70d6a164ddfdff70bd1",
+          "size": 8298
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TurnDetections.py",
@@ -2725,8 +2725,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetection.py",
-          "sha256": "af21e8713ad75919607cd2233ad253c12f434dde604cca5e7d0ff68a60984e76",
-          "size": 8907
+          "sha256": "e5cfba521510aabd0102c97f572b17bcf792f16d3a19ebb40770906e611a1eba",
+          "size": 8931
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetections.py",
@@ -2780,7 +2780,7 @@
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "355104c1cd51217f0ef74ae5569231d7716d26c0940a957f1d7f27a6cce748cf",
+          "sha256": "381d6622fc02c7daf67e95152ad712af8efe46a0e915dc3dd81d62a869539fea",
           "size": 14823
         }
       ],
@@ -2935,8 +2935,8 @@
         },
         {
           "path": "frame_context.fbs",
-          "sha256": "e8bafd951fac26ce76176e1501a34e260c2c34ee27ad825ac4d48e5210dc0ad0",
-          "size": 822
+          "sha256": "0a503997680193ee078b32c47400807c51daf9252420da27ccdd78013ed3473e",
+          "size": 932
         },
         {
           "path": "gaze_measurements.fbs",
@@ -2990,16 +2990,16 @@
         },
         {
           "path": "turn_detections.fbs",
-          "sha256": "7dede792ea99066b7e52eca3d8d3db4ff1d965a9e6a19397cb28e807e38bf456",
-          "size": 1138
+          "sha256": "cdfe6e50614812f17fa2c2123e9e10fca169e6471041d3e9d31f6b1eb5fb74d0",
+          "size": 1152
         },
         {
           "path": "voice_activity_detections.fbs",
-          "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
-          "size": 994
+          "sha256": "56fc3fef8fa4f38b22162515fd18e4a22b16158f922f26d9113e18873e7bebe5",
+          "size": 1082
         }
       ],
-      "schema_set_sha256": "2e35be6418caff504add5bf4443a81ca5c8ad0c6c0a45373fee24a234b07d6f3",
+      "schema_set_sha256": "4e701a0bbb27a37bf8f6f171f35506f4a48a697cb8a4e93642a646c4fd171093",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3019,8 +3019,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/audio_frame_context_generated.rs",
-          "sha256": "b7e82eab7ea449dc58e2f480fd892ba7f4e9e8ece6a0afc467b433a43d5000e5",
-          "size": 11088
+          "sha256": "949f00b295aa1721b2c2cd80f1f1efce3124fb77fac9d1dcfd5a937349ab8abf",
+          "size": 12297
         },
         {
           "path": "src/fb/open_perception_kit/metadata/bitmap_data_generated.rs",
@@ -3274,8 +3274,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/turn_detection_generated.rs",
-          "sha256": "ce21af5f1472878335fac3b368dcef62abd09412dd5a6813ac3b85e1a58befea",
-          "size": 12530
+          "sha256": "efbc33f897d89b827366d79345e315717d0917224847a030c1315f8f93d54967",
+          "size": 12565
         },
         {
           "path": "src/fb/open_perception_kit/metadata/turn_detections_generated.rs",
@@ -3289,8 +3289,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/voice_activity_detection_generated.rs",
-          "sha256": "b5b5ed918a725b5165483b2e31b76d73a80bba13a4cfb84c53f80fea49a3dfc4",
-          "size": 13182
+          "sha256": "4871d0fb94123fb90a35b495a337218255847fe0350e4b2cb08a740b8496b396",
+          "size": 13208
         },
         {
           "path": "src/fb/open_perception_kit/metadata/voice_activity_detections_generated.rs",
@@ -3324,7 +3324,7 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "6c1e03a400792da2746a17c4b33af0c80524932e7b52926f3efe75876476fbb8",
+          "sha256": "8982b8a92e1f6a489dc6445748645d617a474f55213cac6c7231d243f097dc21",
           "size": 57955
         }
       ],
@@ -3464,8 +3464,8 @@
         },
         {
           "path": "frame_context.fbs",
-          "sha256": "e8bafd951fac26ce76176e1501a34e260c2c34ee27ad825ac4d48e5210dc0ad0",
-          "size": 822
+          "sha256": "0a503997680193ee078b32c47400807c51daf9252420da27ccdd78013ed3473e",
+          "size": 932
         },
         {
           "path": "gaze_measurements.fbs",
@@ -3519,16 +3519,16 @@
         },
         {
           "path": "turn_detections.fbs",
-          "sha256": "7dede792ea99066b7e52eca3d8d3db4ff1d965a9e6a19397cb28e807e38bf456",
-          "size": 1138
+          "sha256": "cdfe6e50614812f17fa2c2123e9e10fca169e6471041d3e9d31f6b1eb5fb74d0",
+          "size": 1152
         },
         {
           "path": "voice_activity_detections.fbs",
-          "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
-          "size": 994
+          "sha256": "56fc3fef8fa4f38b22162515fd18e4a22b16158f922f26d9113e18873e7bebe5",
+          "size": 1082
         }
       ],
-      "schema_set_sha256": "2e35be6418caff504add5bf4443a81ca5c8ad0c6c0a45373fee24a234b07d6f3",
+      "schema_set_sha256": "4e701a0bbb27a37bf8f6f171f35506f4a48a697cb8a4e93642a646c4fd171093",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3543,7 +3543,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "43b6085677929a61cbf55c6b711f3c641bc274d8f616fc961801ed91d2937f69",
+          "sha256": "a8399f4b589c0a2d2b240187a4d490c177a0898c497ca843fef9a690e7444e9c",
           "size": 12045
         },
         {
@@ -3568,8 +3568,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.ts",
-          "sha256": "6603a05b739e5d0f332f1c12af7e8a948fc37eba663fb1752e7d88efadfb1a16",
-          "size": 5413
+          "sha256": "3ca3d2cefca838fc4d8bbd8f93bac6c0a21e06fbddbd3e18f19cbfe578e2918a",
+          "size": 5993
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.ts",
@@ -3818,8 +3818,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.ts",
-          "sha256": "40b38180c22e35a4081cfed624eb77458482c7871b7482a1d546fd6aed8ecfdf",
-          "size": 6142
+          "sha256": "45cb0314075a4168f35c709075a00ee47095518cde14944b517d4bd55eaf7c10",
+          "size": 6236
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.ts",
@@ -3833,8 +3833,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.ts",
-          "sha256": "abf3696ccd97bcbc130ce32fbaf59edc6c414c64d45b4d2589923dfe0ee5bf42",
-          "size": 6454
+          "sha256": "75ec3135458659e9bc50e149cd24e38c6071a9eb0e3f6d5502fd4a71c9f69c56",
+          "size": 6550
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.ts",
@@ -3843,7 +3843,7 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "8b72855cea203f4622fd1f4f7a89ad5fed98f6cd6fef7e8ed5374f300c74d87c",
+          "sha256": "e68873d0c8161c26d04c6fbfc4e92b5cbeb3246ad30ee2bde166bae3b31d5d22",
           "size": 535
         },
         {
@@ -3993,8 +3993,8 @@
         },
         {
           "path": "frame_context.fbs",
-          "sha256": "e8bafd951fac26ce76176e1501a34e260c2c34ee27ad825ac4d48e5210dc0ad0",
-          "size": 822
+          "sha256": "0a503997680193ee078b32c47400807c51daf9252420da27ccdd78013ed3473e",
+          "size": 932
         },
         {
           "path": "gaze_measurements.fbs",
@@ -4048,16 +4048,16 @@
         },
         {
           "path": "turn_detections.fbs",
-          "sha256": "7dede792ea99066b7e52eca3d8d3db4ff1d965a9e6a19397cb28e807e38bf456",
-          "size": 1138
+          "sha256": "cdfe6e50614812f17fa2c2123e9e10fca169e6471041d3e9d31f6b1eb5fb74d0",
+          "size": 1152
         },
         {
           "path": "voice_activity_detections.fbs",
-          "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
-          "size": 994
+          "sha256": "56fc3fef8fa4f38b22162515fd18e4a22b16158f922f26d9113e18873e7bebe5",
+          "size": 1082
         }
       ],
-      "schema_set_sha256": "2e35be6418caff504add5bf4443a81ca5c8ad0c6c0a45373fee24a234b07d6f3",
+      "schema_set_sha256": "4e701a0bbb27a37bf8f6f171f35506f4a48a697cb8a4e93642a646c4fd171093",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"

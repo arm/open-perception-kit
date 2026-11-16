@@ -41,11 +41,11 @@ export class VoiceActivityDetection {
     }
     speechProbability() {
         const offset = this.bb.__offset(this.bb_pos, 6);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
+        return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
     }
     speechActive() {
         const offset = this.bb.__offset(this.bb_pos, 8);
-        return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+        return offset ? !!this.bb.readInt8(this.bb_pos + offset) : null;
     }
     windowStartSample() {
         const offset = this.bb.__offset(this.bb_pos, 10);
@@ -74,10 +74,10 @@ export class VoiceActivityDetection {
         builder.addFieldOffset(0, objectOffset, 0);
     }
     static addSpeechProbability(builder, speechProbability) {
-        builder.addFieldFloat32(1, speechProbability, 0.0);
+        builder.addFieldFloat32(1, speechProbability, null);
     }
     static addSpeechActive(builder, speechActive) {
-        builder.addFieldInt8(2, +speechActive, +false);
+        builder.addFieldInt8(2, +speechActive, null);
     }
     static addWindowStartSample(builder, windowStartSample) {
         builder.addFieldInt64(3, windowStartSample, BigInt('0'));
@@ -101,8 +101,10 @@ export class VoiceActivityDetection {
     static createVoiceActivityDetection(builder, objectOffset, speechProbability, speechActive, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
         VoiceActivityDetection.startVoiceActivityDetection(builder);
         VoiceActivityDetection.addObject(builder, objectOffset);
-        VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
-        VoiceActivityDetection.addSpeechActive(builder, speechActive);
+        if (speechProbability !== null)
+            VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
+        if (speechActive !== null)
+            VoiceActivityDetection.addSpeechActive(builder, speechActive);
         VoiceActivityDetection.addWindowStartSample(builder, windowStartSample);
         VoiceActivityDetection.addWindowEndSample(builder, windowEndSample);
         if (windowStartTsNs !== null)
@@ -127,7 +129,7 @@ export class VoiceActivityDetection {
     }
 }
 export class VoiceActivityDetectionT {
-    constructor(object = null, speechProbability = 0.0, speechActive = false, windowStartSample = BigInt('0'), windowEndSample = BigInt('0'), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+    constructor(object = null, speechProbability = null, speechActive = null, windowStartSample = BigInt('0'), windowEndSample = BigInt('0'), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
         this.object = object;
         this.speechProbability = speechProbability;
         this.speechActive = speechActive;

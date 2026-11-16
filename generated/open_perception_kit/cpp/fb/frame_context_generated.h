@@ -149,6 +149,7 @@ struct AudioFrameContextT : public ::flatbuffers::NativeTable {
     uint64_t original_sample_count = 0;
     uint64_t cut_left_sample_count = 0;
     uint64_t cut_right_sample_count = 0;
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns = ::flatbuffers::nullopt;
     AudioFrameContextT() = default;
     AudioFrameContextT(const AudioFrameContextT &o);
     AudioFrameContextT(AudioFrameContextT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -164,7 +165,8 @@ struct AudioFrameContext FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
         VT_ORIGINAL_FREQUENCY = 8,
         VT_ORIGINAL_SAMPLE_COUNT = 10,
         VT_CUT_LEFT_SAMPLE_COUNT = 12,
-        VT_CUT_RIGHT_SAMPLE_COUNT = 14
+        VT_CUT_RIGHT_SAMPLE_COUNT = 14,
+        VT_PRESENTATION_TS_NS = 16
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -184,6 +186,9 @@ struct AudioFrameContext FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
     uint64_t cut_right_sample_count() const {
         return GetField<uint64_t>(VT_CUT_RIGHT_SAMPLE_COUNT, 0);
     }
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns() const {
+        return GetOptional<uint64_t, uint64_t>(VT_PRESENTATION_TS_NS);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) &&
@@ -191,7 +196,8 @@ struct AudioFrameContext FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
                VerifyField<uint64_t>(verifier, VT_ORIGINAL_FREQUENCY, 8) &&
                VerifyField<uint64_t>(verifier, VT_ORIGINAL_SAMPLE_COUNT, 8) &&
                VerifyField<uint64_t>(verifier, VT_CUT_LEFT_SAMPLE_COUNT, 8) &&
-               VerifyField<uint64_t>(verifier, VT_CUT_RIGHT_SAMPLE_COUNT, 8) && verifier.EndTable();
+               VerifyField<uint64_t>(verifier, VT_CUT_RIGHT_SAMPLE_COUNT, 8) &&
+               VerifyField<uint64_t>(verifier, VT_PRESENTATION_TS_NS, 8) && verifier.EndTable();
     }
     AudioFrameContextT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(AudioFrameContextT *_o,
@@ -227,6 +233,9 @@ struct AudioFrameContextBuilder {
         fbb_.AddElement<uint64_t>(
             AudioFrameContext::VT_CUT_RIGHT_SAMPLE_COUNT, cut_right_sample_count, 0);
     }
+    void add_presentation_ts_ns(uint64_t presentation_ts_ns) {
+        fbb_.AddElement<uint64_t>(AudioFrameContext::VT_PRESENTATION_TS_NS, presentation_ts_ns);
+    }
     explicit AudioFrameContextBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -237,15 +246,19 @@ struct AudioFrameContextBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<AudioFrameContext>
-CreateAudioFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
-                        ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                        uint64_t original_channels = 0,
-                        uint64_t original_frequency = 0,
-                        uint64_t original_sample_count = 0,
-                        uint64_t cut_left_sample_count = 0,
-                        uint64_t cut_right_sample_count = 0) {
+inline ::flatbuffers::Offset<AudioFrameContext> CreateAudioFrameContext(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    uint64_t original_channels = 0,
+    uint64_t original_frequency = 0,
+    uint64_t original_sample_count = 0,
+    uint64_t cut_left_sample_count = 0,
+    uint64_t cut_right_sample_count = 0,
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns = ::flatbuffers::nullopt) {
     AudioFrameContextBuilder builder_(_fbb);
+    if (presentation_ts_ns) {
+        builder_.add_presentation_ts_ns(*presentation_ts_ns);
+    }
     builder_.add_cut_right_sample_count(cut_right_sample_count);
     builder_.add_cut_left_sample_count(cut_left_sample_count);
     builder_.add_original_sample_count(original_sample_count);
@@ -449,7 +462,7 @@ inline AudioFrameContextT::AudioFrameContextT(const AudioFrameContextT &o)
       original_channels(o.original_channels), original_frequency(o.original_frequency),
       original_sample_count(o.original_sample_count),
       cut_left_sample_count(o.cut_left_sample_count),
-      cut_right_sample_count(o.cut_right_sample_count) {}
+      cut_right_sample_count(o.cut_right_sample_count), presentation_ts_ns(o.presentation_ts_ns) {}
 
 inline AudioFrameContextT &
 AudioFrameContextT::operator=(AudioFrameContextT o) FLATBUFFERS_NOEXCEPT {
@@ -459,6 +472,7 @@ AudioFrameContextT::operator=(AudioFrameContextT o) FLATBUFFERS_NOEXCEPT {
     std::swap(original_sample_count, o.original_sample_count);
     std::swap(cut_left_sample_count, o.cut_left_sample_count);
     std::swap(cut_right_sample_count, o.cut_right_sample_count);
+    std::swap(presentation_ts_ns, o.presentation_ts_ns);
     return *this;
 }
 
@@ -506,6 +520,10 @@ inline void AudioFrameContext::UnPackTo(AudioFrameContextT *_o,
         auto _e = cut_right_sample_count();
         _o->cut_right_sample_count = _e;
     }
+    {
+        auto _e = presentation_ts_ns();
+        _o->presentation_ts_ns = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<AudioFrameContext>
@@ -533,13 +551,15 @@ CreateAudioFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _original_sample_count = _o->original_sample_count;
     auto _cut_left_sample_count = _o->cut_left_sample_count;
     auto _cut_right_sample_count = _o->cut_right_sample_count;
+    auto _presentation_ts_ns = _o->presentation_ts_ns;
     return open_perception_kit::metadata::CreateAudioFrameContext(_fbb,
                                                                   _object,
                                                                   _original_channels,
                                                                   _original_frequency,
                                                                   _original_sample_count,
                                                                   _cut_left_sample_count,
-                                                                  _cut_right_sample_count);
+                                                                  _cut_right_sample_count,
+                                                                  _presentation_ts_ns);
 }
 
 inline FrameContextT::FrameContextT(const FrameContextT &o)

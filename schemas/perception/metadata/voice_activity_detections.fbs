@@ -5,8 +5,9 @@ namespace open_perception_kit.metadata;
 // One inference window, not a complete speech segment.
 table VoiceActivityDetection {
   object:open_perception_kit.metadata.ObjectMeta;
-  speech_probability:float;
-  speech_active:bool;
+  // Absent values are unavailable, not measured zero or inactive speech.
+  speech_probability:float = null;
+  speech_active:bool = null;
   // Exclusive end; positions count mono 16 kHz samples since the latest reset.
   window_start_sample:ulong;
   window_end_sample:ulong;

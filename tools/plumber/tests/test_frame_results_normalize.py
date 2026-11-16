@@ -66,6 +66,23 @@ def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:
 
 
 class FrameResultsNormalizeTests(unittest.TestCase):
+    def test_audio_unavailable_is_not_coerced_to_zero_or_false(self):
+        from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetection import VoiceActivityDetectionT
+        from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
+        from plumber.distance_classification import distance_voice_activity
+        result = FrameResults()
+        result.add(VoiceActivityDetectionsT(detections=[
+            VoiceActivityDetectionT(windowEndSample=512),
+            VoiceActivityDetectionT(speechProbability=0, speechActive=False, windowEndSample=512, windowStartTsNs=0, windowEndTsNs=32000000)]))
+        snapshot = normalize_frame_results(FrameResults(result.serialize()))
+        missing, zero = next(iter(snapshot.payloads.values())).items
+        self.assertIsNone(missing["data"]["speechProbability"])
+        self.assertIsNone(missing["data"]["speechActive"])
+        self.assertEqual(distance_voice_activity(missing, missing, {}, {}), 1)
+        self.assertEqual(distance_voice_activity(zero, zero, {}, {}), 0)
+        zero["data"]["speechProbability"] = float("nan")
+        self.assertEqual(distance_voice_activity(zero, zero, {}, {}), 1)
+
     def test_turn_assessments_roundtrip_and_compare(self):
         from open_perception_kit.fb.open_perception_kit.metadata.TurnDetection import TurnDetectionT
         from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
@@ -188,11 +205,11 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         self.assertEqual(snapshot.frame_counter, 42)
         self.assertIn(frame_key, snapshot.payloads)
         self.assertIn(box_key, snapshot.payloads)
-        self.assertIn(1, snapshot.object_index)
-        self.assertIn(2, snapshot.object_index)
 
         frame_item = snapshot.payloads[frame_key].items[0]
         box_item = snapshot.payloads[box_key].items[0]
+        self.assertEqual(frame_item["data"]["id"], 1)
+        self.assertEqual(box_item["data"]["id"], 2)
         self.assertEqual(frame_item["item_type"], "VideoFrame")
         self.assertEqual(frame_item["data"]["originalWidth"], 640)
         self.assertEqual(box_item["item_type"], "BoxDetection")
@@ -276,7 +293,7 @@ class FrameResultsNormalizeTests(unittest.TestCase):
             item_types,
             {"Classification", "GazeMeasurement", "ObjectEmbedding", "TrackTrace"},
         )
-        self.assertEqual(len(snapshot.object_index), 4)
+        self.assertEqual(sum(len(payload.items) for payload in snapshot.payloads.values()), 4)
 
 
 if __name__ == "__main__":

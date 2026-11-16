@@ -70,12 +70,16 @@ impl<'a> TurnDetection<'a> {
         }
         builder.add_window_end_sample(args.window_end_sample);
         builder.add_window_start_sample(args.window_start_sample);
-        builder.add_turn_probability(args.turn_probability);
+        if let Some(x) = args.turn_probability {
+            builder.add_turn_probability(x);
+        }
         if let Some(x) = args.object {
             builder.add_object(x);
         }
         builder.add_discontinuity(args.discontinuity);
-        builder.add_turn_complete(args.turn_complete);
+        if let Some(x) = args.turn_complete {
+            builder.add_turn_complete(x);
+        }
         builder.finish()
     }
 
@@ -111,26 +115,21 @@ impl<'a> TurnDetection<'a> {
         }
     }
     #[inline]
-    pub fn turn_probability(&self) -> f32 {
+    pub fn turn_probability(&self) -> Option<f32> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<f32>(TurnDetection::VT_TURN_PROBABILITY, Some(0.0))
-                .unwrap()
+                .get::<f32>(TurnDetection::VT_TURN_PROBABILITY, None)
         }
     }
     #[inline]
-    pub fn turn_complete(&self) -> bool {
+    pub fn turn_complete(&self) -> Option<bool> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<bool>(TurnDetection::VT_TURN_COMPLETE, Some(false))
-                .unwrap()
-        }
+        unsafe { self._tab.get::<bool>(TurnDetection::VT_TURN_COMPLETE, None) }
     }
     #[inline]
     pub fn window_start_sample(&self) -> u64 {
@@ -213,8 +212,8 @@ impl flatbuffers::Verifiable for TurnDetection<'_> {
 }
 pub struct TurnDetectionArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
-    pub turn_probability: f32,
-    pub turn_complete: bool,
+    pub turn_probability: Option<f32>,
+    pub turn_complete: Option<bool>,
     pub window_start_sample: u64,
     pub window_end_sample: u64,
     pub window_start_ts_ns: Option<u64>,
@@ -226,8 +225,8 @@ impl<'a> Default for TurnDetectionArgs<'a> {
     fn default() -> Self {
         TurnDetectionArgs {
             object: None,
-            turn_probability: 0.0,
-            turn_complete: false,
+            turn_probability: None,
+            turn_complete: None,
             window_start_sample: 0,
             window_end_sample: 0,
             window_start_ts_ns: None,
@@ -253,12 +252,12 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TurnDetectionBuilder<'a, 'b, A>
     #[inline]
     pub fn add_turn_probability(&mut self, turn_probability: f32) {
         self.fbb_
-            .push_slot::<f32>(TurnDetection::VT_TURN_PROBABILITY, turn_probability, 0.0);
+            .push_slot_always::<f32>(TurnDetection::VT_TURN_PROBABILITY, turn_probability);
     }
     #[inline]
     pub fn add_turn_complete(&mut self, turn_complete: bool) {
         self.fbb_
-            .push_slot::<bool>(TurnDetection::VT_TURN_COMPLETE, turn_complete, false);
+            .push_slot_always::<bool>(TurnDetection::VT_TURN_COMPLETE, turn_complete);
     }
     #[inline]
     pub fn add_window_start_sample(&mut self, window_start_sample: u64) {
@@ -323,8 +322,8 @@ impl core::fmt::Debug for TurnDetection<'_> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TurnDetectionT {
     pub object: Option<Box<ObjectMetaT>>,
-    pub turn_probability: f32,
-    pub turn_complete: bool,
+    pub turn_probability: Option<f32>,
+    pub turn_complete: Option<bool>,
     pub window_start_sample: u64,
     pub window_end_sample: u64,
     pub window_start_ts_ns: Option<u64>,
@@ -335,8 +334,8 @@ impl Default for TurnDetectionT {
     fn default() -> Self {
         Self {
             object: None,
-            turn_probability: 0.0,
-            turn_complete: false,
+            turn_probability: None,
+            turn_complete: None,
             window_start_sample: 0,
             window_end_sample: 0,
             window_start_ts_ns: None,

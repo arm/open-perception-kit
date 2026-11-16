@@ -16,6 +16,7 @@
  */
 
 #include "TextDisplay.h"
+#include "opk/AudioResults.h"
 #include <gtest/gtest.h>
 
 TEST(MetadataTextDisplay, UnknownBitmapTypesAreNotReinterpretedAsBytes) {
@@ -41,6 +42,24 @@ TEST(MetadataTextDisplay, PresenceShowsRawScoresRatherThanInventedProbabilities)
     const auto text = TextDisplay::formatText(payload);
     EXPECT_NE(text.find("outcome=person"), std::string::npos);
     EXPECT_NE(text.find("raw_yes=2.000 raw_no=-1.000"), std::string::npos);
+}
+
+TEST(MetadataTextDisplay, AudioMissingAndMeasuredZeroRemainDistinct) {
+    open_perception_kit::metadata::VoiceActivityDetectionsT payload;
+    auto value = std::make_unique<open_perception_kit::metadata::VoiceActivityDetectionT>();
+    value->window_end_sample = 512;
+    EXPECT_FALSE(opk::audio_results::valid(*value));
+    value->speech_probability = 0;
+    value->speech_active = false;
+    value->window_start_ts_ns = 0;
+    value->window_end_ts_ns = 32000000;
+    EXPECT_TRUE(opk::audio_results::valid(*value));
+    payload.detections.push_back(std::move(value));
+    const auto text = TextDisplay::formatText(payload);
+    EXPECT_NE(text.find("active=false probability=0.000"), std::string::npos);
+    EXPECT_NE(text.find("pts=[0,32000000)"), std::string::npos);
+    payload.detections[0]->speech_active = flatbuffers::nullopt;
+    EXPECT_NE(TextDisplay::formatText(payload).find("unavailable"), std::string::npos);
 }
 
 TEST(MetadataTextDisplay, EmbeddingsExposeComparisonSpaceAndExplicitSubject) {

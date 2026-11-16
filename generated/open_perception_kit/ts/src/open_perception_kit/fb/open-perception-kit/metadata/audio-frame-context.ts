@@ -71,8 +71,13 @@ cutRightSampleCount():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+presentationTsNs():bigint|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : null;
+}
+
 static startAudioFrameContext(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(7);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -99,12 +104,16 @@ static addCutRightSampleCount(builder:flatbuffers.Builder, cutRightSampleCount:b
   builder.addFieldInt64(5, cutRightSampleCount, BigInt('0'));
 }
 
+static addPresentationTsNs(builder:flatbuffers.Builder, presentationTsNs:bigint) {
+  builder.addFieldInt64(6, presentationTsNs, null);
+}
+
 static endAudioFrameContext(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createAudioFrameContext(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, originalChannels:bigint, originalFrequency:bigint, originalSampleCount:bigint, cutLeftSampleCount:bigint, cutRightSampleCount:bigint):flatbuffers.Offset {
+static createAudioFrameContext(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, originalChannels:bigint, originalFrequency:bigint, originalSampleCount:bigint, cutLeftSampleCount:bigint, cutRightSampleCount:bigint, presentationTsNs:bigint|null):flatbuffers.Offset {
   AudioFrameContext.startAudioFrameContext(builder);
   AudioFrameContext.addObject(builder, objectOffset);
   AudioFrameContext.addOriginalChannels(builder, originalChannels);
@@ -112,6 +121,8 @@ static createAudioFrameContext(builder:flatbuffers.Builder, objectOffset:flatbuf
   AudioFrameContext.addOriginalSampleCount(builder, originalSampleCount);
   AudioFrameContext.addCutLeftSampleCount(builder, cutLeftSampleCount);
   AudioFrameContext.addCutRightSampleCount(builder, cutRightSampleCount);
+  if (presentationTsNs !== null)
+    AudioFrameContext.addPresentationTsNs(builder, presentationTsNs);
   return AudioFrameContext.endAudioFrameContext(builder);
 }
 
@@ -122,7 +133,8 @@ unpack(): AudioFrameContextT {
     this.originalFrequency(),
     this.originalSampleCount(),
     this.cutLeftSampleCount(),
-    this.cutRightSampleCount()
+    this.cutRightSampleCount(),
+    this.presentationTsNs()
   );
 }
 
@@ -134,6 +146,7 @@ unpackTo(_o: AudioFrameContextT): void {
   _o.originalSampleCount = this.originalSampleCount();
   _o.cutLeftSampleCount = this.cutLeftSampleCount();
   _o.cutRightSampleCount = this.cutRightSampleCount();
+  _o.presentationTsNs = this.presentationTsNs();
 }
 }
 
@@ -144,7 +157,8 @@ constructor(
   public originalFrequency: bigint = BigInt('0'),
   public originalSampleCount: bigint = BigInt('0'),
   public cutLeftSampleCount: bigint = BigInt('0'),
-  public cutRightSampleCount: bigint = BigInt('0')
+  public cutRightSampleCount: bigint = BigInt('0'),
+  public presentationTsNs: bigint|null = null
 ){}
 
 
@@ -157,7 +171,8 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
     this.originalFrequency,
     this.originalSampleCount,
     this.cutLeftSampleCount,
-    this.cutRightSampleCount
+    this.cutRightSampleCount,
+    this.presentationTsNs
   );
 }
 }

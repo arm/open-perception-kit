@@ -92,9 +92,16 @@ class AudioFrameContext(object):
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
+    # AudioFrameContext
+    def PresentationTsNs(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return None
+
 
 def AudioFrameContextStart(builder):
-    builder.StartObject(6)
+    builder.StartObject(7)
 
 
 def Start(builder):
@@ -149,6 +156,14 @@ def AddCutRightSampleCount(builder, cutRightSampleCount):
     AudioFrameContextAddCutRightSampleCount(builder, cutRightSampleCount)
 
 
+def AudioFrameContextAddPresentationTsNs(builder, presentationTsNs):
+    builder.PrependUint64Slot(6, presentationTsNs, None)
+
+
+def AddPresentationTsNs(builder, presentationTsNs):
+    AudioFrameContextAddPresentationTsNs(builder, presentationTsNs)
+
+
 def AudioFrameContextEnd(builder):
     return builder.EndObject()
 
@@ -174,6 +189,7 @@ class AudioFrameContextT(object):
         originalSampleCount=0,
         cutLeftSampleCount=0,
         cutRightSampleCount=0,
+        presentationTsNs=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
@@ -182,6 +198,7 @@ class AudioFrameContextT(object):
         self.originalSampleCount = originalSampleCount  # type: int
         self.cutLeftSampleCount = cutLeftSampleCount  # type: int
         self.cutRightSampleCount = cutRightSampleCount  # type: int
+        self.presentationTsNs = presentationTsNs  # type: Optional[int]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -212,6 +229,7 @@ class AudioFrameContextT(object):
         self.originalSampleCount = audioFrameContext.OriginalSampleCount()
         self.cutLeftSampleCount = audioFrameContext.CutLeftSampleCount()
         self.cutRightSampleCount = audioFrameContext.CutRightSampleCount()
+        self.presentationTsNs = audioFrameContext.PresentationTsNs()
 
     # AudioFrameContextT
     def Pack(self, builder):
@@ -225,5 +243,6 @@ class AudioFrameContextT(object):
         AudioFrameContextAddOriginalSampleCount(builder, self.originalSampleCount)
         AudioFrameContextAddCutLeftSampleCount(builder, self.cutLeftSampleCount)
         AudioFrameContextAddCutRightSampleCount(builder, self.cutRightSampleCount)
+        AudioFrameContextAddPresentationTsNs(builder, self.presentationTsNs)
         audioFrameContext = AudioFrameContextEnd(builder)
         return audioFrameContext

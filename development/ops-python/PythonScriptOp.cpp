@@ -249,6 +249,24 @@ PythonScriptOp::~PythonScriptOp() = default;
 
 opk::Result<void> PythonScriptOp::configure(const opk::AttributeMap &attributes) {
     try {
+        const auto declarations = [&](const char *field) {
+            std::vector<opk::OutputCapability> values;
+            if (attributes.contains(field))
+                for (const auto &entry : attributes.getArray(field)) {
+                    if (!entry.isObject())
+                        throw opk::AttributeError("Output declarations must be objects");
+                    const auto &fields = *entry.asMapPtr();
+                    opk::OutputCapability value{fields.getString("payloadType"),
+                                                fields.getStringOrDefault("role", "")};
+                    if (value.payloadType.empty())
+                        throw opk::AttributeError("Output declarations require a payload type");
+                    if (std::ranges::find(values, value) == values.end())
+                        values.push_back(std::move(value));
+                }
+            return values;
+        };
+        const auto provided = declarations("providedOutputs");
+        const auto required = declarations("requiredOutputs");
         const std::filesystem::path candidateScriptPath = attributes.getString("script");
         if (!std::filesystem::is_regular_file(candidateScriptPath)) {
             return tl::unexpected(OPK_ERROR(
@@ -287,6 +305,8 @@ opk::Result<void> PythonScriptOp::configure(const opk::AttributeMap &attributes)
         scriptPath = candidateScriptPath;
         loadedScript = std::move(*candidateScript);
         model = nullptr;
+        providedOutputs = provided;
+        requiredOutputs = required;
     } catch (const opk::AttributeError &error) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,

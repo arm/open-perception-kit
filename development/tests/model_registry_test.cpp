@@ -21,6 +21,7 @@
 #include <map>
 #include <string>
 
+#include "gst/ResultRequirementEvent.h"
 #include "model_reg.h"
 
 TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
@@ -32,8 +33,8 @@ TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
         .display_name = "YOLOv11n",
         .task = "Object detection",
         .runtime = "ONNX",
-        .provided_content_types = {"genericObject"},
-        .required_content_types = {"imageEmbedding"},
+        .provided_outputs = {{"open_perception_kit.metadata.BoxDetections", "genericObject"}},
+        .required_outputs = {{"open_perception_kit.metadata.ObjectEmbeddings", "imageEmbedding"}},
     });
 
     const auto report = registry.report();
@@ -45,8 +46,13 @@ TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
     EXPECT_EQ(report[0].at("displayName"), "YOLOv11n");
     EXPECT_EQ(report[0].at("task"), "Object detection");
     EXPECT_EQ(report[0].at("runtime"), "ONNX");
-    EXPECT_EQ(report[0].at("providedContentTypes"), nlohmann::json::array({"genericObject"}));
-    EXPECT_EQ(report[0].at("requiredContentTypes"), nlohmann::json::array({"imageEmbedding"}));
+    EXPECT_EQ(report[0].at("providedOutputs"),
+              nlohmann::json::array({{{"payloadType", "open_perception_kit.metadata.BoxDetections"},
+                                      {"role", "genericObject"}}}));
+    EXPECT_EQ(
+        report[0].at("requiredOutputs"),
+        nlohmann::json::array({{{"payloadType", "open_perception_kit.metadata.ObjectEmbeddings"},
+                                {"role", "imageEmbedding"}}}));
 }
 
 TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
@@ -62,8 +68,8 @@ TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
     EXPECT_FALSE(report[0].contains("displayName"));
     EXPECT_FALSE(report[0].contains("task"));
     EXPECT_FALSE(report[0].contains("runtime"));
-    EXPECT_EQ(report[0].at("providedContentTypes"), nlohmann::json::array());
-    EXPECT_EQ(report[0].at("requiredContentTypes"), nlohmann::json::array());
+    EXPECT_EQ(report[0].at("providedOutputs"), nlohmann::json::array());
+    EXPECT_EQ(report[0].at("requiredOutputs"), nlohmann::json::array());
 }
 
 TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
@@ -91,9 +97,13 @@ TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
     EXPECT_EQ(runtimes.at("opkinfer-executorch"), "ExecuTorch");
 }
 
-TEST(ModelRegistration, ParsesOptionalFieldsAndContentTypes) {
-    const std::array<const gchar *, 3> provided = {"genericObject", "humanFace", nullptr};
-    const std::array<const gchar *, 2> required = {"imageEmbedding", nullptr};
+TEST(ModelRegistration, ParsesOptionalFieldsAndTypedOutputs) {
+    gst_init(nullptr, nullptr);
+    const std::vector<opk::OutputCapability> provided{
+        {"open_perception_kit.metadata.BoxDetections", "genericObject"},
+        {"open_perception_kit.metadata.BoxDetections", "humanFace"}};
+    const std::vector<opk::OutputCapability> required{
+        {"open_perception_kit.metadata.ObjectEmbeddings", "imageEmbedding"}};
     GstStructure *structure = gst_structure_new("opk-model-register",
                                                 "model-name",
                                                 G_TYPE_STRING,
@@ -113,29 +123,27 @@ TEST(ModelRegistration, ParsesOptionalFieldsAndContentTypes) {
                                                 "runtime",
                                                 G_TYPE_STRING,
                                                 "ONNX",
-                                                "provided-content-types",
-                                                G_TYPE_STRV,
-                                                provided.data(),
-                                                "required-content-types",
-                                                G_TYPE_STRV,
-                                                required.data(),
                                                 nullptr);
+    opk::result_requirement_event::writeList(structure, "provided-outputs", provided);
+    opk::result_requirement_event::writeList(structure, "required-outputs", required);
 
     const auto status = model_status_from_registration(structure);
 
     ASSERT_TRUE(status);
+    if (!status)
+        return;
     EXPECT_EQ(status->name, "YoloV11");
     EXPECT_TRUE(status->active);
     EXPECT_EQ(status->display_name, "YOLOv11n");
     EXPECT_EQ(status->task, "Object detection");
     EXPECT_EQ(status->runtime, "ONNX");
-    EXPECT_EQ(status->provided_content_types,
-              std::vector<std::string>({"genericObject", "humanFace"}));
-    EXPECT_EQ(status->required_content_types, std::vector<std::string>({"imageEmbedding"}));
+    EXPECT_EQ(status->provided_outputs, provided);
+    EXPECT_EQ(status->required_outputs, required);
     gst_structure_free(structure);
 }
 
-TEST(ModelRegistration, TreatsMissingInvalidAndNullContentTypesAsEmpty) {
+TEST(ModelRegistration, DoesNotInterpretMalformedCapabilityLists) {
+    gst_init(nullptr, nullptr);
     GstStructure *structure = gst_structure_new("opk-model-register",
                                                 "model-name",
                                                 G_TYPE_STRING,
@@ -143,24 +151,26 @@ TEST(ModelRegistration, TreatsMissingInvalidAndNullContentTypesAsEmpty) {
                                                 "element-name",
                                                 G_TYPE_STRING,
                                                 "opkinfer0",
-                                                "provided-content-types",
+                                                "provided-outputs",
                                                 G_TYPE_STRING,
                                                 "not-a-string-vector",
                                                 nullptr);
     GValue null_content_types = G_VALUE_INIT;
     g_value_init(&null_content_types, G_TYPE_STRV);
     g_value_set_boxed(&null_content_types, nullptr);
-    gst_structure_set_value(structure, "required-content-types", &null_content_types);
+    gst_structure_set_value(structure, "required-outputs", &null_content_types);
 
     const auto status = model_status_from_registration(structure);
 
     ASSERT_TRUE(status);
+    if (!status)
+        return;
     EXPECT_FALSE(status->active);
     EXPECT_TRUE(status->display_name.empty());
     EXPECT_TRUE(status->task.empty());
     EXPECT_TRUE(status->runtime.empty());
-    EXPECT_TRUE(status->provided_content_types.empty());
-    EXPECT_TRUE(status->required_content_types.empty());
+    EXPECT_TRUE(status->provided_outputs.empty());
+    EXPECT_TRUE(status->required_outputs.empty());
     g_value_unset(&null_content_types);
     gst_structure_free(structure);
 }

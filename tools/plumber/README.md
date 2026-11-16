@@ -232,9 +232,20 @@ prefix. Missing/invalid timing, duplicate identities and contradictory track/tra
 associations fail comparison. Display text and diagnostic score formatting are not
 used as identity. See [tracking semantics](../../docs/arch/perception.md#tracking-observations-and-timed-history).
 
-External opaque payloads, when present in the packet, are decoded by the generated SDK as
-external byte payloads. Plumber's current regression comparison intentionally normalizes
-only known generated schema payloads.
+Successful empty collections remain present payloads and differ from absent
+outputs. Explicit empty classification candidates can match for the same declared
+kind, namespace and subject; unavailable or invalid values cannot. Audio comparisons
+preserve absent probabilities/decisions and timestamps, including valid zero/false,
+and validate window bounds before applying the existing score tolerances.
+Audio windows are self-contained within their producer scope. Derivation parents
+may refer to earlier buffers; comparison does not require those parent objects
+to be present. Producer identity, window bounds, timestamps, decisions and valid
+probabilities still participate in matching.
+
+Plumber accounts for every payload entry. Unsupported external protocols and
+malformed known entries fail comparison rather than disappearing into a successful
+empty result. The generated SDK still preserves opaque bytes for caller-owned
+handling; Plumber needs an explicit comparator before claiming a match.
 
 ## Plumber Usage
 
@@ -368,6 +379,7 @@ Plumber does not compare raw FlatBuffers bytes directly. It:
 
 External opaque payloads are outside the current comparison model because their byte
 protocol is owned by the producer and not interpreted by the Open Perception Kit schema set.
+Their presence therefore produces an unsupported-payload comparison failure.
 
 The internal comparison vocabulary follows FrameResults terms:
 

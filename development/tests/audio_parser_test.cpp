@@ -72,8 +72,10 @@ struct VoiceFixture {
         results.for_each<VoicePayload>([&](const auto &payload) {
             ++count;
             EXPECT_EQ(payload.detections.size(), 1u);
-            if (!payload.detections.empty())
-                active = payload.detections[0]->speech_active;
+            if (!payload.detections.empty()) {
+                EXPECT_TRUE(payload.detections[0]->speech_active.has_value());
+                active = payload.detections[0]->speech_active.value_or(false);
+            }
         });
         EXPECT_EQ(count, previousSize + 1);
         auto &audio = input.inferenceInfo.audio;
@@ -104,8 +106,8 @@ TEST(VoiceActivityParser, SelectsConfiguredFlatScoreAndPreservesAudioIdentity) {
         EXPECT_EQ(payload.layer->producer->implementation, "VoiceActivityParser");
         ASSERT_EQ(payload.detections.size(), 1u);
         const auto &detection = *payload.detections[0];
-        EXPECT_FLOAT_EQ(detection.speech_probability, 0.875f);
-        EXPECT_TRUE(detection.speech_active);
+        EXPECT_FLOAT_EQ(detection.speech_probability.value_or(-1), 0.875f);
+        EXPECT_EQ(detection.speech_active, true);
         EXPECT_EQ(detection.window_start_sample, 160u);
         EXPECT_EQ(detection.window_end_sample, 800u);
         ASSERT_TRUE(detection.window_start_ts_ns);
@@ -128,7 +130,7 @@ TEST(VoiceActivityParser, AppliesOnlyTheConfiguredActivation) {
         ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
         ASSERT_EQ(results.size(), 1u);
         results.for_each<VoicePayload>([&](const auto &payload) {
-            const float probability = payload.detections[0]->speech_probability;
+            const float probability = payload.detections[0]->speech_probability.value_or(-1);
             EXPECT_TRUE(std::isfinite(probability));
             EXPECT_NEAR(probability, 1.0 / (1.0 + std::exp(-static_cast<double>(score))), 1e-6);
         });
@@ -179,7 +181,8 @@ TEST(VoiceActivityParser, RequiresConsecutiveEvidenceAndRetainsBurstResults) {
     size_t count = 0;
     fixture.results.for_each<VoicePayload>([&](const auto &payload) {
         ASSERT_LT(count, sequence.size());
-        EXPECT_FLOAT_EQ(payload.detections[0]->speech_probability, sequence[count].first);
+        EXPECT_FLOAT_EQ(payload.detections[0]->speech_probability.value_or(-1),
+                        sequence[count].first);
         ++count;
     });
     EXPECT_EQ(count, sequence.size());

@@ -2,6 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:arm:opk:schema:python-script-op:v1",
   "title": "PythonScript Op v1",
+  "$defs": {
+    "outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["payloadType"],
+        "properties": {
+          "payloadType": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z_0-9]*(\\.[A-Za-z_][A-Za-z_0-9]*)+$"},
+          "role": {"type": "string"}
+        }
+      }
+    }
+  },
   "if": {
     "properties": {
       "id": {
@@ -24,6 +39,8 @@
           "script"
         ],
         "properties": {
+          "providedOutputs": {"$ref": "#/$defs/outputs"},
+          "requiredOutputs": {"$ref": "#/$defs/outputs"},
           "script": {
             "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/localPath"
           },

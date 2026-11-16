@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <fmt/core.h>
+#include <map>
 #include <memory>
 #include <utility>
 
@@ -41,9 +42,12 @@ opk::Result<void> InferenceControllerOp::configure(const opk::AttributeMap &attr
     return {};
 }
 
-std::vector<std::string_view> InferenceControllerOp::getRequiredContentTypes() const {
-    return contentType.empty() ? std::vector<std::string_view>{}
-                               : std::vector<std::string_view>{contentType};
+std::vector<opk::OutputCapability> InferenceControllerOp::getRequiredOutputs() const {
+    return contentType.empty()
+               ? std::vector<opk::OutputCapability>{}
+               : std::vector<opk::OutputCapability>{
+                     opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>(
+                         contentType)};
 }
 
 opk::Result<opk::op::OpSignal>
@@ -73,11 +77,17 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
 
         opChainContext.inferenceImageCropIds.push_back(frameId);
     } else {
+        std::map<uint64_t, size_t> identities;
+        open_perception_kit::forEachBoxDetectionWithContentType(
+            *opChainContext.frameResults, contentType, [&](const auto &item) {
+                if (item.object && item.object->id != 0)
+                    ++identities[item.object->id];
+            });
         open_perception_kit::forEachBoxDetectionWithContentType(
             *opChainContext.frameResults,
             contentType,
-            [&opChainContext, pipelineVideoFrame](const auto &r) {
-                if (!r.box || !r.object) {
+            [&opChainContext, pipelineVideoFrame, &identities](const auto &r) {
+                if (!r.box || !r.object || r.object->id == 0 || identities[r.object->id] != 1) {
                     return;
                 }
 
