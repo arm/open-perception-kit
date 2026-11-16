@@ -64,9 +64,9 @@
       "size": 25065
     },
     {
-      "path": "cpp/fb/performance_overlay_generated.h",
-      "sha256": "d39302d4f897f1e303ca2139cc4ccf86e17c148ca777a0ea67fb430f1dd91be5",
-      "size": 10101
+      "path": "cpp/fb/performance_measurements_generated.h",
+      "sha256": "1ff76f742bb03b25696bf897e6beffbefc1b739a5df870dada35854c5fc5cbe9",
+      "size": 26175
     },
     {
       "path": "cpp/fb/pose_estimations_generated.h",
@@ -110,13 +110,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "50726e1af6d172684275f37e2e76c8f709ff4bdc7a1799ac9ac30b16e0400b32",
-      "size": 35516
+      "sha256": "91bb9c1db9fdf63a9f6de1c16803429a9b2d442fd3aa18fb4f484b9aa7c7f0f6",
+      "size": 35551
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "a3469856b97fbbc226bb1c8b479f197ae46a5d0f3ad748f7d09b71ab7f0e20bd",
-      "size": 357562
+      "sha256": "7aa9253797a9acd918fd515afef9ac77626f5fafdbdf1e4ccb71fe835ec30c14",
+      "size": 370615
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -140,7 +140,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "645cd7d3aeedfe1183ea721ef1f9fa8309749610ba5972a4b6fb34e26c775601",
+      "sha256": "27b4f18ca46aff08bfcde8745ce9bcc84b5ef7f338b739e5b6066afe069980ce",
       "size": 1166
     },
     {
@@ -199,6 +199,11 @@
       "size": 7735
     },
     {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/FrameRate.py",
+      "sha256": "b7f67132d8f11c6bc04c040e1ef6cd19ab37212ba80d72c7915004a77c0c97b0",
+      "size": 3191
+    },
+    {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/InstanceSegmentationMask.py",
       "sha256": "234fa7e502ffa437f5c753ad60f80ff46017670394b1264fcb80127b19aa78cb",
       "size": 8223
@@ -239,9 +244,9 @@
       "size": 7711
     },
     {
-      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PerformanceOverlay.py",
-      "sha256": "365d318f1546503de2838459b4f1c6296ef49fec31bfd53d0430f80850bc2d09",
-      "size": 6134
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PerformanceMeasurements.py",
+      "sha256": "a03151270687a1b0b6bfd772dd5d8422f4fa8139e2bbf28cd55a666410f2fc71",
+      "size": 10672
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PersonPresence.py",
@@ -267,6 +272,11 @@
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ProducerInfo.py",
       "sha256": "a5614a88b5c641ef5d920c0c8da0a0817b63e87caec6c215c2a81964604f442d",
       "size": 4959
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ScopeTiming.py",
+      "sha256": "c9efcb61dcb21538bacfdaa733a763b9acc5887505de2bc34a235fb4b8406283",
+      "size": 5316
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/SegmentationMask.py",
@@ -365,12 +375,12 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "e81040e97035d671537e5df79e3096ef277e8e661fe474f80cb0d23ddf5541f4",
-      "size": 5911
+      "sha256": "81f8ca506cdc3516c8ec426594471354eae68f0621b01efd14f65d40395c9275",
+      "size": 5936
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "7860be5e85fa4a2afb373e1d16882296c564f0493797c9b9538c14051173a288",
+      "sha256": "3bed4c9f13256c66ef3e8b2ceb0141ebe375bc177353cad68e542bc8c08b5c97",
       "size": 15484
     },
     {
@@ -439,6 +449,11 @@
       "size": 13634
     },
     {
+      "path": "rust/src/fb/open_perception_kit/metadata/frame_rate_generated.rs",
+      "sha256": "b515fd63095fc4bd307eca2d35caebdab3b9139d74e661ea6f8b917684737aca",
+      "size": 4514
+    },
+    {
       "path": "rust/src/fb/open_perception_kit/metadata/instance_segmentation_mask_generated.rs",
       "sha256": "ad82df368d85894c7227d2f24dd1cca4f8ba942c00e191668643e50bb0483a32",
       "size": 10178
@@ -455,8 +470,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "02c97a6a3fd62ed34344b3ab782b754f142acba36bda6768a468003b4a46b620",
-      "size": 3347
+      "sha256": "b5ed007371af589ebf2c566e20e5265c6a53bc9a3ac4f8dc4a233f0d8d3b44b2",
+      "size": 3491
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -484,9 +499,9 @@
       "size": 12625
     },
     {
-      "path": "rust/src/fb/open_perception_kit/metadata/performance_overlay_generated.rs",
-      "sha256": "ef4537ca752dd19dca276afc124a1f7636b17f46041b471d72fbd22368c3b386",
-      "size": 11849
+      "path": "rust/src/fb/open_perception_kit/metadata/performance_measurements_generated.rs",
+      "sha256": "cc10df547f10a2711c3af102a832ee0a48c0c80f046923e8e77fa67778a68c27",
+      "size": 16614
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/person_presence_generated.rs",
@@ -512,6 +527,11 @@
       "path": "rust/src/fb/open_perception_kit/metadata/producer_info_generated.rs",
       "sha256": "a434e31797270660ec3e782173e877aaf33f6f966ed5ce6152603e6102c11d92",
       "size": 7955
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/scope_timing_generated.rs",
+      "sha256": "f91cb01d68396278cae9e945f4f31a82efa56eb1ee8386c8fc549869f3842d12",
+      "size": 8043
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/segmentation_mask_generated.rs",
@@ -595,12 +615,12 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "30ba62dfe1d5c98f359a6dddfc1c0120d6315cb6525c7800cb81a73b3c6f40a0",
-      "size": 54353
+      "sha256": "691f64c14ddf21aa67783ba14bc4f3d8af564046507480eece96cade8a7be012",
+      "size": 54408
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
-      "sha256": "d659a48b4511c56b0585a131081e1fa712527e1f0b2c44107f8503d55189f372",
+      "sha256": "4ef21a8ffc71e9beeabc96dc78fb579bea3efc72ce2eb680c36491a328a3b63b",
       "size": 929
     },
     {
@@ -620,12 +640,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "7848f2df2d50a9a6fe5a6ea8644731b71ec036138ca051202fadecdc24b8f9e9",
+      "sha256": "13933233f888613a7ed41aed2222995153f0b3ed53045977064cb4c2db598bcf",
       "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "d0fd049a95def0e212579ddc8783655397f1d35e5792a0390933f1fad60a9da8",
+      "sha256": "02fe0d86e41411af516236328f2b8f12ed0b0ea7b149985a36b4f887cd6e6d71",
       "size": 14047
     },
     {
@@ -749,6 +769,16 @@
       "size": 5223
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.d.ts",
+      "sha256": "e3524c5759a27630840688f4ef58e526a48b3c28e0799a3d57b023c8870571c3",
+      "size": 1819
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.js",
+      "sha256": "6c9ed86351d26bb88fd4f50a2d70cc177759b151c7bdd5114da3727136d397d4",
+      "size": 2418
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.d.ts",
       "sha256": "9c90e006e8279395b5157f405d3f3c0ea966c396ed32b3c76d2c9ad5c4db9e51",
       "size": 2960
@@ -829,14 +859,14 @@
       "size": 5109
     },
     {
-      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.d.ts",
-      "sha256": "0d40bf90229b5aaecfa1b61bfe2387a763fa1af9043c314761b1f8ab7ef03798",
-      "size": 2953
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.d.ts",
+      "sha256": "390419706a0f863c2f1731303bc69ddd9842360e21763763944fc3e54dba53b1",
+      "size": 3869
     },
     {
-      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js",
-      "sha256": "f8e96877539790a8c8d67d0faffb0a727d57d2d45530745ea303fb2bc5d7256a",
-      "size": 4640
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js",
+      "sha256": "067b3003dcb881a813bd37fea523cb16725fc43ccf45f3bc2dfc92907fa97da8",
+      "size": 6764
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.d.ts",
@@ -887,6 +917,16 @@
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/producer-info.js",
       "sha256": "593c4389973d45186ecac8ead37b782d3bcb0a15c1f5f712ccb144f274f6ce59",
       "size": 3961
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.d.ts",
+      "sha256": "98738f008e874c9767c90123376dbf3c0a15c09149fdef22f1b866d2b941fe36",
+      "size": 2655
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.js",
+      "sha256": "f7a359adc74a4dc08768b739b0af36e7c509cdd1244f77e2326c8f382f88d4d6",
+      "size": 4001
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.d.ts",
@@ -1010,12 +1050,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "6766e9c0db44c8a1ff55a7daed00871008f250f15f398523e823d0865ea5afd6",
+      "sha256": "aa6554b7425f8e61dc9d83c2067bd2cf96013dd8e27b9eb9f0d7678b16edc969",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "e4783edceff368dee75823440006e22a9469ab38c1b38dc9baebada9e2551fdf",
+      "sha256": "c36a6baad82495d2d5982cb3b151f8f3246e866f0f34202b2bf14da69da04b56",
       "size": 1203
     },
     {
@@ -1025,8 +1065,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "3057d72532f5bc9485ab8d661a13130c588da034266535ffbdf63b8f1d25ddf1",
-      "size": 12588
+      "sha256": "a363055a0a776ef5a0762471eacc313974bb35824ab3b8d2a74318718cd632e0",
+      "size": 12648
     },
     {
       "path": "ts/package.json",
@@ -1035,7 +1075,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "edc0f4e1d12c09d6ead8e8beeb3ec08441bbe0322c2b76ecfc2ee4122c469b5e",
+      "sha256": "3438d1a47dab4e1e729846de15a85d5b35f85e09e64e6003a81338923a7a2037",
       "size": 12726
     },
     {
@@ -1099,6 +1139,11 @@
       "size": 5643
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.ts",
+      "sha256": "733eb888c87aa73070964c78a6ca72ca76e17b68cbab90a18a728286ed8d8a6d",
+      "size": 2662
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.ts",
       "sha256": "e08f30578ba19ea22d28a24d41bd05f938db7915bd54c758bdcde3334c06150d",
       "size": 5453
@@ -1139,9 +1184,9 @@
       "size": 5523
     },
     {
-      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.ts",
-      "sha256": "6ce3d116ee9816e56c001f776b89a2093243034183c4f9d0f61cb91ebe41252d",
-      "size": 5184
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.ts",
+      "sha256": "dda3d814f378aaf430bab4d1c23cbee2d5b378bcb608dff6b6ab760057b32dc7",
+      "size": 7414
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/person-presence.ts",
@@ -1167,6 +1212,11 @@
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/producer-info.ts",
       "sha256": "ddf478f6b867bb42fd8a8249b400e41e83ee3f3fe4ef9f0474d27b72bb7bff60",
       "size": 4643
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.ts",
+      "sha256": "b3155e37816bf5a41f400056274660f2e4296cd8a5e1528272cf51ee0b34ffd0",
+      "size": 4539
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.ts",
@@ -1230,13 +1280,13 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "0e630abcb864e0fa21767281a391a6a4dedc2fca4a6c1a24e98b9ed33c95298f",
+      "sha256": "c483e16a198beef7f8d200d7470ff428b3530011e43ddb906ab7d7731503f2ca",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "5db595492008a8e7343fa47ad8bd600753be1341170f442fbf29b7506bed66d5",
-      "size": 12698
+      "sha256": "c2a29d40891941e5ae91832deca01208479bb1a1c2edba5b72bb86b3a9de99bf",
+      "size": 12758
     },
     {
       "path": "ts/tsconfig.json",
@@ -1598,9 +1648,9 @@
           "size": 21112
         },
         {
-          "path": "fb/performance_overlay_generated.h",
-          "sha256": "d94fddb88d8b48b33d9715279fc2f8e96ddee6abe593ee47656ec09b913118e5",
-          "size": 8817
+          "path": "fb/performance_measurements_generated.h",
+          "sha256": "5ef8ee008163fb3ec12d6c888f67170e1b0a6487f60391e971ca3e83ba8cef71",
+          "size": 23151
         },
         {
           "path": "fb/pose_estimations_generated.h",
@@ -1644,13 +1694,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "fe2b07a79ebaa1d8bc8b350007895c0b4ecf6d7b574e0666af55cc4d2fcaf1e2",
-          "size": 34197
+          "sha256": "09a7bff51acca6eb2856c88305cefd73ee678f84f894548cb39a52b80593b162",
+          "size": 34232
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "dec1742d9702ace16fd5a18026a94024faeb874173f4a4d39c67aae8b1f2af6c",
-          "size": 339626
+          "sha256": "2bb16f384fa0556468b52c43dbe9239a2e7b0decab740c3d3115f92462f53a34",
+          "size": 352167
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -1725,10 +1775,10 @@
           "schema": "object_tracks.fbs"
         },
         {
-          "file_identifier": "PERF",
-          "payload_id": "0x1d8154ddd740478e",
-          "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
-          "schema": "performance_overlay.fbs"
+          "file_identifier": "PMET",
+          "payload_id": "0x2480377381f9add9",
+          "qualified_root_type": "open_perception_kit.metadata.PerformanceMeasurements",
+          "schema": "performance_measurements.fbs"
         },
         {
           "file_identifier": "POSE",
@@ -1813,9 +1863,9 @@
           "size": 549
         },
         {
-          "path": "performance_overlay.fbs",
-          "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
-          "size": 197
+          "path": "performance_measurements.fbs",
+          "sha256": "c0443b31217546e27b129ac8837b1bc65634f2df0d26374698b98ab3269e0876",
+          "size": 1169
         },
         {
           "path": "pose_estimations.fbs",
@@ -1848,7 +1898,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
+      "schema_set_sha256": "323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -1863,7 +1913,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "f8726dd9b8f461d27196527f30d68aef78bf6ab5a8093a5c438cc0356db68d73",
+          "sha256": "f713dd1fbe47477e647bb050ae5cea82c83bafa0a1532e16601cb55072d95f64",
           "size": 506
         },
         {
@@ -1922,6 +1972,11 @@
           "size": 7001
         },
         {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/FrameRate.py",
+          "sha256": "d8c3377e4b2b78b1a29e801fce0be1bb87368b809668e681f36ee52b63124961",
+          "size": 2522
+        },
+        {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/InstanceSegmentationMask.py",
           "sha256": "a26cfbc6440b85efed598c90024b1847aecdf4113a3218013539e11f0ba5b27d",
           "size": 7489
@@ -1962,9 +2017,9 @@
           "size": 6991
         },
         {
-          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PerformanceOverlay.py",
-          "sha256": "0ee3e5e63f991a32e619dba3ac2e73971e428c977c8081aa6e6ccf446ed2503a",
-          "size": 5463
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PerformanceMeasurements.py",
+          "sha256": "bbf0fbf06a127f3027988df90cecb3a2cb47765a28fa97d3fb5073f1c1069188",
+          "size": 9921
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PersonPresence.py",
@@ -1990,6 +2045,11 @@
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ProducerInfo.py",
           "sha256": "4be5b5ade0a1cda0b8977a8695baa5fbfcce5ec1416c4d7b79d06ca38b0fc735",
           "size": 4292
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ScopeTiming.py",
+          "sha256": "74d43fcf025c4cb04e57b2437c1609f571cc4751d8b4b3108f5cd4d425a0c226",
+          "size": 4647
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/SegmentationMask.py",
@@ -2088,12 +2148,12 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "796ad52592be0ccb62320f5c87961a145061771ccbdaa06a83555faf1d9f44bc",
-          "size": 5250
+          "sha256": "f6e5906129935fd04a68bafcfe07460edb41e58ff7d8f0368bdce7f42b1bb68f",
+          "size": 5275
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "31550da378492a7fd2e7206b3607f86928aa350b42e57e137649f7c06bf3ae7e",
+          "sha256": "055acc2487e54be78b7c4864806bf0b4c136de535f5c9b3092c41d3121dd1817",
           "size": 14823
         }
       ],
@@ -2156,10 +2216,10 @@
           "schema": "object_tracks.fbs"
         },
         {
-          "file_identifier": "PERF",
-          "payload_id": "0x1d8154ddd740478e",
-          "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
-          "schema": "performance_overlay.fbs"
+          "file_identifier": "PMET",
+          "payload_id": "0x2480377381f9add9",
+          "qualified_root_type": "open_perception_kit.metadata.PerformanceMeasurements",
+          "schema": "performance_measurements.fbs"
         },
         {
           "file_identifier": "POSE",
@@ -2250,9 +2310,9 @@
           "size": 549
         },
         {
-          "path": "performance_overlay.fbs",
-          "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
-          "size": 197
+          "path": "performance_measurements.fbs",
+          "sha256": "c0443b31217546e27b129ac8837b1bc65634f2df0d26374698b98ab3269e0876",
+          "size": 1169
         },
         {
           "path": "pose_estimations.fbs",
@@ -2285,7 +2345,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
+      "schema_set_sha256": "323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2349,6 +2409,11 @@
           "size": 12953
         },
         {
+          "path": "src/fb/open_perception_kit/metadata/frame_rate_generated.rs",
+          "sha256": "93071e87dc110a9e9cd25eb8145183e4917a7adcb63486ccf16433a484dc5b9d",
+          "size": 3833
+        },
+        {
           "path": "src/fb/open_perception_kit/metadata/instance_segmentation_mask_generated.rs",
           "sha256": "cd26f14179f268c7fb27130901c051db69799088c8e0314246fb0f750b62e27f",
           "size": 9497
@@ -2365,8 +2430,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "e369f797da02d1f4228d0c480b1fbbc9f07025213585cde0eeeee7d01efb3261",
-          "size": 2666
+          "sha256": "eb0c1369caeadbeeb40b5677777eb8098694302a2e4e9f6e61e94a45d435e0a7",
+          "size": 2810
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -2394,9 +2459,9 @@
           "size": 11944
         },
         {
-          "path": "src/fb/open_perception_kit/metadata/performance_overlay_generated.rs",
-          "sha256": "dae82cab88d7527df1c0e476131087163b85bb1c27a647da2b4ef3d9f5799537",
-          "size": 11168
+          "path": "src/fb/open_perception_kit/metadata/performance_measurements_generated.rs",
+          "sha256": "d113b2ba27a07ba733b3aa143cce7f463f21a45934a29b3f94ce6e732f408182",
+          "size": 15933
         },
         {
           "path": "src/fb/open_perception_kit/metadata/person_presence_generated.rs",
@@ -2422,6 +2487,11 @@
           "path": "src/fb/open_perception_kit/metadata/producer_info_generated.rs",
           "sha256": "cb65e8f585f5e4a1555835c2e594baa79b218b65f653e71ed6f80998b5314048",
           "size": 7274
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/scope_timing_generated.rs",
+          "sha256": "0b0534c4111c7c90c29194d91e1a4d26cf282b7ed45f4c8ed733d094b6472818",
+          "size": 7362
         },
         {
           "path": "src/fb/open_perception_kit/metadata/segmentation_mask_generated.rs",
@@ -2505,8 +2575,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "ef18c2d69821f817690b7a2198b6b8e87ef210b3713baddc6db3e040b33098a5",
-          "size": 53672
+          "sha256": "3767c1e7ebc63c0eec60f9d4af88940d9462cfe144bd4774b67b2e2370e1e253",
+          "size": 53727
         }
       ],
       "flatbuffers_runtimes": [
@@ -2568,10 +2638,10 @@
           "schema": "object_tracks.fbs"
         },
         {
-          "file_identifier": "PERF",
-          "payload_id": "0x1d8154ddd740478e",
-          "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
-          "schema": "performance_overlay.fbs"
+          "file_identifier": "PMET",
+          "payload_id": "0x2480377381f9add9",
+          "qualified_root_type": "open_perception_kit.metadata.PerformanceMeasurements",
+          "schema": "performance_measurements.fbs"
         },
         {
           "file_identifier": "POSE",
@@ -2647,9 +2717,9 @@
           "size": 549
         },
         {
-          "path": "performance_overlay.fbs",
-          "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
-          "size": 197
+          "path": "performance_measurements.fbs",
+          "sha256": "c0443b31217546e27b129ac8837b1bc65634f2df0d26374698b98ab3269e0876",
+          "size": 1169
         },
         {
           "path": "pose_estimations.fbs",
@@ -2682,7 +2752,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
+      "schema_set_sha256": "323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2697,7 +2767,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "528ad646cc33aefd7ea47cf21892b6aeed4649002df55b47803973857b46bf04",
+          "sha256": "bec16e2b95857f86f6ccfc8aec6491cb8322a3cbb8cf513b6b1e6a03cc0d421e",
           "size": 12045
         },
         {
@@ -2766,6 +2836,11 @@
           "size": 4962
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.ts",
+          "sha256": "3c77a2eab0b512aa1855621f90bb8fbe86004b998e2aab5601fbb8d50256b6a3",
+          "size": 1981
+        },
+        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.ts",
           "sha256": "87b75f2a94b2df6ef645fd5e443d5cdca3657c211b389caa688596d0f5fe0a95",
           "size": 4772
@@ -2806,9 +2881,9 @@
           "size": 4842
         },
         {
-          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.ts",
-          "sha256": "42a727a362a86afd91ca9e6f22b70840d20423565551787ec377190f76a3897c",
-          "size": 4503
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.ts",
+          "sha256": "8b843c1f1e5f7a32a78539ed3f15213add9f7959a90ffa66a31d44f8dd638b53",
+          "size": 6733
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/person-presence.ts",
@@ -2834,6 +2909,11 @@
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/producer-info.ts",
           "sha256": "bd896ee2fda4b075d8c45e00897d53b70e7caec774be5815189884deebb4abfe",
           "size": 3962
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.ts",
+          "sha256": "617a76df12ea6ea6a89661560c8251635cf263838810f57bf8e18bad2039e972",
+          "size": 3858
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.ts",
@@ -2892,13 +2972,13 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "05e9419dffa9ecdb549a7583dbc43fa1120265fd4b989e362c5d00e4104f7dcf",
+          "sha256": "0baee2c77805e3928c5158940db0b3552596d0448551a2e169656d8dcccb6e9c",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "61a891fccaf8852650cf83f704d376a393a1b4bf19ab8582e62995a288b5ae6f",
-          "size": 12017
+          "sha256": "f249c55070ffff0834d9f1e5d67cb239dfdec043f6c1b850c6c24ec0f273a7c0",
+          "size": 12077
         },
         {
           "path": "tsconfig.json",
@@ -2965,10 +3045,10 @@
           "schema": "object_tracks.fbs"
         },
         {
-          "file_identifier": "PERF",
-          "payload_id": "0x1d8154ddd740478e",
-          "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
-          "schema": "performance_overlay.fbs"
+          "file_identifier": "PMET",
+          "payload_id": "0x2480377381f9add9",
+          "qualified_root_type": "open_perception_kit.metadata.PerformanceMeasurements",
+          "schema": "performance_measurements.fbs"
         },
         {
           "file_identifier": "POSE",
@@ -3044,9 +3124,9 @@
           "size": 549
         },
         {
-          "path": "performance_overlay.fbs",
-          "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
-          "size": 197
+          "path": "performance_measurements.fbs",
+          "sha256": "c0443b31217546e27b129ac8837b1bc65634f2df0d26374698b98ab3269e0876",
+          "size": 1169
         },
         {
           "path": "pose_estimations.fbs",
@@ -3079,7 +3159,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
+      "schema_set_sha256": "323856bb2ae06201e704bed551e95ef8bfcab4441dfbeec3d2a2957a6fd76763",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"

@@ -313,6 +313,9 @@ struct ScopeIntervalMetrics {
 
     /** Average duration of scopes completed during the interval, in nanoseconds. */
     std::uint64_t averageDurationNs = 0;
+
+    /** Stable, length-prefixed root-to-scope name path; empty for incomplete names. */
+    std::string scopeId;
 };
 
 /**

@@ -19,10 +19,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {render, select} from '../overlay-test-utils.mjs';
 
-test('performance lines from payloads without provenance share one ordered text overlay', () => {
-    const first = {payloadType: 'PerformanceOverlay', detections: [{type: 'PerformanceLine', data: {text: '30 FPS'}}]};
-    const second = {...first, detections: [{type: 'PerformanceLine', data: {text: 'Inference: 10ms'}}]};
+test('numeric performance payloads without provenance share one ordered text overlay', () => {
+    const first = {payloadType: 'PerformanceMeasurements', detections: [
+        {type: 'PerformanceMeasurements', data: {frameRate: {fps: 30}}}]};
+    const second = {...first, detections: [{type: 'PerformanceMeasurements',
+        data: {timings: [{name: 'Inference', meanMs: 10}]}}]};
     const calls = render({layers: [first, second]}, [select('performance', first)]).calls;
-    assert.deepEqual(calls.map((call) => call.text), ['30 FPS', 'Inference: 10ms']);
+    assert.deepEqual(calls.map((call) => call.text), [
+        'Pipeline                :   30.0 FPS', 'Inference               :   10.00ms']);
     assert.equal(calls[1].y - calls[0].y, 20);
 });

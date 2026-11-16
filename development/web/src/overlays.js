@@ -95,6 +95,12 @@ export function loadOverlays(storage) {
         let relabelled = false;
         for (const overlay of overlays) {
             const source = overlay.selection.primary;
+            // Keep saved UI selections when the SDK payload is replaced. This
+            // migrates preferences only; old packets are not decoded.
+            if (overlay.featureId === 'performance' && source?.payloadType === 'PerformanceOverlay') {
+                source.payloadType = 'PerformanceMeasurements';
+                relabelled = true;
+            }
             // Older bounding-box selections rendered humanFace regions as circles.
             // Keep that appearance and selector, but give it an honest feature name.
             if (overlay.featureId === 'bounding-boxes' && source?.contentType === 'humanFace'

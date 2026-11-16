@@ -16,6 +16,7 @@
  */
 
 #include "TextDisplay.h"
+#include "opk/FrameResults.h"
 
 #include <fmt/core.h>
 
@@ -327,12 +328,15 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
     }
 }
 
-void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const open_perception_kit::metadata::PerformanceOverlayT &payload) {
-    lines.push_back(fmt::format("PerformanceOverlay: lines={}", payload.lines.size()));
+void TextDisplay::appendLines(
+    std::vector<std::string> &lines,
+    const open_perception_kit::metadata::PerformanceMeasurementsT &payload) {
+    const auto rows = open_perception_kit::formatPerformanceRows(payload);
+    // Keep the familiar diagnostic presentation while consuming typed data.
+    lines.push_back(fmt::format("PerformanceOverlay: lines={}", rows.size()));
     std::size_t index = 0U;
-    for (const auto &line : payload.lines) {
+    for (const auto &[name, value] : rows) {
         ++index;
-        lines.push_back(fmt::format("  perf #{}: {}", index, line));
+        lines.push_back(fmt::format("  perf #{}: {:<24}: {}", index, name, value));
     }
 }

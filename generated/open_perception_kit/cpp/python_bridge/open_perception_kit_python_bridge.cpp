@@ -364,13 +364,32 @@ make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a6563745472
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &
-pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179() {
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67() {
     static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
-make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_proxy(
-    const open_perception_kit::metadata::PerformanceOverlayT *value,
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_proxy(
+    const open_perception_kit::metadata::ScopeTimingT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_proxy(
+    const open_perception_kit::metadata::FrameRateT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_proxy(
+    const open_perception_kit::metadata::PerformanceMeasurementsT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &
@@ -593,12 +612,12 @@ pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a65637454
 }
 
 PySequenceMethods &
-seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72() {
+seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72() {
     static PySequenceMethods methods = {};
     return methods;
 }
 PyTypeObject &
-pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72() {
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72() {
     static PyTypeObject type = make_py_type_object();
     return type;
 }
@@ -883,7 +902,7 @@ enum class known_payload_kind {
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b73,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e6773,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b73,
-    kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179,
+    kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e73,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b73,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73,
@@ -1021,11 +1040,12 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
         return known_payload_kind::
             kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b73;
     }
-    if (py_type_matches(type_object,
-                        "open_perception_kit.fb.open_perception_kit.metadata.PerformanceOverlay",
-                        "PerformanceOverlayT")) {
+    if (py_type_matches(
+            type_object,
+            "open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements",
+            "PerformanceMeasurementsT")) {
         return known_payload_kind::
-            kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179;
+            kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473;
     }
     if (py_type_matches(type_object,
                         "open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations",
@@ -1114,10 +1134,10 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
     }
     if (py_object_type_matches(
             value,
-            "open_perception_kit.fb.open_perception_kit.metadata.PerformanceOverlay",
-            "PerformanceOverlayT")) {
+            "open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements",
+            "PerformanceMeasurementsT")) {
         return known_payload_kind::
-            kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179;
+            kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473;
     }
     if (py_object_type_matches(
             value,
@@ -1349,9 +1369,9 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::ObjectTracksT>());
     case known_payload_kind::
-        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179:
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473:
         return PyLong_FromSize_t(
-            live->envelope->count<open_perception_kit::metadata::PerformanceOverlayT>());
+            live->envelope->count<open_perception_kit::metadata::PerformanceMeasurementsT>());
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e73:
         return PyLong_FromSize_t(
@@ -1446,8 +1466,8 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
         }
         Py_RETURN_FALSE;
     case known_payload_kind::
-        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179:
-        if (live->envelope->contains<open_perception_kit::metadata::PerformanceOverlayT>()) {
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473:
+        if (live->envelope->contains<open_perception_kit::metadata::PerformanceMeasurementsT>()) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
@@ -1565,10 +1585,10 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b73(),
             index);
     case known_payload_kind::
-        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179:
-        return get_known_payload<open_perception_kit::metadata::PerformanceOverlayT>(
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473:
+        return get_known_payload<open_perception_kit::metadata::PerformanceMeasurementsT>(
             *live->envelope,
-            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179(),
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473(),
             index);
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e73:
@@ -1691,10 +1711,10 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
             *live->envelope,
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b73());
     case known_payload_kind::
-        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179:
-        return list_known_payloads<open_perception_kit::metadata::PerformanceOverlayT>(
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473:
+        return list_known_payloads<open_perception_kit::metadata::PerformanceMeasurementsT>(
             *live->envelope,
-            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179());
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473());
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e73:
         return list_known_payloads<open_perception_kit::metadata::PoseEstimationsT>(
@@ -1813,9 +1833,9 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
         return add_known_payload<open_perception_kit::metadata::ObjectTracksT>(
             *live->envelope, value, "TRKS");
     case known_payload_kind::
-        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179:
-        return add_known_payload<open_perception_kit::metadata::PerformanceOverlayT>(
-            *live->envelope, value, "PERF");
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473:
+        return add_known_payload<open_perception_kit::metadata::PerformanceMeasurementsT>(
+            *live->envelope, value, "PMET");
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e73:
         return add_known_payload<open_perception_kit::metadata::PoseEstimationsT>(
@@ -2442,10 +2462,10 @@ bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656
 }
 
 Py_ssize_t
-len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72(
+len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72(
     PyObject *self) {
-    const auto *proxy =
-        reinterpret_cast<const native_proxy_object<std::vector<std::string>> *>(self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::ScopeTimingT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -2454,10 +2474,10 @@ len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616
 }
 
 PyObject *
-item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72(
+item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72(
     PyObject *self, Py_ssize_t index) {
-    const auto *proxy =
-        reinterpret_cast<const native_proxy_object<std::vector<std::string>> *>(self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::ScopeTimingT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
@@ -2467,25 +2487,35 @@ item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d61
         PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
         return nullptr;
     }
-    return py_string_from_std((*vector)[static_cast<std::size_t>(index)]);
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_proxy(
+        item.get(),
+        proxy_anchor<std::vector<std::unique_ptr<open_perception_kit::metadata::ScopeTimingT>>>(
+            self));
 }
 
-bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72_type() {
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72_type() {
     auto &type =
-        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72();
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72();
     auto &sequence =
-        seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72();
+        seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72();
     if (type.tp_name == nullptr) {
         sequence.sq_length =
-            len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72;
+            len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72;
         sequence.sq_item =
-            item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72;
+            item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72;
         type.tp_name = "open_perception_kit_bridge."
                        "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d61"
-                       "6e63654f7665726c61792e6c696e65732e766563746f72";
-        type.tp_basicsize = sizeof(native_proxy_object<std::vector<std::string>>);
+                       "6e63654d6561737572656d656e74732e74696d696e67732e766563746f72";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<
+                   std::vector<std::unique_ptr<open_perception_kit::metadata::ScopeTimingT>>>);
         type.tp_itemsize = 0;
-        type.tp_dealloc = native_proxy_dealloc<std::vector<std::string>>;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::ScopeTimingT>>>;
         type.tp_as_sequence = &sequence;
         type.tp_flags = Py_TPFLAGS_DEFAULT;
         type.tp_doc = "open_perception_kit read-only live vector proxy";
@@ -5973,88 +6003,114 @@ make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a6563745472
 }
 
 PyObject *
-get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_n736368656d615f6d616a6f72(
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_n6e616d65(
     PyObject *self, void *) {
-    const auto *proxy = reinterpret_cast<
-        const native_proxy_object<open_perception_kit::metadata::PerformanceOverlayT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::ScopeTimingT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    return py_long_from_unsigned(value->schema_major);
+    return py_string_from_std(value->name);
 }
 
 PyObject *
-get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_n736368656d615f6d696e6f72(
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_n6d65616e5f6d73(
     PyObject *self, void *) {
-    const auto *proxy = reinterpret_cast<
-        const native_proxy_object<open_perception_kit::metadata::PerformanceOverlayT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::ScopeTimingT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    return py_long_from_unsigned(value->schema_minor);
+    if (!value->mean_ms) {
+        Py_RETURN_NONE;
+    }
+    return PyFloat_FromDouble(static_cast<double>(*(value->mean_ms)));
 }
 
 PyObject *
-get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_n6c696e6573(
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_n7039355f6d73(
     PyObject *self, void *) {
-    const auto *proxy = reinterpret_cast<
-        const native_proxy_object<open_perception_kit::metadata::PerformanceOverlayT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::ScopeTimingT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
         return nullptr;
     }
-    return make_native_vector_proxy<std::vector<std::string>>(
-        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72(),
-        std::addressof(value->lines),
-        proxy_anchor<open_perception_kit::metadata::PerformanceOverlayT>(self));
+    if (!value->p95_ms) {
+        Py_RETURN_NONE;
+    }
+    return PyFloat_FromDouble(static_cast<double>(*(value->p95_ms)));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_n73636f70655f6964(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::ScopeTimingT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->scope_id);
 }
 
 PyGetSetDef *
-getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179() {
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67() {
     static PyGetSetDef definitions[] = {
-        {"schemaMajor",
+        {"name",
          reinterpret_cast<getter>(
-             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_n736368656d615f6d616a6f72),
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_n6e616d65),
          nullptr,
-         "read-only schema_major",
+         "read-only name",
          nullptr},
-        {"schemaMinor",
+        {"meanMs",
          reinterpret_cast<getter>(
-             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_n736368656d615f6d696e6f72),
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_n6d65616e5f6d73),
          nullptr,
-         "read-only schema_minor",
+         "read-only mean_ms",
          nullptr},
-        {"lines",
+        {"p95Ms",
          reinterpret_cast<getter>(
-             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_n6c696e6573),
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_n7039355f6d73),
          nullptr,
-         "read-only lines",
+         "read-only p95_ms",
+         nullptr},
+        {"scopeId",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_n73636f70655f6964),
+         nullptr,
+         "read-only scope_id",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };
     return definitions;
 }
 
-bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_type() {
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_type() {
     auto &type =
-        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179();
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67();
     if (type.tp_name == nullptr) {
-        type.tp_name = "open_perception_kit_bridge."
-                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d61"
-                       "6e63654f7665726c6179";
+        type.tp_name =
+            "open_perception_kit_bridge."
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67";
         type.tp_basicsize =
-            sizeof(native_proxy_object<open_perception_kit::metadata::PerformanceOverlayT>);
+            sizeof(native_proxy_object<open_perception_kit::metadata::ScopeTimingT>);
         type.tp_itemsize = 0;
-        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::PerformanceOverlayT>;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::ScopeTimingT>;
         type.tp_flags = Py_TPFLAGS_DEFAULT;
         type.tp_doc = "open_perception_kit read-only live payload proxy";
         type.tp_getset =
-            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179();
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67();
         type.tp_new = nullptr;
     }
 
@@ -6066,11 +6122,246 @@ bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666
 }
 
 PyObject *
-make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_proxy(
-    const open_perception_kit::metadata::PerformanceOverlayT *value,
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_proxy(
+    const open_perception_kit::metadata::ScopeTimingT *value,
     std::shared_ptr<const native_proxy_anchor> anchor) {
-    return make_native_proxy<open_perception_kit::metadata::PerformanceOverlayT>(
-        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179(),
+    return make_native_proxy<open_perception_kit::metadata::ScopeTimingT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_n667073(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::FrameRateT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (!value->fps) {
+        Py_RETURN_NONE;
+    }
+    return PyFloat_FromDouble(static_cast<double>(*(value->fps)));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465() {
+    static PyGetSetDef definitions[] = {
+        {"fps",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_n667073),
+         nullptr,
+         "read-only fps",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge."
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465";
+        type.tp_basicsize = sizeof(native_proxy_object<open_perception_kit::metadata::FrameRateT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::FrameRateT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_proxy(
+    const open_perception_kit::metadata::FrameRateT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::FrameRateT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n736368656d615f6d616a6f72(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PerformanceMeasurementsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n736368656d615f6d696e6f72(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PerformanceMeasurementsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n706978656c5f666f726d6174(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PerformanceMeasurementsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->pixel_format);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n74696d696e6773(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PerformanceMeasurementsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::ScopeTimingT>>>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72(),
+        std::addressof(value->timings),
+        proxy_anchor<open_perception_kit::metadata::PerformanceMeasurementsT>(self));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n6672616d655f72617465(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PerformanceMeasurementsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->frame_rate.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::PerformanceMeasurementsT>(self));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n70726f6475636572(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PerformanceMeasurementsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->producer.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6475636572496e666f_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::PerformanceMeasurementsT>(self));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n736368656d615f6d616a6f72),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n736368656d615f6d696e6f72),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"pixelFormat",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n706978656c5f666f726d6174),
+         nullptr,
+         "read-only pixel_format",
+         nullptr},
+        {"timings",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n74696d696e6773),
+         nullptr,
+         "read-only timings",
+         nullptr},
+        {"frameRate",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n6672616d655f72617465),
+         nullptr,
+         "read-only frame_rate",
+         nullptr},
+        {"producer",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_n70726f6475636572),
+         nullptr,
+         "read-only producer",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d61"
+                       "6e63654d6561737572656d656e7473";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::PerformanceMeasurementsT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc =
+            native_proxy_dealloc<open_perception_kit::metadata::PerformanceMeasurementsT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_proxy(
+    const open_perception_kit::metadata::PerformanceMeasurementsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::PerformanceMeasurementsT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473(),
         value,
         std::move(anchor));
 }
@@ -7708,21 +7999,10 @@ bool ensure_known_proxy_types() {
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e672e76616c7565732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e67732e656d62656464696e67732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b732e747261636b732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c61792e6c696e65732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e732e706f7365732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b54726163652e706f696e74732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b5472616365732e7472616365732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e732e646574656374696f6e732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e732e646574656374696f6e732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e73_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e43616e646964617465_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e73_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a6563744d657461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6475636572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f756e64696e67426f78_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f696e743266_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566964656f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e67_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e6773_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e73_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e732e706f7365732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b54726163652e706f696e74732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b5472616365732e7472616365732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e732e646574656374696f6e732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e732e646574656374696f6e732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e43616e646964617465_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a6563744d657461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6475636572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f756e64696e67426f78_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f696e743266_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566964656f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e67_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e6773_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506f7365457374696d6174696f6e73_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b73_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_type() ||
@@ -7891,9 +8171,21 @@ bool add_known_proxy_types(PyObject *python_module) {
     }
     if (!add_python_type(
             python_module,
-            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f7665726c6179(),
-            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654f766"
-            "5726c6179")) {
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d656"
+            "1737572656d656e7473")) {
         return false;
     }
     if (!add_python_type(

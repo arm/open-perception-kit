@@ -48,7 +48,7 @@ preprocess / inference / postprocess / OpChain
           |
    opkperformance
           |
-  PerformanceOverlayT
+  PerformanceMeasurementsT
           |
     opkosd / WebUI
 ```
@@ -63,7 +63,7 @@ internal timing source changed.
 | --- | --- | --- |
 | [`PerformanceMetrics`](../../../development/common/perf/PerformanceMetrics.h) | Hierarchical RAII scopes; bounded per-thread cumulative aggregates; concurrent snapshots; optional completed-span history; CSV export; overflow, drop, and name-truncation diagnostics. | The public [`runtime::PerformanceMetrics`](../../../development/runtime/PerformanceMetrics.h) facade, `pipeline-exec`, and `opkperformance`. |
 | `calculateScopeIntervalMetrics(intervalStartSnapshot, intervalEndSnapshot)` | Matches metrics by their complete root-to-scope name hierarchy and subtracts cumulative count and total duration. Returns only scopes completed between chronological snapshots, including completed-scope count, total duration, and average duration. | `opkperformance`. |
-| [`opkperformance`](../../../development/elements/opkperformance/opkperformance.cpp) | Calculates FPS, formats interval averages, and appends `PerformanceOverlayT` to `FrameResults`. | `opkosd` and the WebUI render the payload. |
+| [`opkperformance`](../../../development/elements/opkperformance/opkperformance.cpp) | Calculates FPS and interval averages, and appends numeric `PerformanceMeasurementsT` to `FrameResults`. | `opkosd` and the WebUI format and render the payload. |
 
 The hierarchy is the dynamic nesting of named `OPK_PERF_SCOPE` instances. It
 distinguishes the same scope name beneath different parents; it is not a
@@ -111,7 +111,7 @@ writes to those states. Read-only entries cannot be set.
 | `enabled` | Enable performance metadata generation. | `true` | `true`, `false` | Live |
 
 The upstream `opkperformance` event can also toggle `enabled` at runtime.
-The element appends `PerformanceOverlayT`; `opkosd` or the WebUI renders it.
+The element appends `PerformanceMeasurementsT`; `opkosd` or the WebUI renders it.
 
 `enabled`, `show-all-metrics`, and `update-interval` are live properties.
 Measurement and configuration access are synchronized; no pipeline restart is
@@ -119,3 +119,38 @@ needed. Changes affect subsequent measurement/overlay updates.
 
 See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
 for discovery, readback, validation and the explicit restart procedure.
+
+## Measurement Contract
+
+[`PerformanceMeasurements`](../../../schemas/perception/metadata/performance_measurements.fbs)
+contains ordered scope timings (independently optional `mean_ms` and `p95_ms`), an optional
+pipeline frame-rate measurement (`fps`), producer identity, and optional pixel-format information.
+`scope_id` is stable within the producer; `name` is a display label, not identity.
+Detailed timing IDs encode the complete root-to-scope name hierarchy with
+length-prefixed segments, so repeated leaf names and separators cannot alias.
+Truncated or missing names leave identity unavailable without hiding the timing.
+Browser overlay sources also retain the root-level producer identity, including
+when preferences are saved and restored.
+An absent/empty label displays the scope ID, or `Unnamed scope` when no ID is
+available; missing presentation text never suppresses a measurement.
+Repeated labels are allowed. Timing
+statistics describe completed scopes in the reporting interval; FPS retains the
+producer's existing exponential smoothing.
+
+Numeric measurements must be finite and non-negative. Null means unavailable;
+zero is a valid measurement. An absent frame-rate table means it was not reported;
+a present table with null FPS retains the startup placeholder. `opkperformance`
+does not calculate percentiles, so it leaves `p95_ms` absent.
+
+Native and browser displays own formatting. The browser metrics panel retains
+its one-second refresh and low-pass smoothing, including the previously published
+display precision. It reads numbers directly rather than parsing overlay text.
+History is keyed by producer, measurement kind and scope ID, independently of
+labels or list order. Missing or duplicated identities are displayed without
+cross-frame smoothing. A p95-only timing remains visible when its mean is absent.
+Duplicate detection includes unavailable observations before filtering display
+rows; alternating availability cannot transfer history between ambiguous scopes.
+Plumber continues to exclude these diagnostics from result comparisons.
+
+This replaces the text-only performance payload in the breaking, unreleased SDK
+1.0 refactor. Producers and consumers use the same generated snapshot.

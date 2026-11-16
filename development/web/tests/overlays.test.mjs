@@ -87,7 +87,7 @@ test('source presentation uses model or producer metadata without altering ident
     assert.deepEqual([...sourceLabels([source, {...source}])], [[key, 'YOLO26n']]);
     assert.equal(sourceLabel({...source, model: ''}), 'Yolo');
     assert.equal(sourceLabel(outputSource({payloadType: 'BoxDetections'})), 'Unspecified source');
-    assert.equal(sourceLabel(outputSource({payloadType: 'PerformanceOverlay'})), 'Pipeline performance');
+    assert.equal(sourceLabel(outputSource({payloadType: 'PerformanceMeasurements'})), 'Pipeline performance');
     assert.deepEqual(Object.fromEntries(sourceDetails(source)), {
         'Payload type': 'BoxDetections', 'Content type': 'genericObject', Engine: 'Not provided',
         Model: 'YOLO26n', 'Inference element': 'infer', 'Label family': 'Not provided',
@@ -184,6 +184,22 @@ test('feature-specific settings are validated, while unknown feature records sur
     const future = {...record, featureId: 'future-view', settings: {mode: 'new-style'}};
     assert.equal(saveOverlays(storage, [future]), '');
     assert.deepEqual(loadOverlays(storage).overlays, [future]);
+});
+
+test('saved performance selections retain their settings across the payload rename', () => {
+    const overlay = {featureId: 'performance', selection: {primary: outputSource({payloadType: 'PerformanceOverlay'})},
+        enabled: false, settings: {color: '#123456', opacity: 0.25}};
+    let raw = JSON.stringify({version: 2, overlays: [overlay]});
+    let writes = 0;
+    const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; writes++; }};
+    const loaded = loadOverlays(storage);
+    assert.equal(loaded.notice, '');
+    assert.equal(loaded.overlays[0].selection.primary.payloadType, 'PerformanceMeasurements');
+    assert.deepEqual(loaded.overlays[0].settings, overlay.settings);
+    assert.equal(loaded.overlays[0].enabled, false);
+    assert.equal(writes, 1);
+    assert.deepEqual(loadOverlays(storage).overlays, loaded.overlays);
+    assert.equal(writes, 1);
 });
 
 test('waiting overlays persist without invented provenance and bind only once to a unique compatible source', () => {
