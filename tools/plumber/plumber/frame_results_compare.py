@@ -78,6 +78,9 @@ def _item_context(item: dict) -> dict | None:
         return item if dsm.valid_mask(item) else None
     if item.get("item_type") == "BoxDetection":
         return item if item.get("data", {}).get("spatialValid") else None
+    if dc.is_subjectless_categorical(item):
+        # Keyword classifications are scoped by their payload producer, not image geometry.
+        return item
     if item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):
         return item.get("subject")
     if item.get("item_type") in ("VoiceActivityDetection", "TurnDetection"):
