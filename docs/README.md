@@ -17,152 +17,142 @@ limitations under the License.
 
 # Open Perception Kit Docs
 
-The public Arm docs site source lives in `docs/public`. The docs config is `docs/public/docs-config.json`, Markdown image assets live under `docs/public/assets`, and site-root static assets live under `docs/public/static`.
+Public documentation lives in `docs/public`; developer architecture documentation
+lives in `docs/arch`. PlantUML sources live in `docs/plantuml`. The common generator
+uses the pinned `opk-docs` container and the released Arm site renderer for local
+viewing. Publication uses the existing Arm actions with the same prepared
+Markdown and diagram assets. Generation never modifies tracked sources.
 
-Developer-facing architecture documentation lives in `docs/arch`.
+## Generate and view locally
 
-PlantUML sources live in `docs/plantuml`. Generated PNGs are written to `docs/public/static/img` and referenced with paths relative to each Markdown file.
-
-## Run Locally
-
-First, make sure you can authenticate with your container engine by following [this guide](https://qa.developer.arm.com/dev-docs/arm-docs-github-action/getting-started/docker-auth/).
-
-Make sure you are logged in and authenticated with Docker or Podman:
-
-    echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u "YOUR_GITHUB_USERNAME" --password-stdin
-    # or
-    echo "YOUR_GITHUB_TOKEN" | podman login ghcr.io -u "YOUR_GITHUB_USERNAME" --password-stdin
-
-From the repository root, run:
+Run these commands from the checkout on a host with Docker or Podman and Python 3:
 
 ```bash
+./scripts/gen-doc.sh
 ./scripts/serve-docs.sh
 ```
 
-The documentation scripts use `OPK_PROJECT_ROOT` when it is set and otherwise
-derive the checkout from their own location. Set it to an absolute path when
-invoking the scripts for a different checkout.
+Open [the local site](http://localhost:3003). It includes public and architecture
+pages. Generation writes `docs/html`; serving only reads that output. After
+editing Markdown, diagrams, styles, or images, rerun `gen-doc.sh` and refresh the
+browser. There is no watcher or automatic generation. `serve-docs-plain.sh` serves
+the same output on port 8080.
 
-The script mounts `docs/public`, including its static assets, in the Arm docs preview image. It preserves the existing local script URL, `http://localhost:3003`.
+Initial toolchain setup and generation need network access, including access to
+Arm's npm mirror by default. Serving the generated site needs no internet or Arm
+credentials. Open generated HTML through localhost; opening HTML files directly
+with `file://` is unsupported.
+External links still require access to their destinations.
 
-If you need to run the container manually, the equivalent command is:
+`OPK_PROJECT_ROOT` can select another checkout and must be an absolute path.
+`DOCS_PORT` changes the serving port. `DOCS_IMAGE` selects an already-built
+compatible documentation image; otherwise `gen-doc.sh` builds the checked-in
+`opk-docs` target from the checkout containing the script. Set `NPM_REGISTRY` to
+override the image's default Arm npm mirror,
+for example `NPM_REGISTRY=https://registry.npmjs.org ./scripts/gen-doc.sh` outside
+the Arm network.
 
-    docker run --rm -it --pull always -p 3003:3000 \
-      -v "$(pwd)/docs/public":/workspace/docs-site:ro \
-      ghcr.io/arm-debug/arm-docs-github-action/local:latest
+### Optional API reference
 
-Then open:
+```bash
+./scripts/gen-doc.sh --with-api
+```
 
-    http://localhost:3003
+This adds a linked Doxygen C++ API reference to the local site. The normal build
+omits it, including after an earlier API build. API references and architecture
+pages are not included in publication. This does not change OPK release assets.
 
-Stop the preview server with `Ctrl+C`.
+## View Markdown in VS Code
+
+Use **Markdown Preview Enhanced: Open Preview to the Side** to view source
+Markdown with embedded PlantUML diagrams. Install the extension in your existing
+VS Code environment and ensure Java, Graphviz, and `plantuml-mit-1.2026.2.jar`
+are available there. The rich image already includes these tools, with the JAR
+at `/opt/opk-deps/plantuml-mit-1.2026.2.jar`.
+
+Set `markdown-preview-enhanced.plantumlJarPath` to the absolute JAR path in that
+environment and leave `markdown-preview-enhanced.plantumlServer` empty. After
+setup, rendering works offline and does not send diagrams to a server. Container
+validation does not establish native Java/editor support on macOS or Windows.
+
+Reference a shared diagram from an embedded block, relative to the Markdown file:
+
+````markdown
+```plantuml
+@startuml
+!include ../plantuml/component-overview.puml
+@enduml
+```
+````
+
+Keep diagram content and shared style in the `.puml` files. The site generator
+renders these blocks to SVGs in its build copy. Do not commit generated diagram
+images. Reload the Markdown preview after changing an included `.puml` file if
+the editor retains a cached diagram.
+
+GitHub rendering of embedded PlantUML is outside the current scope. Whether to
+migrate to Mermaid or explicitly drop GitHub diagram viewing remains a separate
+decision under EXPKITS-1554.
 
 ## Publish From GitHub Actions
 
-The publishing workflows are adapted from
-[Arm-Debug/amp-dev-forge](https://github.com/Arm-Debug/amp-dev-forge/blob/6153af0407c823ea3d0eb9b54b89cce2b3422fc0/.github/workflows/docs-publish.yml).
-
 | Workflow | Automatic trigger | Destination |
 | --- | --- | --- |
-| [Publish Docs (Staging)](../.github/workflows/docs-publish.yml) | Every push to `main` | [QA site](https://qa.developer.arm.com/dev-docs/open-perception-kit/) |
-| [Publish Docs (Production)](../.github/workflows/docs-publish-production.yml) | Published stable GitHub Releases and the release CI call | [Public site](https://developer.arm.com/dev-docs/open-perception-kit/) |
+| [Publish Docs (Staging)](../.github/workflows/docs-publish.yml) | Push to `main` | [QA site](https://qa.developer.arm.com/dev-docs/open-perception-kit/) |
+| [Publish Docs (Production)](../.github/workflows/docs-publish-production.yml) | Release workflow | [Public site](https://developer.arm.com/dev-docs/open-perception-kit/) |
 
-Staging can also run manually from `main`, with an optional `publish_ref`.
-Production's manual trigger requires an explicit commit SHA or ref in
-`publish_ref` and makes that documentation publicly available without requiring
-a product release. Manual runs must select `main` as the workflow branch. Before
-running any documentation scripts, production verifies that the checked-out
-commit is in `main`'s history; unmerged commits are rejected, while older commits
-already on `main` remain eligible. This ancestry check does not verify that a
-human reviewed the staging site. Merging workflow
-changes into `main` does not publish to production. Draft releases and prerelease
-events do not publish to production.
+Both workflows support selecting a source revision manually. Production requires
+that revision to be contained in `main`. Use an immutable commit SHA and review
+its staging output before manually publishing it to production.
 
-The [Release workflow](../.github/workflows/release.yml) calls the production
-workflow after GitHub release publication succeeds, passing the exact release
-commit. This covers automated releases, whose `GITHUB_TOKEN` events do not
-trigger another workflow. A reusable caller must grant `contents: read` and
-`id-token: write`. Direct release-event runs use the release's tagged commit.
+Prepare public Markdown and diagram assets for the existing publishing actions:
 
-Both workflows inject the checked-out commit into the existing build-info markers
-in `docs/public/index.md` and validate the site before publishing. They use
-[`ARM-software/docs-action` v0.5.0](https://github.com/ARM-software/docs-action/tree/3c5412fd76d4b2d67fd42d69d350abf29a6241c2).
-The publish action's `staging` and `production` presets own each destination,
-CloudFront invalidation, and analytics settings. The action does not expose a
-site URL output, so each workflow summary uses its destination URL directly.
+```bash
+./scripts/gen-doc.sh --prepare-publish
+```
 
-Both workflows pin their actions to full commit SHAs. Version v0.5.0 still contains
-a nested tagged `actions/setup-node` reference, which conflicts with this
-repository's SHA-pinning policy. Its `pnpm/action-setup` dependency is also blocked
-by the repository's action allowlist. These issues must be resolved before either
-workflow can publish.
+This uses the small `opk-docs-prepare` image with Python, Java, Graphviz, and
+PlantUML; it does not install the development or HTML renderer toolchains.
+It writes `docs/prepared-public`, including rendered diagram SVGs and the
+selected commit stamp, leaving local HTML output unchanged. It does not upload
+anything. The workflows use preparation tools from their own workflow revision
+against the selected source revision, including older commits whose scripts
+predate this preparation mode. They pass the prepared directory to the existing
+`docs-action/validate` and `docs-action/publish` actions. Those actions perform
+their own HTML builds; the publisher owns the destination URL and analytics
+settings. OPK consumes these released tools without modifying them.
 
-### Publish a Docs Fix Without a Product Release
+The Release workflow supplies its exact release commit to the production docs
+workflow. Existing release assets and their scope remain unchanged. Diagrams
+come from that revision's PlantUML sources and the common pinned renderer.
 
-1. Merge the documentation fix or publisher update into `main`. Keep shared docs
-   action versions aligned in both workflows when updating the publisher.
-2. Wait for **Publish Docs (Staging)** to succeed and review the QA site.
-3. Copy **Published commit** from that staging run's summary.
-4. Open **Actions → Publish Docs (Production) → Run workflow**, select `main`,
-   and enter that full commit SHA as `publish_ref`.
-5. Run the workflow to publish the reviewed source to the public site. This does
-   not run the product release pipeline or create a GitHub Release.
-
-Both workflows also support manual publication of a chosen source revision. Use
-the same immutable commit SHA for staging and production rather than a moving
-branch name, and review the QA run again after any publisher changes. Each run's
-summary records the actual checked-out commit and its destination URL.
-
-### AWS Roles
-
-The role name is the same, but the AWS accounts and role ARNs are different:
+AWS authentication remains GitHub OIDC in `eu-west-1`, using the existing roles:
 
 - QA: `arn:aws:iam::529607359382:role/Proj-GHA-open-perception-kit-s3-upload`.
 - Production: `arn:aws:iam::930800959236:role/Proj-GHA-open-perception-kit-s3-upload`.
 
-Both workflows use `eu-west-1` and verify that the credentials belong to their
-expected account. Authentication uses GitHub OIDC. QA must trust `main`;
-production must trust `main` for manual publication, the release workflow's ref,
-and release-tag subjects for direct release events.
+Publication checks the expected account and retains the shared action's bucket
+and CloudFront invalidation policy. Local generation and serving require no AWS
+credentials.
 
-### Dependencies
+## Asset paths and validation
 
-- Repository inputs: `docs/public/`, including `docs-config.json` and `static/`,
-  and `scripts/private/inject_docs_build_info.py`. The config and helper already
-  match the source repository; no duplicate copies are needed.
-- Actions: `actions/checkout` v7, `ARM-software/docs-action` v0.5.0
-  (`validate` and `publish`), and `aws-actions/configure-aws-credentials` v6.
-- The shared docs actions install Node.js 24, pnpm 10.33.3, and
-  `arm-docs-github-action=0.9.0` from `https://artifacts.tools.arm.com/tools-deb`.
-  The publisher package supplies the shared site generator. The job does not use
-  the local preview image or `scripts/gen-doc.sh`.
-- AWS: the separate QA and production roles described above. Publishing
-  destinations come from the corresponding shared action preset.
+Place authored public images under `docs/public/assets` and link to them relative
+to the Markdown page. Reserve `docs/public/static` for site-root assets. Do not
+reference `static` with relative Markdown image links: the Arm renderer relocates
+that directory.
 
-### Validate Without Publishing
+Source preparation checks referenced files and PlantUML rendering. Local site
+generation also runs the Arm site's page/anchor validation and checks generated
+links and assets. Publication uses the existing actions' validation and build.
+A failed build leaves the last successful output available. Validation of
+external websites is separate from offline viewing.
 
-With the Node.js, pnpm, and publisher versions above installed, run from the
-repository root:
+Generated sites include `source-revision.txt` with the checkout commit. The
+local renderer is pinned to `arm-docs` 0.12.1; OPK copies its validated HTML from
+an isolated temporary directory into `docs/html`.
 
-```bash
-arm-docs validate --docs-root docs/public --site-id open-perception-kit
-```
-
-This builds the site without AWS credentials or uploads. `--docs-root` must be
-relative to the repository root.
-
-## Asset Paths
-
-Put images referenced by public Markdown pages in `docs/public/assets` and use paths relative to each Markdown file. The Arm publisher bundles these images, while VS Code Markdown preview and plain HTML generated by `./scripts/gen-doc.sh` resolve the same paths directly.
-
-Reserve `docs/public/static` for assets served at site-root URLs. The publisher relocates this directory, so public Markdown must not use `./static/...` or `../static/...` image paths. Developer-facing architecture pages can still reference generated diagrams in `docs/public/static/img` using file-relative paths; these pages are outside the published docs root.
-
-For example, in `docs/public/how-to/performance-measurement.md`:
-
-```md
-![Performix results](../assets/performix-results.jpg)
-```
-
-For generated diagrams, put the `.puml` source in `docs/plantuml` and run `./scripts/gen-doc.sh`.
-
-See [the docs system docs](https://qa.developer.arm.com/dev-docs/arm-docs-github-action/) for more information.
+The supported build environment is a Linux container on Linux, Windows with WSL,
+macOS, or Raspberry Pi Linux. Test results must distinguish the host platform,
+container architecture, and VS Code preview setup; an amd64 Linux run does not
+verify the other platforms.

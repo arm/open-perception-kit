@@ -110,7 +110,7 @@ new FFT implementation/dependency.
   would enter its generic allocating radix-1 path.
 - `windowLengthSamples`: periodic Hann length, 2–`fftSize`.
 - `frameHopSamples`: distance between FFT frame starts, 1–`windowSampleCount`.
-- `minFrequencyHz`, `maxFrequencyHz`: finite limits, 0 <= min < max <= 8000.
+- `minFrequencyHz`, `maxFrequencyHz`: finite limits, `0 <= min < max <= 8000`.
   Mel-filter breakpoints must remain distinct and ordered in Float32 arithmetic.
 - `logOffset`: finite, positive and representable as a positive Float32.
 - `layout`: `time-major` (`[T,M]`) or `mel-major` (`[M,T]`).

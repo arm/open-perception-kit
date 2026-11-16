@@ -27,7 +27,11 @@ preprocessing, tensor handling, postprocessing, and `FrameResults` output.
 Backend-specific code lives in separate shared libraries so SDK dependencies stay
 isolated from the core runtime.
 
-![Engine Independent Architecture](../public/static/img/engine-independent.png)
+```plantuml
+@startuml
+!include ../plantuml/engine-independent.puml
+@enduml
+```
 
 ## Flow
 

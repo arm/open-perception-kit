@@ -39,7 +39,7 @@ class DocsPublishWorkflowTests(unittest.TestCase):
         self.assertEqual(steps.index(guard), steps.index(checkout) + 1)
         self.assertLess(
             steps.index(guard),
-            next(index for index, step in enumerate(steps) if step["name"] == "Inject published build info"),
+            next(index for index, step in enumerate(steps) if step["name"] == "Prepare publication sources"),
         )
 
         with tempfile.TemporaryDirectory() as directory:

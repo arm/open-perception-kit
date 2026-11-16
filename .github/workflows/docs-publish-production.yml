@@ -65,15 +65,22 @@ jobs:
             exit 1
           fi
 
-      - name: Inject published build info
-        shell: bash
-        run: |
-          python3 scripts/private/inject_docs_build_info.py --target docs/public/index.md
+      - name: Checkout documentation tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .docs-tooling
+          persist-credentials: false
+
+      - name: Prepare publication sources
+        env:
+          OPK_PROJECT_ROOT: ${{ github.workspace }}
+        run: ./.docs-tooling/scripts/gen-doc.sh --prepare-publish
 
       - name: Validate docs site
         uses: ARM-software/docs-action/validate@56422fa412fd87c4c33d3698dcdd2e997cad0ca0
         with:
-          docs-root: docs/public
+          docs-root: docs/prepared-public
           site-id: open-perception-kit
 
       - name: AWS GitHub OIDC Login
@@ -86,7 +93,7 @@ jobs:
       - name: Publish docs site
         uses: ARM-software/docs-action/publish@56422fa412fd87c4c33d3698dcdd2e997cad0ca0
         with:
-          docs-root: docs/public
+          docs-root: docs/prepared-public
           site-id: open-perception-kit
           environment: production
 
