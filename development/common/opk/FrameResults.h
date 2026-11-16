@@ -19,9 +19,12 @@
 
 #include "open_perception_kit.h"
 #include "opk/Bitmap.h"
+#include "opk/Types.h"
 
+#include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -53,6 +56,20 @@ std::unique_ptr<metadata::ProducerInfoT> makeProducerInfo(std::string_view insta
 
 std::unique_ptr<metadata::BoundingBoxT>
 makeBoundingBox(float x, float y, float width, float height);
+
+std::unique_ptr<metadata::ImageSpaceT> makeImageSpace(const opk::ImageInferenceMetadata &image);
+std::unique_ptr<metadata::BoundingBoxT>
+makeImageBoundingBox(const opk::ImageInferenceMetadata &image,
+                     const float x,
+                     const float y,
+                     const float width,
+                     const float height,
+                     const bool normalized = false);
+bool validImageSpace(const metadata::ImageSpaceT *const space) noexcept;
+// Returns x, y, width, height in the requested surface's pixels. No parent lookup.
+std::optional<std::array<double, 4>> projectBoundingBox(const metadata::BoundingBoxT &box,
+                                                        const uint32_t targetWidth,
+                                                        const uint32_t targetHeight) noexcept;
 
 std::unique_ptr<metadata::BitmapDataT> makeBitmapData(const opk::Bitmap &bitmap);
 

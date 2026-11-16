@@ -28,7 +28,7 @@ export declare class BoxDetection implements flatbuffers.IUnpackableObject<BoxDe
     object(obj?: ObjectMeta): ObjectMeta | null;
     box(obj?: BoundingBox): BoundingBox | null;
     confidence(): number;
-    classId(): number;
+    classId(): number | null;
     text(): string | null;
     text(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     static startBoxDetection(builder: flatbuffers.Builder): void;
@@ -45,8 +45,8 @@ export declare class BoxDetectionT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
     box: BoundingBoxT | null;
     confidence: number;
-    classId: number;
+    classId: number | null;
     text: string | Uint8Array | null;
-    constructor(object?: ObjectMetaT | null, box?: BoundingBoxT | null, confidence?: number, classId?: number, text?: string | Uint8Array | null);
+    constructor(object?: ObjectMetaT | null, box?: BoundingBoxT | null, confidence?: number, classId?: number | null, text?: string | Uint8Array | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

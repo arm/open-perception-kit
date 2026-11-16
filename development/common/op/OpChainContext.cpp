@@ -21,6 +21,34 @@
 
 using namespace opk::op;
 
+uint64_t
+OpChainContext::videoFrameId(const std::string &name,
+                             const open_perception_kit::metadata::ProducerInfoT &producer) {
+    if (!frameResults)
+        return 0;
+    const auto source = videoFrames.find(name);
+    if (source == videoFrames.end() || !source->second)
+        return 0;
+    const auto &frame = source->second;
+    const auto found = videoFrameIds.find(frame);
+    if (found != videoFrameIds.end())
+        return found->second;
+    open_perception_kit::metadata::FrameContextT payload;
+    const auto layerId = "rootLayer_" + inferenceInfo.inferElementId;
+    payload.layer = open_perception_kit::makeLayerInfo(
+        {.inferElementId = layerId, .contentType = "frameContext", .producer = &producer});
+    payload.video = std::make_unique<open_perception_kit::metadata::VideoFrameContextT>();
+    payload.video->object = open_perception_kit::makeObjectMeta();
+    payload.video->original_width = frame->width();
+    payload.video->original_height = frame->height();
+    if (frame->timestampNs() != opk::mediaio::InvalidTimestampNs)
+        payload.video->presentation_ts_ns = frame->timestampNs();
+    const auto id = payload.video->object->id;
+    frameResults->add(std::move(payload));
+    videoFrameIds.emplace(frame, id);
+    return id;
+}
+
 const opk::mediaio::VideoFrame *OpChainContext::getReadableVideoFrame(const std::string &name) {
     const auto found{videoFrames.find(name)};
     if (found == videoFrames.end() || !found->second) {

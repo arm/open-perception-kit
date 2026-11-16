@@ -94,8 +94,8 @@ class ObjectTrack(object):
     def ClassId(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return -1
+            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+        return None
 
     # ObjectTrack
     def Text(self):
@@ -168,7 +168,7 @@ def AddConfidence(builder, confidence):
 
 
 def ObjectTrackAddClassId(builder, classId):
-    builder.PrependInt32Slot(5, classId, -1)
+    builder.PrependUint32Slot(5, classId, None)
 
 
 def AddClassId(builder, classId):
@@ -223,7 +223,7 @@ class ObjectTrackT(object):
         trackId=0,
         box=None,
         confidence=0.0,
-        classId=-1,
+        classId=None,
         text=None,
         diagnostic=None,
         predictedOnly=False,
@@ -234,7 +234,7 @@ class ObjectTrackT(object):
         self.trackId = trackId  # type: int
         self.box = box  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.BoundingBox.BoundingBoxT]
         self.confidence = confidence  # type: float
-        self.classId = classId  # type: int
+        self.classId = classId  # type: Optional[int]
         self.text = text  # type: Optional[str]
         self.diagnostic = diagnostic  # type: Optional[str]
         self.predictedOnly = predictedOnly  # type: bool

@@ -17,6 +17,7 @@
 
 #include "InferenceControllerOp.h"
 
+#include <algorithm>
 #include <fmt/core.h>
 #include <memory>
 #include <utility>
@@ -59,20 +60,9 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
     opChainContext.inferenceInfo.modelName.clear();
 
     if (contentType.empty()) {
-        auto object = open_perception_kit::makeObjectMeta();
-        const uint64_t frameId = object->id;
-
-        open_perception_kit::metadata::FrameContextT frameContext;
         const auto producer = producerInfo(
             opChainContext.inferenceInfo.inferElementId, opName, "opk-std-ops/InferenceController");
-        const auto rootLayerId = "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
-        frameContext.layer = open_perception_kit::makeLayerInfo(
-            {.inferElementId = rootLayerId, .contentType = "frameContext", .producer = &producer});
-        frameContext.video = std::make_unique<open_perception_kit::metadata::VideoFrameContextT>();
-        frameContext.video->object = std::move(object);
-        frameContext.video->original_width = pipelineVideoFrame->width();
-        frameContext.video->original_height = pipelineVideoFrame->height();
-        opChainContext.frameResults->add(std::move(frameContext));
+        const auto frameId = opChainContext.videoFrameId("pipelineVideoFrame", producer);
 
         opk::PixelRect rect;
         rect.x = 0;
@@ -84,16 +74,34 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
         opChainContext.inferenceImageCropIds.push_back(frameId);
     } else {
         open_perception_kit::forEachBoxDetectionWithContentType(
-            *opChainContext.frameResults, contentType, [&opChainContext](const auto &r) {
+            *opChainContext.frameResults,
+            contentType,
+            [&opChainContext, pipelineVideoFrame](const auto &r) {
                 if (!r.box || !r.object) {
                     return;
                 }
 
-                opk::PixelRect rect;
-                rect.x = static_cast<size_t>(r.box->x);
-                rect.y = static_cast<size_t>(r.box->y);
-                rect.width = static_cast<size_t>(r.box->width);
-                rect.height = static_cast<size_t>(r.box->height);
+                const auto projected = open_perception_kit::projectBoundingBox(
+                    *r.box, pipelineVideoFrame->width(), pipelineVideoFrame->height());
+                if (!projected)
+                    return;
+                const auto left = std::clamp(
+                    (*projected)[0], 0.0, static_cast<double>(pipelineVideoFrame->width()));
+                const auto top = std::clamp(
+                    (*projected)[1], 0.0, static_cast<double>(pipelineVideoFrame->height()));
+                const auto right = std::clamp((*projected)[0] + (*projected)[2],
+                                              left,
+                                              static_cast<double>(pipelineVideoFrame->width()));
+                const auto bottom = std::clamp((*projected)[1] + (*projected)[3],
+                                               top,
+                                               static_cast<double>(pipelineVideoFrame->height()));
+                // Preserve existing truncation for valid, unclipped pixel crops.
+                const opk::PixelRect rect{static_cast<size_t>(left),
+                                          static_cast<size_t>(top),
+                                          static_cast<size_t>(right - left),
+                                          static_cast<size_t>(bottom - top)};
+                if (rect.isEmpty())
+                    return;
 
                 opChainContext.inferenceImageCrops.push_back(rect);
                 opChainContext.inferenceImageCropIds.push_back(r.object->id);

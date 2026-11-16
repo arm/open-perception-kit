@@ -93,6 +93,13 @@ struct OpChainContext {
      */
     const opk::mediaio::VideoFrame *getReadableVideoFrame(const std::string &name);
 
+    /// Register each actual source image once per execution, including its PTS.
+    uint64_t videoFrameId(const std::string &name,
+                          const open_perception_kit::metadata::ProducerInfoT &producer);
+    void resetVideoFrameIds() {
+        videoFrameIds.clear();
+    }
+
     /**
      * @brief Image crops for the inference loop.
      *
@@ -130,6 +137,7 @@ struct OpChainContext {
     open_perception_kit::FrameResults *frameResults = nullptr;
 
   private:
+    std::map<std::shared_ptr<opk::mediaio::VideoFrame>, uint64_t> videoFrameIds;
     std::map<std::shared_ptr<opk::mediaio::VideoFrame>, std::shared_ptr<opk::mediaio::VideoFrame>>
         readableVideoFrames;
 };

@@ -47,40 +47,12 @@ export class VideoFrameContext {
         const offset = this.bb.__offset(this.bb_pos, 8);
         return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
     }
-    sourceCropLeft() {
+    presentationTsNs() {
         const offset = this.bb.__offset(this.bb_pos, 10);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
-    }
-    sourceCropRight() {
-        const offset = this.bb.__offset(this.bb_pos, 12);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
-    }
-    sourceCropTop() {
-        const offset = this.bb.__offset(this.bb_pos, 14);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
-    }
-    sourceCropBottom() {
-        const offset = this.bb.__offset(this.bb_pos, 16);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
-    }
-    letterboxLeft() {
-        const offset = this.bb.__offset(this.bb_pos, 18);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
-    }
-    letterboxRight() {
-        const offset = this.bb.__offset(this.bb_pos, 20);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
-    }
-    letterboxTop() {
-        const offset = this.bb.__offset(this.bb_pos, 22);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
-    }
-    letterboxBottom() {
-        const offset = this.bb.__offset(this.bb_pos, 24);
-        return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt('0');
+        return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
     }
     static startVideoFrameContext(builder) {
-        builder.startObject(11);
+        builder.startObject(4);
     }
     static addObject(builder, objectOffset) {
         builder.addFieldOffset(0, objectOffset, 0);
@@ -91,82 +63,41 @@ export class VideoFrameContext {
     static addOriginalHeight(builder, originalHeight) {
         builder.addFieldInt64(2, originalHeight, BigInt('0'));
     }
-    static addSourceCropLeft(builder, sourceCropLeft) {
-        builder.addFieldInt64(3, sourceCropLeft, BigInt('0'));
-    }
-    static addSourceCropRight(builder, sourceCropRight) {
-        builder.addFieldInt64(4, sourceCropRight, BigInt('0'));
-    }
-    static addSourceCropTop(builder, sourceCropTop) {
-        builder.addFieldInt64(5, sourceCropTop, BigInt('0'));
-    }
-    static addSourceCropBottom(builder, sourceCropBottom) {
-        builder.addFieldInt64(6, sourceCropBottom, BigInt('0'));
-    }
-    static addLetterboxLeft(builder, letterboxLeft) {
-        builder.addFieldInt64(7, letterboxLeft, BigInt('0'));
-    }
-    static addLetterboxRight(builder, letterboxRight) {
-        builder.addFieldInt64(8, letterboxRight, BigInt('0'));
-    }
-    static addLetterboxTop(builder, letterboxTop) {
-        builder.addFieldInt64(9, letterboxTop, BigInt('0'));
-    }
-    static addLetterboxBottom(builder, letterboxBottom) {
-        builder.addFieldInt64(10, letterboxBottom, BigInt('0'));
+    static addPresentationTsNs(builder, presentationTsNs) {
+        builder.addFieldInt64(3, presentationTsNs, null);
     }
     static endVideoFrameContext(builder) {
         const offset = builder.endObject();
         return offset;
     }
-    static createVideoFrameContext(builder, objectOffset, originalWidth, originalHeight, sourceCropLeft, sourceCropRight, sourceCropTop, sourceCropBottom, letterboxLeft, letterboxRight, letterboxTop, letterboxBottom) {
+    static createVideoFrameContext(builder, objectOffset, originalWidth, originalHeight, presentationTsNs) {
         VideoFrameContext.startVideoFrameContext(builder);
         VideoFrameContext.addObject(builder, objectOffset);
         VideoFrameContext.addOriginalWidth(builder, originalWidth);
         VideoFrameContext.addOriginalHeight(builder, originalHeight);
-        VideoFrameContext.addSourceCropLeft(builder, sourceCropLeft);
-        VideoFrameContext.addSourceCropRight(builder, sourceCropRight);
-        VideoFrameContext.addSourceCropTop(builder, sourceCropTop);
-        VideoFrameContext.addSourceCropBottom(builder, sourceCropBottom);
-        VideoFrameContext.addLetterboxLeft(builder, letterboxLeft);
-        VideoFrameContext.addLetterboxRight(builder, letterboxRight);
-        VideoFrameContext.addLetterboxTop(builder, letterboxTop);
-        VideoFrameContext.addLetterboxBottom(builder, letterboxBottom);
+        if (presentationTsNs !== null)
+            VideoFrameContext.addPresentationTsNs(builder, presentationTsNs);
         return VideoFrameContext.endVideoFrameContext(builder);
     }
     unpack() {
-        return new VideoFrameContextT((this.object() !== null ? this.object().unpack() : null), this.originalWidth(), this.originalHeight(), this.sourceCropLeft(), this.sourceCropRight(), this.sourceCropTop(), this.sourceCropBottom(), this.letterboxLeft(), this.letterboxRight(), this.letterboxTop(), this.letterboxBottom());
+        return new VideoFrameContextT((this.object() !== null ? this.object().unpack() : null), this.originalWidth(), this.originalHeight(), this.presentationTsNs());
     }
     unpackTo(_o) {
         _o.object = (this.object() !== null ? this.object().unpack() : null);
         _o.originalWidth = this.originalWidth();
         _o.originalHeight = this.originalHeight();
-        _o.sourceCropLeft = this.sourceCropLeft();
-        _o.sourceCropRight = this.sourceCropRight();
-        _o.sourceCropTop = this.sourceCropTop();
-        _o.sourceCropBottom = this.sourceCropBottom();
-        _o.letterboxLeft = this.letterboxLeft();
-        _o.letterboxRight = this.letterboxRight();
-        _o.letterboxTop = this.letterboxTop();
-        _o.letterboxBottom = this.letterboxBottom();
+        _o.presentationTsNs = this.presentationTsNs();
     }
 }
 export class VideoFrameContextT {
-    constructor(object = null, originalWidth = BigInt('0'), originalHeight = BigInt('0'), sourceCropLeft = BigInt('0'), sourceCropRight = BigInt('0'), sourceCropTop = BigInt('0'), sourceCropBottom = BigInt('0'), letterboxLeft = BigInt('0'), letterboxRight = BigInt('0'), letterboxTop = BigInt('0'), letterboxBottom = BigInt('0')) {
+    constructor(object = null, originalWidth = BigInt('0'), originalHeight = BigInt('0'), presentationTsNs = null) {
         this.object = object;
         this.originalWidth = originalWidth;
         this.originalHeight = originalHeight;
-        this.sourceCropLeft = sourceCropLeft;
-        this.sourceCropRight = sourceCropRight;
-        this.sourceCropTop = sourceCropTop;
-        this.sourceCropBottom = sourceCropBottom;
-        this.letterboxLeft = letterboxLeft;
-        this.letterboxRight = letterboxRight;
-        this.letterboxTop = letterboxTop;
-        this.letterboxBottom = letterboxBottom;
+        this.presentationTsNs = presentationTsNs;
     }
     pack(builder) {
         const object = (this.object !== null ? this.object.pack(builder) : 0);
-        return VideoFrameContext.createVideoFrameContext(builder, object, this.originalWidth, this.originalHeight, this.sourceCropLeft, this.sourceCropRight, this.sourceCropTop, this.sourceCropBottom, this.letterboxLeft, this.letterboxRight, this.letterboxTop, this.letterboxBottom);
+        return VideoFrameContext.createVideoFrameContext(builder, object, this.originalWidth, this.originalHeight, this.presentationTsNs);
     }
 }

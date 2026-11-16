@@ -17,6 +17,7 @@
 
 # namespace: metadata
 
+import open_perception_kit.fb.open_perception_kit.metadata.ImageSpace
 import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
@@ -69,9 +70,27 @@ class BoundingBox(object):
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
+    # BoundingBox
+    def Space(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpace
+            obj = ImageSpace()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # BoundingBox
+    def Units(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
+        return 0
+
 
 def BoundingBoxStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(6)
 
 
 def Start(builder):
@@ -110,12 +129,34 @@ def AddHeight(builder, height):
     BoundingBoxAddHeight(builder, height)
 
 
+def BoundingBoxAddSpace(builder, space):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(space), 0)
+
+
+def AddSpace(builder, space):
+    BoundingBoxAddSpace(builder, space)
+
+
+def BoundingBoxAddUnits(builder, units):
+    builder.PrependUint8Slot(5, units, 0)
+
+
+def AddUnits(builder, units):
+    BoundingBoxAddUnits(builder, units)
+
+
 def BoundingBoxEnd(builder):
     return builder.EndObject()
 
 
 def End(builder):
     return BoundingBoxEnd(builder)
+
+
+try:
+    from typing import Optional
+except:
+    pass
 
 
 class BoundingBoxT(object):
@@ -127,11 +168,15 @@ class BoundingBoxT(object):
         y=0.0,
         width=0.0,
         height=0.0,
+        space=None,
+        units=0,
     ):
         self.x = x  # type: float
         self.y = y  # type: float
         self.width = width  # type: float
         self.height = height  # type: float
+        self.space = space  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ImageSpace.ImageSpaceT]
+        self.units = units  # type: int
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -158,13 +203,22 @@ class BoundingBoxT(object):
         self.y = boundingBox.Y()
         self.width = boundingBox.Width()
         self.height = boundingBox.Height()
+        if boundingBox.Space() is not None:
+            self.space = open_perception_kit.fb.open_perception_kit.metadata.ImageSpace.ImageSpaceT.InitFromObj(
+                boundingBox.Space())
+        self.units = boundingBox.Units()
 
     # BoundingBoxT
     def Pack(self, builder):
+        if self.space is not None:
+            space = self.space.Pack(builder)
         BoundingBoxStart(builder)
         BoundingBoxAddX(builder, self.x)
         BoundingBoxAddY(builder, self.y)
         BoundingBoxAddWidth(builder, self.width)
         BoundingBoxAddHeight(builder, self.height)
+        if self.space is not None:
+            BoundingBoxAddSpace(builder, space)
+        BoundingBoxAddUnits(builder, self.units)
         boundingBox = BoundingBoxEnd(builder)
         return boundingBox

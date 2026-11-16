@@ -20,6 +20,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { CoordinateUnits } from '../../open-perception-kit/metadata/coordinate-units.js';
+import { ImageSpace, ImageSpaceT } from '../../open-perception-kit/metadata/image-space.js';
 
 
 export class BoundingBox implements flatbuffers.IUnpackableObject<BoundingBoxT> {
@@ -60,8 +62,18 @@ height():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+space(obj?:ImageSpace):ImageSpace|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? (obj || new ImageSpace()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
+units():CoordinateUnits {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : CoordinateUnits.Pixels;
+}
+
 static startBoundingBox(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(6);
 }
 
 static addX(builder:flatbuffers.Builder, x:number) {
@@ -80,26 +92,28 @@ static addHeight(builder:flatbuffers.Builder, height:number) {
   builder.addFieldFloat32(3, height, 0.0);
 }
 
+static addSpace(builder:flatbuffers.Builder, spaceOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, spaceOffset, 0);
+}
+
+static addUnits(builder:flatbuffers.Builder, units:CoordinateUnits) {
+  builder.addFieldInt8(5, units, CoordinateUnits.Pixels);
+}
+
 static endBoundingBox(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createBoundingBox(builder:flatbuffers.Builder, x:number, y:number, width:number, height:number):flatbuffers.Offset {
-  BoundingBox.startBoundingBox(builder);
-  BoundingBox.addX(builder, x);
-  BoundingBox.addY(builder, y);
-  BoundingBox.addWidth(builder, width);
-  BoundingBox.addHeight(builder, height);
-  return BoundingBox.endBoundingBox(builder);
-}
 
 unpack(): BoundingBoxT {
   return new BoundingBoxT(
     this.x(),
     this.y(),
     this.width(),
-    this.height()
+    this.height(),
+    (this.space() !== null ? this.space()!.unpack() : null),
+    this.units()
   );
 }
 
@@ -109,6 +123,8 @@ unpackTo(_o: BoundingBoxT): void {
   _o.y = this.y();
   _o.width = this.width();
   _o.height = this.height();
+  _o.space = (this.space() !== null ? this.space()!.unpack() : null);
+  _o.units = this.units();
 }
 }
 
@@ -117,16 +133,23 @@ constructor(
   public x: number = 0.0,
   public y: number = 0.0,
   public width: number = 0.0,
-  public height: number = 0.0
+  public height: number = 0.0,
+  public space: ImageSpaceT|null = null,
+  public units: CoordinateUnits = CoordinateUnits.Pixels
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
-  return BoundingBox.createBoundingBox(builder,
-    this.x,
-    this.y,
-    this.width,
-    this.height
-  );
+  const space = (this.space !== null ? this.space!.pack(builder) : 0);
+
+  BoundingBox.startBoundingBox(builder);
+  BoundingBox.addX(builder, this.x);
+  BoundingBox.addY(builder, this.y);
+  BoundingBox.addWidth(builder, this.width);
+  BoundingBox.addHeight(builder, this.height);
+  BoundingBox.addSpace(builder, space);
+  BoundingBox.addUnits(builder, this.units);
+
+  return BoundingBox.endBoundingBox(builder);
 }
 }

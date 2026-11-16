@@ -175,13 +175,12 @@ opk::Result<void> RetinaFaceParser::parse(const opk::TensorParser::Input &input,
         auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
         detection->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
         detection->box =
-            open_perception_kit::makeBoundingBox(left, top, right - left, bottom - top);
+            open_perception_kit::makeImageBoundingBox(image, left, top, right - left, bottom - top);
         detection->confidence = candidate.score;
         detection->class_id = 0;
         payload.detections.push_back(std::move(detection));
     }
-    if (!payload.detections.empty())
-        results.add(std::move(payload));
+    results.add(std::move(payload));
     return {};
 }
 

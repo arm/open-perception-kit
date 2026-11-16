@@ -27,10 +27,10 @@ export function createCoordinateMapper({canvasWidth, canvasHeight, videoWidth, v
     sourceWidth,
     sourceHeight,
     display,
-    point(x, y) {
+    point(x, y, basis) {
       return {
-        x: display.x + Number(x || 0) * scaleX,
-        y: display.y + Number(y || 0) * scaleY,
+        x: display.x + Number(x || 0) * (positiveNumber(basis?.frameWidth) ? display.width / basis.frameWidth : scaleX),
+        y: display.y + Number(y || 0) * (positiveNumber(basis?.frameHeight) ? display.height / basis.frameHeight : scaleY),
       };
     },
     lengthX(value) {
@@ -40,12 +40,13 @@ export function createCoordinateMapper({canvasWidth, canvasHeight, videoWidth, v
       return Number(value || 0) * scaleY;
     },
     rect(rect) {
-      const origin = this.point(rect.x, rect.y);
+      if (rect.spatialValid === false) return null;
+      const origin = this.point(rect.x, rect.y, rect);
       return {
         x: origin.x,
         y: origin.y,
-        width: this.lengthX(rect.width ?? rect.w),
-        height: this.lengthY(rect.height ?? rect.h),
+        width: positiveNumber(rect.frameWidth) ? rect.width * display.width / rect.frameWidth : this.lengthX(rect.width ?? rect.w),
+        height: positiveNumber(rect.frameHeight) ? rect.height * display.height / rect.frameHeight : this.lengthY(rect.height ?? rect.h),
       };
     },
   };
@@ -82,7 +83,7 @@ export function findVideoFrame(perception) {
 
 export function drawObjectBox(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
-  if (box.width <= 0 || box.height <= 0) {
+  if (!box || box.width <= 0 || box.height <= 0) {
     return;
   }
 
@@ -100,6 +101,7 @@ export function drawObjectBox(ctx, rect, mapper, color) {
 
 export function drawFace(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
+  if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const radius = Math.abs(box.width) / 2;
@@ -196,14 +198,15 @@ export function drawPersonClassification(ctx, personClassification, display, now
 
 export function drawTrackTrace(ctx, trace, mapper, color) {
   const points = Array.isArray(trace?.points) ? trace.points : [];
-  if (points.length < 2) {
+  if (trace.spatialValid === false || points.length < 2) {
     return;
   }
 
   const segments = points.length - 1;
   for (let i = 0; i < segments; i += 1) {
-    const from = mapper.point(points[i].x, points[i].y);
-    const to = mapper.point(points[i + 1].x, points[i + 1].y);
+    if (!points[i] || !points[i + 1]) continue;
+    const from = mapper.point(points[i].x, points[i].y, trace);
+    const to = mapper.point(points[i + 1].x, points[i + 1].y, trace);
     const alpha = 0.35 + 0.65 * ((i + 1) / segments);
     drawArrow(ctx, from, to, hexToRgba(color, alpha), 4, 0);
   }
@@ -212,6 +215,7 @@ export function drawTrackTrace(ctx, trace, mapper, color) {
 export function drawGazeVector(ctx, yp, parent, mapper, color) {
   if (nearZero(yp.yaw) && nearZero(yp.pitch)) return;
   const parentBox = mapper.rect(parent);
+  if (!parentBox) return;
   const start = {x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2};
   drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
 }
@@ -223,6 +227,7 @@ export function drawCameraContactMarker(ctx, classification, face, mapper, color
   }
 
   const box = mapper.rect(face);
+  if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const hasContact = candidate.classId === 1;

@@ -165,6 +165,13 @@ TrackTracesT
 `PerformanceMeasurementsT` is ignored by comparison because it is diagnostic runtime
 measurements rather than stable model output.
 
+Box and trace comparisons use their explicit image space, independently of
+`ObjectMeta.parent_id`. Normalized and pixel crop coordinates are projected into
+source-frame pixels and normalized by each result's own source dimensions.
+Missing or invalid spatial descriptions fail comparison rather than falling back
+to a parent rectangle. This intentionally corrects the former normalized/crop
+comparison behaviour in SDK 1.0.
+
 External opaque payloads, when present in the packet, are decoded by the generated SDK as
 external byte payloads. Plumber's current regression comparison intentionally normalizes
 only known generated schema payloads.

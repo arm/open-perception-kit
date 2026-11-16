@@ -22,13 +22,20 @@
 
 namespace {
 
-opk::tracker::ActiveTrackMap makeTraceableTracks() {
+opk::tracker::ActiveTrackMap
+makeTraceableTracks(const flatbuffers::Optional<std::uint32_t> classId = flatbuffers::nullopt) {
     opk::tracker::ActiveTrackMap activeTracks;
     auto &track = activeTracks[42U];
     track.trackId = 42U;
     track.hitStreak = 1;
     track.lastDetection.object = open_perception_kit::makeObjectMeta(7U, 3U);
-    track.lastDetection.box = open_perception_kit::makeBoundingBox(1.0f, 2.0f, 3.0f, 4.0f);
+    track.lastDetection.class_id = classId;
+    track.lastDetection.box = open_perception_kit::makeImageBoundingBox(
+        {.width = 100, .height = 100, .frameId = 3, .frameWidth = 100, .frameHeight = 100},
+        1.0f,
+        2.0f,
+        3.0f,
+        4.0f);
 
     open_perception_kit::metadata::Point2fT firstPoint;
     firstPoint.x = 10.0f;
@@ -42,15 +49,18 @@ opk::tracker::ActiveTrackMap makeTraceableTracks() {
     return activeTracks;
 }
 
-void appendTrackingOutput(open_perception_kit::FrameResults &frameResults, bool emitTrace) {
-    const opk::tracker::DetectionBatch detections;
-    const auto activeTracks = makeTraceableTracks();
+void appendTrackingOutput(
+    open_perception_kit::FrameResults &frameResults,
+    bool emitTrace,
+    const flatbuffers::Optional<std::uint32_t> classId = flatbuffers::nullopt) {
+    const auto activeTracks = makeTraceableTracks(classId);
+    const opk::tracker::DetectionBatch detections{&activeTracks.at(42U).lastDetection};
     opk::tracker::Config config;
     config.emitTrace = emitTrace;
     config.minHitsToConfirm = 1;
     config.inferId = "opkinfer0";
     config.producerInstanceId = "tracker-secondary";
-    const opk::tracker::DetectionTrackAssignments assignments;
+    const opk::tracker::DetectionTrackAssignments assignments{{0U, 42U}};
     const opk::tracker::TrackIdList predictedOnlyTrackIds;
     const opk::tracker::trackingoutput::TrackingResult trackingResult{
         assignments,
@@ -71,6 +81,22 @@ TEST(OpkTrackerTrackingOutput, SuppressesTracePayloadWhenDisabled) {
     EXPECT_EQ(frameResults.count<open_perception_kit::metadata::TrackTracesT>(), 0U);
 }
 
+TEST(OpkTrackerTrackingOutput, PreservesAbsentAndZeroCategoryIds) {
+    for (const auto classId : {flatbuffers::Optional<std::uint32_t>{},
+                               flatbuffers::Optional<std::uint32_t>{0U},
+                               flatbuffers::Optional<std::uint32_t>{7U}}) {
+        open_perception_kit::FrameResults results;
+        appendTrackingOutput(results, false, classId);
+        const open_perception_kit::FrameResults decoded(open_perception_kit::serialize(results));
+        EXPECT_EQ(decoded.count<open_perception_kit::metadata::ObjectTracksT>(), 1U);
+        decoded.for_each<open_perception_kit::metadata::ObjectTracksT>(
+            [classId](const auto &payload) {
+                ASSERT_EQ(payload.tracks.size(), 1U);
+                EXPECT_EQ(payload.tracks[0]->class_id, classId);
+            });
+    }
+}
+
 TEST(OpkTrackerTrackingOutput, EmitsTracePayloadWhenEnabled) {
     open_perception_kit::FrameResults frameResults;
 
@@ -83,5 +109,8 @@ TEST(OpkTrackerTrackingOutput, EmitsTracePayloadWhenEnabled) {
         EXPECT_EQ(payload.layer->producer->instance_id, "opkinfer0/tracker-secondary");
         EXPECT_EQ(payload.layer->producer->component, "gstreamer/opktracker");
         EXPECT_EQ(payload.layer->producer->implementation, "Tracker");
+        ASSERT_EQ(payload.traces.size(), 1U);
+        ASSERT_NE(payload.traces[0]->space, nullptr);
+        EXPECT_EQ(payload.traces[0]->space->frame_id, 3U);
     });
 }

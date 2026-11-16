@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
+#include "InferenceControllerOp.h"
 #include "PaddleOcrPreprocessOp.h"
 #include "mediaio/PixelBufferVideoFrame.h"
 #include "op/ExecutionSelection.h"
+#include "postproc/PaddleOcrDbDetectionParser.h"
 
 #include <gtest/gtest.h>
 
@@ -138,6 +140,9 @@ class PaddleOcrPreprocess : public ::testing::Test {
         context.inferenceImageCrops = {{0, 0, w, h}};
         context.inferenceImageCropIds = {123};
         context.inferenceInfo.inferElementId = "ocr-demo";
+        results = {};
+        context.frameResults = &results;
+        context.resetVideoFrameIds();
     }
     void run() {
         const auto result = op.process(context);
@@ -150,7 +155,85 @@ class PaddleOcrPreprocess : public ::testing::Test {
     std::unique_ptr<FakeInference> inference;
     std::shared_ptr<TestFrame> frame;
     opk::op::OpChainContext context;
+    open_perception_kit::FrameResults results;
 };
+
+TEST_F(PaddleOcrPreprocess, DetectionBoxesFeedRecognitionWithTheSameSourceImageBasis) {
+    using namespace open_perception_kit::metadata;
+    prepare(true, 64, 32);
+    // Exercise the real controller/preprocessor/parser boundary without a model download.
+    opk::stdop::InferenceControllerOp wholeFrame;
+    const opk::AttributeMap noAttributes;
+    ASSERT_TRUE(wholeFrame.configure(noAttributes));
+    context.inferenceImageCrops.clear();
+    context.inferenceImageCropIds.clear();
+    ASSERT_TRUE(wholeFrame.process(context));
+    ASSERT_EQ(context.inferenceImageCropIds.size(), 1U);
+    const auto frameId = context.inferenceImageCropIds[0];
+    run();
+    EXPECT_EQ(context.inferenceInfo.image.frameId, frameId);
+    EXPECT_EQ(context.inferenceInfo.image.frameWidth, 64U);
+    EXPECT_EQ(context.inferenceInfo.image.frameHeight, 32U);
+
+    std::vector<float> probabilities(size_t{736} * 736);
+    for (size_t y = 300; y < 400; ++y)
+        for (size_t x = 200; x < 500; ++x)
+            probabilities[y * 736 + x] = 1;
+    opk::TensorView tensor(probabilities.data(),
+                           probabilities.size() * sizeof(float),
+                           opk::Shape(1, 1, 736, 736),
+                           opk::Dtype::Float32,
+                           1,
+                           0);
+    opk::AttributeMap attributes;
+    attributes.set("parser", "PaddleOcrDbDetectionParser")
+        .set("binaryThreshold", .2)
+        .set("confidenceThreshold", .4)
+        .set("unclipRatio", 1.4)
+        .set("maxCandidates", int64_t{3000})
+        .set("minBoxSize", 3.0)
+        .set("minExpandedBoxSize", 5.0);
+    opk::TensorParser::Input input(attributes);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo = context.inferenceInfo;
+    opk::stdop::postproc::PaddleOcrDbDetectionParser parser;
+    ASSERT_TRUE(parser.parse(input, results));
+    const open_perception_kit::FrameResults decoded(open_perception_kit::serialize(results));
+    decoded.for_each<BoxDetectionsT>([&](const auto &payload) {
+        ASSERT_EQ(payload.detections.size(), 1U);
+        ASSERT_TRUE(payload.detections[0]->box);
+        EXPECT_TRUE(open_perception_kit::projectBoundingBox(*payload.detections[0]->box, 64, 32));
+    });
+
+    opk::stdop::InferenceControllerOp regions;
+    opk::AttributeMap regionAttributes;
+    ASSERT_TRUE(regions.configure(regionAttributes.set("contentType", "textRegion")));
+    ASSERT_TRUE(regions.process(context));
+    ASSERT_EQ(context.inferenceImageCrops.size(), 1U);
+    const auto crop = context.inferenceImageCrops[0];
+    const auto subjectId = context.inferenceImageCropIds[0];
+    EXPECT_EQ(crop.x, 12U);
+    EXPECT_EQ(crop.y, 5U);
+    EXPECT_EQ(crop.width, 36U);
+    EXPECT_EQ(crop.height, 19U);
+    FakeInference recognition;
+    opk::stdop::PaddleOcrPreprocessOp recognitionPreprocess;
+    opk::AttributeMap recognitionAttributes;
+    ASSERT_TRUE(recognitionPreprocess.configure(
+        recognitionAttributes.set("mode", "recognition").set("paddingValue", 0.0)));
+    ASSERT_TRUE(recognitionPreprocess.bind(0, {&recognitionPreprocess, &recognition}));
+    ASSERT_TRUE(recognitionPreprocess.process(context));
+    const auto &image = context.inferenceInfo.image;
+    EXPECT_EQ(image.frameId, frameId);
+    EXPECT_EQ(image.frameWidth, 64U);
+    EXPECT_EQ(image.frameHeight, 32U);
+    EXPECT_EQ(image.cropX, crop.x);
+    EXPECT_EQ(image.cropY, crop.y);
+    EXPECT_EQ(image.width, crop.width);
+    EXPECT_EQ(image.height, crop.height);
+    EXPECT_EQ(context.inferenceInfo.parentId, subjectId);
+    EXPECT_EQ(results.count<FrameContextT>(), 1U);
+}
 
 TEST_F(PaddleOcrPreprocess, DetectionUsesBgrPlanesAndCenteredNormalizedZeroPadding) {
     prepare(true);

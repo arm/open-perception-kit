@@ -6,7 +6,8 @@ table BoxDetection {
   object:open_perception_kit.metadata.ObjectMeta;
   box:open_perception_kit.metadata.BoundingBox;
   confidence:float;
-  class_id:int = -1;
+  // Optional non-negative category identity. Zero is valid; absence is not a class.
+  class_id:uint = null;
   text:string;
 }
 

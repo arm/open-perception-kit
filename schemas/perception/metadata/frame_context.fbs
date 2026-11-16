@@ -6,14 +6,8 @@ table VideoFrameContext {
   object:open_perception_kit.metadata.ObjectMeta;
   original_width:ulong;
   original_height:ulong;
-  source_crop_left:ulong;
-  source_crop_right:ulong;
-  source_crop_top:ulong;
-  source_crop_bottom:ulong;
-  letterbox_left:ulong;
-  letterbox_right:ulong;
-  letterbox_top:ulong;
-  letterbox_bottom:ulong;
+  // Media presentation time; absent when the backend has no PTS. Zero is valid.
+  presentation_ts_ns:ulong = null;
 }
 
 table AudioFrameContext {
