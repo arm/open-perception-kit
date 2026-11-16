@@ -127,33 +127,14 @@ apt-get install -y --no-install-recommends \
     libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev libjson-glib-dev \
     libsoup-3.0-dev libssl-dev libvulkan-dev glslang-tools mesa-vulkan-drivers \
     lldb-17 locales lua5.1 luarocks mc meson nano \
-    neovim net-tools ninja-build nmap nodejs openssh-client pkg-config \
+    neovim net-tools ninja-build nmap openssh-client pkg-config \
     powerline pre-commit python3 python3-dev python3-gi python3-pip \
     python3-venv ripgrep shellcheck shfmt sudo tcpdump tmux traceroute \
     tree-sitter-cli unzip v4l-utils vim wget wl-clipboard xz-utils \
     zip zsh
 
-# Debian packages npm separately, while packages from repositories such as
-# NodeSource bundle npm into nodejs and declare a conflict with Debian's npm.
-# Reused LXCs may already have the latter, so only install npm when nodejs did
-# not provide it.
-if ! command -v npm > /dev/null 2>&1; then
-    apt-get install -y --no-install-recommends npm
-fi
-npm --version
-# The single-quoted program contains a JavaScript template literal, not a shell
-# parameter expansion.
-# shellcheck disable=SC2016
-node -e '
-const path = require("path");
-const projectRoot = process.env.OPK_PROJECT_ROOT;
-const minimum = require(path.join(projectRoot, "tools/perception/sdk.json"))
-    .typescript_build.node_minimum_major;
-const actual = Number(process.versions.node.split(".")[0]);
-if (actual < minimum) {
-    throw new Error(`Node.js ${minimum} or newer is required; found ${process.version}`);
-}
-'
+log "Installing the pinned Node.js toolchain"
+bash "$OPK_PROJECT_ROOT/scripts/private/install-node.sh" "$OPK_PROJECT_ROOT/requirements/build.json"
 
 if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav > /dev/null 2>&1; then
     apt-get install -y --no-install-recommends gstreamer1.0-libav

@@ -262,7 +262,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x lldb-17 \
-  nodejs npm pre-commit \
+  pre-commit \
   python3-gi python3-pip \
   shellcheck shfmt sudo \
   wget zip; \
@@ -270,6 +270,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   if [ "${OPK_MLWL}" = enabled ]; then \
     apt-get install -y --no-install-recommends mesa-vulkan-drivers vulkan-tools; \
   fi
+
+COPY --chmod=0755 scripts/private/install-node.sh /usr/local/bin/install-node
+RUN install-node /opt/opk-deps/requirements/build.json
 
 # SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
 # hadolint ignore=SC3043
