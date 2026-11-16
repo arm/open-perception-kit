@@ -23,27 +23,31 @@ import {indexFrame} from '../../src/overlay-sources.js';
 import {loadOverlays, saveOverlays} from '../../src/overlays.js';
 import {loadLocalImage, validLocalImage} from '../../src/overlay-image.js';
 import {select} from '../overlay-test-utils.mjs';
+import {BitmapEncoding, OpacityMeaning} from '../../src/mask-data.js';
 
 function fixture() {
     return {payloadType: 'SegmentationMasks', contentType: 'segmentation', model: 'RVM',
         compositingMode: 'backgroundReplacement', detections: [{type: 'SegmentationMask', data: {
-            width: 3, height: 1, valueType: 'Uint8', pixels: new Uint8Array([0, 128, 255]), parentUuid: '42',
+            width: 3, height: 1, encoding: BitmapEncoding.Uint8, meaning: OpacityMeaning.BackgroundOpacity,
+            pixels: new Uint8Array([0, 128, 255]), parentUuid: '42',
+            space: {frameId: 9n, width: 100, height: 50, originX: 0, originY: 0, extentWidth: 100, extentHeight: 50},
         }}]};
 }
 const video = {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {uuid: '42'}}]};
 
-test('background replacement requires explicit opacity semantics and one valid full-frame mask', () => {
+test('background replacement uses explicit meaning and image space, never presentation or parent links', () => {
     const layer = fixture();
     const overlay = select(background.id, layer);
     const resolve = (...layers) => resolveOverlay(indexFrame({layers}), overlay);
     assert.equal(resolve(video, layer).state, 'ready');
     assert.equal(resolve({...layer, model: 'Other RVM'}).state, 'waiting');
-    assert.equal(resolve(layer).state, 'partial');
-    assert.equal(resolve(video, video, layer).state, 'partial');
+    assert.equal(resolve(layer).state, 'ready');
+    assert.equal(resolve(video, video, layer).state, 'ready');
     assert.equal(resolve(video, layer, layer).state, 'ambiguous');
-    assert.equal(resolve(video, {...layer, compositingMode: 'classLabels'}).state, 'unsupported');
+    assert.equal(resolve(video, {...layer, compositingMode: 'classLabels'}).state, 'ready');
     assert.equal(resolve(video, {...layer, detections: []}).items.length, 0);
-    for (const changes of [{width: 8193}, {height: -1}, {valueType: 'Uint32'},
+    for (const changes of [{width: 8193}, {height: -1}, {encoding: BitmapEncoding.Uint32LE},
+        {meaning: OpacityMeaning.Unspecified}, {meaning: OpacityMeaning.RegionOpacity}, {space: null},
         {pixels: [0, 128, 255]}, {pixels: new Uint8Array(2)}]) {
         const invalid = {...layer, detections: [{type: 'SegmentationMask', data: {...layer.detections[0].data, ...changes}}]};
         assert.equal(resolve(video, invalid).state, 'unsupported');
@@ -66,7 +70,7 @@ test('mask alpha is preserved, cached per overlay, and drawn only inside the dis
     const original = globalThis.document;
     const canvases = [];
     globalThis.document = {createElement() {
-        const context = {clearRect() {}, fillRect() {}, drawImage() {},
+        const context = {clearRect() {}, fillRect() {}, drawImage(...args) { this.draw = args; },
             createImageData: (w, h) => ({data: new Uint8ClampedArray(w * h * 4)}),
             putImageData(data) { this.pixels = [...data.data]; }};
         const canvas = {getContext: () => context};
@@ -88,6 +92,9 @@ test('mask alpha is preserved, cached per overlay, and drawn only inside the dis
         assert.equal(canvases[1].height, 100);
         assert.equal(canvases[1].getContext().globalCompositeOperation, 'destination-in');
         assert.deepEqual(draws[0].slice(1), [10, 20, 90, 50]);
+        Object.assign(layer.detections[0].data.space, {originX: 25, originY: 10, extentWidth: 50, extentHeight: 20});
+        background.render(target, resolved, overlay.settings);
+        assert.deepEqual(canvases[1].getContext().draw.slice(1), [45, 20, 90, 40]);
         background.render({...target, overlay: {...overlay}}, resolved, overlay.settings);
         assert.equal(canvases.length, 4);
     } finally {

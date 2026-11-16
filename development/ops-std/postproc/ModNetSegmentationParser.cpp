@@ -17,6 +17,7 @@
 
 #include "ModNetSegmentationParser.h"
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <utility>
 
@@ -27,6 +28,11 @@ Result<void> ModNetSegmentationParser::parse(const Input &input,
                                              open_perception_kit::FrameResults &results) {
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.2f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.8f);
+    if (!std::isfinite(thresholdLow) || !std::isfinite(thresholdHigh) || thresholdLow < 0 ||
+        thresholdHigh > 1 || thresholdLow >= thresholdHigh) {
+        return tl::unexpected(
+            OPK_ERROR(ErrorFlag::InvalidData, "MODNet: invalid alpha thresholds"));
+    }
 
     // MODNet outputs a single tensor: alpha matte [1, 1, H, W]
     const auto *outputTensor = input.tensors[0];
@@ -37,13 +43,14 @@ Result<void> ModNetSegmentationParser::parse(const Input &input,
     const auto shape = outputTensor->getShape();
 
     // Validate shape: [1, 1, height, width]
-    if (shape.rank != 4 || shape.dims[0] != 1 || shape.dims[1] != 1) {
+    if (shape.rank != 4 || shape.dims[0] != 1 || shape.dims[1] != 1 || shape.dims[2] <= 0 ||
+        shape.dims[3] <= 0 || !outputTensor->isValid()) {
         return tl::unexpected(
             OPK_ERROR(ErrorFlag::InvalidData, "Invalid shape: expected [1,1,H,W]"));
     }
 
-    size_t height = shape.dims[2];
-    size_t width = shape.dims[3];
+    const size_t height = shape.dims[2];
+    const size_t width = shape.dims[3];
 
     // Create bitmap for the alpha matte
     Bitmap alphaMatte(Bitmap::Type::Uint8, width, height);
@@ -52,7 +59,11 @@ Result<void> ModNetSegmentationParser::parse(const Input &input,
     size_t idx = 0;
     for (size_t y = 0U; y < height; ++y) {
         for (size_t x = 0U; x < width; ++x) {
-            float alpha = std::clamp(outputTensor->get(idx++), 0.0f, 1.0f);
+            const float value = outputTensor->get(idx++);
+            if (!std::isfinite(value))
+                return tl::unexpected(
+                    OPK_ERROR(ErrorFlag::InvalidData, "MODNet: non-finite alpha"));
+            const float alpha = std::clamp(value, 0.0f, 1.0f);
 
             if (alpha < thresholdLow) {
                 alphaMatte.set8(x, y, 255); // fully background
@@ -66,14 +77,18 @@ Result<void> ModNetSegmentationParser::parse(const Input &input,
 
     auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
     mask->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-    mask->bitmap = open_perception_kit::makeBitmapData(alphaMatte);
+    mask->bitmap =
+        open_perception_kit::makeModelMaskBitmapData(alphaMatte, input.inferenceInfo.image);
+    mask->meaning = open_perception_kit::metadata::OpacityMeaning::BackgroundOpacity;
+    if (!mask->bitmap)
+        return tl::unexpected(
+            OPK_ERROR(ErrorFlag::InvalidData, "MODNet: invalid mask image space"));
 
     open_perception_kit::metadata::SegmentationMasksT payload;
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
                                             .contentType = k_content_type,
-                                            .compositingMode = "backgroundReplacement",
                                             .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));

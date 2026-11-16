@@ -97,7 +97,8 @@ std::string valueRangeUint32(const std::vector<std::uint8_t> &pixels) {
     std::uint32_t maxValue = std::numeric_limits<std::uint32_t>::lowest();
     for (std::size_t offset = 0; offset < pixels.size(); offset += sizeof(std::uint32_t)) {
         std::uint32_t value = 0U;
-        std::memcpy(&value, pixels.data() + offset, sizeof(value));
+        for (std::size_t byte = 0; byte < 4; ++byte)
+            value |= static_cast<uint32_t>(pixels[offset + byte]) << (8 * byte);
         minValue = std::min(minValue, value);
         maxValue = std::max(maxValue, value);
     }
@@ -110,13 +111,33 @@ std::string bitmapRange(const BitmapDataT *bitmap) {
         return "bitmap=-";
     }
 
-    if (bitmap->value_type == "Uint32") {
+    if (!open_perception_kit::validBitmapData(bitmap))
+        return "values=invalid-bitmap";
+    if (bitmap->encoding == open_perception_kit::metadata::BitmapEncoding::Uint32LE) {
         return valueRangeUint32(bitmap->pixels);
     }
 
-    if (bitmap->value_type == "Uint8")
+    if (bitmap->encoding == open_perception_kit::metadata::BitmapEncoding::Uint8)
         return valueRangeUint8(bitmap->pixels);
-    return fmt::format("values=unsupported-type({})", bitmap->value_type);
+    return "values=unsupported-encoding";
+}
+
+std::string bitmapLabel(const BitmapDataT *const bitmap) {
+    if (!bitmap)
+        return "bitmap=unavailable";
+    const auto *const space = bitmap->space.get();
+    return fmt::format(
+        "bitmap={}x{} encoding={} bytes={} frame={} origin=({},{}) extent=({},{}) {}",
+        bitmap->width,
+        bitmap->height,
+        open_perception_kit::metadata::EnumNameBitmapEncoding(bitmap->encoding),
+        bitmap->pixels.size(),
+        space ? space->frame_id : 0,
+        space ? space->origin_x : 0,
+        space ? space->origin_y : 0,
+        space ? space->extent_width : 0,
+        space ? space->extent_height : 0,
+        bitmapRange(bitmap));
 }
 
 } // namespace
@@ -324,16 +345,56 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        const auto *bitmap = mask->bitmap.get();
-        lines.push_back(fmt::format("  segmentation #{}: {} bitmap={}x{} value_type={} "
-                                    "bytes={} {}",
-                                    index,
+        lines.push_back(
+            fmt::format("  segmentation #{}: {} meaning={} valid={} {}",
+                        index,
+                        objectLabel(mask->object.get()),
+                        open_perception_kit::metadata::EnumNameOpacityMeaning(mask->meaning),
+                        open_perception_kit::validMask(*mask),
+                        bitmapLabel(mask->bitmap.get())));
+    }
+}
+
+void TextDisplay::appendLines(
+    std::vector<std::string> &lines,
+    const open_perception_kit::metadata::SemanticSegmentationMasksT &payload) {
+    lines.push_back(fmt::format("SemanticSegmentationMasks: {} count={}",
+                                layerLabel(payload.layer.get()),
+                                payload.masks.size()));
+    for (const auto &mask : payload.masks) {
+        if (!mask) {
+            lines.emplace_back("  semantic: unavailable");
+            continue;
+        }
+        lines.push_back(fmt::format("  semantic: {} label_set={} void={} valid={} {}",
                                     objectLabel(mask->object.get()),
-                                    bitmap ? bitmap->width : 0U,
-                                    bitmap ? bitmap->height : 0U,
-                                    bitmap ? textOr(bitmap->value_type) : "-",
-                                    bitmap ? bitmap->pixels.size() : 0U,
-                                    bitmapRange(bitmap)));
+                                    mask->label_set,
+                                    mask->void_value ? std::to_string(*mask->void_value) : "none",
+                                    open_perception_kit::validMask(*mask),
+                                    bitmapLabel(mask->bitmap.get())));
+    }
+}
+
+void TextDisplay::appendLines(
+    std::vector<std::string> &lines,
+    const open_perception_kit::metadata::InstanceSegmentationMasksT &payload) {
+    lines.push_back(fmt::format("InstanceSegmentationMasks: {} count={}",
+                                layerLabel(payload.layer.get()),
+                                payload.masks.size()));
+    for (const auto &mask : payload.masks) {
+        if (!mask) {
+            lines.emplace_back("  instance: unavailable");
+            continue;
+        }
+        lines.push_back(
+            fmt::format("  instance: {} label_set={} class_id={} confidence={} valid={} {} {}",
+                        objectLabel(mask->object.get()),
+                        mask->label_set,
+                        mask->class_id ? std::to_string(*mask->class_id) : "unavailable",
+                        mask->confidence ? fmt::format("{:.3f}", *mask->confidence) : "unavailable",
+                        open_perception_kit::validMask(*mask),
+                        boxLabel(mask->box.get()),
+                        bitmapLabel(mask->bitmap.get())));
     }
 }
 

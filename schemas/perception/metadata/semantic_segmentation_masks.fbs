@@ -2,10 +2,14 @@ include "common.fbs";
 
 namespace open_perception_kit.metadata;
 
-// Each bitmap pixel is a class ID from layer.label_family; zero is a valid class.
+// Each Uint8 or Uint32LE sample is a category in label_set. Zero is a valid
+// category; no implicit background/void value. Colors and visibility are display policy.
 table SemanticSegmentationMask {
   object:open_perception_kit.metadata.ObjectMeta;
   bitmap:open_perception_kit.metadata.BitmapData;
+  label_set:string;
+  // Optional explicit unclassified sample value, representable by the encoding.
+  void_value:uint = null;
 }
 
 table SemanticSegmentationMasks {

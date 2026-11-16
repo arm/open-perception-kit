@@ -19,6 +19,7 @@
 import * as flatbuffers from 'flatbuffers';
 import { BitmapData, BitmapDataT } from '../../open-perception-kit/metadata/bitmap-data.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
+import { OpacityMeaning } from '../../open-perception-kit/metadata/opacity-meaning.js';
 export declare class SegmentationMask implements flatbuffers.IUnpackableObject<SegmentationMaskT> {
     bb: flatbuffers.ByteBuffer | null;
     bb_pos: number;
@@ -27,9 +28,11 @@ export declare class SegmentationMask implements flatbuffers.IUnpackableObject<S
     static getSizePrefixedRootAsSegmentationMask(bb: flatbuffers.ByteBuffer, obj?: SegmentationMask): SegmentationMask;
     object(obj?: ObjectMeta): ObjectMeta | null;
     bitmap(obj?: BitmapData): BitmapData | null;
+    meaning(): OpacityMeaning;
     static startSegmentationMask(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
     static addBitmap(builder: flatbuffers.Builder, bitmapOffset: flatbuffers.Offset): void;
+    static addMeaning(builder: flatbuffers.Builder, meaning: OpacityMeaning): void;
     static endSegmentationMask(builder: flatbuffers.Builder): flatbuffers.Offset;
     unpack(): SegmentationMaskT;
     unpackTo(_o: SegmentationMaskT): void;
@@ -37,6 +40,7 @@ export declare class SegmentationMask implements flatbuffers.IUnpackableObject<S
 export declare class SegmentationMaskT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
     bitmap: BitmapDataT | null;
-    constructor(object?: ObjectMetaT | null, bitmap?: BitmapDataT | null);
+    meaning: OpacityMeaning;
+    constructor(object?: ObjectMetaT | null, bitmap?: BitmapDataT | null, meaning?: OpacityMeaning);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

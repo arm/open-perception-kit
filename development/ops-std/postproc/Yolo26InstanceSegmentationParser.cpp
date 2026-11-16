@@ -51,7 +51,7 @@ struct SourceBox {
 struct Candidate {
     SourceBox box;
     float confidence = 0.0F;
-    std::int32_t classId = -1;
+    std::uint32_t classId = 0;
     std::array<float, PrototypeCount> coefficients{};
 };
 
@@ -62,8 +62,7 @@ struct AxisSample {
     float weight = 0.0F;
 };
 
-opk::Result<void> validateGeometry(const opk::TensorParser::Input &input,
-                                   const open_perception_kit::FrameResults &results) {
+opk::Result<void> validateGeometry(const opk::TensorParser::Input &input) {
     const auto &image = input.inferenceInfo.image;
     if (image.modelWidth != ModelSize || image.modelHeight != ModelSize) {
         return tl::unexpected(
@@ -87,21 +86,12 @@ opk::Result<void> validateGeometry(const opk::TensorParser::Input &input,
                       "Yolo26InstanceSegmentationParser: invalid letterbox padding"));
     }
 
-    bool fullFrame = false;
-    results.for_each<open_perception_kit::metadata::FrameContextT>([&](const auto &context) {
-        if (!context.video || !context.video->object ||
-            context.video->object->id != input.inferenceInfo.parentId) {
-            return;
-        }
-        const auto &video = *context.video;
-        fullFrame = video.original_width == image.width && video.original_height == image.height &&
-                    image.cropX == 0U && image.cropY == 0U;
-    });
-    if (!fullFrame || input.inferenceInfo.parentId == 0U) {
-        return tl::unexpected(OPK_ERROR(
-            opk::ErrorFlag::InvalidData,
-            "Yolo26InstanceSegmentationParser: requires an uncropped full-frame FrameContext "
-            "parent; ROI inference is unsupported"));
+    const auto space = open_perception_kit::makeImageSpace(image);
+    if (!open_perception_kit::validImageSpace(space.get()) || image.cropX != 0 ||
+        image.cropY != 0 || image.width != image.frameWidth || image.height != image.frameHeight) {
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                        "Yolo26InstanceSegmentationParser: requires an explicit "
+                                        "full-frame image space; ROI inference is unsupported"));
     }
 
     return {};
@@ -205,7 +195,7 @@ Yolo26InstanceSegmentationParser::parse(const Input &input,
             OPK_ERROR(opk::ErrorFlag::InvalidData,
                       "Yolo26InstanceSegmentationParser: invalid tensor backing"));
     }
-    const auto geometry = validateGeometry(input, results);
+    const auto geometry = validateGeometry(input);
     if (!geometry) {
         return tl::unexpected(geometry.error());
     }
@@ -250,7 +240,7 @@ Yolo26InstanceSegmentationParser::parse(const Input &input,
         }
         Candidate candidate;
         candidate.confidence = score;
-        candidate.classId = static_cast<std::int32_t>(classId);
+        candidate.classId = static_cast<std::uint32_t>(classId);
         candidate.box = {
             restoreCoordinate(detections.get(base), image.letterboxLeft, activeWidth, image.width),
             restoreCoordinate(
@@ -311,7 +301,12 @@ Yolo26InstanceSegmentationParser::parse(const Input &input,
             auto mask =
                 std::make_unique<open_perception_kit::metadata::InstanceSegmentationMaskT>();
             mask->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-            mask->bitmap = open_perception_kit::makeBitmapData(bitmap);
+            mask->bitmap = open_perception_kit::makeBitmapData(bitmap, image);
+            mask->label_set = "opk:coco-80";
+            if (!mask->bitmap)
+                return tl::unexpected(
+                    OPK_ERROR(ErrorFlag::InvalidData,
+                              "Yolo26InstanceSegmentationParser: invalid mask image space"));
             mask->class_id = candidate.classId;
             mask->confidence = candidate.confidence;
             mask->box = open_perception_kit::makeImageBoundingBox(input.inferenceInfo.image,

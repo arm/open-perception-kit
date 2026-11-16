@@ -228,7 +228,9 @@ std::unique_ptr<open_perception_kit::metadata::BitmapDataT> makeSegmentationMask
     auto bitmap = std::make_unique<open_perception_kit::metadata::BitmapDataT>();
     bitmap->width = 2U;
     bitmap->height = 2U;
-    bitmap->value_type = "Uint8";
+    bitmap->encoding = open_perception_kit::metadata::BitmapEncoding::Uint8;
+    bitmap->space = open_perception_kit::makeImageSpace(
+        {.width = 2, .height = 2, .frameId = 1, .frameWidth = 2, .frameHeight = 2});
     bitmap->pixels = {
         0U,
         96U,
@@ -251,6 +253,9 @@ makeSegmentationFrameResults(const char *compositingMode = nullptr) {
 
     auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
     mask->bitmap = makeSegmentationMaskBitmap();
+    mask->meaning = compositingMode && std::string_view(compositingMode) == "backgroundReplacement"
+                        ? open_perception_kit::metadata::OpacityMeaning::BackgroundOpacity
+                        : open_perception_kit::metadata::OpacityMeaning::RegionOpacity;
     payload.masks.push_back(std::move(mask));
 
     open_perception_kit::FrameResults frameResults;
@@ -1173,6 +1178,45 @@ TEST(DebugOverlayRendererTest, ContactUsesTheFullSubjectBoxBeforeRasterClipping)
             EXPECT_EQ(actual.storage[0].bytes, expected.storage[0].bytes);
         }
     }
+}
+
+TEST(DebugOverlayRendererTest, MaskMeaningAndCropOverridePresentationAndDerivationHints) {
+    auto actual = makeSurface(RawImagePixelFormat::Bgra, 8, 8);
+    auto expected = makeSurface(RawImagePixelFormat::Bgra, 8, 8);
+    open_perception_kit::metadata::SegmentationMasksT payload;
+    payload.layer = open_perception_kit::makeLayerInfo(
+        {.contentType = "custom", .compositingMode = "backgroundReplacement"});
+    auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
+    mask->object = open_perception_kit::makeObjectMeta(2, 999);
+    mask->meaning = open_perception_kit::metadata::OpacityMeaning::RegionOpacity;
+    opk::Bitmap bitmap(opk::Bitmap::Type::Uint8, 1, 1);
+    bitmap.set8(0, 0, 128);
+    mask->bitmap = open_perception_kit::makeBitmapData(bitmap,
+                                                       {.width = 4,
+                                                        .height = 4,
+                                                        .frameId = 9,
+                                                        .frameWidth = 8,
+                                                        .frameHeight = 8,
+                                                        .cropX = 2,
+                                                        .cropY = 2});
+    payload.masks.push_back(std::move(mask));
+    open_perception_kit::FrameResults results;
+    results.add(std::move(payload));
+    opk::osd::DebugOverlayRequest request;
+    request.surface.format = actual.format;
+    request.surface.width = actual.width;
+    request.surface.height = actual.height;
+    request.surface.planes = planeSpan(actual);
+    request.frameResults = &results;
+    ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
+    std::array<uint8_t, 64> expectedMask{};
+    for (size_t y = 2; y < 6; ++y)
+        for (size_t x = 2; x < 6; ++x)
+            expectedMask[y * 8 + x] = 128;
+    EXPECT_TRUE(opk::raster::blendSegmentationMask(
+        {.format = expected.format, .width = 8, .height = 8, .planes = planeSpan(expected)},
+        {.data = expectedMask.data(), .size = expectedMask.size(), .width = 8, .height = 8}));
+    EXPECT_EQ(actual.storage[0].bytes, expected.storage[0].bytes);
 }
 
 TEST(DebugOverlayRendererTest, InvalidPresenceScoresDoNotDrawANegativeOrPositiveBadge) {

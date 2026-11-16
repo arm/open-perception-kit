@@ -22,6 +22,7 @@ import {resolveOverlay} from '../../src/overlay-features.js';
 import {indexFrame, outputSource, sourceKey} from '../../src/overlay-sources.js';
 import {createCoordinateMapper} from '../../src/overlay-drawing.js';
 import {createOverlay, loadOverlays, saveOverlays} from '../../src/overlays.js';
+import {BitmapEncoding} from '../../src/mask-data.js';
 
 const video = {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {
     uuid: '42', originalWidth: 3, originalHeight: 2, sourceCropLeft: 0,
@@ -29,7 +30,8 @@ const video = {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', da
 function fixture(pixels = [0, 13, 18, 0, 13, 18], family = 'example-classes') {
     return {payloadType: 'SemanticSegmentationMasks', contentType: 'semanticSegmentation',
         model: 'semantic', labelFamily: family, detections: [{type: 'SemanticSegmentationMask', data: {
-            width: 3, height: 2, valueType: 'Uint8', parentUuid: '42', pixels: Uint8Array.from(pixels),
+            width: 3, height: 2, encoding: BitmapEncoding.Uint8, parentUuid: 'unrelated', pixels: Uint8Array.from(pixels), labelSet: 'test:classes',
+            space: {frameId: 42n, width: 3, height: 2, originX: 0, originY: 0, extentWidth: 3, extentHeight: 2},
         }}]};
 }
 function resolved(layer, frames = [video, layer]) {
@@ -41,7 +43,7 @@ test('semantic sources are separate from alpha/instance masks and persist styles
     const catalog = new Map([layer, {...layer, model: 'other'}, {...layer, payloadType: 'SegmentationMasks'},
         {...layer, payloadType: 'InstanceSegmentationMasks'}, {...layer, contentType: 'segmentation'}]
         .map(item => [sourceKey(outputSource(item)), outputSource(item)]));
-    assert.deepEqual(semantic.discover(catalog).map(source => source.model), ['semantic', 'other']);
+    assert.deepEqual(semantic.discover(catalog).map(source => source.model), ['semantic', 'other', 'semantic']);
     const overlay = createOverlay(semantic.id, outputSource(layer));
     assert.deepEqual(overlay.settings, {opacity: 0.5, classes: {}});
     assert.equal(resolved(layer, [video, {...layer, model: 'other'}]).state, 'waiting');
@@ -73,25 +75,22 @@ test('classes come only from mask IDs or saved styles, independently of label fa
     assert.deepEqual(semantic.legend(resolved(layer)), semantic.legend(resolved(layer)));
 });
 
-test('invalid, ambiguous and cropped maps cannot render or supply legend entries', () => {
+test('invalid and ambiguous maps fail; declared grids and regions need no parent', () => {
     const layer = fixture();
     for (const change of [{width: 0}, {height: -1}, {width: 8193}, {width: 8192, height: 8192},
-        {valueType: 'Uint32'}, {pixels: [0, 1, 2, 3, 4, 5]}, {pixels: new Uint8Array(5)},
-        {width: 2, height: 3}, {parentUuid: '0'}, {parentUuid: 'missing'}]) {
+        {encoding: 0}, {pixels: [0, 1, 2, 3, 4, 5]}, {pixels: new Uint8Array(5)},
+        {labelSet: ''}, {space: null}, {voidValue: 256}]) {
         const bad = {...layer, detections: [{type: 'SemanticSegmentationMask', data: {...layer.detections[0].data, ...change}}]};
         const result = resolved(bad);
         assert.notEqual(result.state, 'ready');
         assert.equal(result.mask, undefined);
         assert.ok(semantic.legend(result).entries.every(entry => !entry.present));
     }
-    assert.equal(resolved(layer, [video, video, layer]).state, 'partial');
+    assert.equal(resolved(layer, [video, video, layer]).state, 'ready');
     assert.equal(resolved(layer, [video, layer, layer]).state, 'ambiguous');
-    assert.equal(resolved(layer, [layer]).state, 'partial');
-    const crop = {...video, detections: [{type: 'VideoFrame', data: {...video.detections[0].data, sourceCropLeft: 1}}]};
-    assert.equal(resolved(layer, [crop, layer]).state, 'unsupported');
+    assert.equal(resolved(layer, [layer]).state, 'ready');
     const empty = resolved({...layer, detections: []});
-    assert.equal(empty.state, 'partial');
-    assert.match(empty.message, /No class map/);
+    assert.equal(empty.state, 'ready');
     assert.ok(semantic.legend(empty).entries.every(entry => !entry.present));
     const zero = resolved(fixture([0, 0, 0, 0, 0, 0]));
     assert.equal(zero.state, 'ready');
@@ -164,7 +163,7 @@ test('class preferences round trip, migrate opacity-only settings and reject mal
     assert.equal(saveOverlays(storage, [overlay]), '');
     assert.deepEqual(loadOverlays(storage).overlays, [overlay]);
     assert.deepEqual(createOverlay(semantic.id).settings.classes, {}, 'new overlays do not share preferences');
-    for (const classes of [null, [], 'invalid', {'256': {enabled: true, color: '#ffffff', opacity: 1}},
+    for (const classes of [null, [], 'invalid', {'4294967296': {enabled: true, color: '#ffffff', opacity: 1}},
         {'01': {enabled: true, color: '#ffffff', opacity: 1}},
         {0: {enabled: 'false', color: '#ffffff', opacity: 1}},
         {0: {enabled: true, color: 'red', opacity: 1}},
@@ -187,4 +186,50 @@ test('class preferences round trip, migrate opacity-only settings and reject mal
     assert.equal(semantic.legend({}, cleared).entries[0].label, 'Class 0');
     const trimmed = semantic.validateSettings({opacity: 0.5, classes: {0: {...overlay.settings.classes[0], label: ' person '}}});
     assert.equal(trimmed.classes[0].label, 'person');
+});
+
+test('wide little-endian labels, explicit void and crop placement use SDK semantics', () => {
+    const layer = fixture();
+    const data = layer.detections[0].data;
+    const pixels = new Uint8Array(8);
+    const view = new DataView(pixels.buffer);
+    view.setUint32(0, 0, true);
+    view.setUint32(4, 0xf2345678, true);
+    Object.assign(data, {width: 2, height: 1, pixels, encoding: BitmapEncoding.Uint32LE, voidValue: 0,
+        space: {frameId: 42n, width: 6, height: 4, originX: 1, originY: 1, extentWidth: 3, extentHeight: 2}});
+    const result = resolved(layer, [layer]);
+    assert.equal(result.state, 'ready');
+    assert.deepEqual(semantic.legend(result).entries.map(item => item.id), [0xf2345678]);
+    const original = {document: globalThis.document, ImageData: globalThis.ImageData};
+    const uploads = [], draws = [];
+    globalThis.document = {createElement: () => ({getContext: () => ({putImageData: image => uploads.push(image)})})};
+    globalThis.ImageData = class { constructor(data) { this.data = data; } };
+    try {
+        const target = {ctx: {drawImage: (...args) => draws.push(args)}, overlay: createOverlay(semantic.id, outputSource(layer)),
+            mapper: {display: {x: 0, y: 100, width: 600, height: 400}}};
+        semantic.render(target, result);
+        assert.deepEqual(draws[0].slice(1), [100, 200, 300, 200]);
+        assert.equal(uploads[0].data[3], 0);
+        assert.equal(uploads[0].data[7], 255);
+        const other = {...layer, detections: [{type: 'SemanticSegmentationMask', data: {...data, voidValue: null}}]};
+        semantic.render(target, resolved(other, [other]));
+        assert.equal(uploads.at(-1).data[3], 255, 'shared bytes with another void declaration do not reuse stale alpha');
+        assert.deepEqual(semantic.legend(resolved(other, [other])).entries.map(item => item.id), [0, 0xf2345678]);
+    } finally {
+        for (const [key, value] of Object.entries(original)) {
+            if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
+        }
+    }
+});
+
+test('wide class discovery is bounded before building a legend or raster', () => {
+    const output = fixture();
+    const pixels = new Uint8Array(4097 * 4);
+    const view = new DataView(pixels.buffer);
+    for (let index = 0; index < 4097; index++) view.setUint32(index * 4, index, true);
+    Object.assign(output.detections[0].data, {width: 4097, height: 1, encoding: BitmapEncoding.Uint32LE, pixels});
+    const result = resolved(output, [output]);
+    assert.equal(result.state, 'unsupported');
+    assert.match(result.message, /Too many classes/);
+    assert.deepEqual(semantic.legend(result).entries, []);
 });

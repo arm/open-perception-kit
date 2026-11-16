@@ -16,31 +16,22 @@
  */
 
 import {defineFeature, STYLE_CONTROLS} from '../overlay-feature.js';
-import {objectId} from '../overlay-sources.js';
+import {validMask, OpacityMeaning} from '../mask-data.js';
 
 // Resources belong to the overlay, not its source or latest frame. Removing the
 // overlay releases them to GC; changing images drops the old decoded image.
 const resources = new WeakMap();
 
-function resolve(result, index) {
+function resolve(result) {
     const masks = result.items.filter((item) => item.type === 'SegmentationMask');
-    if (result.output.layers.some((layer) => layer.compositingMode !== 'backgroundReplacement')) {
-        return {...result, state: 'unsupported', message: 'Requires a background-opacity mask.'};
-    }
-    if (masks.length > 1) return {...result, items: [], state: 'ambiguous', message: 'Expected one full-frame mask.'};
+    if (masks.length > 1) return {...result, items: [], state: 'ambiguous', message: 'Expected one opacity mask.'};
     if (!masks.length) return {...result, items: []};
-    const {width, height, valueType, pixels, parentUuid} = masks[0].data;
-    if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
+    const data = masks[0].data;
+    const {width, height} = data;
+    if (!validMask(data, 'SegmentationMask') || data.meaning !== OpacityMeaning.BackgroundOpacity
         || width > 8192 || height > 8192 || width * height > 16_777_216
-        || valueType !== 'Uint8' || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
-        return {...result, items: [], state: 'unsupported', message: 'Invalid or oversized Uint8 mask.'};
-    }
-    if (objectId(parentUuid)) {
-        const parents = index.frame.layers.flatMap((layer) => layer.detections || [])
-            .filter((item) => objectId(item.data?.uuid) === objectId(parentUuid));
-        if (parents.length !== 1 || parents[0].type !== 'VideoFrame') {
-            return {...result, items: [], state: 'partial', message: 'Waiting for unambiguous full-frame mask geometry.'};
-        }
+    ) {
+        return {...result, items: [], state: 'unsupported', message: 'Requires a valid, bounded background-opacity mask with image space.'};
     }
     return {...result, items: masks};
 }
@@ -53,7 +44,7 @@ function render({ctx, canvas, mapper, overlay}, resolved, settings) {
         cache = {mask: document.createElement('canvas'), composite: document.createElement('canvas')};
         resources.set(overlay, cache);
     }
-    if (cache.pixels !== mask.pixels) {
+    if (cache.pixels !== mask.pixels || cache.mask.width !== mask.width || cache.mask.height !== mask.height) {
         cache.mask.width = mask.width;
         cache.mask.height = mask.height;
         const maskContext = cache.mask.getContext('2d');
@@ -90,13 +81,15 @@ function render({ctx, canvas, mapper, overlay}, resolved, settings) {
     // Clip only the replacement layer, leaving the original video underneath.
     // Intermediate bytes stay intermediate alpha; no binary threshold is applied.
     composite.globalCompositeOperation = 'destination-in';
-    composite.drawImage(cache.mask, 0, 0, w, h);
+    const space = mask.space;
+    composite.drawImage(cache.mask, space.originX * w / space.width, space.originY * h / space.height,
+        space.extentWidth * w / space.width, space.extentHeight * h / space.height);
     ctx.drawImage(cache.composite, x, y, width, height);
 }
 
 export default defineFeature({
     id: 'background-replacement', label: 'Background replacement', renderOrder: -1,
-    accepts: (source) => source.payloadType === 'SegmentationMasks' && source.contentType === 'segmentation',
+    accepts: (source) => source.payloadType === 'SegmentationMasks',
     controls: [
         {key: 'background', label: 'Background', type: 'select', value: 'color', options: [
             {value: 'color', label: 'Solid color'}, {value: 'image', label: 'Local image'},

@@ -372,6 +372,38 @@ test('hiding an empty output dock gives the full height to the video', async ({ 
 test.describe('semantic class maps', () => {
   test.use({ deviceScaleFactor: 2 });
 
+  test('SDK Uint32 labels and void values paint only the declared image region', async ({page}) => {
+    await page.routeWebSocket('**/ws', () => {});
+    await page.goto('/', {waitUntil: 'domcontentloaded'});
+    await page.evaluate(() => {
+      const pixels = new Uint8Array(8);
+      new DataView(pixels.buffer).setUint32(4, 0xf2345678, true);
+      const frame = {layers: [{payloadType: 'SemanticSegmentationMasks', model: 'wide-crop', contentType: 'custom', detections: [
+        {type: 'SemanticSegmentationMask', data: {width: 2, height: 1, encoding: 2, pixels, labelSet: 'test:wide', voidValue: 0,
+          space: {frameId: 42n, width: 6, height: 4, originX: 1, originY: 1, extentWidth: 3, extentHeight: 2}}},
+      ]}]};
+      Object.defineProperties(document.getElementById('video'), {videoWidth: {configurable: true, value: 6}, videoHeight: {configurable: true, value: 4}});
+      Object.defineProperties(document.getElementById('clientOsdCanvas'), {clientWidth: {configurable: true, value: 600}, clientHeight: {configurable: true, value: 600}});
+      window.dispatchEvent(new CustomEvent('metadata-message', {detail: {frame_results: frame}}));
+      window.dispatchEvent(new CustomEvent('video-frame-results', {detail: frame}));
+    });
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    await page.locator('#addOverlayBtn').click();
+    await page.locator('#overlayFeature').selectOption('semantic-segmentation');
+    await page.locator('#saveOverlayBtn').click();
+    const card = page.locator('.overlay-card');
+    await card.locator('.overlay-toggle').click();
+    await card.getByLabel('Opacity', {exact: true}).fill('1');
+    await card.getByLabel('Opacity', {exact: true}).dispatchEvent('change');
+    const color = card.getByLabel('Class 4063516280 (4063516280) color', {exact: true});
+    await color.fill('#00ff00');
+    await color.dispatchEvent('change');
+    await expect(card.locator('.overlay-class-row')).toHaveCount(1);
+    await expect.poll(() => page.locator('#clientOsdCanvas').evaluate(canvas =>
+      [[300, 500], [600, 500], [1000, 500], [600, 40]].map(([x, y]) => [...canvas.getContext('2d').getImageData(x, y, 1, 1).data])))
+      .toEqual([[0, 0, 0, 0], [0, 255, 0, 255], [0, 0, 0, 0], [0, 0, 0, 0]]);
+  });
+
   test('palette pixels, legend and saved opacity follow only the matched source', async ({ page }) => {
     await page.routeWebSocket('**/ws', () => {});
     await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -382,7 +414,8 @@ test.describe('semantic class maps', () => {
         } }] },
         { payloadType: 'SemanticSegmentationMasks', contentType: 'semanticSegmentation',
           labelFamily: 'example-classes', model, detections: [{ type: 'SemanticSegmentationMask', data: {
-            parentUuid: '42', width: 3, height: 1, valueType: 'Uint8', pixels: Uint8Array.from(pixels),
+            parentUuid: 'unrelated', width: 3, height: 1, encoding: 1, pixels: Uint8Array.from(pixels), labelSet: 'test:classes',
+            space: {frameId: 42n, width: 3, height: 1, originX: 0, originY: 0, extentWidth: 3, extentHeight: 1},
           } }] },
       ] };
       // Square display, wide source, and DPR 2 make incorrect containment/scaling visible.
@@ -515,6 +548,77 @@ test.describe('semantic class maps', () => {
 test.describe('instance masks', () => {
   test.use({ deviceScaleFactor: 2 });
 
+  test('fine crop masks retain visible cells across paused-frame resize and DPR changes', async ({page}) => {
+    await page.routeWebSocket('**/ws', () => {});
+    await page.goto('/', {waitUntil: 'domcontentloaded'});
+    await page.evaluate(() => {
+      const pixels = new Uint8Array(16);
+      pixels[0] = 1;
+      const frame = {layers: [{payloadType: 'InstanceSegmentationMasks', model: 'fine-crop', detections: [{
+        type: 'InstanceSegmentationMask', data: {width: 4, height: 4, encoding: 1, pixels,
+          labelSet: 'test:classes', classId: 0, confidence: null, box: null,
+          space: {frameId: 42n, width: 4, height: 4, originX: 1, originY: 1, extentWidth: 1, extentHeight: 1}},
+      }]}]};
+      Object.defineProperties(document.getElementById('video'), {videoWidth: {configurable: true, value: 4}, videoHeight: {configurable: true, value: 4}});
+      Object.defineProperties(document.getElementById('clientOsdCanvas'), {clientWidth: {configurable: true, value: 400}, clientHeight: {configurable: true, value: 400}});
+      window.dispatchEvent(new CustomEvent('metadata-message', {detail: {frame_results: frame}}));
+      window.dispatchEvent(new CustomEvent('video-frame-results', {detail: frame}));
+    });
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    await page.locator('#addOverlayBtn').click();
+    await page.locator('#overlayFeature').selectOption('instance-segmentation');
+    await page.locator('#saveOverlayBtn').click();
+    for (const [size, dpr] of [[400, 2], [800, 2], [400, 1], [400, 2]]) {
+      await page.evaluate(({size, dpr}) => {
+        Object.defineProperty(window, 'devicePixelRatio', {configurable: true, value: dpr});
+        Object.defineProperties(document.getElementById('clientOsdCanvas'), {
+          clientWidth: {configurable: true, value: size}, clientHeight: {configurable: true, value: size},
+        });
+      }, {size, dpr});
+      // The first grid cell covers one quarter of a source pixel, enlarged by the display.
+      await expect.poll(() => page.locator('#clientOsdCanvas').evaluate((canvas, {size, dpr}) => {
+        const context = canvas.getContext('2d');
+        return [.28, .4].map(fraction => {
+          const point = Math.round(size * dpr * fraction);
+          return context.getImageData(point, point, 1, 1).data[3];
+        });
+      }, {size, dpr})).toEqual([128, 0]);
+    }
+  });
+
+  test('different instance grids and crop regions replace overlap alpha without boxes', async ({page}) => {
+    await page.routeWebSocket('**/ws', () => {});
+    await page.goto('/', {waitUntil: 'domcontentloaded'});
+    await page.evaluate(() => {
+      const space = {frameId: 42n, width: 6, height: 4, originX: 0, originY: 0, extentWidth: 6, extentHeight: 4};
+      const frame = {layers: [{payloadType: 'InstanceSegmentationMasks', model: 'crop-instances', contentType: 'custom', detections: [
+        {type: 'InstanceSegmentationMask', data: {width: 3, height: 3, encoding: 1, pixels: new Uint8Array(9).fill(1), space, classId: 0, labelSet: 'test:classes', confidence: null, box: null}},
+        {type: 'InstanceSegmentationMask', data: {width: 1, height: 1, encoding: 1, pixels: new Uint8Array([1]),
+          space: {...space, originX: 2, originY: 1, extentWidth: 2, extentHeight: 2}, classId: 1, labelSet: 'test:classes', confidence: null, box: null}},
+      ]}]};
+      Object.defineProperties(document.getElementById('video'), {videoWidth: {configurable: true, value: 6}, videoHeight: {configurable: true, value: 4}});
+      Object.defineProperties(document.getElementById('clientOsdCanvas'), {clientWidth: {configurable: true, value: 600}, clientHeight: {configurable: true, value: 600}});
+      window.dispatchEvent(new CustomEvent('metadata-message', {detail: {frame_results: frame}}));
+      window.dispatchEvent(new CustomEvent('video-frame-results', {detail: frame}));
+    });
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    await page.locator('#addOverlayBtn').click();
+    await page.locator('#overlayFeature').selectOption('instance-segmentation');
+    await page.locator('#saveOverlayBtn').click();
+    const card = page.locator('.overlay-card');
+    await card.locator('.overlay-toggle').click();
+    await card.getByLabel('Opacity', {exact: true}).fill('1');
+    await card.getByLabel('Opacity', {exact: true}).dispatchEvent('change');
+    for (const id of [0, 1]) {
+      const opacity = card.getByLabel(`Class ${id} (${id}) opacity`, {exact: true});
+      await opacity.fill('0.5');
+      await opacity.dispatchEvent('change');
+    }
+    await expect.poll(() => page.locator('#clientOsdCanvas').evaluate(canvas =>
+      [[600, 600], [100, 300], [600, 40]].map(([x, y]) => canvas.getContext('2d').getImageData(x, y, 1, 1).data[3])))
+      .toEqual([128, 128, 0]);
+  });
+
   for (const order of [['instance-segmentation', 'semantic-segmentation'], ['semantic-segmentation', 'instance-segmentation']]) {
     test(`instance annotations remain above opaque masks: ${order.join(', ')}`, async ({ page }) => {
       await page.routeWebSocket('**/ws', () => {});
@@ -532,7 +636,8 @@ test.describe('instance masks', () => {
       await page.evaluate(() => {
         const pixels = new Uint8Array(35);
         for (let y = 1; y < 4; y++) pixels.fill(1, y * 7 + 1, y * 7 + 5);
-        const bitmap = {parentUuid: '42', width: 7, height: 5, valueType: 'Uint8'};
+        const space = {frameId: 42n, width: 7, height: 5, originX: 0, originY: 0, extentWidth: 7, extentHeight: 5};
+        const bitmap = {parentUuid: 'unrelated', width: 7, height: 5, encoding: 1, labelSet: 'test:classes', space};
         Object.defineProperties(document.getElementById('video'), {
           videoWidth: {configurable: true, value: 7}, videoHeight: {configurable: true, value: 5},
         });
@@ -542,7 +647,7 @@ test.describe('instance masks', () => {
         window.dispatchEvent(new CustomEvent('video-frame-results', {detail: {layers: [
           {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {uuid: '42', originalWidth: 7, originalHeight: 5}}]},
           {payloadType: 'InstanceSegmentationMasks', contentType: 'instanceSegmentation', detections: [
-            {type: 'InstanceSegmentationMask', data: {...bitmap, pixels, classId: 0, confidence: 1, box: {x: 1, y: 1, width: 4, height: 3}}},
+            {type: 'InstanceSegmentationMask', data: {...bitmap, pixels, classId: 0, confidence: 1, box: {x: 1, y: 1, width: 4, height: 3, space, units: 0}}},
           ]},
           {payloadType: 'SemanticSegmentationMasks', contentType: 'semanticSegmentation', detections: [
             {type: 'SemanticSegmentationMask', data: {...bitmap, pixels: new Uint8Array(35)}},
@@ -569,8 +674,9 @@ test.describe('instance masks', () => {
       const mask = (x, width, id) => {
         const pixels = new Uint8Array(35);
         for (let y = 1; y < 4; y++) pixels.fill(byte, y * 7 + x, y * 7 + x + width);
-        return {type: 'InstanceSegmentationMask', data: {width: 7, height: 5, valueType: 'Uint8',
-          pixels, parentUuid: '42', classId: id, confidence: 0.75, box: {x, y: 1, width, height: 3}}};
+        const space = {frameId: 42n, width: 7, height: 5, originX: 0, originY: 0, extentWidth: 7, extentHeight: 5};
+        return {type: 'InstanceSegmentationMask', data: {width: 7, height: 5, encoding: 1, labelSet: 'test:classes', space,
+          pixels, parentUuid: 'unrelated', classId: id, confidence: 0.75, box: {x, y: 1, width, height: 3, space, units: 0}}};
       };
       const frame = {layers: [
         {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {uuid: '42', originalWidth: 7, originalHeight: 5}}]},
@@ -640,7 +746,7 @@ test.describe('instance masks', () => {
     await emit({classId: 500, model: 'other'});
     await expect.poll(sample).toEqual(clear);
     await emit({byte: 255});
-    await expect(card).toContainText('binary Uint8');
+    await expect(card).toContainText('Invalid or oversized mask');
     await expect.poll(sample).toEqual(clear);
     await emit({empty: true});
     await expect.poll(sample).toEqual(clear);
