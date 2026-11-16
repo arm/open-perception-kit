@@ -232,7 +232,8 @@ VAD windows once; omission retains its previous hop-sized window behavior.
 
 OpChain reader schema `1.13.0` adds `KeywordClassificationParser`. It requires
 explicit output selection, activation,
-confidence threshold and labels. Configure ignored classes as null labels; see
+confidence threshold and labels. SDK 1.0 also requires a nonempty `labelSet` for
+categorical identity. Configure ignored classes as null labels; see
 the [keyword contract](../../arch/audio-log-mel.md#model-independent-output-parsers).
 
 `SileroVadParser`, shipped in OPK 0.1.3, remains supported for existing v1
@@ -260,6 +261,20 @@ patch version and rebuild the runtime. Both checked-in Silero chains use this
 configuration, preserving their PCM context, inference cadence and VAD policy.
 Migrated results retain the `voiceActivity` content type and model identity; their
 producer implementation is now `VoiceActivityParser`.
+
+OpChain reader schema `1.14.0` adds optional `embeddingSpaceId` to
+`ObjectEmbeddingParser`. This is an author-declared, versioned comparison-space
+identity, not a display name. Omitting it still permits transport, but matching
+consumers treat unidentified vectors as unavailable. Upgrade native readers before
+using the new attribute; older schemas reject unknown parser attributes. Existing
+descriptors adopting it should advance their own minor version and reset patch,
+following the per-file version policy. No checked-in embedding-model OpChain
+currently requires migration.
+
+SDK 1.0 replaces the tracker's `embedding-content-type` property with optional
+`embedding-space-id` and `embedding-producer-id` selectors. Do not copy the old
+content-type string as a space ID: declare the actual model/output comparison
+contract. See [embedding spaces](../../arch/perception.md#embedding-spaces-and-selection).
 
 Model reader schema `1.2.0` adds Float32 `ImageBgrChw` inputs with
 `[1,3,H,W]` shapes. Declare normalization `mean` and `std` in B, G, R

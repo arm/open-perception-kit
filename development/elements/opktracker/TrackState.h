@@ -44,8 +44,7 @@ struct TrackState { // NOSONAR: std::deque move construction is not noexcept.
     bool kalmanInitialized = false;
     bool predictedThisFrame = false;
     Kalman kalman;
-    std::vector<float> lastEmbedding;
-    bool hasEmbedding = false;
+    open_perception_kit::metadata::ObjectEmbeddingT lastEmbedding;
     int missedFrames = 0;
     int hitStreak = 0;
     uint64_t lastUpdateFrame = 0;
@@ -54,7 +53,7 @@ struct TrackState { // NOSONAR: std::deque move construction is not noexcept.
 struct DormantTrackState {
     uint64_t trackId = 0;
     open_perception_kit::metadata::BoxDetectionT lastDetection;
-    std::vector<float> lastEmbedding;
+    open_perception_kit::metadata::ObjectEmbeddingT lastEmbedding;
     double storedAtTrackerTimeMs = 0.0;
 };
 

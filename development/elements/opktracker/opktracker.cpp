@@ -43,7 +43,8 @@ struct _GstOpkTracker {
 
     gchar *contentType;
     gboolean useEmbeddings;
-    gchar *embeddingContentType;
+    gchar *embeddingSpaceId;
+    gchar *embeddingProducerId;
     gfloat embeddingWeight;
     gfloat minCosineSimilarity;
     gfloat reidReassociateThreshold;
@@ -86,7 +87,8 @@ enum class PropertyId : guint {
     Reserved = 0,
     ContentType,
     UseEmbeddings,
-    EmbeddingContentType,
+    EmbeddingSpaceId,
+    EmbeddingProducerId,
     EmbeddingWeight,
     MinCosineSimilarity,
     ReidReassociateThreshold,
@@ -155,9 +157,11 @@ static opk::tracker::Config trackerConfigFromElement(GstOpkTracker *const self) 
     config.contentType =
         self->contentType ? self->contentType : opk::tracker::Defaults::contentType;
     config.useEmbeddings = self->useEmbeddings;
-    config.embeddingContentType = self->embeddingContentType
-                                      ? self->embeddingContentType
-                                      : opk::tracker::Defaults::embeddingContentType;
+    config.embeddingSpaceId =
+        self->embeddingSpaceId ? self->embeddingSpaceId : opk::tracker::Defaults::embeddingSpaceId;
+    config.embeddingProducerId = self->embeddingProducerId
+                                     ? self->embeddingProducerId
+                                     : opk::tracker::Defaults::embeddingProducerId;
     config.embeddingWeight = self->embeddingWeight;
     config.minCosineSimilarity = self->minCosineSimilarity;
     config.reidReassociateThreshold = self->reidReassociateThreshold;
@@ -307,12 +311,18 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
     case PropertyId::UseEmbeddings:
         self->useEmbeddings = g_value_get_boolean(value);
         break;
-    case PropertyId::EmbeddingContentType: {
-        const auto *const requestedEmbeddingContentType = g_value_get_string(value);
-        g_free(self->embeddingContentType);
-        self->embeddingContentType =
-            g_strdup(requestedEmbeddingContentType ? requestedEmbeddingContentType
-                                                   : opk::tracker::Defaults::embeddingContentType);
+    case PropertyId::EmbeddingSpaceId: {
+        const auto *const requested = g_value_get_string(value);
+        g_free(self->embeddingSpaceId);
+        self->embeddingSpaceId =
+            g_strdup(requested ? requested : opk::tracker::Defaults::embeddingSpaceId);
+        break;
+    }
+    case PropertyId::EmbeddingProducerId: {
+        const auto *const requested = g_value_get_string(value);
+        g_free(self->embeddingProducerId);
+        self->embeddingProducerId =
+            g_strdup(requested ? requested : opk::tracker::Defaults::embeddingProducerId);
         break;
     }
     case PropertyId::EmbeddingWeight:
@@ -403,8 +413,11 @@ static void gst_opktracker_get_property(GObject *selfInParentType,
     case PropertyId::UseEmbeddings:
         g_value_set_boolean(value, self->useEmbeddings);
         break;
-    case PropertyId::EmbeddingContentType:
-        g_value_set_string(value, self->embeddingContentType);
+    case PropertyId::EmbeddingSpaceId:
+        g_value_set_string(value, self->embeddingSpaceId);
+        break;
+    case PropertyId::EmbeddingProducerId:
+        g_value_set_string(value, self->embeddingProducerId);
         break;
     case PropertyId::EmbeddingWeight:
         g_value_set_float(value, self->embeddingWeight);
@@ -480,8 +493,10 @@ static void gst_opktracker_finalize(GObject *selfInParentType) {
     g_free(self->contentType);
     self->contentType = nullptr;
 
-    g_free(self->embeddingContentType);
-    self->embeddingContentType = nullptr;
+    g_free(self->embeddingSpaceId);
+    self->embeddingSpaceId = nullptr;
+    g_free(self->embeddingProducerId);
+    self->embeddingProducerId = nullptr;
 
     g_free(self->associationMode);
     self->associationMode = nullptr;
@@ -530,14 +545,27 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(PropertyId::EmbeddingContentType),
+        static_cast<guint>(PropertyId::EmbeddingSpaceId),
         g_param_spec_string(
-            "embedding-content-type",
-            "Embedding content type",
-            "FrameResults layer content type containing object embeddings"
+            "embedding-space-id",
+            "Embedding space ID",
+            "Declared embedding space to select; empty accepts only an unambiguous candidate per "
+            "subject"
             "; Set in NULL or READY; restart via READY resets tracking history for changed "
             "identity/content",
-            opk::tracker::Defaults::embeddingContentType,
+            opk::tracker::Defaults::embeddingSpaceId,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                     GST_PARAM_MUTABLE_READY)));
+
+    g_object_class_install_property(
+        objectClass,
+        static_cast<guint>(PropertyId::EmbeddingProducerId),
+        g_param_spec_string(
+            "embedding-producer-id",
+            "Embedding producer ID",
+            "Optional exact producer instance ID filter; duplicates remain ambiguous"
+            "; Set in NULL or READY; restart resets tracking history",
+            opk::tracker::Defaults::embeddingProducerId,
             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                      GST_PARAM_MUTABLE_READY)));
 
@@ -837,7 +865,8 @@ static void gst_opktracker_init(GstOpkTracker *self) {
 
     self->contentType = g_strdup(opk::tracker::Defaults::contentType);
     self->useEmbeddings = opk::tracker::Defaults::useEmbeddings;
-    self->embeddingContentType = g_strdup(opk::tracker::Defaults::embeddingContentType);
+    self->embeddingSpaceId = g_strdup(opk::tracker::Defaults::embeddingSpaceId);
+    self->embeddingProducerId = g_strdup(opk::tracker::Defaults::embeddingProducerId);
     self->embeddingWeight = opk::tracker::Defaults::embeddingWeight;
     self->minCosineSimilarity = opk::tracker::Defaults::minCosineSimilarity;
     self->reidReassociateThreshold = opk::tracker::Defaults::reidReassociateThreshold;

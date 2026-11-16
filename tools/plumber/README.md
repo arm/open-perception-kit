@@ -210,6 +210,14 @@ Missing or invalid spatial descriptions fail comparison rather than falling back
 to a parent rectangle. This intentionally corrects the former normalized/crop
 comparison behaviour in SDK 1.0.
 
+Embeddings require a non-empty declared space ID, matching dimension and cosine
+metric, finite nonzero vectors and corresponding explicit subjects. Producer/model
+names and vector length alone cannot establish comparability. Parent links are
+not subject fallbacks. The existing clipped cosine distance and 0.2 tolerance
+remain; zero/non-finite vectors and unknown spaces fail comparison even when
+present on both sides. All output observations are retained and compared, including
+multiple spaces or producers; no per-object last-writer selection is performed.
+
 External opaque payloads, when present in the packet, are decoded by the generated SDK as
 external byte payloads. Plumber's current regression comparison intentionally normalizes
 only known generated schema payloads.
