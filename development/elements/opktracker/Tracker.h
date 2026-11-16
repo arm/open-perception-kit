@@ -97,6 +97,7 @@ class KalmanDeltaTimeTracking {
         elapsedTrackerTimeMs = 0.0;
         usingKalmanDtFallback = false;
         forcedKalmanDtFallback = false;
+        fallbackTimeDelta = true;
     }
 
     void update(std::optional<uint64_t> runningTimeMs, const Config &config) {
@@ -109,6 +110,7 @@ class KalmanDeltaTimeTracking {
                                 : static_cast<double>(config.kalmanDtFallback) * 1'000.0;
         // Lifecycle time follows valid media timing even when Kalman fallback is forced.
         elapsedTrackerTimeMs += runningTimeDeltaMs;
+        fallbackTimeDelta = !hasRunningTimeDelta;
 
         forcedKalmanDtFallback = config.kalmanDtForceFallback;
         usingKalmanDtFallback = forcedKalmanDtFallback || !hasRunningTimeDelta;
@@ -137,6 +139,9 @@ class KalmanDeltaTimeTracking {
     bool fallbackForced() const {
         return forcedKalmanDtFallback;
     }
+    bool lifecycleUsesFallback() const {
+        return fallbackTimeDelta;
+    }
 
   private:
     std::optional<uint64_t> lastFrameRunningTimeMs;
@@ -144,6 +149,7 @@ class KalmanDeltaTimeTracking {
     double elapsedTrackerTimeMs = 0.0;
     bool usingKalmanDtFallback = false;
     bool forcedKalmanDtFallback = false;
+    bool fallbackTimeDelta = true;
 };
 
 using TrackId = uint64_t;
@@ -159,12 +165,14 @@ using TrackMatch = std::pair<DetectionIndex, TrackId>;
 
 struct AssociationResult {
     std::vector<TrackMatch> matches;
-    std::map<DetectionIndex, std::string> diagnosticsByDetection;
+    std::map<DetectionIndex, open_perception_kit::metadata::TrackAssociationT>
+        associationsByDetection;
     std::vector<DetectionIndex> unmatchedDetections;
 };
 
 class Tracker {
   public:
+    Tracker();
     /**
      * @brief Resets tracker runtime state.
      */
@@ -189,6 +197,7 @@ class Tracker {
     DormantTrackMap inactiveTracks;
     TrackId nextTrackId = 1;
     uint64_t currentFrameIndex = 0;
+    std::string sessionId;
     KalmanDeltaTimeTracking kalmanDeltaTime;
 };
 

@@ -95,7 +95,7 @@ export function drawObjectBox(ctx, rect, mapper, color) {
   ctx.lineWidth = 2;
   ctx.strokeRect(box.x, box.y, box.width, box.height);
 
-  const label = rect.label || rect.text || confidenceLabel(rect.confidence);
+  const label = rect.displayText || rect.label || rect.text || confidenceLabel(rect.confidence);
   if (label) {
     drawTextChip(ctx, label, box.x, Math.max(2, box.y - 22), 13, color);
   }
@@ -203,7 +203,7 @@ export function drawPersonClassification(ctx, personClassification, display, now
 
 export function drawTrackTrace(ctx, trace, mapper, color) {
   const points = Array.isArray(trace?.points) ? trace.points : [];
-  if (trace.spatialValid === false || points.length < 2) {
+  if (trace.trackingValid !== true || trace.spatialValid === false || points.length < 2) {
     return;
   }
 

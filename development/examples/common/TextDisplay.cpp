@@ -19,6 +19,7 @@
 #include "opk/ClassificationScores.h"
 #include "opk/Embedding.h"
 #include "opk/FrameResults.h"
+#include "opk/Tracking.h"
 
 #include <fmt/core.h>
 
@@ -199,19 +200,29 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(
-            fmt::format("  track #{}: {} source={} track={} label={} class={} "
-                        "conf={:.3f} predicted={} {} diagnostic={}",
-                        index,
-                        objectLabel(track->object.get()),
-                        track->source_id,
-                        track->track_id,
-                        textOr(track->text),
-                        track->class_id ? std::to_string(*track->class_id) : "unspecified",
-                        track->confidence,
-                        track->predicted_only ? "true" : "false",
-                        boxLabel(track->box.get()),
-                        textOr(track->diagnostic)));
+        lines.push_back(fmt::format(
+            "  track #{}: {} source={} source_frame={} tracker={} session={} track={} label={} "
+            "class={} "
+            "source_conf={} state={} frame={} elapsed_ms={} valid={} {} display={}",
+            index,
+            objectLabel(track->object.get()),
+            track->source_id ? std::to_string(*track->source_id) : "unavailable",
+            track->source_frame_index ? std::to_string(*track->source_frame_index) : "unavailable",
+            track->identity ? track->identity->tracker_id : "",
+            track->identity ? track->identity->session_id : "",
+            track->identity ? track->identity->track_id : 0,
+            textOr(track->text),
+            track->class_id ? std::to_string(*track->class_id) : "unspecified",
+            track->source_confidence ? fmt::format("{:.3f}", *track->source_confidence)
+                                     : "unavailable",
+            track->sample
+                ? open_perception_kit::metadata::EnumNameTrackObservationState(track->sample->state)
+                : "Unspecified",
+            track->sample ? track->sample->frame_index : 0,
+            track->sample ? track->sample->elapsed_ms : 0,
+            opk::tracking::validTrack(*track),
+            boxLabel(track->box.get()),
+            opk::tracking::label(*track, payload.display_identity)));
     }
 }
 
@@ -439,11 +450,15 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  trace #{}: {} track={} points={}",
-                                    index,
-                                    objectLabel(trace->object.get()),
-                                    trace->track_id,
-                                    trace->points.size()));
+        lines.push_back(
+            fmt::format("  trace #{}: {} tracker={} session={} track={} points={} valid={}",
+                        index,
+                        objectLabel(trace->object.get()),
+                        trace->identity ? trace->identity->tracker_id : "",
+                        trace->identity ? trace->identity->session_id : "",
+                        trace->identity ? trace->identity->track_id : 0,
+                        trace->points.size(),
+                        opk::tracking::validTrace(*trace)));
     }
 }
 

@@ -19,6 +19,9 @@
 import * as flatbuffers from 'flatbuffers';
 import { BoundingBox, BoundingBoxT } from '../../open-perception-kit/metadata/bounding-box.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
+import { TrackAssociation, TrackAssociationT } from '../../open-perception-kit/metadata/track-association.js';
+import { TrackIdentity, TrackIdentityT } from '../../open-perception-kit/metadata/track-identity.js';
+import { TrackingSample, TrackingSampleT } from '../../open-perception-kit/metadata/tracking-sample.js';
 export declare class ObjectTrack implements flatbuffers.IUnpackableObject<ObjectTrackT> {
     bb: flatbuffers.ByteBuffer | null;
     bb_pos: number;
@@ -26,40 +29,42 @@ export declare class ObjectTrack implements flatbuffers.IUnpackableObject<Object
     static getRootAsObjectTrack(bb: flatbuffers.ByteBuffer, obj?: ObjectTrack): ObjectTrack;
     static getSizePrefixedRootAsObjectTrack(bb: flatbuffers.ByteBuffer, obj?: ObjectTrack): ObjectTrack;
     object(obj?: ObjectMeta): ObjectMeta | null;
-    sourceId(): bigint;
-    trackId(): bigint;
+    sourceId(): bigint | null;
+    identity(obj?: TrackIdentity): TrackIdentity | null;
     box(obj?: BoundingBox): BoundingBox | null;
-    confidence(): number;
+    sourceConfidence(): number | null;
     classId(): number | null;
     text(): string | null;
     text(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
-    diagnostic(): string | null;
-    diagnostic(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
-    predictedOnly(): boolean;
+    association(obj?: TrackAssociation): TrackAssociation | null;
+    sample(obj?: TrackingSample): TrackingSample | null;
+    sourceFrameIndex(): bigint | null;
     static startObjectTrack(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
     static addSourceId(builder: flatbuffers.Builder, sourceId: bigint): void;
-    static addTrackId(builder: flatbuffers.Builder, trackId: bigint): void;
+    static addIdentity(builder: flatbuffers.Builder, identityOffset: flatbuffers.Offset): void;
     static addBox(builder: flatbuffers.Builder, boxOffset: flatbuffers.Offset): void;
-    static addConfidence(builder: flatbuffers.Builder, confidence: number): void;
+    static addSourceConfidence(builder: flatbuffers.Builder, sourceConfidence: number): void;
     static addClassId(builder: flatbuffers.Builder, classId: number): void;
     static addText(builder: flatbuffers.Builder, textOffset: flatbuffers.Offset): void;
-    static addDiagnostic(builder: flatbuffers.Builder, diagnosticOffset: flatbuffers.Offset): void;
-    static addPredictedOnly(builder: flatbuffers.Builder, predictedOnly: boolean): void;
+    static addAssociation(builder: flatbuffers.Builder, associationOffset: flatbuffers.Offset): void;
+    static addSample(builder: flatbuffers.Builder, sampleOffset: flatbuffers.Offset): void;
+    static addSourceFrameIndex(builder: flatbuffers.Builder, sourceFrameIndex: bigint): void;
     static endObjectTrack(builder: flatbuffers.Builder): flatbuffers.Offset;
     unpack(): ObjectTrackT;
     unpackTo(_o: ObjectTrackT): void;
 }
 export declare class ObjectTrackT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
-    sourceId: bigint;
-    trackId: bigint;
+    sourceId: bigint | null;
+    identity: TrackIdentityT | null;
     box: BoundingBoxT | null;
-    confidence: number;
+    sourceConfidence: number | null;
     classId: number | null;
     text: string | Uint8Array | null;
-    diagnostic: string | Uint8Array | null;
-    predictedOnly: boolean;
-    constructor(object?: ObjectMetaT | null, sourceId?: bigint, trackId?: bigint, box?: BoundingBoxT | null, confidence?: number, classId?: number | null, text?: string | Uint8Array | null, diagnostic?: string | Uint8Array | null, predictedOnly?: boolean);
+    association: TrackAssociationT | null;
+    sample: TrackingSampleT | null;
+    sourceFrameIndex: bigint | null;
+    constructor(object?: ObjectMetaT | null, sourceId?: bigint | null, identity?: TrackIdentityT | null, box?: BoundingBoxT | null, sourceConfidence?: number | null, classId?: number | null, text?: string | Uint8Array | null, association?: TrackAssociationT | null, sample?: TrackingSampleT | null, sourceFrameIndex?: bigint | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

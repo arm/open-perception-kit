@@ -18,7 +18,8 @@
 # namespace: metadata
 
 import open_perception_kit.fb.open_perception_kit.metadata.ImageSpace
-import open_perception_kit.fb.open_perception_kit.metadata.Point2f
+import open_perception_kit.fb.open_perception_kit.metadata.TrackTracePoint
+import open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity
 import open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta
 import flatbuffers
 from flatbuffers.compat import import_numpy
@@ -60,11 +61,15 @@ class TrackTrace(object):
         return None
 
     # TrackTrace
-    def TrackId(self):
+    def Identity(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
-        return 0
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity import TrackIdentity
+            obj = TrackIdentity()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
 
     # TrackTrace
     def Points(self, j):
@@ -73,8 +78,8 @@ class TrackTrace(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from open_perception_kit.fb.open_perception_kit.metadata.Point2f import Point2f
-            obj = Point2f()
+            from open_perception_kit.fb.open_perception_kit.metadata.TrackTracePoint import TrackTracePoint
+            obj = TrackTracePoint()
             obj.Init(self._tab.Bytes, x)
             return obj
         return None
@@ -119,12 +124,12 @@ def AddObject(builder, object):
     TrackTraceAddObject(builder, object)
 
 
-def TrackTraceAddTrackId(builder, trackId):
-    builder.PrependUint64Slot(1, trackId, 0)
+def TrackTraceAddIdentity(builder, identity):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(identity), 0)
 
 
-def AddTrackId(builder, trackId):
-    TrackTraceAddTrackId(builder, trackId)
+def AddIdentity(builder, identity):
+    TrackTraceAddIdentity(builder, identity)
 
 
 def TrackTraceAddPoints(builder, points):
@@ -171,14 +176,15 @@ class TrackTraceT(object):
     def __init__(
         self,
         object=None,
-        trackId=0,
+        identity=None,
         points=None,
         space=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
-        self.trackId = trackId  # type: int
-        # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.Point2f.Point2fT]]
+        # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity.TrackIdentityT]
+        self.identity = identity
+        # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.TrackTracePoint.TrackTracePointT]]
         self.points = points
         self.space = space  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ImageSpace.ImageSpaceT]
 
@@ -206,16 +212,18 @@ class TrackTraceT(object):
         if trackTrace.Object() is not None:
             self.object = open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT.InitFromObj(
                 trackTrace.Object())
-        self.trackId = trackTrace.TrackId()
+        if trackTrace.Identity() is not None:
+            self.identity = open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity.TrackIdentityT.InitFromObj(
+                trackTrace.Identity())
         if not trackTrace.PointsIsNone():
             self.points = []
             for i in range(trackTrace.PointsLength()):
                 if trackTrace.Points(i) is None:
                     self.points.append(None)
                 else:
-                    point2f_ = open_perception_kit.fb.open_perception_kit.metadata.Point2f.Point2fT.InitFromObj(
+                    trackTracePoint_ = open_perception_kit.fb.open_perception_kit.metadata.TrackTracePoint.TrackTracePointT.InitFromObj(
                         trackTrace.Points(i))
-                    self.points.append(point2f_)
+                    self.points.append(trackTracePoint_)
         if trackTrace.Space() is not None:
             self.space = open_perception_kit.fb.open_perception_kit.metadata.ImageSpace.ImageSpaceT.InitFromObj(
                 trackTrace.Space())
@@ -224,6 +232,8 @@ class TrackTraceT(object):
     def Pack(self, builder):
         if self.object is not None:
             object = self.object.Pack(builder)
+        if self.identity is not None:
+            identity = self.identity.Pack(builder)
         if self.points is not None:
             pointslist = []
             for i in range(len(self.points)):
@@ -237,7 +247,8 @@ class TrackTraceT(object):
         TrackTraceStart(builder)
         if self.object is not None:
             TrackTraceAddObject(builder, object)
-        TrackTraceAddTrackId(builder, self.trackId)
+        if self.identity is not None:
+            TrackTraceAddIdentity(builder, identity)
         if self.points is not None:
             TrackTraceAddPoints(builder, points)
         if self.space is not None:

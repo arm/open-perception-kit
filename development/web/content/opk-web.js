@@ -2179,6 +2179,118 @@ window.addEventListener("metadata-message", (event) => {
 });
 updateCopyButtonState();
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-observation-state.js
+var TrackObservationState;
+(function(TrackObservationState2) {
+  TrackObservationState2[TrackObservationState2["Unspecified"] = 0] = "Unspecified";
+  TrackObservationState2[TrackObservationState2["Observed"] = 1] = "Observed";
+  TrackObservationState2[TrackObservationState2["Predicted"] = 2] = "Predicted";
+})(TrackObservationState || (TrackObservationState = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/tracking-time-source.js
+var TrackingTimeSource;
+(function(TrackingTimeSource2) {
+  TrackingTimeSource2[TrackingTimeSource2["Unspecified"] = 0] = "Unspecified";
+  TrackingTimeSource2[TrackingTimeSource2["MediaDelta"] = 1] = "MediaDelta";
+  TrackingTimeSource2[TrackingTimeSource2["FallbackDelta"] = 2] = "FallbackDelta";
+})(TrackingTimeSource || (TrackingTimeSource = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-association-kind.js
+var TrackAssociationKind;
+(function(TrackAssociationKind2) {
+  TrackAssociationKind2[TrackAssociationKind2["Unspecified"] = 0] = "Unspecified";
+  TrackAssociationKind2[TrackAssociationKind2["New"] = 1] = "New";
+  TrackAssociationKind2[TrackAssociationKind2["IoUScore"] = 2] = "IoUScore";
+  TrackAssociationKind2[TrackAssociationKind2["CosineScore"] = 3] = "CosineScore";
+  TrackAssociationKind2[TrackAssociationKind2["Reacquired"] = 4] = "Reacquired";
+})(TrackAssociationKind || (TrackAssociationKind = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/coordinate-units.js
+var CoordinateUnits;
+(function(CoordinateUnits2) {
+  CoordinateUnits2[CoordinateUnits2["Pixels"] = 0] = "Pixels";
+  CoordinateUnits2[CoordinateUnits2["Normalized"] = 1] = "Normalized";
+})(CoordinateUnits || (CoordinateUnits = {}));
+
+// development/web/src/image-geometry.js
+function validImageSpace(space) {
+  const id = space?.frameId;
+  return (typeof id === "bigint" ? id > 0n : Number.isSafeInteger(id) && id > 0) && Number.isInteger(space.width) && space.width > 0 && Number.isInteger(space.height) && space.height > 0 && [space.originX, space.originY, space.extentWidth, space.extentHeight].every(Number.isFinite) && space.originX >= 0 && space.originY >= 0 && space.extentWidth > 0 && space.extentHeight > 0 && space.originX + space.extentWidth <= space.width && space.originY + space.extentHeight <= space.height;
+}
+function imagePoint(x, y, space) {
+  return { x: space.originX + x, y: space.originY + y };
+}
+function imageBox(box) {
+  const space = box?.space;
+  if (!validImageSpace(space) || ![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.width <= 0 || box.height <= 0 || ![CoordinateUnits.Pixels, CoordinateUnits.Normalized].includes(box.units)) return null;
+  const unitX = box.units === CoordinateUnits.Normalized ? space.extentWidth : 1;
+  const unitY = box.units === CoordinateUnits.Normalized ? space.extentHeight : 1;
+  return {
+    ...imagePoint(box.x * unitX, box.y * unitY, space),
+    width: box.width * unitX,
+    height: box.height * unitY,
+    frameWidth: space.width,
+    frameHeight: space.height
+  };
+}
+
+// development/web/src/tracking-data.js
+var positiveId = (value) => value != null && (typeof value !== "number" || Number.isSafeInteger(value)) && /^[1-9][0-9]{0,19}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
+function trackKey(identity) {
+  return typeof identity?.trackerId === "string" && identity.trackerId.length && typeof identity.sessionId === "string" && identity.sessionId.length && positiveId(identity.trackId) ? JSON.stringify([identity.trackerId, identity.sessionId, String(identity.trackId)]) : null;
+}
+function validSample(sample) {
+  return positiveId(sample?.frameIndex) && Number.isFinite(sample.elapsedMs) && sample.elapsedMs >= 0 && [TrackObservationState.Observed, TrackObservationState.Predicted].includes(sample.state) && [TrackingTimeSource.MediaDelta, TrackingTimeSource.FallbackDelta].includes(sample.timeSource);
+}
+function sameSample(a, b) {
+  return validSample(a) && validSample(b) && String(a.frameIndex) === String(b.frameIndex) && a.state === b.state && a.timeSource === b.timeSource && Math.abs(a.elapsedMs - b.elapsedMs) <= 1e-6;
+}
+function traceMatchesCurrentTrack(trace, tracks) {
+  return tracks.length === 0 || tracks.length === 1 && tracks[0].data.trackingValid === true && sameSample(trace.points?.at(-1)?.sample, tracks[0].data.sample);
+}
+function validAssociation(value) {
+  if (!value) return true;
+  if ([TrackAssociationKind.Unspecified, TrackAssociationKind.New].includes(value.kind)) return value.score == null;
+  if (value.score == null || !Number.isFinite(value.score)) return false;
+  return value.kind === TrackAssociationKind.IoUScore ? value.score >= 0 && value.score <= 1 : [TrackAssociationKind.CosineScore, TrackAssociationKind.Reacquired].includes(value.kind) && value.score >= -1 && value.score <= 1;
+}
+function validTrack(track) {
+  if (!trackKey(track.identity) || !validSample(track.sample) || !imageBox(track.box) || !validAssociation(track.association)) return false;
+  if (track.sourceConfidence != null && (!Number.isFinite(track.sourceConfidence) || track.sourceConfidence < 0 || track.sourceConfidence > 1)) return false;
+  if (track.sample.state === TrackObservationState.Predicted && track.association) return false;
+  if (track.sourceId == null !== (track.sourceFrameIndex == null)) return false;
+  return track.sourceId == null || positiveId(track.sourceId) && positiveId(track.sourceFrameIndex) && (track.sample.state === TrackObservationState.Observed ? BigInt(track.sourceFrameIndex) === BigInt(track.sample.frameIndex) : BigInt(track.sourceFrameIndex) < BigInt(track.sample.frameIndex));
+}
+function validTrace(trace) {
+  if (!trackKey(trace.identity) || !validImageSpace(trace.space)) return false;
+  let previous = null;
+  for (const point of trace.points || []) {
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || !validSample(point.sample)) return false;
+    if (previous && (BigInt(point.sample.frameIndex) <= BigInt(previous.frameIndex) || point.sample.elapsedMs <= previous.elapsedMs)) return false;
+    previous = point.sample;
+  }
+  return true;
+}
+function trackLabel(track, displayIdentity) {
+  const text2 = track.text || "";
+  if (!displayIdentity || !trackKey(track.identity)) return text2;
+  let diagnostic = "IOU:N/A";
+  if (track.sample?.state === TrackObservationState.Predicted) diagnostic = "PRED";
+  else if (validAssociation(track.association)) {
+    const association = track.association;
+    if (association?.kind === TrackAssociationKind.New) diagnostic = "NEW";
+    else if (association?.score != null) {
+      const prefix = association.kind === TrackAssociationKind.IoUScore ? "IOU" : association.kind === TrackAssociationKind.Reacquired ? "REID-R" : "REID";
+      const sign = association.score < 0 || Object.is(association.score, -0) ? "-" : "";
+      diagnostic = `${prefix}:${sign}${publishedPrecision(Math.abs(association.score), 2).toFixed(2)}`;
+    }
+  }
+  const suffix = `ID:${track.identity.trackId} ${diagnostic}`;
+  return text2 ? `${text2} [${suffix}]` : suffix;
+}
+var identityData = (value) => value ? { trackerId: value.trackerId, sessionId: value.sessionId, trackId: String(value.trackId) } : null;
+var sampleData = (value) => value ? { ...value, frameIndex: String(value.frameIndex) } : null;
+
 // development/web/src/overlay-sources.js
 var SOURCE_FIELDS = [
   "payloadType",
@@ -2226,10 +2338,6 @@ function producerKey(source) {
 }
 function objectId(value) {
   return value == null || String(value) === "0" ? "" : String(value);
-}
-function trackKey(source, id) {
-  const producer = producerKey(source);
-  return producer && objectId(id) ? JSON.stringify([producer, objectId(id)]) : null;
 }
 function sourceLabel(source) {
   if (source.payloadType === "PerformanceMeasurements") return "Pipeline performance";
@@ -2294,7 +2402,7 @@ function indexFrame(frame) {
         const entry = { ...item, layer: layer2, source: output.source };
         output.items.push(entry);
         append(index.objects, objectId(item.data.uuid), entry);
-        append(index.byTrack, trackKey(output.source, item.data.trackId), entry);
+        append(index.byTrack, trackKey(item.data.identity), entry);
       }
     }
   }
@@ -2366,7 +2474,7 @@ function detectionSummary(detection) {
   const type = detection?.type || "Detection";
   const data = detection?.data || {};
   if (type === "Rect") {
-    const label = data.text || `Class ${data.classId ?? "-"}`;
+    const label = data.displayText || data.text || `Class ${data.classId ?? "-"}`;
     const confidence = number(data.confidence);
     return {
       title: label,
@@ -2418,7 +2526,7 @@ function detectionSummary(detection) {
   }
   if (type === "TrackTrace") {
     return {
-      title: `Track ${data.trackId ?? "-"}`,
+      title: `Track ${data.identity?.trackId ?? "-"}`,
       detail: data.spatialValid === false ? "Spatial reference unavailable" : "trace",
       meta: ""
     };
@@ -3542,13 +3650,6 @@ var WireEnvelopeT = class {
     return WireEnvelope.createWireEnvelope(builder, payloads, producerSdkName, producerSdkVersion, producerSchemaSetSha256);
   }
 };
-
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/coordinate-units.js
-var CoordinateUnits;
-(function(CoordinateUnits2) {
-  CoordinateUnits2[CoordinateUnits2["Pixels"] = 0] = "Pixels";
-  CoordinateUnits2[CoordinateUnits2["Normalized"] = 1] = "Normalized";
-})(CoordinateUnits || (CoordinateUnits = {}));
 
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/image-space.js
 var ImageSpace = class _ImageSpace {
@@ -5945,6 +6046,228 @@ var ObjectEmbeddingsT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-association.js
+var TrackAssociation = class _TrackAssociation {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTrackAssociation(bb, obj) {
+    return (obj || new _TrackAssociation()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTrackAssociation(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TrackAssociation()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  kind() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : TrackAssociationKind.Unspecified;
+  }
+  score() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  static startTrackAssociation(builder) {
+    builder.startObject(2);
+  }
+  static addKind(builder, kind) {
+    builder.addFieldInt8(0, kind, TrackAssociationKind.Unspecified);
+  }
+  static addScore(builder, score) {
+    builder.addFieldFloat32(1, score, null);
+  }
+  static endTrackAssociation(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTrackAssociation(builder, kind, score) {
+    _TrackAssociation.startTrackAssociation(builder);
+    _TrackAssociation.addKind(builder, kind);
+    if (score !== null)
+      _TrackAssociation.addScore(builder, score);
+    return _TrackAssociation.endTrackAssociation(builder);
+  }
+  unpack() {
+    return new TrackAssociationT(this.kind(), this.score());
+  }
+  unpackTo(_o) {
+    _o.kind = this.kind();
+    _o.score = this.score();
+  }
+};
+var TrackAssociationT = class {
+  constructor(kind = TrackAssociationKind.Unspecified, score = null) {
+    this.kind = kind;
+    this.score = score;
+  }
+  pack(builder) {
+    return TrackAssociation.createTrackAssociation(builder, this.kind, this.score);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-identity.js
+var TrackIdentity = class _TrackIdentity {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTrackIdentity(bb, obj) {
+    return (obj || new _TrackIdentity()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTrackIdentity(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TrackIdentity()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  trackerId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  sessionId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  trackId() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  static startTrackIdentity(builder) {
+    builder.startObject(3);
+  }
+  static addTrackerId(builder, trackerIdOffset) {
+    builder.addFieldOffset(0, trackerIdOffset, 0);
+  }
+  static addSessionId(builder, sessionIdOffset) {
+    builder.addFieldOffset(1, sessionIdOffset, 0);
+  }
+  static addTrackId(builder, trackId) {
+    builder.addFieldInt64(2, trackId, BigInt("0"));
+  }
+  static endTrackIdentity(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTrackIdentity(builder, trackerIdOffset, sessionIdOffset, trackId) {
+    _TrackIdentity.startTrackIdentity(builder);
+    _TrackIdentity.addTrackerId(builder, trackerIdOffset);
+    _TrackIdentity.addSessionId(builder, sessionIdOffset);
+    _TrackIdentity.addTrackId(builder, trackId);
+    return _TrackIdentity.endTrackIdentity(builder);
+  }
+  unpack() {
+    return new TrackIdentityT(this.trackerId(), this.sessionId(), this.trackId());
+  }
+  unpackTo(_o) {
+    _o.trackerId = this.trackerId();
+    _o.sessionId = this.sessionId();
+    _o.trackId = this.trackId();
+  }
+};
+var TrackIdentityT = class {
+  constructor(trackerId = null, sessionId = null, trackId = BigInt("0")) {
+    this.trackerId = trackerId;
+    this.sessionId = sessionId;
+    this.trackId = trackId;
+  }
+  pack(builder) {
+    const trackerId = this.trackerId !== null ? builder.createString(this.trackerId) : 0;
+    const sessionId = this.sessionId !== null ? builder.createString(this.sessionId) : 0;
+    return TrackIdentity.createTrackIdentity(builder, trackerId, sessionId, this.trackId);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/tracking-sample.js
+var TrackingSample = class _TrackingSample {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTrackingSample(bb, obj) {
+    return (obj || new _TrackingSample()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTrackingSample(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TrackingSample()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  frameIndex() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  elapsedMs() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  timeSource() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : TrackingTimeSource.Unspecified;
+  }
+  state() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : TrackObservationState.Unspecified;
+  }
+  static startTrackingSample(builder) {
+    builder.startObject(4);
+  }
+  static addFrameIndex(builder, frameIndex2) {
+    builder.addFieldInt64(0, frameIndex2, BigInt("0"));
+  }
+  static addElapsedMs(builder, elapsedMs) {
+    builder.addFieldFloat64(1, elapsedMs, 0);
+  }
+  static addTimeSource(builder, timeSource) {
+    builder.addFieldInt8(2, timeSource, TrackingTimeSource.Unspecified);
+  }
+  static addState(builder, state) {
+    builder.addFieldInt8(3, state, TrackObservationState.Unspecified);
+  }
+  static endTrackingSample(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTrackingSample(builder, frameIndex2, elapsedMs, timeSource, state) {
+    _TrackingSample.startTrackingSample(builder);
+    _TrackingSample.addFrameIndex(builder, frameIndex2);
+    _TrackingSample.addElapsedMs(builder, elapsedMs);
+    _TrackingSample.addTimeSource(builder, timeSource);
+    _TrackingSample.addState(builder, state);
+    return _TrackingSample.endTrackingSample(builder);
+  }
+  unpack() {
+    return new TrackingSampleT(this.frameIndex(), this.elapsedMs(), this.timeSource(), this.state());
+  }
+  unpackTo(_o) {
+    _o.frameIndex = this.frameIndex();
+    _o.elapsedMs = this.elapsedMs();
+    _o.timeSource = this.timeSource();
+    _o.state = this.state();
+  }
+};
+var TrackingSampleT = class {
+  constructor(frameIndex2 = BigInt("0"), elapsedMs = 0, timeSource = TrackingTimeSource.Unspecified, state = TrackObservationState.Unspecified) {
+    this.frameIndex = frameIndex2;
+    this.elapsedMs = elapsedMs;
+    this.timeSource = timeSource;
+    this.state = state;
+  }
+  pack(builder) {
+    return TrackingSample.createTrackingSample(builder, this.frameIndex, this.elapsedMs, this.timeSource, this.state);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js
 var ObjectTrack = class _ObjectTrack {
   constructor() {
@@ -5969,19 +6292,19 @@ var ObjectTrack = class _ObjectTrack {
   }
   sourceId() {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
   }
-  trackId() {
+  identity(obj) {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+    return offset ? (obj || new TrackIdentity()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
   box(obj) {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? (obj || new BoundingBox()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  confidence() {
+  sourceConfidence() {
     const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 14);
@@ -5991,31 +6314,35 @@ var ObjectTrack = class _ObjectTrack {
     const offset = this.bb.__offset(this.bb_pos, 16);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  diagnostic(optionalEncoding) {
+  association(obj) {
     const offset = this.bb.__offset(this.bb_pos, 18);
-    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+    return offset ? (obj || new TrackAssociation()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  predictedOnly() {
+  sample(obj) {
     const offset = this.bb.__offset(this.bb_pos, 20);
-    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+    return offset ? (obj || new TrackingSample()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  sourceFrameIndex() {
+    const offset = this.bb.__offset(this.bb_pos, 22);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
   }
   static startObjectTrack(builder) {
-    builder.startObject(9);
+    builder.startObject(10);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
   }
   static addSourceId(builder, sourceId) {
-    builder.addFieldInt64(1, sourceId, BigInt("0"));
+    builder.addFieldInt64(1, sourceId, null);
   }
-  static addTrackId(builder, trackId) {
-    builder.addFieldInt64(2, trackId, BigInt("0"));
+  static addIdentity(builder, identityOffset) {
+    builder.addFieldOffset(2, identityOffset, 0);
   }
   static addBox(builder, boxOffset) {
     builder.addFieldOffset(3, boxOffset, 0);
   }
-  static addConfidence(builder, confidence) {
-    builder.addFieldFloat32(4, confidence, 0);
+  static addSourceConfidence(builder, sourceConfidence) {
+    builder.addFieldFloat32(4, sourceConfidence, null);
   }
   static addClassId(builder, classId) {
     builder.addFieldInt32(5, classId, null);
@@ -6023,59 +6350,70 @@ var ObjectTrack = class _ObjectTrack {
   static addText(builder, textOffset) {
     builder.addFieldOffset(6, textOffset, 0);
   }
-  static addDiagnostic(builder, diagnosticOffset) {
-    builder.addFieldOffset(7, diagnosticOffset, 0);
+  static addAssociation(builder, associationOffset) {
+    builder.addFieldOffset(7, associationOffset, 0);
   }
-  static addPredictedOnly(builder, predictedOnly) {
-    builder.addFieldInt8(8, +predictedOnly, 0);
+  static addSample(builder, sampleOffset) {
+    builder.addFieldOffset(8, sampleOffset, 0);
+  }
+  static addSourceFrameIndex(builder, sourceFrameIndex) {
+    builder.addFieldInt64(9, sourceFrameIndex, null);
   }
   static endObjectTrack(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new ObjectTrackT(this.object() !== null ? this.object().unpack() : null, this.sourceId(), this.trackId(), this.box() !== null ? this.box().unpack() : null, this.confidence(), this.classId(), this.text(), this.diagnostic(), this.predictedOnly());
+    return new ObjectTrackT(this.object() !== null ? this.object().unpack() : null, this.sourceId(), this.identity() !== null ? this.identity().unpack() : null, this.box() !== null ? this.box().unpack() : null, this.sourceConfidence(), this.classId(), this.text(), this.association() !== null ? this.association().unpack() : null, this.sample() !== null ? this.sample().unpack() : null, this.sourceFrameIndex());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.sourceId = this.sourceId();
-    _o.trackId = this.trackId();
+    _o.identity = this.identity() !== null ? this.identity().unpack() : null;
     _o.box = this.box() !== null ? this.box().unpack() : null;
-    _o.confidence = this.confidence();
+    _o.sourceConfidence = this.sourceConfidence();
     _o.classId = this.classId();
     _o.text = this.text();
-    _o.diagnostic = this.diagnostic();
-    _o.predictedOnly = this.predictedOnly();
+    _o.association = this.association() !== null ? this.association().unpack() : null;
+    _o.sample = this.sample() !== null ? this.sample().unpack() : null;
+    _o.sourceFrameIndex = this.sourceFrameIndex();
   }
 };
 var ObjectTrackT = class {
-  constructor(object = null, sourceId = BigInt("0"), trackId = BigInt("0"), box = null, confidence = 0, classId = null, text2 = null, diagnostic = null, predictedOnly = false) {
+  constructor(object = null, sourceId = null, identity = null, box = null, sourceConfidence = null, classId = null, text2 = null, association = null, sample = null, sourceFrameIndex = null) {
     this.object = object;
     this.sourceId = sourceId;
-    this.trackId = trackId;
+    this.identity = identity;
     this.box = box;
-    this.confidence = confidence;
+    this.sourceConfidence = sourceConfidence;
     this.classId = classId;
     this.text = text2;
-    this.diagnostic = diagnostic;
-    this.predictedOnly = predictedOnly;
+    this.association = association;
+    this.sample = sample;
+    this.sourceFrameIndex = sourceFrameIndex;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
+    const identity = this.identity !== null ? this.identity.pack(builder) : 0;
     const box = this.box !== null ? this.box.pack(builder) : 0;
     const text2 = this.text !== null ? builder.createString(this.text) : 0;
-    const diagnostic = this.diagnostic !== null ? builder.createString(this.diagnostic) : 0;
+    const association = this.association !== null ? this.association.pack(builder) : 0;
+    const sample = this.sample !== null ? this.sample.pack(builder) : 0;
     ObjectTrack.startObjectTrack(builder);
     ObjectTrack.addObject(builder, object);
-    ObjectTrack.addSourceId(builder, this.sourceId);
-    ObjectTrack.addTrackId(builder, this.trackId);
+    if (this.sourceId !== null)
+      ObjectTrack.addSourceId(builder, this.sourceId);
+    ObjectTrack.addIdentity(builder, identity);
     ObjectTrack.addBox(builder, box);
-    ObjectTrack.addConfidence(builder, this.confidence);
+    if (this.sourceConfidence !== null)
+      ObjectTrack.addSourceConfidence(builder, this.sourceConfidence);
     if (this.classId !== null)
       ObjectTrack.addClassId(builder, this.classId);
     ObjectTrack.addText(builder, text2);
-    ObjectTrack.addDiagnostic(builder, diagnostic);
-    ObjectTrack.addPredictedOnly(builder, this.predictedOnly);
+    ObjectTrack.addAssociation(builder, association);
+    ObjectTrack.addSample(builder, sample);
+    if (this.sourceFrameIndex !== null)
+      ObjectTrack.addSourceFrameIndex(builder, this.sourceFrameIndex);
     return ObjectTrack.endObjectTrack(builder);
   }
 };
@@ -6121,8 +6459,12 @@ var ObjectTracks = class _ObjectTracks {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
+  displayIdentity() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : true;
+  }
   static startObjectTracks(builder) {
-    builder.startObject(4);
+    builder.startObject(5);
   }
   static addSchemaMajor(builder, schemaMajor) {
     builder.addFieldInt16(0, schemaMajor, 1);
@@ -6146,6 +6488,9 @@ var ObjectTracks = class _ObjectTracks {
   static startTracksVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addDisplayIdentity(builder, displayIdentity) {
+    builder.addFieldInt8(4, +displayIdentity, 1);
+  }
   static endObjectTracks(builder) {
     const offset = builder.endObject();
     return offset;
@@ -6157,21 +6502,23 @@ var ObjectTracks = class _ObjectTracks {
     builder.finish(offset, "TRKS", true);
   }
   unpack() {
-    return new ObjectTracksT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.tracks.bind(this), this.tracksLength()));
+    return new ObjectTracksT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.tracks.bind(this), this.tracksLength()), this.displayIdentity());
   }
   unpackTo(_o) {
     _o.schemaMajor = this.schemaMajor();
     _o.schemaMinor = this.schemaMinor();
     _o.layer = this.layer() !== null ? this.layer().unpack() : null;
     _o.tracks = this.bb.createObjList(this.tracks.bind(this), this.tracksLength());
+    _o.displayIdentity = this.displayIdentity();
   }
 };
 var ObjectTracksT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, tracks = []) {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, tracks = [], displayIdentity = true) {
     this.schemaMajor = schemaMajor;
     this.schemaMinor = schemaMinor;
     this.layer = layer2;
     this.tracks = tracks;
+    this.displayIdentity = displayIdentity;
   }
   pack(builder) {
     const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
@@ -6181,6 +6528,7 @@ var ObjectTracksT = class {
     ObjectTracks.addSchemaMinor(builder, this.schemaMinor);
     ObjectTracks.addLayer(builder, layer2);
     ObjectTracks.addTracks(builder, tracks);
+    ObjectTracks.addDisplayIdentity(builder, this.displayIdentity);
     return ObjectTracks.endObjectTracks(builder);
   }
 };
@@ -7080,8 +7428,8 @@ var SemanticSegmentationMasksT = class {
   }
 };
 
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/point2f.js
-var Point2f = class _Point2f {
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace-point.js
+var TrackTracePoint = class _TrackTracePoint {
   constructor() {
     this.bb = null;
     this.bb_pos = 0;
@@ -7091,12 +7439,12 @@ var Point2f = class _Point2f {
     this.bb = bb;
     return this;
   }
-  static getRootAsPoint2f(bb, obj) {
-    return (obj || new _Point2f()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  static getRootAsTrackTracePoint(bb, obj) {
+    return (obj || new _TrackTracePoint()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
-  static getSizePrefixedRootAsPoint2f(bb, obj) {
+  static getSizePrefixedRootAsTrackTracePoint(bb, obj) {
     bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _Point2f()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+    return (obj || new _TrackTracePoint()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   x() {
     const offset = this.bb.__offset(this.bb_pos, 4);
@@ -7106,8 +7454,12 @@ var Point2f = class _Point2f {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
   }
-  static startPoint2f(builder) {
-    builder.startObject(2);
+  sample(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new TrackingSample()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startTrackTracePoint(builder) {
+    builder.startObject(3);
   }
   static addX(builder, x) {
     builder.addFieldFloat32(0, x, 0);
@@ -7115,31 +7467,35 @@ var Point2f = class _Point2f {
   static addY(builder, y) {
     builder.addFieldFloat32(1, y, 0);
   }
-  static endPoint2f(builder) {
+  static addSample(builder, sampleOffset) {
+    builder.addFieldOffset(2, sampleOffset, 0);
+  }
+  static endTrackTracePoint(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createPoint2f(builder, x, y) {
-    _Point2f.startPoint2f(builder);
-    _Point2f.addX(builder, x);
-    _Point2f.addY(builder, y);
-    return _Point2f.endPoint2f(builder);
-  }
   unpack() {
-    return new Point2fT(this.x(), this.y());
+    return new TrackTracePointT(this.x(), this.y(), this.sample() !== null ? this.sample().unpack() : null);
   }
   unpackTo(_o) {
     _o.x = this.x();
     _o.y = this.y();
+    _o.sample = this.sample() !== null ? this.sample().unpack() : null;
   }
 };
-var Point2fT = class {
-  constructor(x = 0, y = 0) {
+var TrackTracePointT = class {
+  constructor(x = 0, y = 0, sample = null) {
     this.x = x;
     this.y = y;
+    this.sample = sample;
   }
   pack(builder) {
-    return Point2f.createPoint2f(builder, this.x, this.y);
+    const sample = this.sample !== null ? this.sample.pack(builder) : 0;
+    TrackTracePoint.startTrackTracePoint(builder);
+    TrackTracePoint.addX(builder, this.x);
+    TrackTracePoint.addY(builder, this.y);
+    TrackTracePoint.addSample(builder, sample);
+    return TrackTracePoint.endTrackTracePoint(builder);
   }
 };
 
@@ -7165,13 +7521,13 @@ var TrackTrace = class _TrackTrace {
     const offset = this.bb.__offset(this.bb_pos, 4);
     return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  trackId() {
+  identity(obj) {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+    return offset ? (obj || new TrackIdentity()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
   points(index, obj) {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? (obj || new Point2f()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+    return offset ? (obj || new TrackTracePoint()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
   }
   pointsLength() {
     const offset = this.bb.__offset(this.bb_pos, 8);
@@ -7187,8 +7543,8 @@ var TrackTrace = class _TrackTrace {
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
   }
-  static addTrackId(builder, trackId) {
-    builder.addFieldInt64(1, trackId, BigInt("0"));
+  static addIdentity(builder, identityOffset) {
+    builder.addFieldOffset(1, identityOffset, 0);
   }
   static addPoints(builder, pointsOffset) {
     builder.addFieldOffset(2, pointsOffset, 0);
@@ -7211,29 +7567,30 @@ var TrackTrace = class _TrackTrace {
     return offset;
   }
   unpack() {
-    return new TrackTraceT(this.object() !== null ? this.object().unpack() : null, this.trackId(), this.bb.createObjList(this.points.bind(this), this.pointsLength()), this.space() !== null ? this.space().unpack() : null);
+    return new TrackTraceT(this.object() !== null ? this.object().unpack() : null, this.identity() !== null ? this.identity().unpack() : null, this.bb.createObjList(this.points.bind(this), this.pointsLength()), this.space() !== null ? this.space().unpack() : null);
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
-    _o.trackId = this.trackId();
+    _o.identity = this.identity() !== null ? this.identity().unpack() : null;
     _o.points = this.bb.createObjList(this.points.bind(this), this.pointsLength());
     _o.space = this.space() !== null ? this.space().unpack() : null;
   }
 };
 var TrackTraceT = class {
-  constructor(object = null, trackId = BigInt("0"), points = [], space = null) {
+  constructor(object = null, identity = null, points = [], space = null) {
     this.object = object;
-    this.trackId = trackId;
+    this.identity = identity;
     this.points = points;
     this.space = space;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
+    const identity = this.identity !== null ? this.identity.pack(builder) : 0;
     const points = TrackTrace.createPointsVector(builder, builder.createObjectOffsetList(this.points));
     const space = this.space !== null ? this.space.pack(builder) : 0;
     TrackTrace.startTrackTrace(builder);
     TrackTrace.addObject(builder, object);
-    TrackTrace.addTrackId(builder, this.trackId);
+    TrackTrace.addIdentity(builder, identity);
     TrackTrace.addPoints(builder, points);
     TrackTrace.addSpace(builder, space);
     return TrackTrace.endTrackTrace(builder);
@@ -7993,7 +8350,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "ed154bd2324b48248518cda981de1cd8e8c0b99429de5334eef94a1e0f6c0735";
+var SCHEMA_SET_SHA256 = "2e35be6418caff504add5bf4443a81ca5c8ad0c6c0a45373fee24a234b07d6f3";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -8312,28 +8669,6 @@ var Envelope = class {
   }
 };
 
-// development/web/src/image-geometry.js
-function validImageSpace(space) {
-  const id = space?.frameId;
-  return (typeof id === "bigint" ? id > 0n : Number.isSafeInteger(id) && id > 0) && Number.isInteger(space.width) && space.width > 0 && Number.isInteger(space.height) && space.height > 0 && [space.originX, space.originY, space.extentWidth, space.extentHeight].every(Number.isFinite) && space.originX >= 0 && space.originY >= 0 && space.extentWidth > 0 && space.extentHeight > 0 && space.originX + space.extentWidth <= space.width && space.originY + space.extentHeight <= space.height;
-}
-function imagePoint(x, y, space) {
-  return { x: space.originX + x, y: space.originY + y };
-}
-function imageBox(box) {
-  const space = box?.space;
-  if (!validImageSpace(space) || ![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.width <= 0 || box.height <= 0 || ![CoordinateUnits.Pixels, CoordinateUnits.Normalized].includes(box.units)) return null;
-  const unitX = box.units === CoordinateUnits.Normalized ? space.extentWidth : 1;
-  const unitY = box.units === CoordinateUnits.Normalized ? space.extentHeight : 1;
-  return {
-    ...imagePoint(box.x * unitX, box.y * unitY, space),
-    width: box.width * unitX,
-    height: box.height * unitY,
-    frameWidth: space.width,
-    frameHeight: space.height
-  };
-}
-
 // development/web/src/mask-data.js
 function validBitmap(data) {
   const bytes = data?.encoding === BitmapEncoding.Uint8 ? 1 : data?.encoding === BitmapEncoding.Uint32LE ? 4 : 0;
@@ -8555,16 +8890,25 @@ function decodeFrameResultsMessage(message) {
     return detections;
   }, layers);
   addPayloadLayers(envelope, BoxDetectionsT, "BoxDetections", (payload) => payload.detections.map((item) => ({ type: "Rect", data: boxData(item) })), layers);
-  addPayloadLayers(envelope, ObjectTracksT, "ObjectTracks", (payload) => payload.tracks.map((item) => ({
-    type: "Rect",
-    data: {
-      ...boxData(item),
-      sourceId: identifier(item.sourceId),
-      trackId: identifier(item.trackId),
-      diagnostic: text(item.diagnostic),
-      predictedOnly: Boolean(item.predictedOnly)
-    }
-  })), layers);
+  addPayloadLayers(envelope, ObjectTracksT, "ObjectTracks", (payload) => payload.tracks.map((item) => {
+    const trackingValid = validTrack(item);
+    return {
+      type: "Rect",
+      data: {
+        ...boxData(item),
+        sourceId: item.sourceId == null ? null : identifier(item.sourceId),
+        sourceFrameIndex: item.sourceFrameIndex == null ? null : identifier(item.sourceFrameIndex),
+        identity: identityData(item.identity),
+        sample: sampleData(item.sample),
+        association: item.association,
+        sourceConfidence: item.sourceConfidence,
+        confidence: item.sourceConfidence,
+        displayText: trackLabel(item, payload.displayIdentity),
+        trackingValid,
+        spatialValid: trackingValid
+      }
+    };
+  }), layers);
   addClassificationLayers(packet, layers);
   addPayloadLayers(envelope, VoiceActivityDetectionsT, "VoiceActivityDetections", (payload) => payload.detections.map((item) => ({
     type: "VoiceActivityDetection",
@@ -8598,11 +8942,12 @@ function decodeFrameResultsMessage(message) {
     type: "TrackTrace",
     data: {
       ...objectData(item.object),
-      trackId: identifier(item.trackId),
+      identity: identityData(item.identity),
+      trackingValid: validTrace(item),
       spatialValid: validImageSpace(item.space),
       frameWidth: item.space?.width,
       frameHeight: item.space?.height,
-      points: validImageSpace(item.space) ? item.points.map((point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) ? imagePoint(point.x, point.y, item.space) : null) : []
+      points: validImageSpace(item.space) ? item.points.map((point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) ? { ...imagePoint(point.x, point.y, item.space), sample: sampleData(point.sample) } : null) : []
     }
   })), layers);
   for (const [root2, type] of [
@@ -8823,7 +9168,7 @@ function drawObjectBox(ctx, rect, mapper, color) {
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.strokeRect(box.x, box.y, box.width, box.height);
-  const label = rect.label || rect.text || confidenceLabel(rect.confidence);
+  const label = rect.displayText || rect.label || rect.text || confidenceLabel(rect.confidence);
   if (label) {
     drawTextChip(ctx, label, box.x, Math.max(2, box.y - 22), 13, color);
   }
@@ -8912,7 +9257,7 @@ function drawPersonClassification(ctx, personClassification, display, now, color
 }
 function drawTrackTrace(ctx, trace, mapper, color) {
   const points = Array.isArray(trace?.points) ? trace.points : [];
-  if (trace.spatialValid === false || points.length < 2) {
+  if (trace.trackingValid !== true || trace.spatialValid === false || points.length < 2) {
     return;
   }
   const segments = points.length - 1;
@@ -9157,17 +9502,22 @@ var tracked_objects_default = defineFeature({
     ...STYLE_CONTROLS
   ],
   resolve(result, index, settings) {
-    const items = result.items.filter((item) => item.type === "Rect");
+    const items = result.items.filter((item) => item.type === "Rect" && item.data.trackingValid === true && trackKey(item.data.identity));
     const resolved = { ...result, items, trails: [] };
+    if (!items.length && result.items.length) return { ...resolved, state: "partial", message: "Tracking identity or sample unavailable." };
     if (!settings.trails || !items.length) return resolved;
-    const source = result.output.source;
-    if (!producerKey(source)) return { ...resolved, state: "partial", message: "Trail producer identity is missing." };
     let missing = false;
     let ambiguous = false;
-    for (const id of new Set(items.map((item) => objectId(item.data.trackId)))) {
-      const candidates = (index.byTrack.get(trackKey(source, id)) || []).filter((item) => item.source.payloadType === "TrackTraces" && item.source.contentType === "trackTrace" && item.type === "TrackTrace");
+    for (const key of new Set(items.map((item) => trackKey(item.data.identity)))) {
+      const entries = index.byTrack.get(key) || [];
+      const tracks = entries.filter((item) => item.source.payloadType === "ObjectTracks");
+      const candidates = entries.filter((item) => item.source.payloadType === "TrackTraces" && item.type === "TrackTrace");
+      if (tracks.length > 1) {
+        ambiguous = true;
+        continue;
+      }
       if (candidates.length > 1) ambiguous = true;
-      else if (candidates.length === 1 && candidates[0].data.points?.length >= 2) resolved.trails.push(candidates[0].data);
+      else if (candidates.length === 1 && candidates[0].data.trackingValid === true && candidates[0].data.points?.length >= 2 && traceMatchesCurrentTrack(candidates[0].data, tracks)) resolved.trails.push(candidates[0].data);
       else missing = true;
     }
     if (ambiguous) return { ...resolved, state: "ambiguous", message: "Multiple trails match a track; ambiguous trails are omitted." };
@@ -9190,6 +9540,13 @@ var movement_trails_default = defineFeature({
   id: "movement-trails",
   label: "Movement trails",
   accepts: (source) => source.payloadType === "TrackTraces",
+  resolve(result, index) {
+    const items = result.items.filter((item) => {
+      const entries = index.byTrack.get(trackKey(item.data.identity)) || [];
+      return item.type === "TrackTrace" && item.data.trackingValid === true && entries.filter((entry) => entry.type === "TrackTrace").length === 1 && traceMatchesCurrentTrack(item.data, entries.filter((entry) => entry.source.payloadType === "ObjectTracks"));
+    });
+    return items.length === result.items.length ? { ...result, items } : { ...result, items, state: "partial", message: "Invalid or ambiguous trace omitted." };
+  },
   render({ ctx, mapper }, resolved, settings) {
     for (const item of resolved.items) {
       if (item.type === "TrackTrace") drawTrackTrace(ctx, item.data, mapper, settings.color);

@@ -19,6 +19,7 @@
 
 #include "TrackingOutput.h"
 #include "opk/FrameResults.h"
+#include "tracking_test_helpers.h"
 
 namespace {
 
@@ -27,6 +28,7 @@ makeTraceableTracks(const flatbuffers::Optional<std::uint32_t> classId = flatbuf
     opk::tracker::ActiveTrackMap activeTracks;
     auto &track = activeTracks[42U];
     track.trackId = 42U;
+    track.lastObservationFrameIndex = 2;
     track.hitStreak = 1;
     track.lastDetection.object = open_perception_kit::makeObjectMeta(7U, 3U);
     track.lastDetection.class_id = classId;
@@ -37,12 +39,14 @@ makeTraceableTracks(const flatbuffers::Optional<std::uint32_t> classId = flatbuf
         3.0f,
         4.0f);
 
-    open_perception_kit::metadata::Point2fT firstPoint;
+    open_perception_kit::metadata::TrackTracePointT firstPoint;
+    firstPoint.sample = testTrackingSample(1);
     firstPoint.x = 10.0f;
     firstPoint.y = 20.0f;
     track.traceHistoryPoints.push_back(firstPoint);
 
-    open_perception_kit::metadata::Point2fT secondPoint;
+    open_perception_kit::metadata::TrackTracePointT secondPoint;
+    secondPoint.sample = testTrackingSample(2);
     secondPoint.x = 11.0f;
     secondPoint.y = 21.0f;
     track.traceHistoryPoints.push_back(secondPoint);
@@ -65,6 +69,8 @@ void appendTrackingOutput(
     const opk::tracker::trackingoutput::TrackingResult trackingResult{
         assignments,
         predictedOnlyTrackIds,
+        "test-session",
+        *testTrackingSample(2),
     };
 
     opk::tracker::trackingoutput::appendTrackingPayloads(

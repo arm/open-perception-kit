@@ -30,7 +30,7 @@ test('indexes retain multiple candidates without confusing source and relationsh
     assert.equal(index.byPayload.get('TrackTraces').length, 2);
     assert.equal(index.byProducer.get(producerKey(outputSource(tracks))).length, 3);
     assert.equal(index.objects.get('10').length, 1);
-    assert.equal(index.byTrack.get(trackKey(outputSource(tracks), '7')).length, 3);
+    assert.equal(index.byTrack.get(trackKey(tracks.detections[0].data.identity)).length, 3);
     assert.notEqual(sourceKey(outputSource(renamed)), sourceKey(outputSource(trails)));
 });
 

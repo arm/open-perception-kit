@@ -25,15 +25,15 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-pub enum Point2fOffset {}
+pub enum TrackTracePointOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct Point2f<'a> {
+pub struct TrackTracePoint<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
 
-impl<'a> flatbuffers::Follow<'a> for Point2f<'a> {
-    type Inner = Point2f<'a>;
+impl<'a> flatbuffers::Follow<'a> for TrackTracePoint<'a> {
+    type Inner = TrackTracePoint<'a>;
     #[inline]
     unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
         Self {
@@ -42,29 +42,34 @@ impl<'a> flatbuffers::Follow<'a> for Point2f<'a> {
     }
 }
 
-impl<'a> Point2f<'a> {
+impl<'a> TrackTracePoint<'a> {
     pub const VT_X: flatbuffers::VOffsetT = 4;
     pub const VT_Y: flatbuffers::VOffsetT = 6;
+    pub const VT_SAMPLE: flatbuffers::VOffsetT = 8;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        Point2f { _tab: table }
+        TrackTracePoint { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
-        args: &'args Point2fArgs,
-    ) -> flatbuffers::WIPOffset<Point2f<'bldr>> {
-        let mut builder = Point2fBuilder::new(_fbb);
+        args: &'args TrackTracePointArgs<'args>,
+    ) -> flatbuffers::WIPOffset<TrackTracePoint<'bldr>> {
+        let mut builder = TrackTracePointBuilder::new(_fbb);
+        if let Some(x) = args.sample {
+            builder.add_sample(x);
+        }
         builder.add_y(args.y);
         builder.add_x(args.x);
         builder.finish()
     }
 
-    pub fn unpack(&self) -> Point2fT {
+    pub fn unpack(&self) -> TrackTracePointT {
         let x = self.x();
         let y = self.y();
-        Point2fT { x, y }
+        let sample = self.sample().map(|x| Box::new(x.unpack()));
+        TrackTracePointT { x, y, sample }
     }
 
     #[inline]
@@ -72,18 +77,39 @@ impl<'a> Point2f<'a> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
-        unsafe { self._tab.get::<f32>(Point2f::VT_X, Some(0.0)).unwrap() }
+        unsafe {
+            self._tab
+                .get::<f32>(TrackTracePoint::VT_X, Some(0.0))
+                .unwrap()
+        }
     }
     #[inline]
     pub fn y(&self) -> f32 {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
-        unsafe { self._tab.get::<f32>(Point2f::VT_Y, Some(0.0)).unwrap() }
+        unsafe {
+            self._tab
+                .get::<f32>(TrackTracePoint::VT_Y, Some(0.0))
+                .unwrap()
+        }
+    }
+    #[inline]
+    pub fn sample(&self) -> Option<TrackingSample<'a>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<flatbuffers::ForwardsUOffset<TrackingSample>>(
+                    TrackTracePoint::VT_SAMPLE,
+                    None,
+                )
+        }
     }
 }
 
-impl flatbuffers::Verifiable for Point2f<'_> {
+impl flatbuffers::Verifiable for TrackTracePoint<'_> {
     #[inline]
     fn run_verifier(
         v: &mut flatbuffers::Verifier,
@@ -93,75 +119,102 @@ impl flatbuffers::Verifiable for Point2f<'_> {
         v.visit_table(pos)?
             .visit_field::<f32>("x", Self::VT_X, false)?
             .visit_field::<f32>("y", Self::VT_Y, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<TrackingSample>>(
+                "sample",
+                Self::VT_SAMPLE,
+                false,
+            )?
             .finish();
         Ok(())
     }
 }
-pub struct Point2fArgs {
+pub struct TrackTracePointArgs<'a> {
     pub x: f32,
     pub y: f32,
+    pub sample: Option<flatbuffers::WIPOffset<TrackingSample<'a>>>,
 }
-impl<'a> Default for Point2fArgs {
+impl<'a> Default for TrackTracePointArgs<'a> {
     #[inline]
     fn default() -> Self {
-        Point2fArgs { x: 0.0, y: 0.0 }
+        TrackTracePointArgs {
+            x: 0.0,
+            y: 0.0,
+            sample: None,
+        }
     }
 }
 
-pub struct Point2fBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+pub struct TrackTracePointBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
     fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> Point2fBuilder<'a, 'b, A> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TrackTracePointBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_x(&mut self, x: f32) {
-        self.fbb_.push_slot::<f32>(Point2f::VT_X, x, 0.0);
+        self.fbb_.push_slot::<f32>(TrackTracePoint::VT_X, x, 0.0);
     }
     #[inline]
     pub fn add_y(&mut self, y: f32) {
-        self.fbb_.push_slot::<f32>(Point2f::VT_Y, y, 0.0);
+        self.fbb_.push_slot::<f32>(TrackTracePoint::VT_Y, y, 0.0);
     }
     #[inline]
-    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> Point2fBuilder<'a, 'b, A> {
+    pub fn add_sample(&mut self, sample: flatbuffers::WIPOffset<TrackingSample<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<TrackingSample>>(
+                TrackTracePoint::VT_SAMPLE,
+                sample,
+            );
+    }
+    #[inline]
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    ) -> TrackTracePointBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
-        Point2fBuilder {
+        TrackTracePointBuilder {
             fbb_: _fbb,
             start_: start,
         }
     }
     #[inline]
-    pub fn finish(self) -> flatbuffers::WIPOffset<Point2f<'a>> {
+    pub fn finish(self) -> flatbuffers::WIPOffset<TrackTracePoint<'a>> {
         let o = self.fbb_.end_table(self.start_);
         flatbuffers::WIPOffset::new(o.value())
     }
 }
 
-impl core::fmt::Debug for Point2f<'_> {
+impl core::fmt::Debug for TrackTracePoint<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let mut ds = f.debug_struct("Point2f");
+        let mut ds = f.debug_struct("TrackTracePoint");
         ds.field("x", &self.x());
         ds.field("y", &self.y());
+        ds.field("sample", &self.sample());
         ds.finish()
     }
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
-pub struct Point2fT {
+pub struct TrackTracePointT {
     pub x: f32,
     pub y: f32,
+    pub sample: Option<Box<TrackingSampleT>>,
 }
-impl Default for Point2fT {
+impl Default for TrackTracePointT {
     fn default() -> Self {
-        Self { x: 0.0, y: 0.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            sample: None,
+        }
     }
 }
-impl Point2fT {
+impl TrackTracePointT {
     pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
         &self,
         _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
-    ) -> flatbuffers::WIPOffset<Point2f<'b>> {
+    ) -> flatbuffers::WIPOffset<TrackTracePoint<'b>> {
         let x = self.x;
         let y = self.y;
-        Point2f::create(_fbb, &Point2fArgs { x, y })
+        let sample = self.sample.as_ref().map(|x| x.pack(_fbb));
+        TrackTracePoint::create(_fbb, &TrackTracePointArgs { x, y, sample })
     }
 }

@@ -34,7 +34,7 @@ import { WirePayload as Payload } from './fb/open-perception-kit/internalfb/wire
 import { _CLASS_TO_ID, _TYPE_REGISTRY, } from './registry.js';
 export const SDK_NAME = 'open_perception_kit';
 export const SDK_VERSION = '1.0.0';
-export const SCHEMA_SET_SHA256 = 'ed154bd2324b48248518cda981de1cd8e8c0b99429de5334eef94a1e0f6c0735';
+export const SCHEMA_SET_SHA256 = '2e35be6418caff504add5bf4443a81ca5c8ad0c6c0a45373fee24a234b07d6f3';
 export const EXTERNAL_KEY_MIN = BigInt('9223372036854775808');
 const EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 const EXTERNAL_HASH_OFFSET = BigInt('14695981039346656037');

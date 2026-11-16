@@ -1,18 +1,24 @@
-include "common.fbs";
+include "tracking.fbs";
 
 namespace open_perception_kit.metadata;
 
 table ObjectTrack {
   object:open_perception_kit.metadata.ObjectMeta;
-  source_id:ulong;
-  track_id:ulong;
+  // Original observation ID; predicted samples may refer to an earlier packet.
+  source_id:ulong = null;
+  identity:TrackIdentity;
   box:open_perception_kit.metadata.BoundingBox;
-  confidence:float;
+  // Confidence of the source detection, not a prediction quality estimate.
+  source_confidence:float = null;
   // Preserve the detection's optional category identity, including valid zero.
   class_id:uint = null;
+  // Original display label, without tracker IDs or diagnostics appended.
   text:string;
-  diagnostic:string;
-  predicted_only:bool;
+  association:TrackAssociation;
+  sample:TrackingSample;
+  // Observed: equal to sample.frame_index; predicted: strictly earlier.
+  // Absent together with source_id when the source is unknown.
+  source_frame_index:ulong = null;
 }
 
 table ObjectTracks {
@@ -20,6 +26,8 @@ table ObjectTracks {
   schema_minor:ushort = 0;
   layer:open_perception_kit.metadata.LayerInfo;
   tracks:[open_perception_kit.metadata.ObjectTrack];
+  // Presentation preference only; renderers construct the familiar ID/diagnostic label.
+  display_identity:bool = true;
 }
 
 root_type ObjectTracks;

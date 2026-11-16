@@ -51,10 +51,6 @@ struct BoundingBox;
 struct BoundingBoxBuilder;
 struct BoundingBoxT;
 
-struct Point2f;
-struct Point2fBuilder;
-struct Point2fT;
-
 struct BitmapData;
 struct BitmapDataBuilder;
 struct BitmapDataT;
@@ -677,68 +673,6 @@ CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
                   const BoundingBoxT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
-struct Point2fT : public ::flatbuffers::NativeTable {
-    typedef Point2f TableType;
-    float x = 0.0f;
-    float y = 0.0f;
-};
-
-struct Point2f FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-    typedef Point2fT NativeTableType;
-    typedef Point2fBuilder Builder;
-    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE { VT_X = 4, VT_Y = 6 };
-    float x() const {
-        return GetField<float>(VT_X, 0.0f);
-    }
-    float y() const {
-        return GetField<float>(VT_Y, 0.0f);
-    }
-    bool Verify(::flatbuffers::Verifier &verifier) const {
-        return VerifyTableStart(verifier) && VerifyField<float>(verifier, VT_X, 4) &&
-               VerifyField<float>(verifier, VT_Y, 4) && verifier.EndTable();
-    }
-    Point2fT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
-    void UnPackTo(Point2fT *_o,
-                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
-    static ::flatbuffers::Offset<Point2f>
-    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
-         const Point2fT *_o,
-         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
-};
-
-struct Point2fBuilder {
-    typedef Point2f Table;
-    ::flatbuffers::FlatBufferBuilder &fbb_;
-    ::flatbuffers::uoffset_t start_;
-    void add_x(float x) {
-        fbb_.AddElement<float>(Point2f::VT_X, x, 0.0f);
-    }
-    void add_y(float y) {
-        fbb_.AddElement<float>(Point2f::VT_Y, y, 0.0f);
-    }
-    explicit Point2fBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
-        start_ = fbb_.StartTable();
-    }
-    ::flatbuffers::Offset<Point2f> Finish() {
-        const auto end = fbb_.EndTable(start_);
-        auto o = ::flatbuffers::Offset<Point2f>(end);
-        return o;
-    }
-};
-
-inline ::flatbuffers::Offset<Point2f>
-CreatePoint2f(::flatbuffers::FlatBufferBuilder &_fbb, float x = 0.0f, float y = 0.0f) {
-    Point2fBuilder builder_(_fbb);
-    builder_.add_y(y);
-    builder_.add_x(x);
-    return builder_.Finish();
-}
-
-::flatbuffers::Offset<Point2f>
-CreatePoint2f(::flatbuffers::FlatBufferBuilder &_fbb,
-              const Point2fT *_o,
-              const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
 struct BitmapDataT : public ::flatbuffers::NativeTable {
     typedef BitmapData TableType;
     uint32_t width = 0;
@@ -1240,50 +1174,6 @@ CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _units = _o->units;
     return open_perception_kit::metadata::CreateBoundingBox(
         _fbb, _x, _y, _width, _height, _space, _units);
-}
-
-inline Point2fT *Point2f::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
-    auto _o = std::unique_ptr<Point2fT>(new Point2fT());
-    UnPackTo(_o.get(), _resolver);
-    return _o.release();
-}
-
-inline void Point2f::UnPackTo(Point2fT *_o,
-                              const ::flatbuffers::resolver_function_t *_resolver) const {
-    (void)_o;
-    (void)_resolver;
-    {
-        auto _e = x();
-        _o->x = _e;
-    }
-    {
-        auto _e = y();
-        _o->y = _e;
-    }
-}
-
-inline ::flatbuffers::Offset<Point2f>
-Point2f::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
-              const Point2fT *_o,
-              const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreatePoint2f(_fbb, _o, _rehasher);
-}
-
-inline ::flatbuffers::Offset<Point2f>
-CreatePoint2f(::flatbuffers::FlatBufferBuilder &_fbb,
-              const Point2fT *_o,
-              const ::flatbuffers::rehasher_function_t *_rehasher) {
-    (void)_rehasher;
-    (void)_o;
-    struct _VectorArgs {
-        ::flatbuffers::FlatBufferBuilder *__fbb;
-        const Point2fT *__o;
-        const ::flatbuffers::rehasher_function_t *__rehasher;
-    } _va = {&_fbb, _o, _rehasher};
-    (void)_va;
-    auto _x = _o->x;
-    auto _y = _o->y;
-    return open_perception_kit::metadata::CreatePoint2f(_fbb, _x, _y);
 }
 
 inline BitmapDataT::BitmapDataT(const BitmapDataT &o)

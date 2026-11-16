@@ -17,25 +17,28 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
-export declare class Point2f implements flatbuffers.IUnpackableObject<Point2fT> {
+import { TrackingSample, TrackingSampleT } from '../../open-perception-kit/metadata/tracking-sample.js';
+export declare class TrackTracePoint implements flatbuffers.IUnpackableObject<TrackTracePointT> {
     bb: flatbuffers.ByteBuffer | null;
     bb_pos: number;
-    __init(i: number, bb: flatbuffers.ByteBuffer): Point2f;
-    static getRootAsPoint2f(bb: flatbuffers.ByteBuffer, obj?: Point2f): Point2f;
-    static getSizePrefixedRootAsPoint2f(bb: flatbuffers.ByteBuffer, obj?: Point2f): Point2f;
+    __init(i: number, bb: flatbuffers.ByteBuffer): TrackTracePoint;
+    static getRootAsTrackTracePoint(bb: flatbuffers.ByteBuffer, obj?: TrackTracePoint): TrackTracePoint;
+    static getSizePrefixedRootAsTrackTracePoint(bb: flatbuffers.ByteBuffer, obj?: TrackTracePoint): TrackTracePoint;
     x(): number;
     y(): number;
-    static startPoint2f(builder: flatbuffers.Builder): void;
+    sample(obj?: TrackingSample): TrackingSample | null;
+    static startTrackTracePoint(builder: flatbuffers.Builder): void;
     static addX(builder: flatbuffers.Builder, x: number): void;
     static addY(builder: flatbuffers.Builder, y: number): void;
-    static endPoint2f(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createPoint2f(builder: flatbuffers.Builder, x: number, y: number): flatbuffers.Offset;
-    unpack(): Point2fT;
-    unpackTo(_o: Point2fT): void;
+    static addSample(builder: flatbuffers.Builder, sampleOffset: flatbuffers.Offset): void;
+    static endTrackTracePoint(builder: flatbuffers.Builder): flatbuffers.Offset;
+    unpack(): TrackTracePointT;
+    unpackTo(_o: TrackTracePointT): void;
 }
-export declare class Point2fT implements flatbuffers.IGeneratedObject {
+export declare class TrackTracePointT implements flatbuffers.IGeneratedObject {
     x: number;
     y: number;
-    constructor(x?: number, y?: number);
+    sample: TrackingSampleT | null;
+    constructor(x?: number, y?: number, sample?: TrackingSampleT | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }
