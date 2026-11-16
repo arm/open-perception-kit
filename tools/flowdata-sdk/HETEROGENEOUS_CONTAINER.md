@@ -58,14 +58,12 @@ The outer container does not need to understand the internal structure of each p
 
 That separation is what makes the container heterogeneous.
 
-In this repository, known payload ids are generated internally from each
-payload root type, its file identifier, and the contents of the FlatBuffers
-schemas needed by that root. Source-tree paths are intentionally not part of
-the identity. If a payload schema or one of its includes changes, that payload
-gets a different id. Readers do not reject the whole packet for that mismatch:
-they decode entries whose ids and blobs match the current SDK and preserve the
-rest for forwarding. C++, Python, and TypeScript keep those entries private;
-Rust also exposes read-only diagnostic views.
+In this repository, known payload ids are generated internally by hashing only
+the fully qualified FlatBuffers root name. A logical type keeps its id across
+schema changes, file moves, and SDK releases. Readers decode matching ids and
+preserve unknown or undecodable entries for forwarding. C++, Python, and
+TypeScript keep them private; Rust exposes read-only diagnostic views. Type
+identity does not prove wire or semantic compatibility.
 
 ## Producer and consumer roles
 
@@ -86,7 +84,8 @@ The producer does not need to know which consumers will read which payloads late
 
 ### Consumer side
 
-A consumer receives the container and first validates the outer envelope. It can then:
+A consumer validates the outer envelope and applies its producer-version
+acceptance policy before interpreting payloads. It can then:
 
 - test whether a specific payload is present
 - count payload instances for a specific known type
@@ -102,9 +101,11 @@ Adding a new payload type usually means adding a new schema and a new registry e
 
 ### Partial compatibility
 
-Older readers can skip newer or changed payloads they do not recognize. Newer
-readers can continue to read older packets for payload roots whose generated
-ids still match.
+Older readers can skip newly introduced payload types and read existing fields
+from compatibly extended tables. Newer readers can read older packets using
+defaults for added fields. Publishers must preserve wire layouts and semantics
+within the version range they promise to support; an incompatible edit retains
+the same id when the qualified root name is unchanged.
 
 ### Separation of concerns
 
@@ -140,6 +141,13 @@ The generator validates and propagates the caller-selected version but does not
 compare releases or automatically enforce the correct bump. Consuming projects
 remain responsible for that release policy and CI governance.
 
+The generated SDK reports an advisory name/version match: `exact_match` for
+identical name and version, `compatible_match` for the same name and major
+(including zero), and `name_mismatch` or `version_mismatch` otherwise.
+Schema hashes are diagnostic only. Supporting both older and newer readers
+within a major requires a publisher-owned forward/backward
+wire-compatibility promise beyond ordinary API SemVer.
+
 ### Unknown payload forwarding
 
 Forwarding, bridging, gateway, and mixed-version scenarios may require a
@@ -148,6 +156,10 @@ low-domain generated ids are preserve-only and are serialized again when the
 envelope is forwarded. Explicit external payloads are caller-owned opaque blobs
 addressed by key handles created with `external_key(...)`, not bare strings or
 numeric ids.
+
+Preserving unknown entries is distinct from preserving unknown fields inside a
+decoded known payload. Older C++ readers can lose newer fields when reserializing
+after typed access; see [Known Limitations](KNOWN_LIMITATIONS.md#runtime-behavior).
 
 ## Tradeoffs
 
@@ -175,10 +187,10 @@ The repository uses an envelope made of repeated payload entries, where each
 entry contains an identifier and a blob. Public APIs expose append and read
 operations rather than treating the envelope as a mutable global map: duplicate
 ids are valid, entries are ordered, and erase, edit, or upsert operations are
-intentionally not exposed. Compatibility is checked per payload id, so a reader
-can decode the entries that match its SDK, preserve incompatible known-domain
+intentionally not exposed. Type selection and decoding are checked per entry, so
+a reader can decode the entries that match its SDK, preserve unknown or undecodable
 entries for forwarding, and explicitly transport external opaque blobs
-by key handle. The concrete wire representation is generated
+by external key handle. The concrete wire representation is generated
 code, but the higher-level concept is language independent.
 
 ## Language bindings in context

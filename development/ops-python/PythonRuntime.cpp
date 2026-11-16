@@ -30,6 +30,8 @@
 #include "TensorBridge.h"
 #include "python_bridge/open_perception_kit_python_bridge.h"
 
+extern "C" PyObject *PyInit_open_perception_kit_bridge();
+
 #ifndef OPK_PYTHON_EXECUTABLE
 #define OPK_PYTHON_EXECUTABLE ""
 #endif
@@ -106,9 +108,17 @@ void attachToRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
     PythonPathTemplate pathTemplate(pythonPaths);
     PythonPathGuard pathGuard(pathTemplate);
 
-    if (!open_perception_kit::python_bridge::initialize_module()) {
-        throw PythonBridgeError("Failed to initialize open_perception_kit_bridge Python module: " +
-                                formatPythonError());
+    // A Python host is already initialized, so its built-in table cannot be extended.
+    // Register the generated module through its CPython initialization entrypoint.
+    PyObject *const modules = PyImport_GetModuleDict();
+    if (PyDict_GetItemString(modules, "open_perception_kit_bridge") == nullptr) {
+        PyObjectPtr module(PyInit_open_perception_kit_bridge());
+        if (!module ||
+            PyDict_SetItemString(modules, "open_perception_kit_bridge", module.get()) < 0) {
+            throw PythonBridgeError(
+                "Failed to initialize open_perception_kit_bridge Python module: " +
+                formatPythonError());
+        }
     }
     initializeTensorModule();
 }

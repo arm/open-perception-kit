@@ -21,18 +21,16 @@ The Python SDK is generated into `generated/python`. Endpoint clients use the
 packet-owning API:
 
 ```python
-from metapoc_python.packet import Envelope
+from metapoc.packet import Envelope
 ```
 
-Embedded guest scripts use the separate `metapoc_python.guest` API documented in
+Embedded guest scripts use the separate `metapoc.guest` API documented in
 [C++ Python Bridge Guest Script API](cpp-python-bridge.md). Both APIs reuse the
-same generated `*T` payload classes. That guide uses the default `metapoc`
-public name; pass `--public-name metapoc_python` when generating its C++ bridge
-to use the Python package shown here.
+same generated `*T` payload classes.
 
 The generated source tree is wheel-ready. Its `pyproject.toml` includes
 `guest.pyi` and `py.typed` as package data, so an installed wheel provides guest
-API completion in editors even though importing `metapoc_python.guest` still requires
+API completion in editors even though importing `metapoc.guest` still requires
 the registered C++ bridge at runtime.
 
 Known payload ids are generated internally and are not part of the public API.
@@ -46,7 +44,6 @@ The generated Python package requires Python 3.10 or newer.
 ```bash
 python3 tools/flowdata/gen.py generate \
   --name metapoc \
-  --public-name metapoc_python \
   --version 1.2.3 \
   --sdk python \
   --flatc "$(which flatc)" \
@@ -54,20 +51,20 @@ python3 tools/flowdata/gen.py generate \
 ```
 
 ```bash
-pip install -e generated/python
+python3 tools/flowdata/gen.py verify-manifest generated/python/flowdata-manifest.json --schema-root payloads
+python3 -m pip install -e generated/python
 ```
 
-Omit `--public-name` when the SDK name should match the schema namespace
-supplied by `--name`. The public name applies to every generated language.
+Use a Python >=3.10 environment. Verify before installation/imports add package
+metadata or bytecode caches to the generated SDK root.
 
 The package metadata and runtime constant use the supplied release version:
 
 ```python
-import metapoc_python
+import metapoc
 
-assert metapoc_python.METAPOC_PYTHON_VERSION == "1.2.3"
-assert metapoc_python.__version__ == metapoc_python.METAPOC_PYTHON_VERSION
-assert metapoc_python.FLATBUFFERS_VERSION_REQUIREMENT == ">=24.3.25,<26.0.0"
+print("SDK version:", metapoc.METAPOC_VERSION)
+print("FlatBuffers requirement:", metapoc.FLATBUFFERS_VERSION_REQUIREMENT)
 ```
 
 The generated package declares the same FlatBuffers runtime range in
@@ -76,12 +73,12 @@ The generated package declares the same FlatBuffers runtime range in
 ## Important Generated Names
 
 ```python
-from metapoc_python.packet import Envelope
-from metapoc_python.fb.demo.common.BoundingBox import BoundingBoxT
-from metapoc_python.fb.demo.common.GeoPoint import GeoPointT
-from metapoc_python.fb.demo.common.Vector3 import Vector3T
-from metapoc_python.fb.demo.perception.Perception import PerceptionT
-from metapoc_python.fb.demo.telemetry.Telemetry import TelemetryT
+from metapoc.packet import Envelope
+from metapoc.fb.demo.common.BoundingBox import BoundingBoxT
+from metapoc.fb.demo.common.GeoPoint import GeoPointT
+from metapoc.fb.demo.common.Vector3 import Vector3T
+from metapoc.fb.demo.perception.Perception import PerceptionT
+from metapoc.fb.demo.telemetry.Telemetry import TelemetryT
 ```
 
 The `*T` classes are FlatBuffers object API native classes. Field names follow
@@ -91,9 +88,9 @@ the FlatBuffers Python generator style, such as `sensorId`, `frameId`, and
 ## Build A Packet
 
 ```python
-from metapoc_python.fb.demo.perception.Perception import PerceptionT
-from metapoc_python.fb.demo.telemetry.Telemetry import TelemetryT
-from metapoc_python.packet import Envelope
+from metapoc.fb.demo.perception.Perception import PerceptionT
+from metapoc.fb.demo.telemetry.Telemetry import TelemetryT
+from metapoc.packet import Envelope
 
 front = PerceptionT()
 front.sensorId = "front_camera"
@@ -125,26 +122,37 @@ type. Read them back with occurrence indexes `0` and `1`.
 ## Read A Packet
 
 ```python
-from metapoc_python.fb.demo.perception.Perception import PerceptionT
-from metapoc_python.fb.demo.telemetry.Telemetry import TelemetryT
-from metapoc_python.packet import Envelope
+from metapoc.fb.demo.perception.Perception import PerceptionT
+from metapoc.fb.demo.telemetry.Telemetry import TelemetryT
+from metapoc.packet import Envelope, ProducerIdentityStatus
 
 envelope = Envelope(packet)
 if not envelope.valid():
     print(envelope.error())
     raise RuntimeError("invalid packet")
 
+# This application accepts the publisher's same-major wire contract.
+if envelope.producer_identity() not in (
+    ProducerIdentityStatus.EXACT_MATCH,
+    ProducerIdentityStatus.COMPATIBLE_MATCH,
+):
+    raise ValueError("unsupported producer SDK")
+
 front = envelope.get(PerceptionT, 0)
 rear = envelope.get(PerceptionT, 1)
 telemetry = envelope.get(TelemetryT, 0)
 
-assert envelope.count(PerceptionT) == 2
-assert envelope.contains(TelemetryT)
+print("Perception payloads:", envelope.count(PerceptionT))
+print("Has telemetry:", envelope.contains(TelemetryT))
 ```
 
 `get()` returns a generated FlatBuffers object API native object. The SDK does
 not expose raw FlatBuffers table objects or known-payload blobs through the
 public API.
+
+FlatBuffers object-API values retain the generated runtime's conventions: strings
+read from packets may be `bytes`, and absent vectors may be `None`. This differs
+from bridge proxies, whose string getters return Python `str` values.
 
 ## External And Unknown Payloads
 
@@ -154,7 +162,7 @@ public envelope APIs do not accept bare strings or integers for external
 payload access:
 
 ```python
-from metapoc_python.packet import external_key
+from metapoc.packet import external_key
 
 tracks_key = external_key("com.example.tracker.tracks")
 envelope.add(tracks_key, b"...")
@@ -162,7 +170,7 @@ payload = envelope.get(tracks_key)
 ```
 
 Python can also parse and reserialize envelopes that contain low-domain payload
-ids not known by the generated SDK, or known ids whose blobs do not verify as
+ids not known by the generated SDK, or known ids whose blobs do not decode as
 the expected type. Those entries are private preserve-only data and remain in
 the packet when `serialize()` is called. Typed `count()`, `contains()`, `get()`,
 and `for_each()` only include entries that successfully decode as the requested
@@ -194,6 +202,7 @@ External payloads:
 Serialization:
 
 - `serialize() -> bytes`
+- `decode(packet) -> Envelope`: equivalent to constructing `Envelope(packet)`
 
 Producer identity:
 
@@ -202,15 +211,24 @@ Producer identity:
 - `producer_schema_set_sha256: str`
 - `producer_identity() -> ProducerIdentityStatus`
 
-Import `ProducerIdentityStatus` from `metapoc_python.packet`. Parsing does not reject a
-missing or mismatched identity. `serialize()` stamps the current generated SDK
-identity, including when forwarding an envelope produced by another SDK.
+Import `ProducerIdentityStatus` from `metapoc.packet`. Its values are
+`NAME_MISMATCH`, `EXACT_MATCH`, `COMPATIBLE_MATCH`, and `VERSION_MISMATCH`.
+Classification checks the SDK name first. With a matching name, identical
+versions are exact and different versions sharing a major are compatible,
+including major zero. Missing/malformed names or versions
+produce their respective mismatch status. Schema hashes do not affect the result.
+
+The result is advisory; publishers own compatibility promises and applications
+apply acceptance policy before typed reads. Parsing does not reject a missing
+or mismatched identity. `serialize()` stamps the current generated SDK identity,
+including when forwarding an envelope produced by another SDK. See the
+[compatibility model](integration-guide.md#compatibility-model).
 
 `Envelope(packet)` checks the outer envelope file identifier and parses the
 outer packet through generated FlatBuffers accessors. It does not provide
 verifier-equivalent structural validation, so boundary code should still apply
-practical size and trust limits. Payload compatibility is checked per payload id
-and blob when typed APIs are called: entries that do not decode through the typed
+practical size and trust limits. Payload selection and decoding are checked per
+entry when typed APIs are called: entries that do not decode through the typed
 API are preserved internally for roundtrip serialization. If an envelope is
 invalid, `add()` and `serialize()` raise `RuntimeError`.
 

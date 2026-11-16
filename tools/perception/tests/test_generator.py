@@ -18,9 +18,11 @@ from __future__ import annotations
 import hashlib
 import importlib
 import io
+import json
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -74,7 +76,7 @@ class GeneratorTests(unittest.TestCase):
                 manifest = target / "flowdata-manifest.json"
                 receipt = verify_generation_manifest(manifest, schemas)
                 self.assertEqual(receipt["outputs"]["sdk"], sdk)
-                self.assertEqual(len(receipt["payloads"]), 13)
+                self.assertEqual(len(receipt["payloads"]), len(discovery.discover_schema_set(schemas)[1]))
                 before = {
                     path.relative_to(target): hashlib.sha256(path.read_bytes()).hexdigest()
                     for path in target.rglob("*") if path.is_file()
@@ -92,6 +94,63 @@ class GeneratorTests(unittest.TestCase):
                 self.assertEqual(app.main([
                     "verify-manifest", str(manifest), "--schema-root", str(relocated)
                 ]), 0)
+
+    def test_payload_identity_survives_schema_and_sdk_changes(self) -> None:
+        support = self.root / "common.fbs"
+        support.write_text("namespace sample; table Value { x:float; }", encoding="utf-8")
+        self.schema.write_text(
+            'include "common.fbs"; namespace sample; table Payload { value:Value; } '
+            'root_type Payload; file_identifier "TEST";', encoding="utf-8")
+
+        def identity(name: str, version: str) -> str:
+            context = app._build_context(name, app._semantic_version_arg(version),
+                                         self.root, self.root / "output", "flatc")
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(app._run_generate(context, "python", []), 0)
+            manifest = json.loads((context.python_root / "flowdata-manifest.json").read_text())
+            return manifest["payloads"][0]["payload_id"]
+
+        original = identity("sample", "1.0.0")
+        support.write_text("namespace sample; table Value { x:float; y:float; }", encoding="utf-8")
+        self.schema.write_text(self.schema.read_text().replace("value:Value;", "value:Value; score:float;"))
+        self.assertEqual(identity("sample", "1.1.0"), original)
+        self.assertEqual(identity("renamed_sdk", "2.0.0"), original)
+        self.schema.write_text(self.schema.read_text().replace('"TEST"', '"NEXT"'))
+        self.assertEqual(identity("sample", "1.1.0"), original)
+        self.schema.write_text(self.schema.read_text().replace("Payload", "Other"))
+        self.assertNotEqual(identity("sample", "1.1.0"), original)
+
+    def test_bridge_enum_lookup_matches_flatc_before_nearer_table(self) -> None:
+        self.schema.write_text('''
+            namespace Demo;
+            enum State:byte { Off, On }
+            table Mode { value:int; }
+            namespace Demo.Child;
+            table State { value:int; }
+            enum Mode:byte { Off, On }
+            struct Point { state:State; }
+            table Payload {
+                state:State;
+                states:[State];
+                optional_state:State = null;
+                mode:Mode;
+                child:Demo.Child.State;
+                point:Point;
+            }
+            root_type Payload;
+            file_identifier "TEST";
+        ''', encoding="utf-8")
+        output = self.root / "generated"
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(app.main([
+                "generate", "--name", "sample", "--version", "1.0.0", "--sdk", "cpp",
+                "--schema-dir", str(self.root), "--generated-root", str(output), "--cpp-python-bridge",
+            ]), 0)
+        compiled = subprocess.run([
+            "c++", "-std=c++20", "-fsyntax-only", f"-I{sysconfig.get_path('include')}",
+            f"-I{output / 'cpp'}", str(output / "cpp/python_bridge/sample_python_bridge.cpp"),
+        ], capture_output=True, text=True)
+        self.assertEqual(compiled.returncode, 0, compiled.stderr)
 
     def test_cli_arguments(self) -> None:
         self.assertEqual(app._sdk_name_arg("sdk_123"), "sdk_123")

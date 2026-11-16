@@ -36,16 +36,12 @@ producerIdentityStatusName(open_perception_kit::container::producer_identity_sta
     switch (status) {
     case producer_identity_status::exact_match:
         return "exact_match";
-    case producer_identity_status::missing:
-        return "missing";
-    case producer_identity_status::malformed:
-        return "malformed";
-    case producer_identity_status::sdk_name_mismatch:
-        return "sdk_name_mismatch";
-    case producer_identity_status::sdk_version_mismatch:
-        return "sdk_version_mismatch";
-    case producer_identity_status::schema_set_mismatch:
-        return "schema_set_mismatch";
+    case producer_identity_status::compatible_match:
+        return "compatible_match";
+    case producer_identity_status::name_mismatch:
+        return "name_mismatch";
+    case producer_identity_status::version_mismatch:
+        return "version_mismatch";
     }
 
     return "unknown";
@@ -147,7 +143,9 @@ PerceptionPacket::decodeFrameResultsPacket(std::span<const std::uint8_t> packet)
     }
 
     const auto producerIdentity = envelope.producer_identity();
-    if (producerIdentity != open_perception_kit::container::producer_identity_status::exact_match) {
+    if (producerIdentity != open_perception_kit::container::producer_identity_status::exact_match &&
+        producerIdentity !=
+            open_perception_kit::container::producer_identity_status::compatible_match) {
         return tl::unexpected(
             opk::runtime::Error(opk::runtime::ErrorFlag::InvalidPipeline,
                                 fmt::format("Unsupported Perception producer identity: {} "

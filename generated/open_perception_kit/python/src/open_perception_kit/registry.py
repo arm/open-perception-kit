@@ -16,7 +16,7 @@
 # Generated file. Do not edit.
 # SDK users: change schemas or generator inputs, then regenerate this file.
 _TYPE_REGISTRY = {
-    556103652012567315: {
+    3248104387212218840: {
         'name': 'open_perception_kit::metadata::BoxDetections',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.BoxDetections',
         'root_type': 'BoxDetections',
@@ -24,7 +24,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.BoxDetections',
         'file_identifier': 'BDET',
     },
-    2852697023809600655: {
+    3375056508603945320: {
         'name': 'open_perception_kit::metadata::Classifications',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.Classifications',
         'root_type': 'Classifications',
@@ -32,7 +32,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.Classifications',
         'file_identifier': 'CLSF',
     },
-    2065478860695108412: {
+    5246681475592864076: {
         'name': 'open_perception_kit::metadata::FrameContext',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.FrameContext',
         'root_type': 'FrameContext',
@@ -40,7 +40,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.FrameContext',
         'file_identifier': 'FCTX',
     },
-    3149752457626985059: {
+    7634499802271603959: {
         'name': 'open_perception_kit::metadata::InstanceSegmentationMasks',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks',
         'root_type': 'InstanceSegmentationMasks',
@@ -48,7 +48,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.InstanceSegmentationMasks',
         'file_identifier': 'ISGM',
     },
-    5972661533224817501: {
+    6121378805478677067: {
         'name': 'open_perception_kit::metadata::ObjectEmbeddings',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings',
         'root_type': 'ObjectEmbeddings',
@@ -56,7 +56,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.ObjectEmbeddings',
         'file_identifier': 'EMBE',
     },
-    2960585987463094496: {
+    5316059591418463553: {
         'name': 'open_perception_kit::metadata::ObjectTracks',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks',
         'root_type': 'ObjectTracks',
@@ -64,7 +64,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.ObjectTracks',
         'file_identifier': 'TRKS',
     },
-    7749401259036278028: {
+    2126073810871404430: {
         'name': 'open_perception_kit::metadata::PerformanceOverlay',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.PerformanceOverlay',
         'root_type': 'PerformanceOverlay',
@@ -72,7 +72,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.PerformanceOverlay',
         'file_identifier': 'PERF',
     },
-    9114952555105892553: {
+    5268014742632501193: {
         'name': 'open_perception_kit::metadata::PoseEstimations',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations',
         'root_type': 'PoseEstimations',
@@ -80,7 +80,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.PoseEstimations',
         'file_identifier': 'POSE',
     },
-    1998909987238011535: {
+    3128408959875976772: {
         'name': 'open_perception_kit::metadata::SegmentationMasks',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks',
         'root_type': 'SegmentationMasks',
@@ -88,7 +88,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.SegmentationMasks',
         'file_identifier': 'SGMS',
     },
-    1602571589628393389: {
+    133049182594848948: {
         'name': 'open_perception_kit::metadata::SemanticSegmentationMasks',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMasks',
         'root_type': 'SemanticSegmentationMasks',
@@ -96,7 +96,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.SemanticSegmentationMasks',
         'file_identifier': 'SSGM',
     },
-    238211229389337861: {
+    7618457940451616939: {
         'name': 'open_perception_kit::metadata::TrackTraces',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.TrackTraces',
         'root_type': 'TrackTraces',
@@ -104,7 +104,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.TrackTraces',
         'file_identifier': 'TRCE',
     },
-    3528578282400045446: {
+    7194963704333257544: {
         'name': 'open_perception_kit::metadata::TurnDetections',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.TurnDetections',
         'root_type': 'TurnDetections',
@@ -112,7 +112,7 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.TurnDetections',
         'file_identifier': 'TURN',
     },
-    7328253118381503000: {
+    4750671262425495264: {
         'name': 'open_perception_kit::metadata::VoiceActivityDetections',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections',
         'root_type': 'VoiceActivityDetections',
