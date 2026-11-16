@@ -39,8 +39,9 @@ from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbedding import 
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.Point2f import Point2fT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimation import PoseEstimationT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeAngles import GazeAnglesT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement import GazeMeasurementT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT  # noqa: E402
@@ -224,14 +225,14 @@ class FrameResultsNormalizeTests(unittest.TestCase):
             )
         )
         frame_results.add(
-            PoseEstimationsT(
+            GazeMeasurementsT(
                 layer=layer("eyeYawPitch"),
-                poses=[
-                    PoseEstimationT(
+                measurements=[
+                    GazeMeasurementT(
                         object=ObjectMetaT(id=4, parentId=2),
+                        subjectId=2,
                         confidence=0.7,
-                        yaw=11.0,
-                        pitch=-4.0,
+                        angles=GazeAnglesT(yawDegrees=11.0, pitchDegrees=-4.0),
                     )
                 ],
             )
@@ -270,7 +271,7 @@ class FrameResultsNormalizeTests(unittest.TestCase):
 
         self.assertEqual(
             item_types,
-            {"Classification", "PoseEstimation", "ObjectEmbedding", "TrackTrace"},
+            {"Classification", "GazeMeasurement", "ObjectEmbedding", "TrackTrace"},
         )
         self.assertEqual(len(snapshot.object_index), 4)
 

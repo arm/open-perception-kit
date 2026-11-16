@@ -25,15 +25,15 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-pub enum PoseEstimationsOffset {}
+pub enum GazeMeasurementsOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct PoseEstimations<'a> {
+pub struct GazeMeasurements<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
 
-impl<'a> flatbuffers::Follow<'a> for PoseEstimations<'a> {
-    type Inner = PoseEstimations<'a>;
+impl<'a> flatbuffers::Follow<'a> for GazeMeasurements<'a> {
+    type Inner = GazeMeasurements<'a>;
     #[inline]
     unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
         Self {
@@ -42,24 +42,24 @@ impl<'a> flatbuffers::Follow<'a> for PoseEstimations<'a> {
     }
 }
 
-impl<'a> PoseEstimations<'a> {
+impl<'a> GazeMeasurements<'a> {
     pub const VT_SCHEMA_MAJOR: flatbuffers::VOffsetT = 4;
     pub const VT_SCHEMA_MINOR: flatbuffers::VOffsetT = 6;
     pub const VT_LAYER: flatbuffers::VOffsetT = 8;
-    pub const VT_POSES: flatbuffers::VOffsetT = 10;
+    pub const VT_MEASUREMENTS: flatbuffers::VOffsetT = 10;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        PoseEstimations { _tab: table }
+        GazeMeasurements { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
-        args: &'args PoseEstimationsArgs<'args>,
-    ) -> flatbuffers::WIPOffset<PoseEstimations<'bldr>> {
-        let mut builder = PoseEstimationsBuilder::new(_fbb);
-        if let Some(x) = args.poses {
-            builder.add_poses(x);
+        args: &'args GazeMeasurementsArgs<'args>,
+    ) -> flatbuffers::WIPOffset<GazeMeasurements<'bldr>> {
+        let mut builder = GazeMeasurementsBuilder::new(_fbb);
+        if let Some(x) = args.measurements {
+            builder.add_measurements(x);
         }
         if let Some(x) = args.layer {
             builder.add_layer(x);
@@ -69,16 +69,18 @@ impl<'a> PoseEstimations<'a> {
         builder.finish()
     }
 
-    pub fn unpack(&self) -> PoseEstimationsT {
+    pub fn unpack(&self) -> GazeMeasurementsT {
         let schema_major = self.schema_major();
         let schema_minor = self.schema_minor();
         let layer = self.layer().map(|x| Box::new(x.unpack()));
-        let poses = self.poses().map(|x| x.iter().map(|t| t.unpack()).collect());
-        PoseEstimationsT {
+        let measurements = self
+            .measurements()
+            .map(|x| x.iter().map(|t| t.unpack()).collect());
+        GazeMeasurementsT {
             schema_major,
             schema_minor,
             layer,
-            poses,
+            measurements,
         }
     }
 
@@ -89,7 +91,7 @@ impl<'a> PoseEstimations<'a> {
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<u16>(PoseEstimations::VT_SCHEMA_MAJOR, Some(1))
+                .get::<u16>(GazeMeasurements::VT_SCHEMA_MAJOR, Some(1))
                 .unwrap()
         }
     }
@@ -100,7 +102,7 @@ impl<'a> PoseEstimations<'a> {
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<u16>(PoseEstimations::VT_SCHEMA_MINOR, Some(0))
+                .get::<u16>(GazeMeasurements::VT_SCHEMA_MINOR, Some(0))
                 .unwrap()
         }
     }
@@ -111,25 +113,25 @@ impl<'a> PoseEstimations<'a> {
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<flatbuffers::ForwardsUOffset<LayerInfo>>(PoseEstimations::VT_LAYER, None)
+                .get::<flatbuffers::ForwardsUOffset<LayerInfo>>(GazeMeasurements::VT_LAYER, None)
         }
     }
     #[inline]
-    pub fn poses(
+    pub fn measurements(
         &self,
-    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PoseEstimation<'a>>>> {
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GazeMeasurement<'a>>>> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab.get::<flatbuffers::ForwardsUOffset<
-                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PoseEstimation>>,
-            >>(PoseEstimations::VT_POSES, None)
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GazeMeasurement>>,
+            >>(GazeMeasurements::VT_MEASUREMENTS, None)
         }
     }
 }
 
-impl flatbuffers::Verifiable for PoseEstimations<'_> {
+impl flatbuffers::Verifiable for GazeMeasurements<'_> {
     #[inline]
     fn run_verifier(
         v: &mut flatbuffers::Verifier,
@@ -141,223 +143,225 @@ impl flatbuffers::Verifiable for PoseEstimations<'_> {
             .visit_field::<u16>("schema_minor", Self::VT_SCHEMA_MINOR, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<LayerInfo>>("layer", Self::VT_LAYER, false)?
             .visit_field::<flatbuffers::ForwardsUOffset<
-                flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<PoseEstimation>>,
-            >>("poses", Self::VT_POSES, false)?
+                flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<GazeMeasurement>>,
+            >>("measurements", Self::VT_MEASUREMENTS, false)?
             .finish();
         Ok(())
     }
 }
-pub struct PoseEstimationsArgs<'a> {
+pub struct GazeMeasurementsArgs<'a> {
     pub schema_major: u16,
     pub schema_minor: u16,
     pub layer: Option<flatbuffers::WIPOffset<LayerInfo<'a>>>,
-    pub poses: Option<
+    pub measurements: Option<
         flatbuffers::WIPOffset<
-            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PoseEstimation<'a>>>,
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GazeMeasurement<'a>>>,
         >,
     >,
 }
-impl<'a> Default for PoseEstimationsArgs<'a> {
+impl<'a> Default for GazeMeasurementsArgs<'a> {
     #[inline]
     fn default() -> Self {
-        PoseEstimationsArgs {
+        GazeMeasurementsArgs {
             schema_major: 1,
             schema_minor: 0,
             layer: None,
-            poses: None,
+            measurements: None,
         }
     }
 }
 
-pub struct PoseEstimationsBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+pub struct GazeMeasurementsBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
     fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> PoseEstimationsBuilder<'a, 'b, A> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GazeMeasurementsBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_schema_major(&mut self, schema_major: u16) {
         self.fbb_
-            .push_slot::<u16>(PoseEstimations::VT_SCHEMA_MAJOR, schema_major, 1);
+            .push_slot::<u16>(GazeMeasurements::VT_SCHEMA_MAJOR, schema_major, 1);
     }
     #[inline]
     pub fn add_schema_minor(&mut self, schema_minor: u16) {
         self.fbb_
-            .push_slot::<u16>(PoseEstimations::VT_SCHEMA_MINOR, schema_minor, 0);
+            .push_slot::<u16>(GazeMeasurements::VT_SCHEMA_MINOR, schema_minor, 0);
     }
     #[inline]
     pub fn add_layer(&mut self, layer: flatbuffers::WIPOffset<LayerInfo<'b>>) {
         self.fbb_
             .push_slot_always::<flatbuffers::WIPOffset<LayerInfo>>(
-                PoseEstimations::VT_LAYER,
+                GazeMeasurements::VT_LAYER,
                 layer,
             );
     }
     #[inline]
-    pub fn add_poses(
+    pub fn add_measurements(
         &mut self,
-        poses: flatbuffers::WIPOffset<
-            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<PoseEstimation<'b>>>,
+        measurements: flatbuffers::WIPOffset<
+            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<GazeMeasurement<'b>>>,
         >,
     ) {
-        self.fbb_
-            .push_slot_always::<flatbuffers::WIPOffset<_>>(PoseEstimations::VT_POSES, poses);
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            GazeMeasurements::VT_MEASUREMENTS,
+            measurements,
+        );
     }
     #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-    ) -> PoseEstimationsBuilder<'a, 'b, A> {
+    ) -> GazeMeasurementsBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
-        PoseEstimationsBuilder {
+        GazeMeasurementsBuilder {
             fbb_: _fbb,
             start_: start,
         }
     }
     #[inline]
-    pub fn finish(self) -> flatbuffers::WIPOffset<PoseEstimations<'a>> {
+    pub fn finish(self) -> flatbuffers::WIPOffset<GazeMeasurements<'a>> {
         let o = self.fbb_.end_table(self.start_);
         flatbuffers::WIPOffset::new(o.value())
     }
 }
 
-impl core::fmt::Debug for PoseEstimations<'_> {
+impl core::fmt::Debug for GazeMeasurements<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let mut ds = f.debug_struct("PoseEstimations");
+        let mut ds = f.debug_struct("GazeMeasurements");
         ds.field("schema_major", &self.schema_major());
         ds.field("schema_minor", &self.schema_minor());
         ds.field("layer", &self.layer());
-        ds.field("poses", &self.poses());
+        ds.field("measurements", &self.measurements());
         ds.finish()
     }
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
-pub struct PoseEstimationsT {
+pub struct GazeMeasurementsT {
     pub schema_major: u16,
     pub schema_minor: u16,
     pub layer: Option<Box<LayerInfoT>>,
-    pub poses: Option<Vec<PoseEstimationT>>,
+    pub measurements: Option<Vec<GazeMeasurementT>>,
 }
-impl Default for PoseEstimationsT {
+impl Default for GazeMeasurementsT {
     fn default() -> Self {
         Self {
             schema_major: 1,
             schema_minor: 0,
             layer: None,
-            poses: None,
+            measurements: None,
         }
     }
 }
-impl PoseEstimationsT {
+impl GazeMeasurementsT {
     pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
         &self,
         _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
-    ) -> flatbuffers::WIPOffset<PoseEstimations<'b>> {
+    ) -> flatbuffers::WIPOffset<GazeMeasurements<'b>> {
         let schema_major = self.schema_major;
         let schema_minor = self.schema_minor;
         let layer = self.layer.as_ref().map(|x| x.pack(_fbb));
-        let poses = self.poses.as_ref().map(|x| {
+        let measurements = self.measurements.as_ref().map(|x| {
             let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
             _fbb.create_vector(&w)
         });
-        PoseEstimations::create(
+        GazeMeasurements::create(
             _fbb,
-            &PoseEstimationsArgs {
+            &GazeMeasurementsArgs {
                 schema_major,
                 schema_minor,
                 layer,
-                poses,
+                measurements,
             },
         )
     }
 }
 #[inline]
-/// Verifies that a buffer of bytes contains a `PoseEstimations`
+/// Verifies that a buffer of bytes contains a `GazeMeasurements`
 /// and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_pose_estimations_unchecked`.
-pub fn root_as_pose_estimations(
+/// `root_as_gaze_measurements_unchecked`.
+pub fn root_as_gaze_measurements(
     buf: &[u8],
-) -> Result<PoseEstimations, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root::<PoseEstimations>(buf)
+) -> Result<GazeMeasurements, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root::<GazeMeasurements>(buf)
 }
 #[inline]
 /// Verifies that a buffer of bytes contains a size prefixed
-/// `PoseEstimations` and returns it.
+/// `GazeMeasurements` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `size_prefixed_root_as_pose_estimations_unchecked`.
-pub fn size_prefixed_root_as_pose_estimations(
+/// `size_prefixed_root_as_gaze_measurements_unchecked`.
+pub fn size_prefixed_root_as_gaze_measurements(
     buf: &[u8],
-) -> Result<PoseEstimations, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root::<PoseEstimations>(buf)
+) -> Result<GazeMeasurements, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root::<GazeMeasurements>(buf)
 }
 #[inline]
 /// Verifies, with the given options, that a buffer of bytes
-/// contains a `PoseEstimations` and returns it.
+/// contains a `GazeMeasurements` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_pose_estimations_unchecked`.
-pub fn root_as_pose_estimations_with_opts<'b, 'o>(
+/// `root_as_gaze_measurements_unchecked`.
+pub fn root_as_gaze_measurements_with_opts<'b, 'o>(
     opts: &'o flatbuffers::VerifierOptions,
     buf: &'b [u8],
-) -> Result<PoseEstimations<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root_with_opts::<PoseEstimations<'b>>(opts, buf)
+) -> Result<GazeMeasurements<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root_with_opts::<GazeMeasurements<'b>>(opts, buf)
 }
 #[inline]
 /// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `PoseEstimations` and returns
+/// bytes contains a size prefixed `GazeMeasurements` and returns
 /// it. Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_pose_estimations_unchecked`.
-pub fn size_prefixed_root_as_pose_estimations_with_opts<'b, 'o>(
+/// `root_as_gaze_measurements_unchecked`.
+pub fn size_prefixed_root_as_gaze_measurements_with_opts<'b, 'o>(
     opts: &'o flatbuffers::VerifierOptions,
     buf: &'b [u8],
-) -> Result<PoseEstimations<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root_with_opts::<PoseEstimations<'b>>(opts, buf)
+) -> Result<GazeMeasurements<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root_with_opts::<GazeMeasurements<'b>>(opts, buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a PoseEstimations and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a GazeMeasurements and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `PoseEstimations`.
-pub unsafe fn root_as_pose_estimations_unchecked(buf: &[u8]) -> PoseEstimations {
-    unsafe { flatbuffers::root_unchecked::<PoseEstimations>(buf) }
+/// Callers must trust the given bytes do indeed contain a valid `GazeMeasurements`.
+pub unsafe fn root_as_gaze_measurements_unchecked(buf: &[u8]) -> GazeMeasurements {
+    unsafe { flatbuffers::root_unchecked::<GazeMeasurements>(buf) }
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed PoseEstimations and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed GazeMeasurements and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `PoseEstimations`.
-pub unsafe fn size_prefixed_root_as_pose_estimations_unchecked(buf: &[u8]) -> PoseEstimations {
-    unsafe { flatbuffers::size_prefixed_root_unchecked::<PoseEstimations>(buf) }
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `GazeMeasurements`.
+pub unsafe fn size_prefixed_root_as_gaze_measurements_unchecked(buf: &[u8]) -> GazeMeasurements {
+    unsafe { flatbuffers::size_prefixed_root_unchecked::<GazeMeasurements>(buf) }
 }
-pub const POSE_ESTIMATIONS_IDENTIFIER: &str = "POSE";
+pub const GAZE_MEASUREMENTS_IDENTIFIER: &str = "GZMS";
 
 #[inline]
-pub fn pose_estimations_buffer_has_identifier(buf: &[u8]) -> bool {
-    flatbuffers::buffer_has_identifier(buf, POSE_ESTIMATIONS_IDENTIFIER, false)
-}
-
-#[inline]
-pub fn pose_estimations_size_prefixed_buffer_has_identifier(buf: &[u8]) -> bool {
-    flatbuffers::buffer_has_identifier(buf, POSE_ESTIMATIONS_IDENTIFIER, true)
+pub fn gaze_measurements_buffer_has_identifier(buf: &[u8]) -> bool {
+    flatbuffers::buffer_has_identifier(buf, GAZE_MEASUREMENTS_IDENTIFIER, false)
 }
 
 #[inline]
-pub fn finish_pose_estimations_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+pub fn gaze_measurements_size_prefixed_buffer_has_identifier(buf: &[u8]) -> bool {
+    flatbuffers::buffer_has_identifier(buf, GAZE_MEASUREMENTS_IDENTIFIER, true)
+}
+
+#[inline]
+pub fn finish_gaze_measurements_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-    root: flatbuffers::WIPOffset<PoseEstimations<'a>>,
+    root: flatbuffers::WIPOffset<GazeMeasurements<'a>>,
 ) {
-    fbb.finish(root, Some(POSE_ESTIMATIONS_IDENTIFIER));
+    fbb.finish(root, Some(GAZE_MEASUREMENTS_IDENTIFIER));
 }
 
 #[inline]
-pub fn finish_size_prefixed_pose_estimations_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+pub fn finish_size_prefixed_gaze_measurements_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-    root: flatbuffers::WIPOffset<PoseEstimations<'a>>,
+    root: flatbuffers::WIPOffset<GazeMeasurements<'a>>,
 ) {
-    fbb.finish_size_prefixed(root, Some(POSE_ESTIMATIONS_IDENTIFIER));
+    fbb.finish_size_prefixed(root, Some(GAZE_MEASUREMENTS_IDENTIFIER));
 }

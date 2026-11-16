@@ -54,15 +54,15 @@ Supported paths include:
 - `humanFace`: face-centered circular overlays
 - `Classifications`: top-k text with an explicit categorical/recognized-text kind
 - `PersonPresences`: centered person / non-person status from the explicit decision
-- `eyeYawPitch`: gaze direction vectors anchored to parent faces
+- `GazeMeasurements`: finite degree-angle pairs projected from the center of an explicitly referenced, unique box or track observation; missing/ambiguous subjects and unavailable angles are omitted
 - `CameraContacts`: contact status dot from the explicit outcome and unique box/track subject
 - `segmentation`: alpha-blended segmentation maps, or background replacement
   when `LayerInfoT::compositingMode` requests it and `bg-image` is configured
 - `trackTrace`: tracker history lines
 - `PerformanceMeasurements`: numeric measurements from `opkperformance`, formatted for display
 
-UUID parent relationships are used when a rendered result depends on another
-object, such as gaze vectors anchored to face rectangles.
+Contact and gaze use explicit `subject_id` references to box/track observations.
+Derivation parents and persistent track IDs are not used as fallback subjects.
 
 ## Memory And Performance
 

@@ -98,7 +98,7 @@ The currently generated payload roots are:
 - `Classifications` for ordered classification candidates with optional label-set identity
 - `CameraContacts` for explicit contact decisions and optional diagnostic model indices
 - `PersonPresences` for person/no-person scores
-- `PoseEstimations` for yaw and pitch estimates
+- `GazeMeasurements` for degree-angle pairs and explicit subject references
 - `SegmentationMasks` for compositing masks and alpha mattes
 - `SemanticSegmentationMasks` for per-pixel class maps
 - `InstanceSegmentationMasks` for individual object masks with class, confidence, and box
@@ -231,6 +231,47 @@ subject sources. Whole-frame subjects require exactly one addressable video
 frame in each source group; ambiguous multi-frame groups fail comparison rather
 than guessing correspondence from packet-local IDs, order, or image dimensions.
 Empty collections report no observations; unavailable results do not establish matches.
+
+## Gaze measurements
+
+`GazeMeasurements.measurements` contains gaze observations, not generic poses.
+Each observation has an optional `subject_id`, an optional `GazeAngles` pair
+(`yaw_degrees`, `pitch_degrees`), and an optional confidence score. Absence is
+explicit: an absent pair is unavailable, while a present `(0, 0)` is measured
+straight-ahead gaze. Empty collections mean no observations. A missing score
+does not invalidate otherwise valid angles; a supplied score must be finite
+and in `[0,1]`, including valid zero.
+
+Angles are finite degrees in the unmirrored camera/image convention. Image x
+points right and y points down. The image-plane projection is
+`dx = -sin(yaw) * cos(pitch)`, `dy = -sin(pitch)`: near forward gaze, positive
+yaw projects left and positive pitch projects up. Consumers wrap angles modulo
+360 before projection/comparison. The arrow is a 2D projection, not a full 3D
+orientation display. Presentation owns arrow length and styling; measured zero
+does not require a visible arrow.
+
+`subject_id` refers to an observation's `ObjectMeta.id` in the same packet,
+independently of the gaze object's derivation `parent_id`. It is not a persistent
+track ID, a coordinate transform or an inferred nearest face. A present zero is
+invalid. Native/browser renderers and Plumber resolve exactly one `BoxDetection`
+or `ObjectTrack`, count duplicates before checking geometry, and require valid
+explicit image space. Content-type strings do not select a gaze payload or
+restrict its subject. The arrow starts at the projected subject rectangle's
+center. Missing, duplicate and invalid subjects are not guessed or repaired.
+Model input requirements remain unchanged: MobileGaze still needs a face crop.
+
+`GazeDetectionParser` retains its soft-argmax mappings: configured positive bin
+width, or the default range from -90 to +90 degrees. Non-finite logits in either
+axis make the entire angle pair and confidence unavailable. For valid logits,
+confidence is the minimum of the two maximum softmax-bin probabilities; it is
+not a calibrated correctness probability. Malformed tensor shapes and invalid
+bin-width configuration remain errors.
+
+Plumber compares shortest per-axis differences modulo 360, taking the maximum
+and dividing by 180. The existing `0.01` threshold is unchanged (1.8 degrees).
+It also requires matching subject source and geometry, so reordering measurements can
+match but swapping angles between subjects cannot. Unavailable/non-finite
+measurements do not establish a match.
 
 ## Runtime Transport
 

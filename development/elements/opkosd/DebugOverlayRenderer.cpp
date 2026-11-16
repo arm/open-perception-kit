@@ -45,7 +45,6 @@ namespace {
 
 constexpr const char *GenericObjectContentType = "genericObject";
 constexpr const char *HumanFaceContentType = "humanFace";
-constexpr const char *EyeYawPitchContentType = "eyeYawPitch";
 constexpr const char *SegmentationContentType = "segmentation";
 constexpr const char *BottomRightCompositingMode = "bottomRight";
 constexpr const char *BackgroundReplacementCompositingMode = "backgroundReplacement";
@@ -53,7 +52,7 @@ constexpr int ObjectBoxThickness = 2;
 constexpr int HumanFaceCircleThickness = 2;
 constexpr opk::Color HumanFaceCircleColor = opk::colorFromRgbBytes(38, 0, 255);
 constexpr float GazeVectorLength = 120.0f;
-constexpr float GazePoseDeadZoneDegrees = 0.1f;
+constexpr float GazeDeadZoneDegrees = 0.1f;
 constexpr int GazeVectorThickness = 2;
 constexpr float GazeArrowHeadLength = 12.0f;
 constexpr float GazeArrowHeadWidth = 8.0f;
@@ -109,10 +108,6 @@ bool isGenericObjectLayer(const open_perception_kit::metadata::LayerInfoT *layer
 
 bool isHumanFaceLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
     return hasContentType(layer, HumanFaceContentType);
-}
-
-bool isEyeYawPitchLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
-    return hasContentType(layer, EyeYawPitchContentType);
 }
 
 bool isSegmentationLayer(const open_perception_kit::metadata::LayerInfoT *layer) noexcept {
@@ -446,38 +441,6 @@ bool isTrackedSourceDetection(const open_perception_kit::metadata::BoxDetectionT
     return detection.object != nullptr && trackedSourceIds.contains(detection.object->id);
 }
 
-const open_perception_kit::metadata::BoxDetectionT *
-findOnlyHumanFaceDetection(const open_perception_kit::FrameResults &frameResults,
-                           std::uint64_t id) {
-    if (id == 0U) {
-        return nullptr;
-    }
-
-    const open_perception_kit::metadata::BoxDetectionT *parent = nullptr;
-    std::size_t parentCount = 0U;
-
-    frameResults.for_each<open_perception_kit::metadata::BoxDetectionsT>(
-        [&parent, &parentCount, id](const auto &payload) {
-            if (!isHumanFaceLayer(payload.layer.get())) {
-                return;
-            }
-
-            for (const auto &detection : payload.detections) {
-                if (!detection || !detection->object || !detection->box) {
-                    continue;
-                }
-                if (detection->object->id != id) {
-                    continue;
-                }
-
-                parent = detection.get();
-                ++parentCount;
-            }
-        });
-
-    return parentCount == 1U ? parent : nullptr;
-}
-
 void drawHumanFaceCircle(opk::raster::SurfacePainter &painter,
                          const DebugOverlaySurface &surface,
                          const open_perception_kit::metadata::BoundingBoxT &box) noexcept {
@@ -613,46 +576,46 @@ void drawLabelledBoxes(opk::raster::SurfacePainter &painter,
 void drawGazeVector(opk::raster::SurfacePainter &painter,
                     const DebugOverlaySurface &surface,
                     const open_perception_kit::FrameResults &frameResults,
-                    const open_perception_kit::metadata::PoseEstimationT &pose) {
-    if (!pose.object || !std::isfinite(pose.yaw) || !std::isfinite(pose.pitch)) {
+                    const open_perception_kit::metadata::GazeMeasurementT &gaze) {
+    if (!gaze.subject_id || !gaze.angles || !std::isfinite(gaze.angles->yaw_degrees) ||
+        !std::isfinite(gaze.angles->pitch_degrees) ||
+        (gaze.confidence && !opk::classification::validProbability(*gaze.confidence))) {
         return;
     }
 
-    const auto *parent = findOnlyHumanFaceDetection(frameResults, pose.object->parent_id);
-    if (parent == nullptr || !parent->box) {
+    const auto *subject = open_perception_kit::findSubjectBox(frameResults, *gaze.subject_id);
+    if (subject == nullptr) {
         return;
     }
 
-    PixelBox parentBox;
-    if (!makePixelBox(surface, *parent->box, parentBox)) {
+    const auto box =
+        open_perception_kit::projectBoundingBox(*subject, surface.width, surface.height);
+    if (!box) {
         return;
     }
 
-    const float x = static_cast<float>(parentBox.x) + static_cast<float>(parentBox.width) / 2.0f;
-    const float y = static_cast<float>(parentBox.y) + static_cast<float>(parentBox.height) / 2.0f;
-    if (std::abs(pose.yaw) < GazePoseDeadZoneDegrees &&
-        std::abs(pose.pitch) < GazePoseDeadZoneDegrees) {
+    const float x = (*box)[0] + (*box)[2] / 2.0f;
+    const float y = (*box)[1] + (*box)[3] / 2.0f;
+    const float yaw = std::remainder(gaze.angles->yaw_degrees, 360.0f);
+    const float pitch = std::remainder(gaze.angles->pitch_degrees, 360.0f);
+    if (std::abs(yaw) < GazeDeadZoneDegrees && std::abs(pitch) < GazeDeadZoneDegrees) {
         return;
     }
 
     float xEnd = x;
     float yEnd = y;
-    gazeEndpoint(x, y, pose.yaw, pose.pitch, GazeVectorLength, xEnd, yEnd);
+    gazeEndpoint(x, y, yaw, pitch, GazeVectorLength, xEnd, yEnd);
     drawSimpleArrow(painter, x, y, xEnd, yEnd, opk::Colors::lightGoldenrodYellow);
 }
 
 void drawGazeVectors(opk::raster::SurfacePainter &painter,
                      const DebugOverlaySurface &surface,
                      const open_perception_kit::FrameResults &frameResults) {
-    frameResults.for_each<open_perception_kit::metadata::PoseEstimationsT>(
+    frameResults.for_each<open_perception_kit::metadata::GazeMeasurementsT>(
         [&painter, &surface, &frameResults](const auto &payload) {
-            if (!isEyeYawPitchLayer(payload.layer.get())) {
-                return;
-            }
-
-            for (const auto &pose : payload.poses) {
-                if (pose) {
-                    drawGazeVector(painter, surface, frameResults, *pose);
+            for (const auto &gaze : payload.measurements) {
+                if (gaze) {
+                    drawGazeVector(painter, surface, frameResults, *gaze);
                 }
             }
         });

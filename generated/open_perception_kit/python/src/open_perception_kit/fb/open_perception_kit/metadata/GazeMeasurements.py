@@ -17,51 +17,51 @@
 
 # namespace: metadata
 
+import open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement
 import open_perception_kit.fb.open_perception_kit.metadata.LayerInfo
-import open_perception_kit.fb.open_perception_kit.metadata.PoseEstimation
 import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
 
 
-class PoseEstimations(object):
+class GazeMeasurements(object):
     __slots__ = ['_tab']
 
     @classmethod
     def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = PoseEstimations()
+        x = GazeMeasurements()
         x.Init(buf, n + offset)
         return x
 
     @classmethod
-    def GetRootAsPoseEstimations(cls, buf, offset=0):
+    def GetRootAsGazeMeasurements(cls, buf, offset=0):
         """This method is deprecated. Please switch to GetRootAs."""
         return cls.GetRootAs(buf, offset)
 
     @classmethod
-    def PoseEstimationsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x50\x4F\x53\x45", size_prefixed=size_prefixed)
+    def GazeMeasurementsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x47\x5A\x4D\x53", size_prefixed=size_prefixed)
 
-    # PoseEstimations
+    # GazeMeasurements
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # PoseEstimations
+    # GazeMeasurements
     def SchemaMajor(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint16Flags, o + self._tab.Pos)
         return 1
 
-    # PoseEstimations
+    # GazeMeasurements
     def SchemaMinor(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint16Flags, o + self._tab.Pos)
         return 0
 
-    # PoseEstimations
+    # GazeMeasurements
     def Layer(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
@@ -72,86 +72,86 @@ class PoseEstimations(object):
             return obj
         return None
 
-    # PoseEstimations
-    def Poses(self, j):
+    # GazeMeasurements
+    def Measurements(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimation import PoseEstimation
-            obj = PoseEstimation()
+            from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement import GazeMeasurement
+            obj = GazeMeasurement()
             obj.Init(self._tab.Bytes, x)
             return obj
         return None
 
-    # PoseEstimations
-    def PosesLength(self):
+    # GazeMeasurements
+    def MeasurementsLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
-    # PoseEstimations
-    def PosesIsNone(self):
+    # GazeMeasurements
+    def MeasurementsIsNone(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
 
-def PoseEstimationsStart(builder):
+def GazeMeasurementsStart(builder):
     builder.StartObject(4)
 
 
 def Start(builder):
-    PoseEstimationsStart(builder)
+    GazeMeasurementsStart(builder)
 
 
-def PoseEstimationsAddSchemaMajor(builder, schemaMajor):
+def GazeMeasurementsAddSchemaMajor(builder, schemaMajor):
     builder.PrependUint16Slot(0, schemaMajor, 1)
 
 
 def AddSchemaMajor(builder, schemaMajor):
-    PoseEstimationsAddSchemaMajor(builder, schemaMajor)
+    GazeMeasurementsAddSchemaMajor(builder, schemaMajor)
 
 
-def PoseEstimationsAddSchemaMinor(builder, schemaMinor):
+def GazeMeasurementsAddSchemaMinor(builder, schemaMinor):
     builder.PrependUint16Slot(1, schemaMinor, 0)
 
 
 def AddSchemaMinor(builder, schemaMinor):
-    PoseEstimationsAddSchemaMinor(builder, schemaMinor)
+    GazeMeasurementsAddSchemaMinor(builder, schemaMinor)
 
 
-def PoseEstimationsAddLayer(builder, layer):
+def GazeMeasurementsAddLayer(builder, layer):
     builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(layer), 0)
 
 
 def AddLayer(builder, layer):
-    PoseEstimationsAddLayer(builder, layer)
+    GazeMeasurementsAddLayer(builder, layer)
 
 
-def PoseEstimationsAddPoses(builder, poses):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(poses), 0)
+def GazeMeasurementsAddMeasurements(builder, measurements):
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(measurements), 0)
 
 
-def AddPoses(builder, poses):
-    PoseEstimationsAddPoses(builder, poses)
+def AddMeasurements(builder, measurements):
+    GazeMeasurementsAddMeasurements(builder, measurements)
 
 
-def PoseEstimationsStartPosesVector(builder, numElems):
+def GazeMeasurementsStartMeasurementsVector(builder, numElems):
     return builder.StartVector(4, numElems, 4)
 
 
-def StartPosesVector(builder, numElems):
-    return PoseEstimationsStartPosesVector(builder, numElems)
+def StartMeasurementsVector(builder, numElems):
+    return GazeMeasurementsStartMeasurementsVector(builder, numElems)
 
 
-def PoseEstimationsEnd(builder):
+def GazeMeasurementsEnd(builder):
     return builder.EndObject()
 
 
 def End(builder):
-    return PoseEstimationsEnd(builder)
+    return GazeMeasurementsEnd(builder)
 
 
 try:
@@ -160,27 +160,27 @@ except:
     pass
 
 
-class PoseEstimationsT(object):
+class GazeMeasurementsT(object):
 
-    # PoseEstimationsT
+    # GazeMeasurementsT
     def __init__(
         self,
         schemaMajor=1,
         schemaMinor=0,
         layer=None,
-        poses=None,
+        measurements=None,
     ):
         self.schemaMajor = schemaMajor  # type: int
         self.schemaMinor = schemaMinor  # type: int
         self.layer = layer  # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.LayerInfo.LayerInfoT]
-        # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.PoseEstimation.PoseEstimationT]]
-        self.poses = poses
+        # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement.GazeMeasurementT]]
+        self.measurements = measurements
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
-        poseEstimations = PoseEstimations()
-        poseEstimations.Init(buf, pos)
-        return cls.InitFromObj(poseEstimations)
+        gazeMeasurements = GazeMeasurements()
+        gazeMeasurements.Init(buf, pos)
+        return cls.InitFromObj(gazeMeasurements)
 
     @classmethod
     def InitFromPackedBuf(cls, buf, pos=0):
@@ -188,48 +188,48 @@ class PoseEstimationsT(object):
         return cls.InitFromBuf(buf, pos+n)
 
     @classmethod
-    def InitFromObj(cls, poseEstimations):
-        x = PoseEstimationsT()
-        x._UnPack(poseEstimations)
+    def InitFromObj(cls, gazeMeasurements):
+        x = GazeMeasurementsT()
+        x._UnPack(gazeMeasurements)
         return x
 
-    # PoseEstimationsT
-    def _UnPack(self, poseEstimations):
-        if poseEstimations is None:
+    # GazeMeasurementsT
+    def _UnPack(self, gazeMeasurements):
+        if gazeMeasurements is None:
             return
-        self.schemaMajor = poseEstimations.SchemaMajor()
-        self.schemaMinor = poseEstimations.SchemaMinor()
-        if poseEstimations.Layer() is not None:
+        self.schemaMajor = gazeMeasurements.SchemaMajor()
+        self.schemaMinor = gazeMeasurements.SchemaMinor()
+        if gazeMeasurements.Layer() is not None:
             self.layer = open_perception_kit.fb.open_perception_kit.metadata.LayerInfo.LayerInfoT.InitFromObj(
-                poseEstimations.Layer())
-        if not poseEstimations.PosesIsNone():
-            self.poses = []
-            for i in range(poseEstimations.PosesLength()):
-                if poseEstimations.Poses(i) is None:
-                    self.poses.append(None)
+                gazeMeasurements.Layer())
+        if not gazeMeasurements.MeasurementsIsNone():
+            self.measurements = []
+            for i in range(gazeMeasurements.MeasurementsLength()):
+                if gazeMeasurements.Measurements(i) is None:
+                    self.measurements.append(None)
                 else:
-                    poseEstimation_ = open_perception_kit.fb.open_perception_kit.metadata.PoseEstimation.PoseEstimationT.InitFromObj(
-                        poseEstimations.Poses(i))
-                    self.poses.append(poseEstimation_)
+                    gazeMeasurement_ = open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement.GazeMeasurementT.InitFromObj(
+                        gazeMeasurements.Measurements(i))
+                    self.measurements.append(gazeMeasurement_)
 
-    # PoseEstimationsT
+    # GazeMeasurementsT
     def Pack(self, builder):
         if self.layer is not None:
             layer = self.layer.Pack(builder)
-        if self.poses is not None:
-            poseslist = []
-            for i in range(len(self.poses)):
-                poseslist.append(self.poses[i].Pack(builder))
-            PoseEstimationsStartPosesVector(builder, len(self.poses))
-            for i in reversed(range(len(self.poses))):
-                builder.PrependUOffsetTRelative(poseslist[i])
-            poses = builder.EndVector()
-        PoseEstimationsStart(builder)
-        PoseEstimationsAddSchemaMajor(builder, self.schemaMajor)
-        PoseEstimationsAddSchemaMinor(builder, self.schemaMinor)
+        if self.measurements is not None:
+            measurementslist = []
+            for i in range(len(self.measurements)):
+                measurementslist.append(self.measurements[i].Pack(builder))
+            GazeMeasurementsStartMeasurementsVector(builder, len(self.measurements))
+            for i in reversed(range(len(self.measurements))):
+                builder.PrependUOffsetTRelative(measurementslist[i])
+            measurements = builder.EndVector()
+        GazeMeasurementsStart(builder)
+        GazeMeasurementsAddSchemaMajor(builder, self.schemaMajor)
+        GazeMeasurementsAddSchemaMinor(builder, self.schemaMinor)
         if self.layer is not None:
-            PoseEstimationsAddLayer(builder, layer)
-        if self.poses is not None:
-            PoseEstimationsAddPoses(builder, poses)
-        poseEstimations = PoseEstimationsEnd(builder)
-        return poseEstimations
+            GazeMeasurementsAddLayer(builder, layer)
+        if self.measurements is not None:
+            GazeMeasurementsAddMeasurements(builder, measurements)
+        gazeMeasurements = GazeMeasurementsEnd(builder)
+        return gazeMeasurements

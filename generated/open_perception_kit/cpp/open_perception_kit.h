@@ -38,13 +38,13 @@
 #include "fb/camera_contacts_generated.h"
 #include "fb/classifications_generated.h"
 #include "fb/frame_context_generated.h"
+#include "fb/gaze_measurements_generated.h"
 #include "fb/instance_segmentation_masks_generated.h"
 #include "fb/internal/wire_envelope_generated.h"
 #include "fb/object_embeddings_generated.h"
 #include "fb/object_tracks_generated.h"
 #include "fb/performance_measurements_generated.h"
 #include "fb/person_presences_generated.h"
-#include "fb/pose_estimations_generated.h"
 #include "fb/segmentation_masks_generated.h"
 #include "fb/semantic_segmentation_masks_generated.h"
 #include "fb/track_traces_generated.h"
@@ -57,7 +57,7 @@ namespace open_perception_kit {
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "1.0.0";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "5ac6f6f4fd21ba588e045f9766e0bcd66ce5a077ef86bab7b706962374f5507c";
+    "18a212000d9a00662a0e6de673716fcb76e44196603e1e5c203117abd22cc2df";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -131,6 +131,23 @@ template <> struct native_traits<open_perception_kit::metadata::FrameContextT> {
 
     static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
         return open_perception_kit::metadata::CreateFrameContext(builder, obj);
+    }
+};
+
+template <> struct native_traits<open_perception_kit::metadata::GazeMeasurementsT> {
+    using table_type = open_perception_kit::metadata::GazeMeasurements;
+    using native_type = open_perception_kit::metadata::GazeMeasurementsT;
+
+    static constexpr id_t id = 2646100978796938776ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.GazeMeasurements";
+
+    static constexpr const char *file_identifier() {
+        return "GZMS";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreateGazeMeasurements(builder, obj);
     }
 };
 
@@ -216,23 +233,6 @@ template <> struct native_traits<open_perception_kit::metadata::PersonPresencesT
 
     static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
         return open_perception_kit::metadata::CreatePersonPresences(builder, obj);
-    }
-};
-
-template <> struct native_traits<open_perception_kit::metadata::PoseEstimationsT> {
-    using table_type = open_perception_kit::metadata::PoseEstimations;
-    using native_type = open_perception_kit::metadata::PoseEstimationsT;
-
-    static constexpr id_t id = 5268014742632501193ULL;
-    static constexpr std::string_view qualified_root_type =
-        "open_perception_kit.metadata.PoseEstimations";
-
-    static constexpr const char *file_identifier() {
-        return "POSE";
-    }
-
-    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
-        return open_perception_kit::metadata::CreatePoseEstimations(builder, obj);
     }
 };
 
@@ -330,12 +330,12 @@ using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::CameraContactsT,
                                   open_perception_kit::metadata::ClassificationsT,
                                   open_perception_kit::metadata::FrameContextT,
+                                  open_perception_kit::metadata::GazeMeasurementsT,
                                   open_perception_kit::metadata::InstanceSegmentationMasksT,
                                   open_perception_kit::metadata::ObjectEmbeddingsT,
                                   open_perception_kit::metadata::ObjectTracksT,
                                   open_perception_kit::metadata::PerformanceMeasurementsT,
                                   open_perception_kit::metadata::PersonPresencesT,
-                                  open_perception_kit::metadata::PoseEstimationsT,
                                   open_perception_kit::metadata::SegmentationMasksT,
                                   open_perception_kit::metadata::SemanticSegmentationMasksT,
                                   open_perception_kit::metadata::TrackTracesT,
