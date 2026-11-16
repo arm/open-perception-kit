@@ -22,10 +22,13 @@ import {drawFace, drawObjectBox, drawTrackTrace} from '../overlay-drawing.js';
 
 export default defineFeature({
     id: 'tracked-objects', label: 'Tracked objects',
+    defaults: {color: '#ff3030'},
     accepts: (source) => source.payloadType === 'ObjectTracks',
     controls: [
         {key: 'boxes', label: 'Boxes', type: 'checkbox', value: true},
         {key: 'trails', label: 'Trails', type: 'checkbox', value: true},
+        {key: 'shape', label: 'Marker shape', type: 'select', value: 'rectangle',
+            options: [{value: 'rectangle', label: 'Rectangle'}, {value: 'circle', label: 'Circle'}]},
         ...STYLE_CONTROLS,
     ],
     resolve(result, index, settings) {
@@ -54,7 +57,7 @@ export default defineFeature({
             for (const trace of resolved.trails) drawTrackTrace(ctx, trace, mapper, settings.color);
         }
         if (settings.boxes) {
-            const draw = resolved.output.source.contentType === 'humanFace' ? drawFace : drawObjectBox;
+            const draw = settings.shape === 'circle' ? drawFace : drawObjectBox;
             for (const {data} of resolved.items) draw(ctx, data, mapper, settings.color);
         }
     },

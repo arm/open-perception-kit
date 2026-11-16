@@ -119,7 +119,6 @@ opk::Result<opk::op::OpSignal> GenericAudioPreprocessOp::process(opk::op::OpChai
         return tl::unexpected(result.error());
     const auto &model = inference->getModel();
     context.inferenceInfo.modelName = model.name;
-    context.inferenceInfo.contentType = model.contentType;
     context.inferenceInfo.parentId = 0;
     // Preserve the scheduler's hop, sample positions and timestamps.
     return opk::op::OpSignal::Continue;

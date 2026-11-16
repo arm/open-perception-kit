@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:turn-detector-op:v1",
-  "title": "TurnDetector Op v1",
+  "$id": "urn:arm:opk:schema:turn-detector-op:v2",
+  "title": "TurnDetector Op v2",
   "if": {
     "properties": {
       "id": {
@@ -24,12 +24,8 @@
         "additionalProperties": false,
         "properties": {
           "inputAudioSourceName": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString",
+            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString",
             "default": "pipelineAudioData"
-          },
-          "vadModel": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString",
-            "default": "silero-vad"
           },
           "hopSampleCount": {
             "type": "integer",

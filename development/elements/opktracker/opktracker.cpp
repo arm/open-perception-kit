@@ -18,6 +18,7 @@
 #include "gst/PropertyGuard.h"
 
 #include "Tracker.h"
+#include "opk/InputBindings.h"
 
 #include <gst/FrameResultsMeta.h>
 #include <gst/base/gstbasetransform.h>
@@ -41,7 +42,7 @@ struct _GstOpkTracker {
 
     GstVideoInfo videoInfo;
 
-    gchar *contentType;
+    gchar *inputProducers;
     gboolean useEmbeddings;
     gchar *embeddingSpaceId;
     gchar *embeddingProducerId;
@@ -85,7 +86,7 @@ namespace {
 
 enum class PropertyId : guint {
     Reserved = 0,
-    ContentType,
+    InputProducers,
     UseEmbeddings,
     EmbeddingSpaceId,
     EmbeddingProducerId,
@@ -154,8 +155,8 @@ static const gchar *gst_opktracker_get_effective_inferId(const GstOpkTracker *se
 static opk::tracker::Config trackerConfigFromElement(GstOpkTracker *const self) {
     g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     opk::tracker::Config config;
-    config.contentType =
-        self->contentType ? self->contentType : opk::tracker::Defaults::contentType;
+    config.inputProducers =
+        opk::parseProducerIds(self->inputProducers).value_or(std::vector<std::string>{});
     config.useEmbeddings = self->useEmbeddings;
     config.embeddingSpaceId =
         self->embeddingSpaceId ? self->embeddingSpaceId : opk::tracker::Defaults::embeddingSpaceId;
@@ -301,11 +302,16 @@ static void gst_opktracker_set_property(GObject *selfInParentType,
     }
     g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     switch (static_cast<PropertyId>(propertyId)) {
-    case PropertyId::ContentType: {
-        const auto *const requestedContentType = g_value_get_string(value);
-        g_free(self->contentType);
-        self->contentType = g_strdup(requestedContentType ? requestedContentType
-                                                          : opk::tracker::Defaults::contentType);
+    case PropertyId::InputProducers: {
+        const auto *const requested = g_value_get_string(value);
+        if (!opk::parseProducerIds(requested)) {
+            GST_WARNING_OBJECT(self,
+                               "input-producers must be a JSON array of distinct producer IDs; "
+                               "previous value unchanged");
+            break;
+        }
+        g_free(self->inputProducers);
+        self->inputProducers = g_strdup(requested ? requested : "[]");
         break;
     }
     case PropertyId::UseEmbeddings:
@@ -407,8 +413,8 @@ static void gst_opktracker_get_property(GObject *selfInParentType,
     auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
     g_autoptr(GMutexLocker) objectLock = g_mutex_locker_new(GST_OBJECT_GET_LOCK(self));
     switch (static_cast<PropertyId>(propertyId)) {
-    case PropertyId::ContentType:
-        g_value_set_string(value, self->contentType);
+    case PropertyId::InputProducers:
+        g_value_set_string(value, self->inputProducers);
         break;
     case PropertyId::UseEmbeddings:
         g_value_set_boolean(value, self->useEmbeddings);
@@ -490,8 +496,8 @@ static void gst_opktracker_get_property(GObject *selfInParentType,
 static void gst_opktracker_finalize(GObject *selfInParentType) {
     auto *self = reinterpret_cast<GstOpkTracker *>(selfInParentType);
 
-    g_free(self->contentType);
-    self->contentType = nullptr;
+    g_free(self->inputProducers);
+    self->inputProducers = nullptr;
 
     g_free(self->embeddingSpaceId);
     self->embeddingSpaceId = nullptr;
@@ -521,14 +527,14 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 
     g_object_class_install_property(
         objectClass,
-        static_cast<guint>(PropertyId::ContentType),
+        static_cast<guint>(PropertyId::InputProducers),
         g_param_spec_string(
-            "content-type",
-            "Content type",
-            "FrameResults layer content type to track"
+            "input-producers",
+            "Input producers",
+            "JSON array of concrete BoxDetections producer IDs; an empty list is unconnected"
             "; Set in NULL or READY; restart via READY resets tracking history for changed "
-            "identity/content",
-            opk::tracker::Defaults::contentType,
+            "identity/input connections",
+            "[]",
             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
                                      GST_PARAM_MUTABLE_READY)));
 
@@ -863,7 +869,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *trackerClass) {
 static void gst_opktracker_init(GstOpkTracker *self) {
     self->runtimeMembers = nullptr;
 
-    self->contentType = g_strdup(opk::tracker::Defaults::contentType);
+    self->inputProducers = g_strdup("[]");
     self->useEmbeddings = opk::tracker::Defaults::useEmbeddings;
     self->embeddingSpaceId = g_strdup(opk::tracker::Defaults::embeddingSpaceId);
     self->embeddingProducerId = g_strdup(opk::tracker::Defaults::embeddingProducerId);

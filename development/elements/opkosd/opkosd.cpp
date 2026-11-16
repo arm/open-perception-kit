@@ -22,6 +22,7 @@
 #include "mediaio/GstVideoFrame.h"
 #include "opk/Bitmap.h"
 #include "opk/FrameResults.h"
+#include "opk/InputBindings.h"
 #include "opk/Tools.h"
 #include "perf/PerformanceMetrics.h"
 
@@ -68,6 +69,8 @@ struct _GstOpkOsd {
     // Internal state
     guint frameCount;
     std::optional<opk::Bitmap> bgImage;
+    std::vector<std::string> circleProducers;
+    std::optional<std::vector<std::string>> boxProducers;
 };
 
 struct _GstOpkOsdClass {
@@ -97,6 +100,8 @@ enum class PropertyId : guint {
     PerformanceOverlayEnabled,
     BgImage,
     CopyInput,
+    CircleProducers,
+    BoxProducers,
 };
 
 } // namespace
@@ -144,6 +149,26 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *osdClass) {
     baseTransformClass->transform_ip = gst_opk_osd_transform_in_place;
     baseTransformClass->start = gst_opk_osd_start;
     baseTransformClass->stop = gst_opk_osd_stop;
+    g_object_class_install_property(
+        objectClass,
+        static_cast<guint>(PropertyId::CircleProducers),
+        g_param_spec_string(
+            "circle-producers",
+            "Circle sources",
+            "JSON array of concrete producer IDs drawn as circular markers; Changeable while "
+            "playing",
+            "[]",
+            static_cast<GParamFlags>(G_PARAM_READWRITE | GST_PARAM_MUTABLE_PLAYING)));
+    g_object_class_install_property(
+        objectClass,
+        static_cast<guint>(PropertyId::BoxProducers),
+        g_param_spec_string(
+            "box-producers",
+            "Rectangle sources",
+            "JSON array of concrete rectangle producers; null selects all other typed boxes, [] "
+            "selects none; Changeable while playing",
+            nullptr,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         objectClass,
@@ -216,6 +241,8 @@ static void gst_opk_osd_init(GstOpkOsd *self) {
     self->bgImagePath = g_strdup(DEFAULT_BG_IMAGE);
     self->frameCount = 0;
     std::construct_at(&self->bgImage);
+    std::construct_at(&self->circleProducers);
+    std::construct_at(&self->boxProducers);
 
     GST_DEBUG_OBJECT(self, "Initialized OpkOsd element");
 }
@@ -301,6 +328,25 @@ static void gst_opk_osd_set_property(GObject *object,
         return;
 
     switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::CircleProducers:
+    case PropertyId::BoxProducers: {
+        const auto *const requested = g_value_get_string(value);
+        auto sources = opk::parseProducerIds(requested);
+        if (!sources) {
+            GST_WARNING_OBJECT(
+                self, "Expected a JSON array of distinct producer IDs; display settings unchanged");
+            break;
+        }
+        GST_OBJECT_LOCK(self);
+        if (static_cast<PropertyId>(propertyId) == PropertyId::CircleProducers)
+            self->circleProducers = std::move(*sources);
+        else if (requested)
+            self->boxProducers = std::move(*sources);
+        else
+            self->boxProducers.reset();
+        GST_OBJECT_UNLOCK(self);
+        break;
+    }
     case PropertyId::CopyInput:
         g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
         gst_base_transform_reconfigure_src(GST_BASE_TRANSFORM(self));
@@ -336,6 +382,18 @@ static void gst_opk_osd_get_property(GObject *object,
     auto *self = GST_OPK_OSD(object);
 
     switch (static_cast<PropertyId>(propertyId)) {
+    case PropertyId::CircleProducers:
+        GST_OBJECT_LOCK(self);
+        g_value_set_string(value, nlohmann::json(self->circleProducers).dump().c_str());
+        GST_OBJECT_UNLOCK(self);
+        break;
+    case PropertyId::BoxProducers:
+        GST_OBJECT_LOCK(self);
+        g_value_set_string(value,
+                           self->boxProducers ? nlohmann::json(*self->boxProducers).dump().c_str()
+                                              : nullptr);
+        GST_OBJECT_UNLOCK(self);
+        break;
     case PropertyId::CopyInput:
         g_value_set_boolean(value, g_atomic_int_get(&self->copyInput));
         break;
@@ -367,6 +425,8 @@ static void gst_opk_osd_finalize(GObject *object) {
     g_free(self->bgImagePath);
     self->bgImagePath = nullptr;
     std::destroy_at(&self->bgImage);
+    std::destroy_at(&self->circleProducers);
+    std::destroy_at(&self->boxProducers);
 
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
@@ -611,6 +671,8 @@ makeDebugOverlayRequest(GstOpkOsd *self,
             Osd::DebugOverlayOptions{
                 .performanceOverlayEnabled =
                     g_atomic_int_get(&self->performanceOverlayEnabled) != FALSE,
+                .circleProducers = self->circleProducers,
+                .boxProducers = self->boxProducers,
                 .backgroundImage = self->bgImage ? &*self->bgImage : nullptr,
             },
     };

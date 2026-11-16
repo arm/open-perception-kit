@@ -159,7 +159,6 @@ opk::Result<void> RetinaFaceParser::parse(const opk::TensorParser::Input &input,
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = "humanFace",
                                             .producer = &input.producerInfo});
     const float width = static_cast<float>(image.width);
     const float height = static_cast<float>(image.height);

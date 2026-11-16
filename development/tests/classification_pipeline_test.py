@@ -46,7 +46,7 @@ class ClassificationPipelineTest(unittest.TestCase):
             paths = []
             for index in (1, 0):
                 path = directory / f"opchain-contact-{index}.json"
-                path.write_text(json.dumps({"version": "1.0.0", "name": "Contact representation regression",
+                path.write_text(json.dumps({"version": "2.0.0", "name": "Contact representation regression",
                                             "description": "Preserve model mapping through typed contact output", "ops": [
                                                 {"id": "opk-std-ops/InferenceController", "attributes": {}},
                                                 {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {

@@ -25,7 +25,7 @@ Text recognizer for horizontal, axis-aligned detector crops.
 - Normalization: mean and standard deviation from `model.json`, in BGR order
 - Output: Float32 character probabilities `[1, T, C]`
 - Postprocessor: `PaddleOcrRecognitionParser` with greedy CTC decoding
-- FrameResults payload: `ClassificationsT` with `contentType` set to `textRecognition`
+- FrameResults payload: `ClassificationsT` with `kind=RecognizedText` and an explicit `subject_id` for its text region.
 - Dependency: `textRegion` detections from the PP-OCRv6 tiny detector
 
 Run `python3 scripts/download-models.py --models-dir config/models` from the

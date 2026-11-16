@@ -75,7 +75,6 @@ opk::Result<void> CameraContactParser::parse(const opk::TensorParser::Input &inp
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
     payload.contacts.push_back(std::move(classification));
     results.add(std::move(payload));

@@ -29,7 +29,6 @@ def process(env: Envelope) -> None:
                 engine="fixture",
                 model="seed-boxes",
                 inferElementId="python-guest-test",
-                contentType="test/input-boxes",
             ),
             detections=[
                 BoxDetectionT(

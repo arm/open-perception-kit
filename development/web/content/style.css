@@ -366,6 +366,8 @@ input:disabled::file-selector-button { background: var(--wfr-bg-interactive-seco
 .model-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--wfr-margin-sm); padding-block: var(--wfr-padding-md); }
 .model-info, .model-copy { min-width: 0; }
 .model-copy { display: grid; gap: var(--wfr-margin-xs); }
+.model-input-binding { display: grid; gap: var(--wfr-margin-xs); min-width: 0; overflow-wrap: anywhere; }
+.model-input-binding select { width: 100%; min-width: 0; }
 .model-task, .model-details { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-details { color: var(--wfr-txt-secondary); }
 .models-empty, .models-loading { padding-block: var(--wfr-padding-lg); color: var(--wfr-txt-secondary); }

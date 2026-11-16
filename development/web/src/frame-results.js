@@ -68,7 +68,6 @@ function layerData(layer) {
         tags: text(layer?.tags),
         inferElementId: text(layer?.inferElementId),
         labelFamily: text(layer?.labelFamily),
-        contentType: text(layer?.contentType),
         compositingMode: text(layer?.compositingMode),
         producer: producer ? {
             instanceId: text(producer.instanceId),

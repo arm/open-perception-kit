@@ -43,7 +43,7 @@ test('semantic sources are separate from alpha/instance masks and persist styles
     const catalog = new Map([layer, {...layer, model: 'other'}, {...layer, payloadType: 'SegmentationMasks'},
         {...layer, payloadType: 'InstanceSegmentationMasks'}, {...layer, contentType: 'segmentation'}]
         .map(item => [sourceKey(outputSource(item)), outputSource(item)]));
-    assert.deepEqual(semantic.discover(catalog).map(source => source.model), ['semantic', 'other', 'semantic']);
+    assert.deepEqual(semantic.discover(catalog).map(source => source.model), ['semantic', 'other']);
     const overlay = createOverlay(semantic.id, outputSource(layer));
     assert.deepEqual(overlay.settings, {opacity: 0.5, classes: {}});
     assert.equal(resolved(layer, [video, {...layer, model: 'other'}]).state, 'waiting');

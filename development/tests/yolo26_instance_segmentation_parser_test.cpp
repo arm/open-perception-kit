@@ -254,7 +254,6 @@ TEST(Yolo26InstanceSegmentationParser, SerializesMaskPixelsAndMetadata) {
     }
     const auto &masks = payload->value();
     ASSERT_NE(masks.layer, nullptr);
-    EXPECT_EQ(masks.layer->content_type, "instanceSegmentation");
     EXPECT_EQ(masks.layer->label_family, "coco");
     EXPECT_EQ(masks.layer->model, fixture.input.inferenceInfo.modelName);
     EXPECT_EQ(masks.layer->infer_element_id, fixture.input.inferenceInfo.inferElementId);

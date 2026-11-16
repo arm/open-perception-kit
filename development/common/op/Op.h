@@ -120,7 +120,7 @@ struct OpInterfacePostprocessor {
  */
 struct OpInterfaceResultConsumer {
     virtual ~OpInterfaceResultConsumer() = default;
-    virtual std::vector<opk::OutputCapability> getRequiredOutputs() const = 0;
+    virtual std::vector<opk::InputReference> getRequiredInputs() const = 0;
 };
 
 /**

@@ -19,8 +19,9 @@ import {defineFeature} from '../overlay-feature.js';
 import {drawFace} from '../overlay-drawing.js';
 
 export default defineFeature({
-    id: 'face-circles', label: 'Face circles',
-    accepts: (source) => ['BoxDetections', 'ObjectTracks'].includes(source.payloadType) && source.contentType === 'humanFace',
+    id: 'face-circles', label: 'Circular markers',
+    defaults: {color: '#2600ff'},
+    accepts: (source) => ['BoxDetections', 'ObjectTracks'].includes(source.payloadType),
     render({ctx, mapper}, resolved, settings) {
         for (const {type, data} of resolved.items) {
             if (type === 'Rect') drawFace(ctx, data, mapper, settings.color);

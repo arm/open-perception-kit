@@ -79,8 +79,11 @@ class OpChain {
     const std::string &getDisplayName() const;
     const std::string &getTask() const;
     const std::string &getRuntime() const;
-    std::vector<opk::OutputCapability> getProvidedOutputs() const;
-    std::vector<opk::OutputCapability> getRequiredOutputs() const;
+    std::vector<opk::OutputReference> getProvidedOutputs(const std::string_view inferId) const;
+    std::vector<opk::InputBinding>
+    getRequiredInputs(const std::string_view inferId,
+                      const std::vector<opk::InputBinding> &bindings = {}) const;
+    opk::Result<void> validateInputBindings(const std::vector<opk::InputBinding> &bindings) const;
     /// PCM window required by the bound inference inputs; zero means no audio input.
     /// PCM and preprocessed log-mel inputs require static, agreeing PCM windows.
     /// Audio chains must be unlooped.

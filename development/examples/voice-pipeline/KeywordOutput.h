@@ -25,8 +25,8 @@ namespace voice_pipeline {
 
 inline void printKeywords(const open_perception_kit::container::envelope &results) {
     results.for_each<open_perception_kit::metadata::ClassificationsT>([](const auto &payload) {
-        if (!payload.layer || payload.layer->infer_element_id != "keywords" ||
-            payload.layer->content_type != "keyword")
+        if (!payload.layer || !payload.layer->producer ||
+            payload.layer->producer->instance_id != "keywords/opk-std-ops-GenericPostprocess-0")
             return;
         for (const auto &classification : payload.classifications) {
             if (!classification)

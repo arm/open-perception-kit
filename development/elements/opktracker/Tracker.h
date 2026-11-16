@@ -33,12 +33,11 @@ namespace opk::tracker {
 enum class AssociationMode { Hybrid, Iou, Embedding };
 
 namespace Defaults {
-inline constexpr const char *contentType = "genericObject";
 inline constexpr float iouThreshold = 0.3f;
 inline constexpr int maxMissedFrames = 5;
 inline constexpr int minHitsToConfirm = 5;
 inline constexpr bool appendIdentityIdToText = true;
-inline constexpr bool useEmbeddings = true;
+inline constexpr bool useEmbeddings = false;
 inline constexpr const char *embeddingSpaceId = "";
 inline constexpr const char *embeddingProducerId = "";
 inline constexpr float embeddingWeight = 0.5f;
@@ -61,7 +60,7 @@ inline constexpr AssociationMode associationMode = AssociationMode::Hybrid;
 } // namespace Defaults
 
 struct Config {
-    std::string contentType = Defaults::contentType;
+    std::vector<std::string> inputProducers;
     float iouThreshold = Defaults::iouThreshold;
     int maxMissedFrames = Defaults::maxMissedFrames;
     int minHitsToConfirm = Defaults::minHitsToConfirm;

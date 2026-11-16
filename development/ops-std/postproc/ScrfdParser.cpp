@@ -368,7 +368,6 @@ opk::stdop::postproc::ScrfdParser::parse(const opk::TensorParser::Input &input,
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
     for (auto &detection : detections) {
         payload.detections.push_back(std::make_unique<FaceDetection>(std::move(detection)));

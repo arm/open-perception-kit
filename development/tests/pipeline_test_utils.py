@@ -42,7 +42,7 @@ def write_test_opchain(
     descriptor.write_text(
         json.dumps(
             {
-                "version": "1.0.0",
+                "version": "2.0.0",
                 "name": f"pipeline-test-{name}",
                 "displayName": f"Pipeline Test {name}",
                 "task": "Pipeline integration",

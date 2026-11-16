@@ -121,7 +121,6 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         image.cropX = crop.x;
         image.cropY = crop.y;
         context.inferenceInfo.modelName = model.name;
-        context.inferenceInfo.contentType = model.contentType;
         context.inferenceInfo.parentId = sourceId;
         reportTransfers();
         return op::OpSignal::Continue;

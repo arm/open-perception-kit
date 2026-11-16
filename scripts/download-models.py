@@ -35,7 +35,7 @@ from config_versions import check_version  # noqa: E402
 
 LOGGER = logging.getLogger(__name__)
 MODEL_SCHEMA = (
-    Path(__file__).resolve().parents[1] / "config/schemas/v1/model.schema.json"
+    Path(__file__).resolve().parents[1] / "config/schemas/v2/model.schema.json"
 )
 
 

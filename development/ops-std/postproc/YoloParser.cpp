@@ -441,7 +441,6 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .labelFamily = "coco",
                                             .producer = &input.producerInfo});
     appendDetections(*detections, input, payload, normalizeOutputCoordinates);

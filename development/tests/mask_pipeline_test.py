@@ -53,11 +53,11 @@ class MaskPipelineTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             model = directory / "model.json"
-            model.write_text(json.dumps({"version": "1.0.0", "name": "Mask representation regression",
+            model.write_text(json.dumps({"version": "2.0.0", "name": "Mask representation regression",
                                          "modelFile": str(artifact), "dynamicOutput": True, "inputTensors": [{"dataKind": "ImageRgbChw",
                                                                                                               "shape": [1, 3, size, size], "keepAspectRatio": True, "mean": [0, 0, 0], "std": [1, 1, 1]}]}))
             chain = directory / "opchain.json"
-            chain.write_text(json.dumps({"version": "1.0.0", "name": "Mask regression",
+            chain.write_text(json.dumps({"version": "2.0.0", "name": "Mask regression",
                                          "description": "Verify mask image space and semantics through real inference", "ops": [
                                              {"id": "opk-std-ops/InferenceController", "attributes": {}},
                                              {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {

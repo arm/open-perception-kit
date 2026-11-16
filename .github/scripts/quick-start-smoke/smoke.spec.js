@@ -129,7 +129,7 @@ test('quick-start plays video and displays an object detection', async ({ page }
 
   const video = page.locator('#video');
   const objects = page.locator('#inferenceOutputBody .inference-layer').filter({
-    has: page.locator('.inference-layer-kind', { hasText: /^genericObject$/ }),
+    has: page.locator('.inference-layer-kind', { hasText: /^BoxDetections$/ }),
   });
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -264,7 +264,7 @@ test('cancelled source choices do not bind a waiting overlay', async ({ page }) 
   await expect(page.locator('#saveOverlayBtn')).toBeDisabled();
   await page.locator('#overlayOutput').selectOption({ label: 'gaze A' });
   await page.locator('#saveOverlayBtn').click();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
     .overlays[0].selection.primary.model)).toBe('gaze A');
 });
 
@@ -274,7 +274,7 @@ test('continuous controls preview without rewriting saved background images', as
     window.overlayWrites = 0;
     const setItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key === 'opk-overlays:v2') window.overlayWrites++;
+      if (key === 'opk-overlays:v3') window.overlayWrites++;
       return setItem.call(this, key, value);
     };
     const strokeRect = CanvasRenderingContext2D.prototype.strokeRect;
@@ -302,10 +302,10 @@ test('continuous controls preview without rewriting saved background images', as
   });
   await page.locator('.overlay-card').getByLabel('Background image', { exact: true })
     .setInputFiles({ name: 'noise.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
     .overlays[0].settings.image.length)).toBeGreaterThan(250000);
   await page.evaluate(() => {
-    window.savedImage = JSON.parse(localStorage.getItem('opk-overlays:v2')).overlays[0].settings.image;
+    window.savedImage = JSON.parse(localStorage.getItem('opk-overlays:v3')).overlays[0].settings.image;
     const frame = { layers: [{
       payloadType: 'BoxDetections', contentType: 'genericObject', model: 'fixture',
       detections: [{ type: 'Rect', data: { x: 10, y: 10, width: 50, height: 50 } }],
@@ -327,11 +327,11 @@ test('continuous controls preview without rewriting saved background images', as
   });
   expect(await page.evaluate(() => window.overlayWrites)).toBe(0);
   await expect.poll(() => page.evaluate(() => window.drawnOpacity)).toBe(0.6);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
     .overlays[1].settings.opacity)).toBe(1);
   await opacity.dispatchEvent('change');
   expect(await page.evaluate(() => window.overlayWrites)).toBe(1);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
     .overlays[1].settings.opacity)).toBe(0.6);
   const color = card.getByLabel('Color', { exact: true });
   await page.evaluate(() => { window.overlayWrites = 0; });
@@ -345,7 +345,7 @@ test('continuous controls preview without rewriting saved background images', as
   await expect(card.locator('.overlay-swatch')).toHaveCSS('background-color', 'rgb(0, 0, 59)');
   await color.dispatchEvent('change');
   expect(await page.evaluate(() => window.overlayWrites)).toBe(1);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
     .overlays[0].settings.image === window.savedImage)).toBe(true);
 });
 
@@ -523,7 +523,7 @@ test.describe('semantic class maps', () => {
     expect(await className.evaluate(input => input.parentElement.title)).toContain('Unavailable');
     await className.fill('');
     await className.press('Tab');
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
       .overlays[0].settings.classes[0].label)).toBeUndefined();
     await expect(className).toHaveAttribute('placeholder', 'Class 0');
     await className.fill('person');
@@ -534,7 +534,7 @@ test.describe('semantic class maps', () => {
     await card.getByRole('button', {name: 'Reset labels', exact: true}).click();
     await expect(className).toHaveValue('');
     await expect(otherName).toHaveValue('');
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
       .overlays[0].settings.classes)).toEqual({
         0: {enabled: true, color: '#00ff00', opacity: 0.5},
         13: {enabled: false, color: '#b85840', opacity: 1},

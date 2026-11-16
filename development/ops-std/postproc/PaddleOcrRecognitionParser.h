@@ -26,11 +26,9 @@ namespace opk::stdop::postproc {
 
 /** @brief Greedy CTC decoding of PaddleOCR recognition probabilities. */
 struct PaddleOcrRecognitionParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "textRecognition";
 
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {
-            opk::outputCapability<open_perception_kit::metadata::ClassificationsT>(k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::ClassificationsT>()};
     }
 
     opk::Result<void> parse(const opk::TensorParser::Input &input,

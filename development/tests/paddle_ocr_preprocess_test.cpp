@@ -35,7 +35,6 @@ class FakeInference : public opk::op::Op, public opk::op::OpInterfaceInference {
   public:
     explicit FakeInference(bool detection = false) {
         model.name = "test-paddle";
-        model.contentType = "test-text";
         opk::ModelInput input;
         input.shape = detection ? opk::Shape(1, 3, 736, 736) : opk::Shape(1, 3, 48, 320);
         input.dataKind = opk::DataKind::ImageBgrChw;
@@ -196,6 +195,7 @@ TEST_F(PaddleOcrPreprocess, DetectionBoxesFeedRecognitionWithTheSameSourceImageB
     opk::TensorParser::Input input(attributes);
     input.tensors[0] = &tensor;
     input.inferenceInfo = context.inferenceInfo;
+    input.producerInfo.instance_id = "detector/output";
     opk::stdop::postproc::PaddleOcrDbDetectionParser parser;
     ASSERT_TRUE(parser.parse(input, results));
     const open_perception_kit::FrameResults decoded(open_perception_kit::serialize(results));
@@ -207,7 +207,7 @@ TEST_F(PaddleOcrPreprocess, DetectionBoxesFeedRecognitionWithTheSameSourceImageB
 
     opk::stdop::InferenceControllerOp regions;
     opk::AttributeMap regionAttributes;
-    ASSERT_TRUE(regions.configure(regionAttributes.set("contentType", "textRegion")));
+    ASSERT_TRUE(regions.configure(regionAttributes.set("sourceProducer", "detector/output")));
     ASSERT_TRUE(regions.process(context));
     ASSERT_EQ(context.inferenceImageCrops.size(), 1U);
     const auto crop = context.inferenceImageCrops[0];
@@ -341,7 +341,6 @@ TEST_F(PaddleOcrPreprocess, CropsUseOffsetsStrideAndMatchingObjectIdsUntilLoopEn
     EXPECT_EQ(context.inferenceInfo.image.width, 1U);
     EXPECT_EQ(context.inferenceInfo.image.height, 1U);
     EXPECT_EQ(context.inferenceInfo.modelName, "test-paddle");
-    EXPECT_EQ(context.inferenceInfo.contentType, "test-text");
     EXPECT_EQ(context.inferenceInfo.inferElementId, "ocr-demo");
     ASSERT_EQ(context.inferenceImageCrops.size(), 1U);
     ASSERT_EQ(context.inferenceImageCropIds.size(), 1U);

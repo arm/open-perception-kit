@@ -67,7 +67,6 @@ Model::createOutputTensorView(size_t index, const uint8_t *data, const opk::Shap
 opk::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDescriptor) {
 
     this->name = modelDescriptor.name;
-    this->contentType = modelDescriptor.contentType;
 
     // INPUT tensors
     if (inputs.size() != modelDescriptor.inputTensors.size()) {

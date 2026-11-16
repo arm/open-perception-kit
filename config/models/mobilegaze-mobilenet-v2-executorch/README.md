@@ -25,7 +25,7 @@ ExecuTorch/XNNPACK variant of the MobileGaze face-level gaze estimator.
 - Preprocessing: ImageNet mean and standard-deviation normalization
 - Output: two `[1, 90]` angle-logit tensors
 - Postprocessor: `GazeDetectionParser` with `angleBinWidthDeg` set to `4`
-- Dependency: `humanFace` detections from UltraFace
+- Input: `BoxDetectionsT` from an explicitly connected face detector, such as UltraFace.
 
 The model artifact is downloaded from the pinned `hfDownload` entry and is
 not stored in the repository. Run the complete UltraFace cascade with:

@@ -33,8 +33,11 @@ TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
         .display_name = "YOLOv11n",
         .task = "Object detection",
         .runtime = "ONNX",
-        .provided_outputs = {{"open_perception_kit.metadata.BoxDetections", "genericObject"}},
-        .required_outputs = {{"open_perception_kit.metadata.ObjectEmbeddings", "imageEmbedding"}},
+        .provided_outputs = {{"open_perception_kit.metadata.BoxDetections", "detector/output"}},
+        .required_inputs = {{"consumer",
+                             "input",
+                             "open_perception_kit.metadata.ObjectEmbeddings",
+                             "embed/output"}},
     });
 
     const auto report = registry.report();
@@ -48,11 +51,13 @@ TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
     EXPECT_EQ(report[0].at("runtime"), "ONNX");
     EXPECT_EQ(report[0].at("providedOutputs"),
               nlohmann::json::array({{{"payloadType", "open_perception_kit.metadata.BoxDetections"},
-                                      {"role", "genericObject"}}}));
+                                      {"producerId", "detector/output"}}}));
     EXPECT_EQ(
-        report[0].at("requiredOutputs"),
+        report[0].at("requiredInputs"),
         nlohmann::json::array({{{"payloadType", "open_perception_kit.metadata.ObjectEmbeddings"},
-                                {"role", "imageEmbedding"}}}));
+                                {"consumerId", "consumer"},
+                                {"inputId", "input"},
+                                {"producerId", "embed/output"}}}));
 }
 
 TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
@@ -69,7 +74,7 @@ TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
     EXPECT_FALSE(report[0].contains("task"));
     EXPECT_FALSE(report[0].contains("runtime"));
     EXPECT_EQ(report[0].at("providedOutputs"), nlohmann::json::array());
-    EXPECT_EQ(report[0].at("requiredOutputs"), nlohmann::json::array());
+    EXPECT_EQ(report[0].at("requiredInputs"), nlohmann::json::array());
 }
 
 TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
@@ -99,11 +104,11 @@ TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
 
 TEST(ModelRegistration, ParsesOptionalFieldsAndTypedOutputs) {
     gst_init(nullptr, nullptr);
-    const std::vector<opk::OutputCapability> provided{
-        {"open_perception_kit.metadata.BoxDetections", "genericObject"},
-        {"open_perception_kit.metadata.BoxDetections", "humanFace"}};
-    const std::vector<opk::OutputCapability> required{
-        {"open_perception_kit.metadata.ObjectEmbeddings", "imageEmbedding"}};
+    const std::vector<opk::OutputReference> provided{
+        {"open_perception_kit.metadata.BoxDetections", "first/output"},
+        {"open_perception_kit.metadata.BoxDetections", "second/output"}};
+    const std::vector<opk::InputBinding> required{
+        {"consumer", "input", "open_perception_kit.metadata.ObjectEmbeddings", "embed/output"}};
     GstStructure *structure = gst_structure_new("opk-model-register",
                                                 "model-name",
                                                 G_TYPE_STRING,
@@ -125,7 +130,7 @@ TEST(ModelRegistration, ParsesOptionalFieldsAndTypedOutputs) {
                                                 "ONNX",
                                                 nullptr);
     opk::result_requirement_event::writeList(structure, "provided-outputs", provided);
-    opk::result_requirement_event::writeList(structure, "required-outputs", required);
+    opk::result_requirement_event::writeList(structure, "required-inputs", required);
 
     const auto status = model_status_from_registration(structure);
 
@@ -138,7 +143,7 @@ TEST(ModelRegistration, ParsesOptionalFieldsAndTypedOutputs) {
     EXPECT_EQ(status->task, "Object detection");
     EXPECT_EQ(status->runtime, "ONNX");
     EXPECT_EQ(status->provided_outputs, provided);
-    EXPECT_EQ(status->required_outputs, required);
+    EXPECT_EQ(status->required_inputs, required);
     gst_structure_free(structure);
 }
 
@@ -155,10 +160,10 @@ TEST(ModelRegistration, DoesNotInterpretMalformedCapabilityLists) {
                                                 G_TYPE_STRING,
                                                 "not-a-string-vector",
                                                 nullptr);
-    GValue null_content_types = G_VALUE_INIT;
-    g_value_init(&null_content_types, G_TYPE_STRV);
-    g_value_set_boxed(&null_content_types, nullptr);
-    gst_structure_set_value(structure, "required-outputs", &null_content_types);
+    GValue invalid_inputs = G_VALUE_INIT;
+    g_value_init(&invalid_inputs, G_TYPE_STRV);
+    g_value_set_boxed(&invalid_inputs, nullptr);
+    gst_structure_set_value(structure, "required-inputs", &invalid_inputs);
 
     const auto status = model_status_from_registration(structure);
 
@@ -170,8 +175,8 @@ TEST(ModelRegistration, DoesNotInterpretMalformedCapabilityLists) {
     EXPECT_TRUE(status->task.empty());
     EXPECT_TRUE(status->runtime.empty());
     EXPECT_TRUE(status->provided_outputs.empty());
-    EXPECT_TRUE(status->required_outputs.empty());
-    g_value_unset(&null_content_types);
+    EXPECT_TRUE(status->required_inputs.empty());
+    g_value_unset(&invalid_inputs);
     gst_structure_free(structure);
 }
 

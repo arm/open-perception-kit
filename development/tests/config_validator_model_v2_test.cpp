@@ -26,7 +26,7 @@ using opk::config::test::hasRule;
 
 nlohmann::json staticModel() {
     return nlohmann::json{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "feedback-test"},
         {"modelFile", "model.onnx"},
         {"dynamicOutput", false},
@@ -36,17 +36,17 @@ nlohmann::json staticModel() {
          {{{"shape", {1}}, {"dataKind", "RawTensorData"}, {"valueType", "Float32"}}}}};
 }
 
-TEST(ConfigValidator, ModelV1RejectsTensorByteSizeOverflow) {
+TEST(ConfigValidator, ModelV2RejectsTensorByteSizeOverflow) {
     auto document = staticModel();
     document["inputTensors"][0]["shape"] = {2147483647, 2147483647, 2147483647, 2147483647};
 
     const auto result = opk::config::validateModelJson(document.dump());
 
     ASSERT_FALSE(result);
-    EXPECT_TRUE(hasRule(result.error(), "model.v1.tensor-size"));
+    EXPECT_TRUE(hasRule(result.error(), "model.v2.tensor-size"));
 }
 
-TEST(ConfigValidator, ModelV1ValidatesFeedbackDestination) {
+TEST(ConfigValidator, ModelV2ValidatesFeedbackDestination) {
     auto document = staticModel();
     document["inputTensors"].push_back(
         {{"dataKind", "Value"}, {"valueInputs", {0.0}}, {"valueType", "Float32"}});
@@ -58,7 +58,7 @@ TEST(ConfigValidator, ModelV1ValidatesFeedbackDestination) {
     const auto invalidDestination = opk::config::validateModelJson(document.dump());
 
     ASSERT_FALSE(invalidDestination);
-    EXPECT_TRUE(hasRule(invalidDestination.error(), "model.v1.feedback-destination"));
+    EXPECT_TRUE(hasRule(invalidDestination.error(), "model.v2.feedback-destination"));
 
     document["tensorFeedbacks"] = {
         {{"mode", "Copy"}, {"fromOutputTensorIndex", 0}, {"toInputTensorIndex", 0}},
@@ -66,10 +66,10 @@ TEST(ConfigValidator, ModelV1ValidatesFeedbackDestination) {
     };
     const auto duplicateDestination = opk::config::validateModelJson(document.dump());
     ASSERT_FALSE(duplicateDestination);
-    EXPECT_TRUE(hasRule(duplicateDestination.error(), "model.v1.feedback-destination"));
+    EXPECT_TRUE(hasRule(duplicateDestination.error(), "model.v2.feedback-destination"));
 }
 
-TEST(ConfigValidator, ModelV1ValidatesStaticFeedbackSourceAndCompatibility) {
+TEST(ConfigValidator, ModelV2ValidatesStaticFeedbackSourceAndCompatibility) {
     auto document = staticModel();
     document["tensorFeedbacks"] = {
         {{"mode", "Copy"}, {"fromOutputTensorIndex", 1}, {"toInputTensorIndex", 0}},
@@ -77,20 +77,20 @@ TEST(ConfigValidator, ModelV1ValidatesStaticFeedbackSourceAndCompatibility) {
 
     const auto missingSource = opk::config::validateModelJson(document.dump());
     ASSERT_FALSE(missingSource);
-    EXPECT_TRUE(hasRule(missingSource.error(), "model.v1.feedback-source"));
+    EXPECT_TRUE(hasRule(missingSource.error(), "model.v2.feedback-source"));
 
     document["tensorFeedbacks"][0]["fromOutputTensorIndex"] = 0;
     document["outputTensors"][0]["shape"] = {2};
     const auto incompatible = opk::config::validateModelJson(document.dump());
     ASSERT_FALSE(incompatible);
-    EXPECT_TRUE(hasRule(incompatible.error(), "model.v1.feedback-compatible"));
+    EXPECT_TRUE(hasRule(incompatible.error(), "model.v2.feedback-compatible"));
 
     document["outputTensors"][0]["shape"] = {1};
     const auto valid = opk::config::validateModelJson(document.dump());
     EXPECT_TRUE(valid) << (valid ? "" : valid.error().toText());
 }
 
-TEST(ConfigValidator, ModelV1DefersDynamicFeedbackSourceValidation) {
+TEST(ConfigValidator, ModelV2DefersDynamicFeedbackSourceValidation) {
     auto document = staticModel();
     document["dynamicOutput"] = true;
     document.erase("outputTensors");

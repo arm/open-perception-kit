@@ -1,9 +1,8 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "gaze-resnet50-448-fp32",
   "modelFile": "resnet50_gaze.onnx",
   "dynamicOutput": false,
-  "contentType": "eyeYawPitch",
   "inputTensors": [
     {"shape": [1, 3, 448, 448], "dataKind": "ImageRgbChw", "valueType": "Float32", "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}
   ],

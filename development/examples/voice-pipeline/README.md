@@ -62,7 +62,9 @@ building turn history. Set `inputWindowSampleCount` to the VAD context and
 [the audio preprocessing contract](../../../docs/arch/audio-log-mel.md#conversation-audio-and-metadata).
 
 Custom pipelines can add an independently scheduled microphone inference branch
-named `keywords`. The console prints `KEYWORD "<label>" (<probability>%)` for its
+named `keywords`, with its postprocessor explicitly named
+`instanceId: "opk-std-ops-GenericPostprocess-0"`. The console selects that concrete
+producer and prints `KEYWORD "<label>" (<probability>%)` for its
 accepted classifications, escaping control characters in labels. These are rolling
 model assessments, so the same word may appear repeatedly; they do not start or
 stop the conversation state machine.

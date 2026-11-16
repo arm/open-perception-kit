@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Verify that enabling a model activates its upstream content providers."""
+"""Verify activation and live switching of explicit upstream input connections."""
 
 from __future__ import annotations
 
@@ -60,14 +60,16 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         # Pipeline order is upstream to downstream. Both face models can provide the
         # contact model's input, while the unrelated model provides the wrong type.
         capabilities = {
-            "unrelated": {"provided-payload-type": "open_perception_kit.metadata.Classifications", "provided-role": "humanFace"},
-            "face-a": {"provided-payload-type": "open_perception_kit.metadata.BoxDetections", "provided-role": "humanFace"},
-            "face-b": {"provided-payload-type": "open_perception_kit.metadata.BoxDetections", "provided-role": "humanFace"},
+            "unrelated": {"provided-payload-type": "open_perception_kit.metadata.Classifications"},
+            "face-a": {"provided-payload-type": "open_perception_kit.metadata.BoxDetections"},
+            "face-b": {"provided-payload-type": "open_perception_kit.metadata.BoxDetections"},
             "contact": {
-                "required-payload-type": "open_perception_kit.metadata.BoxDetections", "required-role": "humanFace",
-                "provided-payload-type": "open_perception_kit.metadata.CameraContacts", "provided-role": "cameraContact",
+                "required-payload-type": "open_perception_kit.metadata.BoxDetections",
+                "required-producer": "face-a/opk-test-qos-delay-Delay-0",
+                "provided-payload-type": "open_perception_kit.metadata.CameraContacts",
             },
-            "gaze": {"required-payload-type": "open_perception_kit.metadata.CameraContacts"},
+            "gaze": {"required-payload-type": "open_perception_kit.metadata.CameraContacts",
+                     "required-producer": "contact/opk-test-qos-delay-Delay-0"},
         }
         return {
             name: write_test_opchain(self.directory.name, name, attributes)
@@ -110,16 +112,16 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         self.pipeline = None
         gc.collect()
 
-    def test_enabling_model_activates_all_matching_upstream_dependencies(self) -> None:
+    def test_enabling_model_activates_only_the_connected_upstream_dependencies(self) -> None:
         self.create_pipeline()
         self.start_pipeline()
 
-        # Enabling gaze requests cameraContact upstream. Contact activates and in
-        # turn requests humanFace, which activates every matching face provider.
+        # Gaze addresses contact; contact addresses face-a, not every box publisher.
         self.elements["gaze"].set_property("active", True)
 
-        for name in ("gaze", "contact", "face-a", "face-b"):
+        for name in ("gaze", "contact", "face-a"):
             self.assertTrue(self.elements[name].get_property("active"), name)
+        self.assertFalse(self.elements["face-b"].get_property("active"))
         self.assertFalse(self.elements["unrelated"].get_property("active"))
 
     def test_manual_provider_selection_survives_startup_and_reactivation(self) -> None:
@@ -170,8 +172,9 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         self.create_pipeline(initially_active={"gaze"})
         self.start_pipeline()
 
-        for name in ("gaze", "contact", "face-a", "face-b"):
+        for name in ("gaze", "contact", "face-a"):
             self.assertTrue(self.elements[name].get_property("active"), name)
+        self.assertFalse(self.elements["face-b"].get_property("active"))
         self.assertFalse(self.elements["unrelated"].get_property("active"))
 
     def test_initially_active_model_activates_dependencies_before_preroll(self) -> None:
@@ -192,8 +195,9 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         self.assertEqual(state_change, self.Gst.StateChangeReturn.SUCCESS)
         self.assertEqual(current_state, self.Gst.State.PAUSED)
 
-        for name in ("gaze", "contact", "face-a", "face-b"):
+        for name in ("gaze", "contact", "face-a"):
             self.assertTrue(self.elements[name].get_property("active"), name)
+        self.assertFalse(self.elements["face-b"].get_property("active"))
         self.assertFalse(self.elements["unrelated"].get_property("active"))
 
     def test_active_provider_propagates_its_dependencies(self) -> None:
@@ -209,7 +213,36 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         self.elements["gaze"].set_property("active", True)
 
         self.assertTrue(self.elements["face-a"].get_property("active"))
+        self.assertFalse(self.elements["face-b"].get_property("active"))
+
+    def test_live_binding_changes_activate_only_the_addressed_compatible_output(self):
+        self.create_pipeline()
+        self.start_pipeline()
+        contact = self.elements["contact"]
+        contact.set_property("active", True)
+        binding = {"consumerId": "opk-test-qos-delay-Delay-0", "inputId": "input",
+                   "payloadType": "open_perception_kit.metadata.BoxDetections",
+                   "producerId": "face-b/opk-test-qos-delay-Delay-0"}
+        contact.set_property("input-bindings", json.dumps([binding]))
         self.assertTrue(self.elements["face-b"].get_property("active"))
+        self.assertEqual(json.loads(contact.get_property("input-bindings")), [binding])
+        before = contact.get_property("input-bindings")
+        contact.set_property("input-bindings", json.dumps([binding, binding]))
+        self.assertEqual(contact.get_property("input-bindings"), before)
+        contact.set_property("input-bindings", json.dumps([{**binding, "inputId": "unknown"}]))
+        self.assertEqual(contact.get_property("input-bindings"), before)
+        binding["producerId"] = "unrelated/opk-test-qos-delay-Delay-0"
+        contact.set_property("input-bindings", json.dumps([binding]))
+        self.assertFalse(self.elements["unrelated"].get_property("active"))
+
+    def test_duplicate_producer_addresses_report_an_error(self):
+        self.create_pipeline()
+        for name in ("face-a", "face-b"):
+            self.elements[name].set_property("infer-id", "duplicate")
+        self.pipeline.set_state(self.Gst.State.PAUSED)
+        message = self.pipeline.get_bus().timed_pop_filtered(self.Gst.SECOND, self.Gst.MessageType.ERROR)
+        self.assertIsNotNone(message)
+        self.assertIn("Producer instance IDs must be unique", str(message.parse_error()))
 
     def test_opchain_errors_include_the_cause(self) -> None:
         for op, cause in [

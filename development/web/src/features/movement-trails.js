@@ -21,6 +21,7 @@ import {trackKey, traceMatchesCurrentTrack} from '../tracking-data.js';
 
 export default defineFeature({
     id: 'movement-trails', label: 'Movement trails',
+    defaults: {color: '#ffff00'},
     accepts: (source) => source.payloadType === 'TrackTraces',
     resolve(result, index) {
         const items = result.items.filter(item => {

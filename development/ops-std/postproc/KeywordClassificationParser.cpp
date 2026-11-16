@@ -122,7 +122,6 @@ open_perception_kit::metadata::ClassificationsT makeResult(const opk::TensorPars
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = "keyword",
                                             .producer = &input.producerInfo});
     auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
     classification->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);

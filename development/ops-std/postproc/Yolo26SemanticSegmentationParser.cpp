@@ -142,7 +142,6 @@ Yolo26SemanticSegmentationParser::parse(const Input &input,
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .labelFamily = "cityscapes",
                                             .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));

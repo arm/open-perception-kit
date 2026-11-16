@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "2.0.0",
   "name": "PpOcrV6Tiny",
   "displayName": "PP-OCRv6 tiny text detection and recognition",
   "task": "Text recognition",
@@ -25,6 +25,7 @@
     },
     {
       "id": "opk-std-ops/GenericPostprocess",
+      "instanceId": "opk-std-ops-GenericPostprocess-0",
       "attributes": {
         "parser": "PaddleOcrDbDetectionParser",
         "binaryThreshold": 0.2,
@@ -39,7 +40,7 @@
       "id": "opk-std-ops/InferenceController",
       "loopId": 2,
       "attributes": {
-        "contentType": "textRegion"
+        "sourceOp": "opk-std-ops-GenericPostprocess-0"
       }
     },
     {
@@ -59,6 +60,7 @@
     },
     {
       "id": "opk-std-ops/GenericPostprocess",
+      "instanceId": "opk-std-ops-GenericPostprocess-1",
       "loopId": 2,
       "attributes": {
         "parser": "PaddleOcrRecognitionParser",

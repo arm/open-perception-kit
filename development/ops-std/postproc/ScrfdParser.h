@@ -24,11 +24,9 @@
 namespace opk::stdop::postproc {
 
 struct ScrfdParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "humanFace";
 
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {
-            opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>(k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>()};
     }
 
     virtual opk::Result<void> parse(const opk::TensorParser::Input &input,

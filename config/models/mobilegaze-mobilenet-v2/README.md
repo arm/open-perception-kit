@@ -26,7 +26,7 @@ Face-level gaze estimator for yaw and pitch.
 - Output: two `[1, 90]` angle-logit tensors
 - Postprocessor: `GazeDetectionParser` with `angleBinWidthDeg` set to `4`
 - FrameResults payload: `GazeMeasurementsT` with explicit subject IDs and optional degree-angle pairs
-- Dependency: `humanFace` detections from UltraFace
+- Input: `BoxDetectionsT` from an explicitly connected face detector, such as UltraFace.
 
 The model-local OpChain processes existing face detections. The focused
 pipeline uses `config/opchains/mobilegaze-mobilenet-v2/opchain.json` to run
@@ -40,8 +40,8 @@ measured `(0, 0)` is still a valid result. The confidence score is the minimum
 of the two maximum softmax-bin probabilities, not a calibrated probability that
 the gaze is correct. See the [gaze metadata contract](../../../docs/arch/perception.md#gaze-measurements).
 
-The `eyeYawPitch` content label remains available for OpChain/model routing;
-consumers identify gaze by its payload type.
+Consumers identify gaze by its SDK payload type and concrete producer identity.
+The face-crop input is selected by `sourceOp` or an external input binding.
 
 Run the complete focused preset inside the OPK container:
 

@@ -84,14 +84,13 @@ bool shouldEmitTrace(const TrackState &track, const Config &config) {
 }
 
 std::unique_ptr<open_perception_kit::metadata::LayerInfoT>
-makeTrackerLayerInfo(const Config &config, const char *contentType) {
+makeTrackerLayerInfo(const Config &config) {
     const std::string producerInstanceId =
         config.producerInstanceId.empty() ? "opktracker" : config.producerInstanceId;
     const auto producer = open_perception_kit::makeProducerInfo(
         config.inferId + "/" + producerInstanceId, TRACKER_COMPONENT, "Tracker");
     return open_perception_kit::makeLayerInfo({.model = TRACKER_MODEL,
                                                .inferElementId = config.inferId,
-                                               .contentType = contentType,
                                                .engine = TRACKER_ENGINE,
                                                .producer = producer.get()});
 }
@@ -156,7 +155,7 @@ void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,
                             const Config &config,
                             const TrackingResult &trackingResult) {
     open_perception_kit::metadata::ObjectTracksT tracksPayload;
-    tracksPayload.layer = makeTrackerLayerInfo(config, config.contentType.c_str());
+    tracksPayload.layer = makeTrackerLayerInfo(config);
     tracksPayload.display_identity = config.appendIdentityIdToText;
 
     for (DetectionIndex detectionIndex = 0; detectionIndex < detections.size(); ++detectionIndex) {
@@ -192,7 +191,7 @@ void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,
     }
 
     open_perception_kit::metadata::TrackTracesT tracesPayload;
-    tracesPayload.layer = makeTrackerLayerInfo(config, "trackTrace");
+    tracesPayload.layer = makeTrackerLayerInfo(config);
 
     for (const auto &[trackId, track] : activeTracks) {
         if (!shouldEmitTrace(track, config)) {

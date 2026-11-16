@@ -23,10 +23,8 @@ namespace opk::stdop::postproc {
 
 /// Decodes a configured speech score and applies sample-based VAD hysteresis.
 struct VoiceActivityParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "voiceActivity";
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
-        return {opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>(
-            k_content_type)};
+        return {opk::outputCapability<open_perception_kit::metadata::VoiceActivityDetectionsT>()};
     }
     opk::Result<void> parse(const opk::TensorParser::Input &input,
                             open_perception_kit::FrameResults &results) override;

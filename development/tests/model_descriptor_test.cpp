@@ -70,7 +70,7 @@ opk::Shape dynamicShape(std::initializer_list<int64_t> dimensions) {
 TEST(ModelDescriptor, RejectsUnsupportedVersionAtFileLoad) {
     const auto path =
         std::filesystem::temp_directory_path() / "model-unsupported-version-test.json";
-    std::ofstream(path) << R"({"version":"2.0.0","modelFile":"missing.onnx"})";
+    std::ofstream(path) << R"({"version":"1.0.0","modelFile":"missing.onnx"})";
     const auto result = opk::ModelDescriptor::fromFile(path.string());
     std::filesystem::remove(path);
     ASSERT_FALSE(result);
@@ -86,7 +86,7 @@ TEST(ModelDescriptor, ResolvesModelFileRelativeToDescriptor) {
     std::filesystem::create_directories(directory);
     const auto descriptorPath = directory / "model-variant.json";
     std::ofstream(descriptorPath) << R"({
-        "version": "1.3.0",
+        "version": "2.0.0",
         "name": "test",
         "modelFile": "model.onnx",
         "runtimeLibrary": "libor-runtime.so",
@@ -117,7 +117,7 @@ TEST(ModelDescriptor, RuntimeLibraryPathsStayExplicitForBasenameDescriptors) {
     for (const auto &[reference, expected] : cases) {
         SCOPED_TRACE(reference);
         nlohmann::json document{
-            {"version", "1.3.0"},
+            {"version", "2.0.0"},
             {"name", "test"},
             {"modelFile", "model.onnx"},
             {"dynamicOutput", true},
@@ -148,7 +148,7 @@ TEST(ModelDescriptor, PreservesAbsoluteModelFileFilesystemMeaning) {
     const auto descriptorPath = directory / "model.json";
     const auto modelPath = std::filesystem::absolute(directory) / "linked/../model.onnx";
     std::ofstream(descriptorPath) << nlohmann::json{
-        {"version", "1.0.0"},
+        {"version", "2.0.0"},
         {"name", "test"},
         {"modelFile", modelPath.string()},
         {"dynamicOutput", true},
@@ -167,7 +167,7 @@ TEST(ModelDescriptor, PreservesAbsoluteModelFileFilesystemMeaning) {
 
 TEST(ModelDescriptor, RejectsUriModelFile) {
     const auto descriptor = opk::ModelDescriptor::fromJson(R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "test",
         "modelFile": "hf:Arm/example@revision#file=model.onnx",
         "dynamicOutput": true,
@@ -186,7 +186,7 @@ TEST(ModelDescriptor, RejectsOpChainFilename) {
     std::filesystem::create_directories(directory);
     const auto descriptorPath = directory / "opchain.json";
     std::ofstream(descriptorPath) << R"({
-        "version": "1.0.0",
+        "version": "2.0.0",
         "name": "test",
         "modelFile": "model.onnx",
         "dynamicOutput": true,
@@ -332,7 +332,7 @@ TEST(OpRef, RejectsMissingLibrary) {
 
 TEST(ModelDescriptor, RoundTripsLogMelAndAppliesItToRuntimeInputs) {
     const auto descriptor = opk::ModelDescriptor::fromJson(R"({
-        "version":"1.4.0","name":"log-mel","modelFile":"model.onnx",
+        "version":"2.0.0","name":"log-mel","modelFile":"model.onnx",
         "dynamicOutput":false,
         "inputTensors":[{"shape":[1,11,32],"dataKind":"AudioLogMel","valueType":"Float32"}],
         "outputTensors":[{"shape":[1,11],"dataKind":"RawTensorData","valueType":"Float32"}]

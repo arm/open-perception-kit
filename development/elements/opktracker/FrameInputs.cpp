@@ -18,6 +18,7 @@
 #include "FrameInputs.h"
 
 #include "opk/Embedding.h"
+#include <algorithm>
 
 namespace opk::tracker::frameinputs {
 
@@ -25,15 +26,14 @@ EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameR
                                  const Config &config) {
     EmbeddingBatch embeddings;
 
-    if (!config.useEmbeddings) {
+    if (!config.useEmbeddings || config.embeddingProducerId.empty()) {
         return embeddings;
     }
 
     frameResults.for_each<open_perception_kit::metadata::ObjectEmbeddingsT>(
         [&embeddings, &config](const auto &payload) {
-            if (!config.embeddingProducerId.empty() &&
-                (!payload.layer || !payload.layer->producer ||
-                 payload.layer->producer->instance_id != config.embeddingProducerId)) {
+            if (!payload.layer || !payload.layer->producer ||
+                payload.layer->producer->instance_id != config.embeddingProducerId) {
                 return;
             }
 
@@ -69,7 +69,9 @@ collectDetections(const open_perception_kit::FrameResults &frameResults,
 
     frameResults.for_each<open_perception_kit::metadata::BoxDetectionsT>(
         [&detections, &config, &imageSpace](const auto &payload) {
-            if (!payload.layer || payload.layer->content_type != config.contentType) {
+            if (!payload.layer || !payload.layer->producer ||
+                std::ranges::find(config.inputProducers, payload.layer->producer->instance_id) ==
+                    config.inputProducers.end()) {
                 return;
             }
 

@@ -60,7 +60,6 @@ opk::stdop::postproc::SmartTurnParser::parse(const opk::TensorParser::Input &inp
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
     payload.detections.push_back(std::move(detection));
     results.add(std::move(payload));
