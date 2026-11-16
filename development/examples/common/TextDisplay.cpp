@@ -16,6 +16,7 @@
  */
 
 #include "TextDisplay.h"
+#include "opk/ClassificationScores.h"
 #include "opk/FrameResults.h"
 
 #include <fmt/core.h>
@@ -112,7 +113,9 @@ std::string bitmapRange(const BitmapDataT *bitmap) {
         return valueRangeUint32(bitmap->pixels);
     }
 
-    return valueRangeUint8(bitmap->pixels);
+    if (bitmap->value_type == "Uint8")
+        return valueRangeUint8(bitmap->pixels);
+    return fmt::format("values=unsupported-type({})", bitmap->value_type);
 }
 
 } // namespace
@@ -191,10 +194,9 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
                               const open_perception_kit::metadata::ClassificationsT &payload) {
-    lines.push_back(fmt::format("Classifications: {} classifications={} person_presence={}",
+    lines.push_back(fmt::format("Classifications: {} classifications={}",
                                 layerLabel(payload.layer.get()),
-                                payload.classifications.size(),
-                                payload.person_presence.size()));
+                                payload.classifications.size()));
     std::size_t index = 0U;
     for (const auto &classification : payload.classifications) {
         ++index;
@@ -203,44 +205,83 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  classification #{}: {} candidates={}",
-                                    index,
-                                    objectLabel(classification->object.get()),
-                                    classification->candidates.size()));
+        lines.push_back(fmt::format(
+            "  classification #{}: {} candidates={} label_set={} kind={} subject={}",
+            index,
+            objectLabel(classification->object.get()),
+            classification->candidates.size(),
+            textOr(classification->label_set),
+            open_perception_kit::metadata::EnumNameClassificationKind(classification->kind),
+            classification->subject_id ? std::to_string(*classification->subject_id)
+                                       : "unspecified"));
         std::size_t candidateIndex = 0U;
         for (const auto &candidate : classification->candidates) {
             ++candidateIndex;
-            if (!candidate) {
-                lines.push_back(fmt::format("    candidate #{}: <null>", candidateIndex));
+            if (!candidate || !opk::classification::validCandidate(*classification, *candidate)) {
+                lines.push_back(fmt::format("    candidate #{}: unavailable", candidateIndex));
                 continue;
             }
 
-            lines.push_back(fmt::format("    candidate #{}: label={} class={} conf={:.3f} "
-                                        "region={:.1f},{:.1f},{:.1f},{:.1f}",
-                                        candidateIndex,
-                                        textOr(candidate->text),
-                                        candidate->class_id,
-                                        candidate->confidence,
-                                        candidate->x,
-                                        candidate->y,
-                                        candidate->w,
-                                        candidate->h));
+            lines.push_back(fmt::format(
+                "    candidate #{}: label={} class={} conf={}",
+                candidateIndex,
+                textOr(candidate->text),
+                candidate->class_id ? std::to_string(*candidate->class_id) : "unspecified",
+                candidate->confidence ? fmt::format("{:.3f}", *candidate->confidence)
+                                      : "unavailable"));
         }
     }
+}
 
-    index = 0U;
-    for (const auto &presence : payload.person_presence) {
+void TextDisplay::appendLines(std::vector<std::string> &lines,
+                              const open_perception_kit::metadata::CameraContactsT &payload) {
+    lines.push_back(fmt::format(
+        "CameraContacts: {} count={}", layerLabel(payload.layer.get()), payload.contacts.size()));
+    for (const auto &contact : payload.contacts) {
+        if (!contact || !contact->result ||
+            (contact->result->confidence &&
+             !opk::classification::validProbability(*contact->result->confidence))) {
+            lines.emplace_back("  camera-contact: unavailable");
+            continue;
+        }
+        lines.push_back(fmt::format(
+            "  camera-contact: {} outcome={} subject={} model_class_index={} conf={}",
+            objectLabel(contact->object.get()),
+            contact->result->in_contact ? "contact" : "no contact",
+            contact->subject_id ? std::to_string(*contact->subject_id) : "unspecified",
+            contact->result->model_class_index ? std::to_string(*contact->result->model_class_index)
+                                               : "unspecified",
+            contact->result->confidence ? fmt::format("{:.3f}", *contact->result->confidence)
+                                        : "unavailable"));
+    }
+}
+
+void TextDisplay::appendLines(std::vector<std::string> &lines,
+                              const open_perception_kit::metadata::PersonPresencesT &payload) {
+    lines.push_back(fmt::format(
+        "PersonPresences: {} count={}", layerLabel(payload.layer.get()), payload.presences.size()));
+    std::size_t index = 0U;
+    for (const auto &presence : payload.presences) {
         ++index;
         if (!presence) {
             lines.push_back(fmt::format("  person-presence #{}: <null>", index));
             continue;
         }
 
-        lines.push_back(fmt::format("  person-presence #{}: {} yes={:.3f} no={:.3f}",
-                                    index,
-                                    objectLabel(presence->object.get()),
-                                    presence->yes_confidence,
-                                    presence->no_confidence));
+        if (!presence->result || !opk::classification::validPresenceResult(*presence->result)) {
+            lines.push_back(fmt::format("  person-presence #{}: {} unavailable",
+                                        index,
+                                        objectLabel(presence->object.get())));
+            continue;
+        }
+        const auto &result = *presence->result;
+        lines.push_back(
+            fmt::format("  person-presence #{}: {} outcome={} raw_yes={} raw_no={}",
+                        index,
+                        objectLabel(presence->object.get()),
+                        result.person_present ? "person" : "no person",
+                        result.yes_score ? fmt::format("{:.3f}", *result.yes_score) : "unavailable",
+                        result.no_score ? fmt::format("{:.3f}", *result.no_score) : "unavailable"));
     }
 }
 

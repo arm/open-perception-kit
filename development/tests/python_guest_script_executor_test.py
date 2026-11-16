@@ -100,6 +100,58 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
             self.assertIn("must define callable process(env)", result.stderr)
             self.assertFalse(output.exists())
 
+    def test_classification_roots_and_label_sets_cross_the_live_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            imports = """
+                from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT
+                from open_perception_kit.fb.open_perception_kit.metadata.Classification import ClassificationT
+                from open_perception_kit.fb.open_perception_kit.metadata.ClassificationCandidate import ClassificationCandidateT
+                from open_perception_kit.fb.open_perception_kit.metadata.ClassificationKind import ClassificationKind
+                from open_perception_kit.fb.open_perception_kit.metadata.CameraContacts import CameraContactsT
+                from open_perception_kit.fb.open_perception_kit.metadata.CameraContact import CameraContactT
+                from open_perception_kit.fb.open_perception_kit.metadata.CameraContactResult import CameraContactResultT
+                from open_perception_kit.fb.open_perception_kit.metadata.PersonPresences import PersonPresencesT
+                from open_perception_kit.fb.open_perception_kit.metadata.PersonPresence import PersonPresenceT
+                from open_perception_kit.fb.open_perception_kit.metadata.PersonPresenceResult import PersonPresenceResultT
+            """
+            seed = self.write_script(directory, "seed_classifications.py", textwrap.dedent(imports) + """
+def process(env):
+    env.add(ClassificationsT(classifications=[ClassificationT(labelSet='test:labels', kind=ClassificationKind.Categorical, subjectId=42,
+        candidates=[ClassificationCandidateT(confidence=.75, classId=7, text='文字'),
+                    ClassificationCandidateT(confidence=.2, classId=0, text='zero')]),
+        ClassificationT(kind=ClassificationKind.RecognizedText, candidates=[ClassificationCandidateT(confidence=.9, text='recognized text')])]))
+    env.add(CameraContactsT(contacts=[
+        CameraContactT(subjectId=42, result=CameraContactResultT(inContact=True, modelClassIndex=0, confidence=.5)),
+        CameraContactT()]))
+    env.add(PersonPresencesT(presences=[PersonPresenceT(subjectId=42, result=PersonPresenceResultT(personPresent=True, yesScore=2, noScore=-1)),
+        PersonPresenceT(), PersonPresenceT(result=PersonPresenceResultT(personPresent=False, yesScore=0, noScore=1))]))
+""")
+            inspect = self.write_script(directory, "inspect_classifications.py", textwrap.dedent(imports) + """
+def process(env):
+    classification = env.get(ClassificationsT).classifications[0]
+    assert classification.labelSet == 'test:labels'
+    assert classification.kind == ClassificationKind.Categorical and classification.subjectId == 42
+    assert classification.candidates[0].classId == 7
+    assert classification.candidates[0].text == '文字'
+    assert classification.candidates[1].classId == 0
+    assert env.get(ClassificationsT).classifications[1].candidates[0].classId is None
+    contact = env.get(CameraContactsT)
+    assert contact.contacts[0].subjectId == 42 and contact.contacts[0].result.inContact
+    assert contact.contacts[0].result.modelClassIndex == 0
+    assert contact.contacts[1].result is None
+    presence = env.get(PersonPresencesT).presences[0]
+    assert presence.subjectId == 42 and presence.result.personPresent
+    assert presence.result.yesScore == 2 and presence.result.noScore == -1
+    assert env.get(PersonPresencesT).presences[1].result is None
+    assert env.get(PersonPresencesT).presences[2].result.yesScore == 0
+""")
+            output = directory / OUTPUT_FILENAME
+            result = self.run_executor(output, seed, inspect)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            envelope = decode(output.read_bytes())
+            self.assertTrue(envelope.valid(), envelope.error())
+
     def test_rejects_non_callable_process(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)

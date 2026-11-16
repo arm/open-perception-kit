@@ -350,7 +350,9 @@ open_perception_kit::FrameResults makeHumanFaceAndGazeFrameResults(float yaw = 2
     return frameResults;
 }
 
-open_perception_kit::FrameResults makeCameraContactFrameResults() {
+open_perception_kit::FrameResults
+makeCameraContactFrameResults(const bool inContact = true,
+                              const std::uint32_t modelClassIndex = 0) {
     open_perception_kit::metadata::BoxDetectionsT facePayload;
 
     open_perception_kit::LayerInfoDescriptor faceLayerDescriptor;
@@ -368,21 +370,22 @@ open_perception_kit::FrameResults makeCameraContactFrameResults() {
     face->confidence = 0.9f;
     facePayload.detections.push_back(std::move(face));
 
-    open_perception_kit::metadata::ClassificationsT contactPayload;
+    open_perception_kit::metadata::CameraContactsT contactPayload;
 
     open_perception_kit::LayerInfoDescriptor contactLayerDescriptor;
     contactLayerDescriptor.contentType = "cameraContact";
     contactPayload.layer = open_perception_kit::makeLayerInfo(contactLayerDescriptor);
 
-    auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
-    classification->object = open_perception_kit::makeObjectMeta(12U, 11U);
+    auto classification = std::make_unique<open_perception_kit::metadata::CameraContactT>();
+    classification->object = open_perception_kit::makeObjectMeta(12U, 999U);
+    classification->subject_id = 11U;
 
-    auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
+    auto candidate = std::make_unique<open_perception_kit::metadata::CameraContactResultT>();
     candidate->confidence = 0.95f;
-    candidate->class_id = 1;
-    candidate->text = "contact";
-    classification->candidates.push_back(std::move(candidate));
-    contactPayload.classifications.push_back(std::move(classification));
+    candidate->model_class_index = modelClassIndex;
+    candidate->in_contact = inContact;
+    classification->result = std::move(candidate);
+    contactPayload.contacts.push_back(std::move(classification));
 
     open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(facePayload));
@@ -390,8 +393,9 @@ open_perception_kit::FrameResults makeCameraContactFrameResults() {
     return frameResults;
 }
 
-open_perception_kit::FrameResults makePersonClassificationFrameResults() {
-    open_perception_kit::metadata::ClassificationsT payload;
+open_perception_kit::FrameResults makePersonClassificationFrameResults(const float yes = .9f,
+                                                                       const float no = .1f) {
+    open_perception_kit::metadata::PersonPresencesT payload;
 
     open_perception_kit::LayerInfoDescriptor layerDescriptor;
     layerDescriptor.contentType = "personClassification";
@@ -399,9 +403,11 @@ open_perception_kit::FrameResults makePersonClassificationFrameResults() {
 
     auto presence = std::make_unique<open_perception_kit::metadata::PersonPresenceT>();
     presence->object = open_perception_kit::makeObjectMeta(21U);
-    presence->yes_confidence = 0.9f;
-    presence->no_confidence = 0.1f;
-    payload.person_presence.push_back(std::move(presence));
+    presence->result = std::make_unique<open_perception_kit::metadata::PersonPresenceResultT>();
+    presence->result->person_present = yes > no;
+    presence->result->yes_score = yes;
+    presence->result->no_score = no;
+    payload.presences.push_back(std::move(presence));
 
     open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(payload));
@@ -409,7 +415,7 @@ open_perception_kit::FrameResults makePersonClassificationFrameResults() {
 }
 
 std::unique_ptr<open_perception_kit::metadata::ClassificationCandidateT>
-makeClassificationCandidate(int classId, const char *text, float confidence) {
+makeClassificationCandidate(const std::uint32_t classId, const char *text, float confidence) {
     auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
     candidate->class_id = classId;
     candidate->text = text;
@@ -421,23 +427,27 @@ open_perception_kit::FrameResults makeImageClassificationFrameResults() {
     open_perception_kit::metadata::ClassificationsT leftPayload;
     auto leftProducer = open_perception_kit::makeProducerInfo("left", "test", "cpp-classifier");
     open_perception_kit::LayerInfoDescriptor leftLayerDescriptor;
-    leftLayerDescriptor.contentType = "classification";
+    leftLayerDescriptor.contentType = "customClassification";
     leftLayerDescriptor.producer = leftProducer.get();
     leftPayload.layer = open_perception_kit::makeLayerInfo(leftLayerDescriptor);
 
     auto leftClassification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+    leftClassification->kind = open_perception_kit::metadata::ClassificationKind::Categorical;
+    leftClassification->label_set = "test:labels";
     leftClassification->candidates.push_back(makeClassificationCandidate(1, "car", 0.8f));
     leftPayload.classifications.push_back(std::move(leftClassification));
 
     open_perception_kit::metadata::ClassificationsT rightPayload;
     auto rightProducer = open_perception_kit::makeProducerInfo("right", "test", "python-script");
     open_perception_kit::LayerInfoDescriptor rightLayerDescriptor;
-    rightLayerDescriptor.contentType = "classification";
+    rightLayerDescriptor.contentType = "customClassification";
     rightLayerDescriptor.compositingMode = "bottomRight";
     rightLayerDescriptor.producer = rightProducer.get();
     rightPayload.layer = open_perception_kit::makeLayerInfo(rightLayerDescriptor);
 
     auto rightClassification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+    rightClassification->kind = open_perception_kit::metadata::ClassificationKind::Categorical;
+    rightClassification->label_set = "test:labels";
     rightClassification->candidates.push_back(makeClassificationCandidate(2, "street", 0.7f));
     rightPayload.classifications.push_back(std::move(rightClassification));
 
@@ -927,6 +937,29 @@ TEST(DebugOverlayRendererTest, DrawsClassificationListsLeftAndRightInAllSupporte
     }
 }
 
+TEST(DebugOverlayRendererTest, EmptyClassificationDoesNotPaintAHeading) {
+    open_perception_kit::FrameResults results;
+    open_perception_kit::metadata::ClassificationsT payload;
+    const auto producer =
+        open_perception_kit::makeProducerInfo("classifier", "test", "Empty classifier");
+    payload.layer = open_perception_kit::makeLayerInfo({.producer = producer.get()});
+    auto value = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+    value->kind = open_perception_kit::metadata::ClassificationKind::Categorical;
+    value->label_set = "test:labels";
+    payload.classifications.push_back(std::move(value));
+    results.add(std::move(payload));
+    auto surface = makeSurface(RawImagePixelFormat::Bgra, 320, 180);
+    opk::osd::DebugOverlayRequest request;
+    request.surface.format = surface.format;
+    request.surface.width = surface.width;
+    request.surface.height = surface.height;
+    request.surface.planes = planeSpan(surface);
+    request.frameResults = &results;
+    ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
+    EXPECT_FALSE(activeAreaChanged(surface));
+    expectPaddingUnchanged(surface);
+}
+
 TEST(DebugOverlayRendererTest, DrawsPerformanceOverlayInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
@@ -1002,6 +1035,90 @@ TEST(DebugOverlayRendererTest, SkipsPerformanceOverlayWhenDisabled) {
     EXPECT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
     EXPECT_FALSE(activeAreaChanged(surface));
     expectPaddingUnchanged(surface);
+}
+
+TEST(DebugOverlayRendererTest, ContactOutcomeDeterminesMarkerColourIndependentlyOfModelIndex) {
+    for (const bool inContact : {false, true}) {
+        for (const std::uint32_t selected : {0U, 1U}) {
+            const auto frameResults = makeCameraContactFrameResults(inContact, selected);
+            auto surface = makeSurface(RawImagePixelFormat::Bgra, 128, 96);
+            opk::osd::DebugOverlayRequest request;
+            request.surface.format = surface.format;
+            request.surface.width = surface.width;
+            request.surface.height = surface.height;
+            request.surface.planes = planeSpan(surface);
+            request.frameResults = &frameResults;
+            ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
+            const auto *const center = planeRow(surface, 0, 46) + std::size_t{64} * 4;
+            EXPECT_EQ(center[0], 0);
+            EXPECT_EQ(center[1], inContact ? 255 : 0);
+            EXPECT_EQ(center[2], inContact ? 0 : 255);
+        }
+    }
+}
+
+TEST(DebugOverlayRendererTest, ContactUsesTheFullSubjectBoxBeforeRasterClipping) {
+    struct Case {
+        float x, y, width, height;
+        int centerX, centerY, contactRadius, noContactRadius;
+    };
+    constexpr std::array<Case, 3> Cases{{
+        {-10, 10, 20, 20, 0, 20, 18, 28},
+        {118, 10, 20, 20, 128, 20, 18, 28},
+        {-60, 0, 100, 80, -10, 40, 26, 46},
+    }};
+    for (const bool inContact : {false, true}) {
+        for (const auto &value : Cases) {
+            const auto base = makeCameraContactFrameResults(inContact);
+            open_perception_kit::FrameResults results;
+            base.for_each<open_perception_kit::metadata::BoxDetectionsT>([&](const auto &payload) {
+                auto boxes = payload;
+                boxes.layer->content_type = "subject";
+                auto &box = *boxes.detections[0]->box;
+                box.x = value.x;
+                box.y = value.y;
+                box.width = value.width;
+                box.height = value.height;
+                results.add(std::move(boxes));
+            });
+            base.for_each<open_perception_kit::metadata::CameraContactsT>(
+                [&](const auto &payload) { results.add(payload); });
+            auto actual = makeSurface(RawImagePixelFormat::Bgra, 128, 96);
+            auto expected = makeSurface(RawImagePixelFormat::Bgra, 128, 96);
+            opk::osd::DebugOverlayRequest request;
+            request.surface.format = actual.format;
+            request.surface.width = actual.width;
+            request.surface.height = actual.height;
+            request.surface.planes = planeSpan(actual);
+            request.frameResults = &results;
+            ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
+            SurfacePainter painter(
+                expected.format, expected.width, expected.height, planeSpan(expected));
+            const auto color = inContact ? opk::Colors::lime : opk::Colors::red;
+            painter.drawCircle(value.centerX,
+                               value.centerY,
+                               inContact ? value.contactRadius : value.noContactRadius,
+                               color,
+                               inContact ? 5 : 8);
+            painter.drawPoint(value.centerX, value.centerY, color, inContact ? 10 : 14);
+            EXPECT_EQ(actual.storage[0].bytes, expected.storage[0].bytes);
+        }
+    }
+}
+
+TEST(DebugOverlayRendererTest, InvalidPresenceScoresDoNotDrawANegativeOrPositiveBadge) {
+    const auto frameResults =
+        makePersonClassificationFrameResults(.8f, std::numeric_limits<float>::quiet_NaN());
+    auto surface = makeSurface(RawImagePixelFormat::Bgra, 128, 96);
+    opk::osd::DebugOverlayRequest request;
+    request.surface.format = surface.format;
+    request.surface.width = surface.width;
+    request.surface.height = surface.height;
+    request.surface.planes = planeSpan(surface);
+    request.frameResults = &frameResults;
+    waitForPersonClassificationBlinkOn();
+    ASSERT_EQ(opk::osd::drawDebugOverlay(request), opk::osd::DebugOverlayStatus::Drawn);
+    EXPECT_FALSE(activeAreaChanged(surface));
 }
 
 TEST(DebugOverlayRendererTest, StructuredPerformancePreservesExistingPixels) {

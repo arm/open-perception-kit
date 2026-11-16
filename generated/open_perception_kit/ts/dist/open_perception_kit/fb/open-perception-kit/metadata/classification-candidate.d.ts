@@ -23,35 +23,23 @@ export declare class ClassificationCandidate implements flatbuffers.IUnpackableO
     __init(i: number, bb: flatbuffers.ByteBuffer): ClassificationCandidate;
     static getRootAsClassificationCandidate(bb: flatbuffers.ByteBuffer, obj?: ClassificationCandidate): ClassificationCandidate;
     static getSizePrefixedRootAsClassificationCandidate(bb: flatbuffers.ByteBuffer, obj?: ClassificationCandidate): ClassificationCandidate;
-    confidence(): number;
-    classId(): number;
+    confidence(): number | null;
+    classId(): number | null;
     text(): string | null;
     text(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
-    x(): number;
-    y(): number;
-    w(): number;
-    h(): number;
     static startClassificationCandidate(builder: flatbuffers.Builder): void;
     static addConfidence(builder: flatbuffers.Builder, confidence: number): void;
     static addClassId(builder: flatbuffers.Builder, classId: number): void;
     static addText(builder: flatbuffers.Builder, textOffset: flatbuffers.Offset): void;
-    static addX(builder: flatbuffers.Builder, x: number): void;
-    static addY(builder: flatbuffers.Builder, y: number): void;
-    static addW(builder: flatbuffers.Builder, w: number): void;
-    static addH(builder: flatbuffers.Builder, h: number): void;
     static endClassificationCandidate(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createClassificationCandidate(builder: flatbuffers.Builder, confidence: number, classId: number, textOffset: flatbuffers.Offset, x: number, y: number, w: number, h: number): flatbuffers.Offset;
+    static createClassificationCandidate(builder: flatbuffers.Builder, confidence: number | null, classId: number | null, textOffset: flatbuffers.Offset): flatbuffers.Offset;
     unpack(): ClassificationCandidateT;
     unpackTo(_o: ClassificationCandidateT): void;
 }
 export declare class ClassificationCandidateT implements flatbuffers.IGeneratedObject {
-    confidence: number;
-    classId: number;
+    confidence: number | null;
+    classId: number | null;
     text: string | Uint8Array | null;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    constructor(confidence?: number, classId?: number, text?: string | Uint8Array | null, x?: number, y?: number, w?: number, h?: number);
+    constructor(confidence?: number | null, classId?: number | null, text?: string | Uint8Array | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

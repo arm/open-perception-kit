@@ -282,7 +282,8 @@ If none of them matches, then your model is not plug-and-play in the current sys
 The easiest models to integrate without code changes are models that fit one of these result types:
 
 - `BoxDetectionsT` for detections such as faces and generic objects
-- `ClassificationsT` for top-k or binary classification
+- `ClassificationsT` for ordered classification candidates with a declared label set when known
+- `CameraContactsT` and `PersonPresencesT` for their respective domain results
 - `PoseEstimationsT` for gaze estimation
 - `SemanticSegmentationMasksT` for per-pixel class IDs, including valid class `0`
 - `InstanceSegmentationMasksT` for binary object masks with class, confidence, and box

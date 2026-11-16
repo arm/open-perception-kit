@@ -32,10 +32,10 @@ inline void printKeywords(const open_perception_kit::container::envelope &result
             if (!classification)
                 continue;
             for (const auto &candidate : classification->candidates) {
-                if (candidate)
+                if (candidate && candidate->confidence)
                     fmt::print("\r\033[2KKEYWORD {:?} ({:.1f}%)\n",
                                candidate->text,
-                               static_cast<double>(candidate->confidence) * 100.0);
+                               static_cast<double>(*candidate->confidence) * 100.0);
             }
         }
     });

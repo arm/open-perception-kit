@@ -131,9 +131,9 @@ multiple related payloads, and one payload can support multiple features.
 | Face circles | `BoxDetections` or `ObjectTracks` with `humanFace` semantics: circles around faces. |
 | Tracked objects | `ObjectTracks` plus optional related `TrackTraces`: independently controlled **Boxes** and **Trails**, both enabled by default. |
 | Movement trails | `TrackTraces`: trajectories without boxes. |
-| Classifications | `Classifications`: candidate text or PERSON/NON-PERSON status. |
+| Classifications | `Classifications`: explicitly declared categorical or recognized-text results; `PersonPresences`: explicit PERSON/NON-PERSON decisions with optional raw-score diagnostics. |
 | Gaze | `PoseEstimations` with `eyeYawPitch` semantics plus parent face geometry. |
-| Camera contact | `Classifications` with `cameraContact` semantics plus parent face geometry. A dashed ring denotes no contact; a solid ring denotes contact. |
+| Camera contact | `CameraContacts` plus the uniquely referenced box/track subject. Explicit outcomes determine style: dashed for no contact, solid for contact. Unavailable results have no marker. |
 | Performance text | `PerformanceMeasurements`: numeric timings and FPS formatted as combined pipeline text; producer and scope IDs keep metric histories independent of labels and order. |
 | Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
 | Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with current-frame presence indicators. |
@@ -141,6 +141,11 @@ multiple related payloads, and one payload can support multiple features.
 | OCR | Explicitly selected `Classifications` with parent `BoxDetections`, or a `BoxDetections` source directly: region outlines and spatially attached text, without content-type routing. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
+
+Classification candidate order is explicit in the list; coordinate fields no
+longer encode rank. Label-set identity is retained separately from display text.
+Existing contact/presence overlay selections are migrated to the new payload
+names without resetting style or visibility. This does not decode old packets.
 
 Box and trace geometry carries its own source-image basis. The decoder resolves
 crop-local/normalized coordinates before rendering; neither derivation parents

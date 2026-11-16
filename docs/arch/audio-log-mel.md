@@ -156,15 +156,16 @@ Voice-activity decoding, hysteresis and Silero configuration use the existing
 `KeywordClassificationParser.{h,cpp}` consumes a Float32 class vector with
 optional singleton leading dimensions. Required configuration is
 `outputTensorIndex` (0–15), `activation` (`softmax` or `none`),
-`confidenceThreshold` (finite, [0,1]) and `labels` (nonempty array of nonempty
-strings or nulls, at least one string). Its length must match the tensor's
+`confidenceThreshold` (finite, [0,1]), a nonempty `labelSet` identifying the
+ordered vocabulary, and `labels` (nonempty array of nonempty strings or nulls,
+at least one string). Its length must match the tensor's
 class axis. Null suppresses that class at any position; there is no fixed
 class count, keyword list or unknown/noise index. Softmax and argmax include
 all classes. If the winning label is null, publish nothing; do not select a
 runner-up. `none` accepts finite scores in [0,1]. Publish one winner when its
 score is >= the configured threshold, compared in the Float32 score domain;
-ties select the first index. Keep the
-existing `keyword` semantic content type and producer/model identity.
+ties select the first index. Publish `Classifications` with `kind=Categorical`,
+the configured label-set identity, the input subject and producer/model identity.
 
 Parser IDs name the operation rather than a model. Model names belong in
 model-local descriptors, runnable profiles and artifact integration tests.

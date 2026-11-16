@@ -61,6 +61,31 @@ TEST(ImageGeometry, RejectsMissingInvalidAndUnknownSpacesWithoutGuessing) {
     EXPECT_FALSE(open_perception_kit::projectBoundingBox(*box, 640, 480));
 }
 
+TEST(ImageGeometry, SubjectLookupCountsBoxAndTrackIdentitiesBeforeGeometryValidation) {
+    open_perception_kit::metadata::BoxDetectionsT boxes;
+    boxes.layer = open_perception_kit::makeLayerInfo({.contentType = "custom"});
+    auto box = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
+    box->object = open_perception_kit::makeObjectMeta(7);
+    box->box = open_perception_kit::makeImageBoundingBox(Crop, 1, 2, 3, 4);
+    boxes.detections.push_back(std::move(box));
+    open_perception_kit::FrameResults result;
+    result.add(boxes);
+    EXPECT_NE(open_perception_kit::findSubjectBox(result, 7), nullptr);
+    EXPECT_EQ(open_perception_kit::findSubjectBox(result, 0), nullptr);
+    open_perception_kit::metadata::ObjectTracksT tracks;
+    auto track = std::make_unique<open_perception_kit::metadata::ObjectTrackT>();
+    track->object = open_perception_kit::makeObjectMeta(7);
+    track->track_id = 99;
+    tracks.tracks.push_back(std::move(track));
+    result.add(tracks); // Missing track geometry must not rescue the duplicate ID.
+    EXPECT_EQ(open_perception_kit::findSubjectBox(result, 7), nullptr);
+    tracks.tracks[0]->box = open_perception_kit::makeImageBoundingBox(Crop, 1, 2, 3, 4);
+    open_perception_kit::FrameResults tracked;
+    tracked.add(tracks);
+    EXPECT_NE(open_perception_kit::findSubjectBox(tracked, 7), nullptr);
+    EXPECT_EQ(open_perception_kit::findSubjectBox(tracked, 99), nullptr);
+}
+
 TEST(ImageGeometry, TrackerUsesPixelCopiesAndRetainsDetectorCoordinates) {
     open_perception_kit::metadata::BoxDetectionsT payload;
     payload.layer = open_perception_kit::makeLayerInfo({.contentType = "genericObject"});

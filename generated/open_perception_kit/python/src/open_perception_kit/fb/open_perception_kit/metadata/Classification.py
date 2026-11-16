@@ -83,9 +83,30 @@ class Classification(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         return o == 0
 
+    # Classification
+    def LabelSet(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # Classification
+    def Kind(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
+        return 0
+
+    # Classification
+    def SubjectId(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return None
+
 
 def ClassificationStart(builder):
-    builder.StartObject(2)
+    builder.StartObject(5)
 
 
 def Start(builder):
@@ -116,6 +137,30 @@ def StartCandidatesVector(builder, numElems):
     return ClassificationStartCandidatesVector(builder, numElems)
 
 
+def ClassificationAddLabelSet(builder, labelSet):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(labelSet), 0)
+
+
+def AddLabelSet(builder, labelSet):
+    ClassificationAddLabelSet(builder, labelSet)
+
+
+def ClassificationAddKind(builder, kind):
+    builder.PrependUint8Slot(3, kind, 0)
+
+
+def AddKind(builder, kind):
+    ClassificationAddKind(builder, kind)
+
+
+def ClassificationAddSubjectId(builder, subjectId):
+    builder.PrependUint64Slot(4, subjectId, None)
+
+
+def AddSubjectId(builder, subjectId):
+    ClassificationAddSubjectId(builder, subjectId)
+
+
 def ClassificationEnd(builder):
     return builder.EndObject()
 
@@ -137,11 +182,17 @@ class ClassificationT(object):
         self,
         object=None,
         candidates=None,
+        labelSet=None,
+        kind=0,
+        subjectId=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
         # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.ClassificationCandidate.ClassificationCandidateT]]
         self.candidates = candidates
+        self.labelSet = labelSet  # type: Optional[str]
+        self.kind = kind  # type: int
+        self.subjectId = subjectId  # type: Optional[int]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -176,6 +227,9 @@ class ClassificationT(object):
                     classificationCandidate_ = open_perception_kit.fb.open_perception_kit.metadata.ClassificationCandidate.ClassificationCandidateT.InitFromObj(
                         classification.Candidates(i))
                     self.candidates.append(classificationCandidate_)
+        self.labelSet = classification.LabelSet()
+        self.kind = classification.Kind()
+        self.subjectId = classification.SubjectId()
 
     # ClassificationT
     def Pack(self, builder):
@@ -189,10 +243,16 @@ class ClassificationT(object):
             for i in reversed(range(len(self.candidates))):
                 builder.PrependUOffsetTRelative(candidateslist[i])
             candidates = builder.EndVector()
+        if self.labelSet is not None:
+            labelSet = builder.CreateString(self.labelSet)
         ClassificationStart(builder)
         if self.object is not None:
             ClassificationAddObject(builder, object)
         if self.candidates is not None:
             ClassificationAddCandidates(builder, candidates)
+        if self.labelSet is not None:
+            ClassificationAddLabelSet(builder, labelSet)
+        ClassificationAddKind(builder, self.kind)
+        ClassificationAddSubjectId(builder, self.subjectId)
         classification = ClassificationEnd(builder)
         return classification

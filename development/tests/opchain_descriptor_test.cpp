@@ -370,6 +370,7 @@ TEST(OpChainDescriptor, ValidatesKeywordLabelsAndExplicitDecoding) {
     value["ops"] = {{{"id", "opk-std-ops/GenericPostprocess"},
                      {"attributes",
                       {{"parser", "KeywordClassificationParser"},
+                       {"labelSet", "test:commands-v1"},
                        {"outputTensorIndex", 1},
                        {"activation", "none"},
                        {"confidenceThreshold", 0.65},

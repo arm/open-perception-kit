@@ -66,6 +66,9 @@ makeImageBoundingBox(const opk::ImageInferenceMetadata &image,
                      const float height,
                      const bool normalized = false);
 bool validImageSpace(const metadata::ImageSpaceT *const space) noexcept;
+// Resolves one box/track observation by ID; duplicates remain ambiguous even
+// when one observation has missing or invalid geometry. No content-type filter.
+const metadata::BoundingBoxT *findSubjectBox(const FrameResults &frameResults, const uint64_t id);
 // Returns x, y, width, height in the requested surface's pixels. No parent lookup.
 std::optional<std::array<double, 4>> projectBoundingBox(const metadata::BoundingBoxT &box,
                                                         const uint32_t targetWidth,
