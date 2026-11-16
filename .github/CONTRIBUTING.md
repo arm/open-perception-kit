@@ -33,7 +33,8 @@ limitations under the License.
   configured contributor identity (`git commit -S -s`). Keep signing enabled
   during rebases and cherry-picks, and verify both requirements after rewrites.
 - Use a Conventional Commit pull request title, for example
-  `ci: EXPKITS-1234 simplify CI workflows`. Titles are validated for pull requests targeting `main`.
+  `ci: EXPKITS-1234 simplify CI workflows`. Titles are validated for all pull
+  requests, including stacked pull requests targeting another feature branch.
 - Fill out the pull request template with `Goal`, `Change`, and `Testing`.
 - Bump the product version only when preparing a release. Merge the preparation
   PR into `main`, then start the manual Release workflow. Do not overwrite
