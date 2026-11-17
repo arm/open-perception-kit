@@ -1,0 +1,14 @@
+{
+  "version": "1.0.1",
+  "description": "YAMNet audio-event classification on a browser microphone, with WebRTC playback and WebSocket results.",
+  "sourceInfo": "opksrc video and browser microphone over WebRTC",
+  "loop": false,
+  "pipeline": [
+    "opksrc name=source ws-port=8003",
+    "source.video ! queue ! opksink name=sink",
+    "source.src ! queue !",
+    "opkinfer name=events active=true audio-hop-samples=1600",
+    "opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yamnet-esc/opchain.json\" !",
+    "opkcomm method=websocket endpoint=/ws ! sink.audiosink"
+  ]
+}
