@@ -35,6 +35,10 @@ class FakeClassList {
     this.sync();
   }
 
+  contains(name) {
+    return this.values.has(name);
+  }
+
   toggle(name, force) {
     const enabled = force === undefined ? !this.values.has(name) : Boolean(force);
     if (enabled) {
@@ -87,6 +91,7 @@ class FakeElement {
   }
 
   appendChild(child) {
+    child.parentElement = this;
     this.children.push(child);
     return child;
   }
@@ -109,6 +114,15 @@ class FakeElement {
 
   dispatchEvent(event) {
     this.listeners.get(event.type)?.(event);
+  }
+
+  closest(selector) {
+    if (selector.startsWith(".") && this.classList.contains(selector.slice(1))) return this;
+    return this.parentElement?.closest(selector) ?? null;
+  }
+
+  getBoundingClientRect() {
+    return {left: 0, top: 0};
   }
 
   querySelector(selector) {
@@ -186,7 +200,7 @@ globalThis.WebSocket = class {
 
 const {modelsManager} = await import("../src/models.js");
 
-test("selector keeps the current default detector first in the preferred model order", () => {
+test("selector preserves the reported pipeline order", () => {
   const models = [
     "yolo26n-320",
     "ultraface-rfb-320",
@@ -199,8 +213,30 @@ test("selector keeps the current default detector first in the preferred model o
 
   assert.deepEqual(
     modelsContainer.children.map((item) => item.getAttribute("data-model-name")),
-    models.map((model) => model.name),
+    [...models].reverse().map((model) => model.name),
   );
+  const stages = models.map((model, index) => ({...model, element_name: `model-${index}`, modelGroup: 'inference'}));
+  const editor = {modelGroups: [{id: 'inference'}], revision: 7};
+  const stopped = {state: 'READY', pending: '', busy: false};
+  const editButtons = () => modelsContainer.children.flatMap(item => item.querySelector('.model-edit-actions').children);
+  for (const state of [null, {...stopped, state: 'PLAYING'}, {...stopped, state: 'PAUSED'},
+    {...stopped, pending: 'PLAYING'}, {...stopped, busy: true}]) {
+    modelsManager.render(stages, editor, state);
+    assert.ok(editButtons().every(button => button.disabled));
+  }
+  modelsManager.render(stages, editor, stopped);
+  const [sourceItem, destinationItem] = modelsContainer.children;
+  assert.equal(sourceItem.draggable, true);
+  sourceItem.dispatchEvent({
+    type: 'dragstart', clientX: 0, clientY: 0,
+    dataTransfer: {setDragImage() {}, setData() {}},
+  });
+  destinationItem.dispatchEvent({type: 'drop', preventDefault() {}});
+  assert.deepEqual(sentMessages.at(-1), {type: 'model_edit', action: 'move', revision: editor.revision,
+    modelGroup: 'inference', name: stages[0].element_name, position: 1});
+  assert.ok(editButtons().every(button => button.disabled), 'wait for the server to confirm the edit');
+  assert.deepEqual(modelsContainer.children.map(item => item.getAttribute('data-model-element-name')),
+    stages.map(model => model.element_name), 'do not reorder before server confirmation');
 });
 
 test("selector renders task and model details from descriptor metadata", () => {

@@ -762,8 +762,13 @@ foreach endpoint : ['control', 'webrtc']
   test(
     'opksink_websocket_json_' + endpoint,
     gst_python,
-    args : [files('opksink_websocket_json_test.py'), opkinferpre.full_path(), endpoint],
-    depends : opkinferpre,
+    args : [
+      files('opksink_websocket_json_test.py'),
+      opkinferpre.full_path(),
+      endpoint,
+      gstopkinfer.full_path(),
+    ],
+    depends : [opkinferpre, gstopkinfer],
     is_parallel : false,
     timeout : 20,
   )

@@ -29,6 +29,18 @@ limitations under the License.
 </head>
 
 <body class="wfr-txt-body">
+    <dialog id="modelPicker" class="model-picker" aria-labelledby="modelPickerTitle" aria-describedby="modelPickerHint">
+        <form id="modelPickerForm">
+            <h2 id="modelPickerTitle" class="wfr-txt-h3">Add model</h2>
+            <p id="modelPickerHint" class="wfr-txt-body--sm"></p>
+            <label>Installed model<select id="modelChoice" required></select></label>
+            <label id="modelGroupLabel">Model group<select id="modelGroup"></select></label>
+            <div class="model-picker-actions">
+                <button id="cancelModelBtn" class="control-button" type="button">Cancel</button>
+                <button id="saveModelBtn" class="control-button control-button--primary" type="submit">Add</button>
+            </div>
+        </form>
+    </dialog>
     <div class="card">
         <div class="card-body">
             <aside id="sidePanel" class="sidebar" aria-label="Pipeline controls">
@@ -73,11 +85,15 @@ limitations under the License.
                     <div class="sidebar-section sidebar-section--grow sidebar-section--models" data-model-selector-section>
                         <div class="model-selector-header">
                             <h2 class="sidebar-section-title wfr-txt-h3">Model selector</h2>
+                            <button id="addModelBtn" class="control-button" type="button" aria-label="Add model"
+                                aria-describedby="modelEditHint" disabled><span aria-hidden="true">+</span> Add</button>
                         </div>
                         <div id="modelSelectorPanel" class="model-selector-panel">
                             <p class="sidebar-section-description wfr-txt-body--sm">
-                                Select which models from the current pipeline are running on the source.
+                                Models are shown in pipeline order. Switch models on or off while running.
                             </p>
+                            <p id="modelEditHint" class="wfr-txt-body--sm" role="status">Connect to the pipeline to edit models.</p>
+                            <hr class="model-selector-divider">
                             <div id="models-container" class="models-container">
                                 <div class="models-loading">
                                     <div class="spinner"></div>

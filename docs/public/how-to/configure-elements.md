@@ -150,20 +150,39 @@ acceptance. GObject rejects type/range violations through its normal diagnostics
 OPK reports resource failures through the bus. A failed startup must be corrected
 by the caller before retrying. OPK does not save or restore working combinations.
 
-## Stop and reload from the browser
+## Edit models from the browser
 
-The left panel places **Play/Pause** and **Stop** below the model selector and
-above the WebRTC controls. Pause preserves the loaded OpChains. Stop moves the
-whole pipeline to READY and keeps the HTTP and control services available.
-Wait for **Stopped**, replace the OpChain JSON on the pipeline machine, then
-press Play. The next start reads the file again, including changes at the same
-path. File sources may restart from the beginning.
+The left panel places **Play/Pause** and **Stop** below the model selector.
+WebRTC controls sit above the model selector. Pause preserves the loaded OpChains.
+Stop moves the whole pipeline to READY and keeps the HTTP and control services available.
+Wait for **Stopped**, then use **+ Add**, **Replace**, the trash button, or drag
+a model by its row. Focus the dotted drag handle and use the Up/Down arrow keys
+to reorder with the keyboard.
+The list follows pipeline order. Reordering stays within each model group;
+other elements and branch connections stay fixed. Editing controls remain visible
+but disabled while running, paused, disconnected or changing state, with a hint
+explaining when editing is available. On/off switches retain their live behavior.
+
+Add and Replace offer only existing server OpChains whose referenced model files
+are installed. Removing a model keeps its files. Changes apply to the current
+session and do not save a preset. Replacement preserves the stage's activation.
+Replace rereads the selected JSON and clears that stage's input connections,
+even when selecting the same path. Play then loads a fresh model runtime.
+Reordering and connections in other stages are untouched.
+Removing a provider or moving it after a consumer is allowed and may disable dependent
+functionality. No dependency repair or new dependency validation is performed.
+
+Press Play after editing. You can also replace an OpChain JSON directly on the
+pipeline machine while stopped: the next start reads it again, including changes
+at the same path. File sources may restart from the beginning.
 
 When running through `opk-menu` or the C++ Runtime, a GStreamer error stops
 processing and leaves the editor available for correction while its control
 service can remain open. The error appears beside the playback buttons. Correct
 the configuration and retry; no working configuration is restored automatically.
 An error that prevents the control service from running still ends the run.
+`opk-menu` also retains its initial configuration validation before creating the
+pipeline, so an invalid startup descriptor must be corrected on the machine.
 
 ## Platform validation
 

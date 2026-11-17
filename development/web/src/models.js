@@ -22,32 +22,6 @@
 
 import { ctrlSend } from "./ctrlws.js"
 
-const PREFERRED_MODEL_ORDER = [
-    'Yolo26n320Int8',
-    'UltraFaceRfb320Int8',
-    'NitecResnet18Int8',
-    'MobileGazeMobilenetV2Int8',
-];
-
-function modelKey(modelOrName) {
-    return String(modelOrName?.name || modelOrName || '').toLowerCase();
-}
-
-function orderModels(models) {
-    const preferred = new Map(PREFERRED_MODEL_ORDER.map((name, index) => [modelKey(name), index]));
-
-    return [...models].sort((a, b) => {
-        const aOrder = preferred.get(modelKey(a));
-        const bOrder = preferred.get(modelKey(b));
-
-        if (aOrder !== undefined || bOrder !== undefined) {
-            return (aOrder ?? Number.MAX_SAFE_INTEGER) - (bOrder ?? Number.MAX_SAFE_INTEGER);
-        }
-
-        return String(a.name || '').localeCompare(String(b.name || ''));
-    });
-}
-
 function readableText(value) {
     return String(value ?? '').trim();
 }
@@ -71,7 +45,7 @@ function dependencyProviderTasks(model, models) {
         .filter(Boolean))];
 }
 
-function resolveModelPresentation(model) {
+function resolveModelLabels(model) {
     const rawName = readableText(model.name) || 'Unknown model';
     const displayName = readableText(model.displayName) || rawName;
     const task = readableText(model.task);
@@ -86,50 +60,251 @@ function resolveModelPresentation(model) {
     }
 
     const fullLabel = secondaryLabel ? `${primaryLabel} - ${secondaryLabel}` : primaryLabel;
-    return {primaryLabel, secondaryLabel, fullLabel};
+    return { primaryLabel, secondaryLabel, fullLabel };
 }
 
 class ModelsManager {
     constructor() {
         this.container = document.getElementById('models-container');
-        this.updateInterval = null;
+        this.models = [];
+        this.editor = null;
+        this.pipelineState = null;
+        this.editControls = [];
+        this.addButton = document.getElementById('addModelBtn');
+        this.editHint = document.getElementById('modelEditHint');
+        this.dialog = document.getElementById('modelPicker');
+        this.modelChoice = document.getElementById('modelChoice');
+        this.modelGroupChoice = document.getElementById('modelGroup');
+        this.saveButton = document.getElementById('saveModelBtn');
+        this.addButton?.addEventListener('click', () => this.openPicker());
+        document.getElementById('cancelModelBtn')?.addEventListener('click', () => this.dialog.close());
+        document.getElementById('modelPickerForm')?.addEventListener('submit', (event) => {
+            event.preventDefault();
+            this.submitEdit({ ...this.pickerRequest, path: this.modelChoice.value, modelGroup: this.modelGroupChoice.value });
+            this.dialog.close();
+        });
         this._lastModelsSignature = '';
     }
 
-    render(models) {
+    render(models, editor = null, pipelineState = null) {
         if (!this.container) return;
-
-        const nextSignature = JSON.stringify(models.map((model) => ({
-            active: Boolean(model.active),
-            element_name: model.element_name || '',
-            name: model.name || '',
-            displayName: model.displayName || '',
-            task: model.task || '',
-            runtime: model.runtime || '',
-            providedOutputs: outputs(model.providedOutputs),
-            requiredInputs: inputs(model.requiredInputs),
-            availableInputs: outputs(model.availableInputs),
-        })));
-        if (nextSignature === this._lastModelsSignature) {
-            return;
-        }
+        this.models = models;
+        this.editor = editor;
+        this.pipelineState = pipelineState;
+        this.editPending = false;
+        this.updatePicker();
+        this.updateEditorControls();
+        const nextSignature = JSON.stringify([models, this.editDisabledReason()]);
+        if (nextSignature === this._lastModelsSignature) return;
         this._lastModelsSignature = nextSignature;
-
         this.container.innerHTML = '';
-
+        this.editControls = [];
         if (models.length === 0) {
-            this.container.innerHTML = `
-                <div class="models-empty">
-                    No models registered yet
-                </div>
-            `;
-            return;
+            this.container.innerHTML = '<div class="models-empty">No models in this pipeline.</div>';
         }
+        let previousModelGroup = null;
+        for (const model of models) {
+            if (editor?.modelGroups?.length > 1 && model.modelGroup !== previousModelGroup) {
+                const heading = document.createElement('p');
+                heading.className = 'wfr-txt-caption';
+                const modelGroupIndex = editor.modelGroups.findIndex(modelGroup => modelGroup.id === model.modelGroup);
+                heading.textContent = modelGroupIndex >= 0 ? `Model group ${modelGroupIndex + 1}` : 'Fixed models';
+                this.container.appendChild(heading);
+                previousModelGroup = model.modelGroup;
+            }
+            this.container.appendChild(this.createModelItem(model, models));
+        }
+        this.updateEditorControls();
+    }
 
-        const orderedModels = orderModels(models);
-        orderedModels.forEach((model) => {
-            const modelItem = this.createModelItem(model, orderedModels);
-            this.container.appendChild(modelItem);
+    editDisabledReason() {
+        const state = this.pipelineState;
+        if (!state) return 'Reconnect to the pipeline to edit models.';
+        if (state.busy || state.pending || this.editPending) return 'Wait for the current pipeline change to finish.';
+        if (state.state !== 'READY') return 'Stop the pipeline to add, replace, remove or reorder models.';
+        if (!this.editor?.modelGroups?.length) return 'This pipeline has no editable model group.';
+        return '';
+    }
+
+    updateEditorControls() {
+        const reason = this.editDisabledReason();
+        if (this.addButton) {
+            this.addButton.disabled = Boolean(reason);
+            this.addButton.title = reason || 'Add an installed model';
+        }
+        if (this.editHint) {
+            this.editHint.textContent = reason || 'Drag models to reorder within their group while the pipeline is stopped.';
+        }
+        for (const { button, limitation } of this.editControls) {
+            button.disabled = Boolean(reason || limitation);
+            button.title = reason || limitation || button.getAttribute('aria-label');
+            if (button.classList.contains('model-drag-handle')) {
+                const item = button.closest('.model-item');
+                item.draggable = !button.disabled;
+                item.title = button.title;
+            }
+        }
+        if (this.saveButton) {
+            const staleSelection = this.pickerRequest?.revision !== this.editor?.revision;
+            this.saveButton.disabled = Boolean(reason || staleSelection || !this.modelChoice?.value);
+            const hint = document.getElementById('modelPickerHint');
+            hint.textContent = reason || (staleSelection ? 'The model list changed. Close this dialog and select again.' :
+                this.pickerRequest?.action === 'replace' ? 'Replace reloads the selected JSON and clears this model’s input connections, including for the same file.' :
+                    'Only OpChains with model files already installed on the server are listed.');
+        }
+    }
+
+    submitEdit(change) {
+        if (this.editDisabledReason()) return;
+        try {
+            ctrlSend({ type: 'model_edit', revision: this.editor.revision, ...change });
+            this.editPending = true;
+            this.updateEditorControls();
+        } catch (error) {
+            this.editHint.textContent = error.message;
+        }
+    }
+
+    openPicker(model = null) {
+        if (this.editDisabledReason()) return;
+        this.pickerRequest = {
+            action: model ? 'replace' : 'add', name: model?.element_name,
+            modelGroup: model?.modelGroup, revision: this.editor.revision
+        };
+        document.getElementById('modelPickerTitle').textContent = model ? 'Replace model' : 'Add model';
+        this.saveButton.textContent = model ? 'Replace' : 'Add';
+        this.modelGroupChoice.innerHTML = '';
+        for (const [index, modelGroup] of this.editor.modelGroups.entries()) {
+            const option = document.createElement('option');
+            option.value = modelGroup.id;
+            option.textContent = `Model group ${index + 1}`;
+            this.modelGroupChoice.appendChild(option);
+        }
+        this.modelGroupChoice.value = model?.modelGroup || this.editor.modelGroups[0].id;
+        this.modelGroupChoice.disabled = Boolean(model);
+        document.getElementById('modelGroupLabel').hidden = Boolean(model) || this.editor.modelGroups.length === 1;
+        this.pickerPath = model?.opchainPath || '';
+        this.availableOpChainsSignature = '';
+        this.updatePicker();
+        if (model && [...this.modelChoice.options].some(option => option.value === model.opchainPath)) {
+            this.modelChoice.value = model.opchainPath;
+        }
+        this.updateEditorControls();
+        this.dialog.showModal();
+        try {
+            ctrlSend({ type: 'refresh_available_opchains' });
+        } catch (error) {
+            document.getElementById('modelPickerHint').textContent = error.message;
+            this.saveButton.disabled = true;
+        }
+    }
+
+    updatePicker() {
+        if (!this.modelChoice) return;
+        const availableOpChains = this.editor?.availableOpChains || [];
+        const signature = JSON.stringify(availableOpChains);
+        if (signature === this.availableOpChainsSignature) return;
+        this.availableOpChainsSignature = signature;
+        const selection = this.modelChoice.value || this.pickerPath;
+        this.modelChoice.innerHTML = '';
+        if (!availableOpChains.length) {
+            const empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = 'No installed models available';
+            this.modelChoice.appendChild(empty);
+        }
+        for (const opChain of availableOpChains) {
+            const option = document.createElement('option');
+            option.value = opChain.path;
+            option.textContent = `${resolveModelLabels(opChain).fullLabel} — ${opChain.path}`;
+            this.modelChoice.appendChild(option);
+        }
+        if (availableOpChains.some(opChain => opChain.path === selection)) this.modelChoice.value = selection;
+    }
+
+    appendEditControls(item, model, models) {
+        const toolbar = document.createElement('div');
+        toolbar.className = 'model-edit-actions';
+        const modelGroupModels = models.filter(candidate => candidate.modelGroup === model.modelGroup);
+        const position = modelGroupModels.indexOf(model);
+        const modelLabel = resolveModelLabels(model).fullLabel;
+        const addButton = (label, text, action, limitation = '') => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'control-button';
+            button.textContent = text;
+            button.setAttribute('aria-label', `${label} ${modelLabel}`);
+            button.setAttribute('aria-describedby', 'modelEditHint');
+            button.addEventListener('click', action);
+            toolbar.appendChild(button);
+            this.editControls.push({ button, limitation: model.modelGroup ? limitation : 'This model is outside an editable model group.' });
+            return button;
+        };
+        const handle = addButton('Drag to reorder', '⠿', () => { },
+            modelGroupModels.length < 2 ? 'Add another model to this model group to reorder.' : '');
+        handle.classList.add('model-drag-handle');
+        handle.setAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown');
+        handle.setAttribute('aria-description', 'Use the Up and Down arrow keys to reorder.');
+        handle.addEventListener('keydown', event => {
+            const direction = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
+            if (!direction || handle.disabled) return;
+            event.preventDefault();
+            const destination = position + direction;
+            const withinModelGroup = destination >= 0 && destination < modelGroupModels.length;
+            if (withinModelGroup) {
+                this.submitEdit({ action: 'move', name: model.element_name, modelGroup: model.modelGroup, position: destination });
+            }
+        });
+        item.appendChild(handle);
+        this.bindModelReordering(item, handle, model, position);
+        addButton('Replace', 'Replace', () => this.openPicker(model));
+        const remove = addButton('Remove', '', () => this.submitEdit({ action: 'remove', name: model.element_name, modelGroup: model.modelGroup }));
+        remove.classList.add('model-remove');
+        const icon = document.createElement('span');
+        icon.className = 'icon';
+        icon.setAttribute('data-icon', 'trash-2');
+        icon.setAttribute('aria-hidden', 'true');
+        remove.appendChild(icon);
+        item.appendChild(toolbar);
+        if (model.modelGroup && model.connected === false) {
+            const error = document.createElement('p');
+            error.className = 'model-link-error wfr-txt-body--sm';
+            error.textContent = 'Links incomplete. Edit this model group to reconnect its models.';
+            item.appendChild(error);
+        }
+    }
+
+    bindModelReordering(item, handle, model, position) {
+        let dragBlockedByControl = false;
+        item.addEventListener('pointerdown', event => {
+            const control = event.target.closest('button, input, select, label, a, [tabindex]');
+            dragBlockedByControl = Boolean(control && control !== handle);
+        });
+        item.addEventListener('dragstart', event => {
+            if (handle.disabled || dragBlockedByControl) { event.preventDefault(); return; }
+            this.draggedModel = { name: model.element_name, modelGroup: model.modelGroup, revision: this.editor.revision };
+            item.classList.add('model-dragging');
+            const bounds = item.getBoundingClientRect();
+            event.dataTransfer.setDragImage(item, event.clientX - bounds.left, event.clientY - bounds.top);
+            event.dataTransfer.setData('text/plain', model.element_name);
+            event.dataTransfer.effectAllowed = 'move';
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('model-dragging');
+            this.draggedModel = null;
+        });
+        item.addEventListener('dragover', event => {
+            if (!this.editDisabledReason() && this.draggedModel?.modelGroup === model.modelGroup) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+            }
+        });
+        item.addEventListener('drop', event => {
+            event.preventDefault();
+            if (this.draggedModel?.modelGroup === model.modelGroup && this.draggedModel.name !== model.element_name) {
+                this.submitEdit({ action: 'move', ...this.draggedModel, position });
+            }
+            this.draggedModel = null;
         });
     }
 
@@ -140,23 +315,23 @@ class ModelsManager {
         item.setAttribute('data-model-element-name', model.element_name || '');
         item.classList.toggle('model-active', Boolean(model.active));
 
-        const presentation = resolveModelPresentation(model);
+        const modelLabels = resolveModelLabels(model);
         const modelInfo = document.createElement('div');
         modelInfo.className = 'model-info';
 
         const modelCopy = document.createElement('div');
         modelCopy.className = 'model-copy';
-        modelCopy.title = presentation.fullLabel;
+        modelCopy.title = modelLabels.fullLabel;
 
         const modelTask = document.createElement('div');
         modelTask.className = 'model-task wfr-txt-label';
-        modelTask.textContent = presentation.primaryLabel;
+        modelTask.textContent = modelLabels.primaryLabel;
         modelCopy.appendChild(modelTask);
 
-        if (presentation.secondaryLabel) {
+        if (modelLabels.secondaryLabel) {
             const modelDetails = document.createElement('div');
             modelDetails.className = 'model-details wfr-txt-caption';
-            modelDetails.textContent = presentation.secondaryLabel;
+            modelDetails.textContent = modelLabels.secondaryLabel;
             modelCopy.appendChild(modelDetails);
         }
 
@@ -170,7 +345,7 @@ class ModelsManager {
             label.textContent = `${input.consumerId}/${input.inputId} — ${input.payloadType.split('.').at(-1)} `;
             const select = document.createElement('select');
             inputSelectors.set(input, select);
-            select.setAttribute('aria-label', `Input source for ${presentation.fullLabel}, ${input.consumerId}/${input.inputId}, ${input.payloadType}`);
+            select.setAttribute('aria-label', `Input source for ${modelLabels.fullLabel}, ${input.consumerId}/${input.inputId}, ${input.payloadType}`);
             const addOption = (id, text, disabled = false) => {
                 const option = document.createElement('option');
                 option.value = id;
@@ -184,7 +359,7 @@ class ModelsManager {
                     .filter(output => output.producerId && output.payloadType === input.payloadType &&
                         outputs(model.availableInputs).some(upstream => upstream.payloadType === output.payloadType &&
                             upstream.producerId === output.producerId))
-                    .map(output => ({...output, label: resolveModelPresentation(candidate).fullLabel})));
+                    .map(output => ({ ...output, label: resolveModelLabels(candidate).fullLabel })));
             const counts = new Map();
             for (const candidate of candidates) counts.set(candidate.producerId, (counts.get(candidate.producerId) || 0) + 1);
             const seen = new Set();
@@ -198,11 +373,13 @@ class ModelsManager {
                 addOption(input.producerId, `Unavailable: ${input.producerId}`, true);
             select.value = input.producerId;
             select.addEventListener('change', () => {
-                const bindings = requiredInputs.map(entry => ({consumerId: entry.consumerId, inputId: entry.inputId,
-                    payloadType: entry.payloadType, producerId: inputSelectors.get(entry).value}));
+                const bindings = requiredInputs.map(entry => ({
+                    consumerId: entry.consumerId, inputId: entry.inputId,
+                    payloadType: entry.payloadType, producerId: inputSelectors.get(entry).value
+                }));
                 this._lastModelsSignature = '';
                 try {
-                    ctrlSend({type: 'model_inputs', name: model.element_name, bindings});
+                    ctrlSend({ type: 'model_inputs', name: model.element_name, bindings });
                 } catch (error) {
                     select.value = input.producerId;
                     console.error('Error connecting model input:', error);
@@ -254,7 +431,7 @@ class ModelsManager {
 
         const toggleLabel = document.createElement('label');
         toggleLabel.className = 'model-toggle-switch';
-        toggleLabel.setAttribute('aria-label', `Toggle ${presentation.fullLabel}`);
+        toggleLabel.setAttribute('aria-label', `Toggle ${modelLabels.fullLabel}`);
 
         const toggle = document.createElement('input');
         toggle.type = 'checkbox';
@@ -271,6 +448,7 @@ class ModelsManager {
         toggleLabel.append(toggle, toggleTrack);
         modelActions.appendChild(toggleLabel);
         item.append(modelInfo, modelActions);
+        this.appendEditControls(item, model, models);
 
         toggle.addEventListener('change', () => {
             const shouldBeActive = toggle.checked;
@@ -306,12 +484,7 @@ class ModelsManager {
         }
     }
 
-    destroy() {
-        if (this.updateInterval) {
-            clearInterval(this.updateInterval);
-            this.updateInterval = null;
-        }
-    }
+
 }
 
 export const modelsManager = new ModelsManager();

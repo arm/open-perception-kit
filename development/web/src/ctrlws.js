@@ -60,13 +60,14 @@ function connectCtrl(manual = false) {
         setPipelineState(data.pipeline_state);
         window.dispatchEvent(new CustomEvent('pipeline-state-change', {detail: data.pipeline_state}));
         window.dispatchEvent(new CustomEvent('models-change', {detail: data.models}));
-        modelsManager.render(data.models);
+        modelsManager.render(data.models, data.model_editor, data.pipeline_state);
     };
 
     ctrl.onerror = () => { ; };
 
     ctrl.onclose = () => {
         setPipelineState(null);
+        modelsManager.render(modelsManager.models, modelsManager.editor, null);
         window.dispatchEvent(new CustomEvent('pipeline-state-change', {detail: null}));
         enableMicrophoneButton(false);
         setTimeout(() => {
