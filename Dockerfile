@@ -591,7 +591,7 @@ FROM opk-dev-base AS opk-docs
 ARG USERNAME=dev
 ARG ARM_DOCS_VERSION=0.12.1
 ARG PNPM_VERSION=12.21.0
-ARG NPM_REGISTRY=https://artifactory.arm.com/artifactory/api/npm/mirrors.npmjs_org
+ARG NPM_REGISTRY=https://registry.npmjs.org
 
 ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY} \
   PNPM_CONFIG_REGISTRY=${NPM_REGISTRY}

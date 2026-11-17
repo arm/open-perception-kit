@@ -39,7 +39,7 @@ browser. There is no watcher or automatic generation. `serve-docs-plain.sh` serv
 the same output on port 8080.
 
 Initial toolchain setup and generation need network access, including access to
-Arm's npm mirror by default. Serving the generated site needs no internet or Arm
+the public npm registry by default. Serving the generated site needs no internet or Arm
 credentials. Open generated HTML through localhost; opening HTML files directly
 with `file://` is unsupported.
 External links still require access to their destinations.
@@ -48,9 +48,7 @@ External links still require access to their destinations.
 `DOCS_PORT` changes the serving port. `DOCS_IMAGE` selects an already-built
 compatible documentation image; otherwise `gen-doc.sh` builds the checked-in
 `opk-docs` target from the checkout containing the script. Set `NPM_REGISTRY` to
-override the image's default Arm npm mirror,
-for example `NPM_REGISTRY=https://registry.npmjs.org ./scripts/gen-doc.sh` outside
-the Arm network.
+override the image's default public npm registry.
 
 ### Optional API reference
 
