@@ -20,7 +20,10 @@ import json
 import logging
 import os
 import sys
-from pathlib import Path
+import stat
+import tempfile
+import zipfile
+from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 from urllib.request import urlopen
 
@@ -162,6 +165,9 @@ def _download_files(manifest: Path, root: Path) -> None:
         destination = (root / filename).resolve()
         if not destination.is_relative_to(root):
             raise ValueError(f"Artifact destination is outside {root.name}/: {filename}")
+        if "archive" in source:
+            _download_archive(source, destination)
+            continue
         expected_sha256 = source["sha256"]
         if _matches_sha256(destination, expected_sha256):
             continue
@@ -169,6 +175,62 @@ def _download_files(manifest: Path, root: Path) -> None:
         LOGGER.info("Downloading %s to %s.", source["url"], destination)
         with urlopen(source["url"], timeout=30) as source_file:
             _install_download(source_file, destination, expected_sha256)
+
+
+def _archive_path(root: Path, filename: str) -> Path:
+    relative = PurePosixPath(filename)
+    if not filename or relative.is_absolute() or ".." in relative.parts or "\\" in filename:
+        raise ValueError(f"Invalid archive artifact path: {filename}")
+    destination = (root / filename).resolve()
+    if destination == root or not destination.is_relative_to(root):
+        raise ValueError(f"Archive artifact destination is outside {root}: {filename}")
+    if destination.exists() and not destination.is_file():
+        raise ValueError(f"Archive artifact destination is not a file: {filename}")
+    return destination
+
+
+def _download_archive(source: dict, root: Path) -> None:
+    """Download one pinned ZIP and install only its explicitly listed members.
+
+    Verify every selected member before replacing any installed artifact. Never
+    extract archive paths directly, and preserve existing files on fetch/hash errors.
+    """
+    members = source["archive"]
+    if not isinstance(members, dict) or not members:
+        raise ValueError("Archive must declare a nonempty destination-to-member mapping")
+    destinations = {}
+    for filename, member in members.items():
+        destinations[filename] = _archive_path(root, filename)
+        _archive_path(root, member["member"])
+    if len(set(destinations.values())) != len(destinations):
+        raise ValueError("Archive destinations must be distinct")
+    if all(_matches_sha256(destinations[name], member["sha256"])
+           for name, member in members.items()):
+        return
+    root.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".opk-model-archive-", dir=root.parent) as temporary:
+        staging = Path(temporary)
+        archive_file = staging / "download.zip"
+        LOGGER.info("Downloading archive %s to %s.", source["url"], root)
+        with urlopen(source["url"], timeout=30) as stream:
+            _install_download(stream, archive_file, source["sha256"])
+        try:
+            with zipfile.ZipFile(archive_file) as archive:
+                names = archive.namelist()
+                for index, (filename, member) in enumerate(members.items()):
+                    if names.count(member["member"]) != 1:
+                        raise ValueError(f"Archive member must occur exactly once: {member['member']}")
+                    info = archive.getinfo(member["member"])
+                    if info.is_dir() or stat.S_ISLNK(info.external_attr >> 16):
+                        raise ValueError(f"Archive member must be a regular file: {member['member']}")
+                    with archive.open(info) as stream:
+                        _install_download(stream, staging / str(index), member["sha256"])
+        except zipfile.BadZipFile as error:
+            raise ValueError(f"Invalid model ZIP: {error}") from error
+        for index, filename in enumerate(members):
+            destination = destinations[filename]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(staging / str(index), destination)
 
 
 def _install_download(

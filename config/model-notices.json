@@ -106,5 +106,13 @@
   "retinaface-LICENSE.txt": {
     "url": "https://raw.githubusercontent.com/yakhyo/retinaface-pytorch/97a0b04622a90f6bc4b40c1305c206260ec90b5a/LICENSE",
     "sha256": "a4f7998feb5c90555daae4329db61caf7049e6b2706991dc1d9eb2a0923847ae"
+  },
+  "yamnet-README.md": {
+    "url": "https://huggingface.co/qualcomm/YamNet/raw/2105a5e3e546b80c484a7084fcae435683a1c205/README.md",
+    "sha256": "17ca36f6fa2b7be035021c719341873f5d754a22d6ff367007a3914bbc42d699"
+  },
+  "yamnet-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/w-hc/torch_audioset/e8852c5/LICENSE",
+    "sha256": "d3a4edfce36af367508ee5ed8a2127daa9d9e749343bb38471bc198bd8caf782"
   }
 }
