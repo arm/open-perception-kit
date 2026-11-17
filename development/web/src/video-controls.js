@@ -22,16 +22,20 @@ import { ctrlSend } from "./ctrlws.js";
 const playBtn = document.getElementById("playPauseBtn");
 const playIcon = document.getElementById("playPauseIcon");
 const playText = playBtn ? playBtn.querySelector(".video-control-text") : null;
+const stopBtn = document.getElementById("stopPipelineBtn");
+const pipelineStatus = document.getElementById("pipelineStatus");
+const pipelineError = document.getElementById("pipelineError");
 const video = document.getElementById("video");
 
-let isPipelinePlaying = true;
-let lastToggleRequestedAt = 0;
-const DUPLICATE_EVENT_MS = 350;
+let isPipelinePlaying = false;
+let currentPipelineState = null;
 
 const setBusy = (busy) => {
     if (!playBtn) return;
 
-    playBtn.disabled = busy;
+    const unavailable = busy || !currentPipelineState;
+    playBtn.disabled = unavailable;
+    if (stopBtn) stopBtn.disabled = unavailable || currentPipelineState.state === 'READY';
     playBtn.setAttribute('aria-busy', String(busy));
 };
 
@@ -41,9 +45,11 @@ const renderPlayPause = () => {
     const isPaused = !isPipelinePlaying;
     document.body.classList.toggle("is-feed-paused", isPaused);
     playIcon.dataset.icon = isPaused ? 'play' : 'pause';
-    playText.textContent = isPaused ? "Resume" : "Pause";
-    playBtn.setAttribute("aria-label", isPaused ? "Resume pipeline" : "Pause pipeline");
-    setBusy(false);
+    const action = isPaused ? 'Play' : 'Pause';
+    playText.textContent = action;
+    playBtn.setAttribute("aria-label", `${action} pipeline`);
+    playBtn.title = `${action} pipeline`;
+    setBusy(Boolean(currentPipelineState?.busy || currentPipelineState?.pending));
 };
 
 const dispatchPauseState = () => {
@@ -95,35 +101,53 @@ const resumeFeedFrame = async () => {
     }
 };
 
-export const setPlayPause = (isPlaying) => {
-    if (typeof isPlaying === "boolean") {
-        isPipelinePlaying = isPlaying;
-        window.OPK_FEED_PAUSED = !isPipelinePlaying;
+export const setPipelineState = (state) => {
+    const previousState = currentPipelineState;
+    currentPipelineState = state;
+    const isChanging = Boolean(state?.busy || state?.pending);
+    const labels = {PLAYING: 'Running', PAUSED: 'Paused', READY: 'Stopped'};
+    if (pipelineStatus) pipelineStatus.textContent = !state ? 'Disconnected'
+        : isChanging ? 'Changing…' : state.error ? 'Error' : labels[state.state] || state.state;
+    if (pipelineError) {
+        pipelineError.textContent = state?.error || '';
+        pipelineError.hidden = !state?.error;
+    }
 
-        if (isPipelinePlaying) {
-            void resumeFeedFrame();
-        } else {
-            freezeFeedFrame();
-        }
-
+    if (!state) {
         renderPlayPause();
-        dispatchPauseState();
         return;
     }
 
+    const wasPlaying = isPipelinePlaying;
+    isPipelinePlaying = Boolean(state?.playing);
+    window.OPK_FEED_PAUSED = !isPipelinePlaying;
+    const pauseStateNeedsSync = !previousState || wasPlaying !== isPipelinePlaying;
+    if (pauseStateNeedsSync) {
+        if (isPipelinePlaying) void resumeFeedFrame();
+        else freezeFeedFrame();
+        dispatchPauseState();
+    }
+    if (state?.state === 'READY' && previousState?.state !== 'READY') {
+        window.dispatchEvent(new CustomEvent('pipeline-stopped'));
+    }
     renderPlayPause();
+};
+
+const requestState = (state) => {
+    setBusy(true);
+    try {
+        ctrlSend({type: 'change_pipeline_state', state});
+    } catch (error) {
+        setPipelineState(null);
+    }
 };
 
 const requestPlayPause = (event) => {
     event?.preventDefault();
 
-    const now = Date.now();
-    if (now - lastToggleRequestedAt < DUPLICATE_EVENT_MS) return;
-    lastToggleRequestedAt = now;
-
-    setBusy(true);
-    ctrlSend({ type: "play_pause" });
+    requestState(isPipelinePlaying ? 'PAUSED' : 'PLAYING');
 };
 
+stopBtn?.addEventListener('click', () => requestState('READY'));
 playBtn?.addEventListener("click", requestPlayPause);
 renderPlayPause();

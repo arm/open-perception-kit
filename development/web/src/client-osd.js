@@ -635,18 +635,23 @@ function clearDisplayedFrame() {
 video.addEventListener('emptied', clearDisplayedFrame);
 window.addEventListener('video-frame-reset', clearDisplayedFrame);
 
-window.addEventListener('metadata-connection', (event) => {
-    if (event.detail.connected) return;
+function resetSources(message) {
     frameIndex = indexFrame(null);
     knownOutputs.clear();
-    connection.textContent = 'Metadata disconnected. Waiting for pipeline outputs.';
+    clearDisplayedFrame();
+    connection.textContent = message;
     updateStatuses();
     updateSourceLabels();
     if (dialog.open) {
         refreshFeatures();
         refreshOutputs();
     }
+}
+
+window.addEventListener('metadata-connection', (event) => {
+    if (!event.detail.connected) resetSources('Metadata disconnected. Waiting for pipeline outputs.');
 });
+window.addEventListener('pipeline-stopped', () => resetSources('Pipeline stopped. Play to discover outputs.'));
 
 function drawDisplayedFrame() {
     if (missingFrameSince !== null && performance.now() - missingFrameSince >= OVERLAY_HOLD_MS) {

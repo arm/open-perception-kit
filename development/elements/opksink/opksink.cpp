@@ -21,6 +21,7 @@ g++ -fPIC -shared -o libgstopksink.so opksink.cpp \
 */
 
 // WebRTC in GST is unstable: this macro disables the warning
+#include "gst/PipelineControl.h"
 #include "gst/PropertyGuard.h"
 
 #include "glib-object.h"
@@ -153,22 +154,27 @@ nlohmann::json PipelineStateReporter::report() const {
     nlohmann::json ret;
 
     if (self_) {
-        // get the playing state
-        GstState cur = GST_STATE_NULL;
-        GstState pending = GST_STATE_NULL;
-        gst_element_get_state(GST_ELEMENT(self_), &cur, &pending, 0);
-        opk::log::debug("current state: {}, {}", int(cur), int(pending));
+        GstState currentState = GST_STATE_NULL;
+        GstState pendingState = GST_STATE_NULL;
+        g_autoptr(GstElement) pipelineContainingOpksink = get_top_pipeline(GST_ELEMENT(self_));
+        if (pipelineContainingOpksink) {
+            gst_element_get_state(pipelineContainingOpksink, &currentState, &pendingState, 0);
+        } else {
+            // Fallback in case opksink has no containing pipeline
+            gst_element_get_state(GST_ELEMENT(self_), &currentState, &pendingState, 0);
+        }
 
-        const auto effective = pending == GST_STATE_VOID_PENDING ? cur : pending;
-        ret["playing"] = effective == GST_STATE_PLAYING;
+        ret["playing"] =
+            currentState == GST_STATE_PLAYING && pendingState == GST_STATE_VOID_PENDING;
+        ret["state"] = gst_element_state_get_name(currentState);
+        ret["pending"] =
+            pendingState == GST_STATE_VOID_PENDING ? "" : gst_element_state_get_name(pendingState);
 
         // audio state
-        ret["audio"] = has_audio_;
-        GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self_));
-        GstElement *microphone = get_element_by_type(pipeline, "opksrc");
+        ret["audio"] = has_audio_.load();
+        GstElement *microphone = get_element_by_type(pipelineContainingOpksink, "opksrc");
         ret["microphone"] = microphone != nullptr;
         gst_clear_object(&microphone);
-        gst_clear_object(&pipeline);
     }
 
     return ret;
@@ -333,8 +339,35 @@ static bool gst_opk_sink_start_servers(GstOpkSink *self) {
 static void gst_opk_sink_report_state_async(GstElement *element, gpointer user_data) {
     auto *self = reinterpret_cast<GstOpkSink *>(element);
     if (self->private_data && self->private_data->pipeline_state_reporter) {
-        self->private_data->pipeline_state_reporter->set_paused();
+        self->private_data->pipeline_state_reporter->notify_state_change();
     }
+}
+
+static gboolean gst_opk_sink_query(GstElement *const element, GstQuery *const query) {
+    auto *const self = GST_OPK_SINK(element);
+    const auto *const structure = gst_query_get_structure(query);
+    if (GST_QUERY_TYPE(query) == GST_QUERY_CUSTOM &&
+        gst_structure_has_name(structure, gst::pipeline_control::kPipelineControlAvailableQuery)) {
+        const auto &control = self->private_data->ctrl_websocket;
+        return control && control->available();
+    }
+    return GST_ELEMENT_CLASS(gst_opk_sink_parent_class)->query(element, query);
+}
+
+static gboolean gst_opk_sink_send_event(GstElement *const element, GstEvent *const event) {
+    auto *const self = GST_OPK_SINK(element);
+    const auto *const structure = gst_event_get_structure(event);
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_UPSTREAM &&
+        gst_structure_has_name(structure, gst::pipeline_control::kErrorEvent)) {
+        const char *const message =
+            gst_structure_get_string(structure, gst::pipeline_control::kErrorMessage);
+        if (message && self->private_data->ctrl_websocket) {
+            self->private_data->ctrl_websocket->record_error(message);
+        }
+        gst_event_unref(event);
+        return TRUE;
+    }
+    return GST_ELEMENT_CLASS(gst_opk_sink_parent_class)->send_event(element, event);
 }
 
 static GstStateChangeReturn gst_opk_sink_change_state(GstElement *element,
@@ -575,7 +608,7 @@ static gboolean gst_opk_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
         return FALSE;
     }
 
-    if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM) {
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM_OOB) {
         const GstStructure *structure = gst_event_get_structure(event);
 
         if (gst_structure_has_name(structure, "opk-model-register")) {
@@ -997,6 +1030,9 @@ static void gst_opk_sink_init(GstOpkSink *self) {
 static void gst_opk_sink_class_init(GstOpkSinkClass *sinkClass) {
     auto *objectClass = G_OBJECT_CLASS(sinkClass);
     auto *elementClass = GST_ELEMENT_CLASS(sinkClass);
+
+    elementClass->query = gst_opk_sink_query;
+    elementClass->send_event = gst_opk_sink_send_event;
 
     objectClass->set_property = gst_opk_sink_set_property;
     objectClass->get_property = gst_opk_sink_get_property;

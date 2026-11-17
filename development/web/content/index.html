@@ -45,11 +45,6 @@ limitations under the License.
                                 <span class="status-line-text">WebRTC connecting</span>
                             </div>
                             <div class="controls-actions">
-                                <button id="playPauseBtn" class="control-button control-button--primary" type="button"
-                                    aria-label="Pause pipeline">
-                                    <span id="playPauseIcon" class="icon" data-icon="pause" aria-hidden="true"></span>
-                                    <span class="video-control-text">Pause</span>
-                                </button>
                                 <button id="microphoneBtn" class="control-button" type="button"
                                     aria-label="Unmute Mic" aria-pressed="false" title="Unmute Mic"
                                     style="display:none" disabled>
@@ -72,6 +67,27 @@ limitations under the License.
                         <div id="microphoneStatus" role="status" aria-live="polite" hidden></div>
                         <div id="cameraStatus" role="status" aria-live="polite" hidden></div>
                     </div>
+                </div>
+
+                <div class="sidebar-section pipeline-controls" aria-label="Pipeline playback">
+                    <div class="controls-row">
+                        <div class="controls-actions">
+                            <button id="playPauseBtn" class="control-button control-button--primary" type="button"
+                                aria-label="Play pipeline" disabled>
+                                <span id="playPauseIcon" class="icon" data-icon="play" aria-hidden="true"></span>
+                                <span class="video-control-text">Play</span>
+                            </button>
+                            <button id="stopPipelineBtn" class="control-button" type="button"
+                                aria-label="Stop pipeline" title="Stop the pipeline to edit models" disabled>
+                                <svg class="pipeline-stop-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <rect x="5" y="5" width="14" height="14" rx="1"></rect>
+                                </svg>
+                                <span>Stop</span>
+                            </button>
+                        </div>
+                        <span id="pipelineStatus" role="status">Connecting</span>
+                    </div>
+                    <p id="pipelineError" class="pipeline-error wfr-txt-body--sm" role="alert" hidden></p>
                 </div>
 
                 <div class="sidebar-scroll-area">

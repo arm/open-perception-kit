@@ -17,6 +17,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {readFile} from 'node:fs/promises';
 
 import {createWebRtcClient} from '../src/webrtc_client.js';
 import './microphone.test.js';
@@ -394,16 +395,52 @@ test('intentional pause suspends the frame watchdog until resume', async () => {
     await env.flush();
     env.attachVideoTrack();
 
-    client.setPaused(true);
-    env.clock.tick(500);
+    const globals = ['document', 'window', 'CustomEvent'];
+    const originals = Object.fromEntries(
+        globals.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
+    );
+    const pauseEvents = [];
+    Object.defineProperties(globalThis, {
+        document: {configurable: true, value: {getElementById: () => null}},
+        window: {configurable: true, value: {dispatchEvent(event) {
+            if (event.type === 'feed-pause-change') {
+                pauseEvents.push(event.detail.paused);
+                client.setPaused(event.detail.paused);
+            }
+        }}},
+        CustomEvent: {configurable: true, value: class {
+            constructor(type, init) { this.type = type; this.detail = init?.detail; }
+        }},
+    });
+    try {
+        // Isolate the controls from the signaling socket; exercise their actual pause notifications.
+        const source = (await readFile(new URL('../src/video-controls.js', import.meta.url), 'utf8'))
+            .replace('import { ctrlSend } from "./ctrlws.js";', 'const ctrlSend = () => {};');
+        const {setPipelineState} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+        const paused = {state: 'PAUSED', playing: false};
+        setPipelineState(paused);
+        env.clock.tick(500);
+        assert.deepEqual(pauseEvents, [true]);
+        assert.equal(env.peerConnections.length, 1);
+        assert.equal(client.getDebugState().restartTimerCount, 0);
 
-    assert.equal(env.peerConnections.length, 1);
-    assert.equal(client.getDebugState().restartTimerCount, 0);
+        setPipelineState(paused);
+        assert.deepEqual(pauseEvents, [true], 'redundant reports do not notify again');
+        setPipelineState(null);
+        setPipelineState(paused);
+        assert.deepEqual(pauseEvents, [true, true], 'reconnection synchronizes pause state again');
 
-    client.setPaused(false);
-    env.clock.tick(100);
-
-    assert.equal(client.getDebugState().restartTimerCount, 1);
+        setPipelineState({state: 'PLAYING', playing: true});
+        env.clock.tick(100);
+        assert.deepEqual(pauseEvents, [true, true, false]);
+        assert.equal(client.getDebugState().restartTimerCount, 1);
+    } finally {
+        client.stop();
+        for (const name of globals) {
+            if (originals[name]) Object.defineProperty(globalThis, name, originals[name]);
+            else delete globalThis[name];
+        }
+    }
 });
 
 test('playing report before video does not start the frame watchdog', async () => {

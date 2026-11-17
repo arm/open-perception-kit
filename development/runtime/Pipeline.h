@@ -113,8 +113,10 @@ class Pipeline {
     using ProgressCallback = std::function<void(const Progress &)>;
 
     /**
-     * @brief Called when pipeline execution reports an error.
+     * @brief Called when pipeline execution reports a terminal error.
      *
+     * With an available opksink controller, recoverable GStreamer errors stop
+     * processing in READY and appear in the browser for user correction instead.
      * Error callbacks can run from Pipeline's background bus watcher thread.
      */
     using ErrorCallback = std::function<void(const Error &)>;
@@ -197,23 +199,30 @@ class Pipeline {
     Result<void> loadFromJsonFile(const std::string &path);
 
     /**
-     * @brief Starts pipeline playback and returns immediately.
+     * @brief Starts a pipeline run with default options and returns immediately.
      *
      * Pipeline owns a small background bus watcher thread after start(). EOS
-     * and ERROR are reported through onEos(), onError(), and wait().
+     * and terminal errors are reported through onEos(), onError(), and wait().
+     * The recovery behavior described in start(const StartOptions &) also applies.
      * FrameResults callbacks may also begin running before start() returns if the
      * pipeline produces buffers immediately.
      */
     Result<void> start();
 
     /**
-     * @brief Starts pipeline playback with explicit playback options.
+     * @brief Starts a pipeline run with explicit playback options.
      * @param options Playback and process-wide logging behavior for this run.
-     * @return Success after playback starts, or a setup/state-change error.
+     * @return Success when playback is requested or a failed start is kept open
+     * for user correction; otherwise a setup/state-change error.
+     *
+     * Success does not guarantee PLAYING: state changes may complete asynchronously.
+     * With an available opksink controller, recoverable GStreamer errors leave the
+     * pipeline in READY for browser correction and restart. The bus watcher stays
+     * active; these errors neither invoke onError() nor finish wait().
      *
      * When looping is enabled, EOS is replaced by time-segment seeks and is not
      * reported through onEos() or wait() between iterations. The run remains
-     * active until stop() is called or an error occurs.
+     * active until stop() is called or a terminal error occurs.
      *
      * Logging configuration is process-wide. Starting another Pipeline with
      * different logging options replaces the active process settings.
@@ -234,7 +243,12 @@ class Pipeline {
     Result<void> stop();
 
     /**
-     * @brief Blocks until the background bus watcher observes EOS, ERROR, or stop().
+     * @brief Blocks until the run ends through EOS, a terminal error, or stop().
+     * @return Success after EOS or stop(), or the terminal error.
+     *
+     * Recoverable errors handled by the opksink controller leave the pipeline in
+     * READY awaiting browser correction; wait() remains blocked. Errors that
+     * cannot be handled this way are terminal and also invoke onError().
      *
      * This is a convenience helper for simple command-line tools. Applications
      * with their own event loop can skip wait() and use onEos()/onError() instead.

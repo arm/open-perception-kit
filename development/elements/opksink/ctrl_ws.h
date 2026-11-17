@@ -18,6 +18,7 @@
 #ifndef __CTRL_WS_H__
 #define __CTRL_WS_H__
 
+#include <atomic>
 #include <glib.h>
 #include <memory>
 #include <mutex>
@@ -55,7 +56,18 @@ class CtrlWebSocket {
     std::thread ws_server_thread;
 
     std::shared_ptr<ws_server> ws = nullptr;
-    std::shared_ptr<GThreadPool> model_toggle_queue;
+    std::shared_ptr<GThreadPool> command_queue;
+    std::shared_ptr<asio::steady_timer> report_timer;
+    std::atomic_bool accepting_commands{false};
+    std::atomic_uint pending_commands{0};
+    mutable std::mutex command_status_mutex;
+    std::string command_error;
+    std::string last_report;
+
+    void schedule_report();
+    void enqueue_command(const nlohmann::json &message);
+    void execute_command(const nlohmann::json &message);
+    static void process_command(gpointer data, gpointer user_data);
 
     std::unordered_map<std::string, std::shared_ptr<StatusReporter>> status_reporters;
 
@@ -66,7 +78,7 @@ class CtrlWebSocket {
     mutable std::mutex reporter_lock;
     mutable std::mutex hdl_lock;
 
-    void play_pause(const nlohmann::json &jsn);
+    void set_pipeline_state(const nlohmann::json &message);
     void model_toggle(const nlohmann::json &jsn);
     void model_inputs(const nlohmann::json &jsn);
 
@@ -88,6 +100,8 @@ class CtrlWebSocket {
     void register_status_reporter(const std::string &name, std::shared_ptr<StatusReporter> status);
 
     void report();
+    bool available() const;
+    void record_error(const std::string &message);
 };
 
 #endif // !__CTRL_WS_H__

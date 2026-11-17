@@ -77,8 +77,23 @@ subsequent commands remain usable. Invalid WebRTC message fields remove only the
 affected session.
 Browser diagnostics insert message text as DOM text, preserving HTML-like input literally.
 
+Playback commands use `{"type":"change_pipeline_state","state":"PLAYING"}` with
+`PLAYING`, `PAUSED`, or `READY`. Commands run on one FIFO worker outside the
+WebSocket thread. Reports include the whole pipeline's actual `state`, `pending`
+state, command `busy` status and `error`. The browser disables playback controls
+while disconnected or changing state and does not replay disconnected writes.
+READY releases inference state while retaining the servers; NULL closes them.
+
+The Runtime queries `opk-pipeline-control-available` before treating a GStreamer
+error as terminal. An available controller lets it stop to READY, notify the
+sink with `opk-pipeline-control-error`, and keep watching the bus for a user retry.
+These errors are shown in the browser; terminal errors retain the Runtime error
+callback. Other GStreamer applications retain ownership of their bus error policy.
+
 `opkinfer` emits `opk-model-register` events, and `opksink` records the model
 state and declared required/provided content types for browser-side visibility.
+These are out-of-band downstream events so model toggles and input selections
+can report their new state while video is paused.
 It also handles unregister events if an upstream component emits them.
 
 The browser receives serialized FrameResults records on the metadata WebSocket.

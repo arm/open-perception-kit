@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from concurrent.futures import ThreadPoolExecutor
 import ctypes
 import gc
 import json
@@ -36,6 +37,7 @@ from pipeline_test_utils import (
 
 TEST_OP_PATH = Path(sys.argv[1]).resolve()
 GST_PLUGIN_PATHS = [Path(argument).resolve() for argument in sys.argv[3:]]
+PROPERTY_UPDATE_TIMEOUT_SECONDS = 3
 
 
 class ContentDependencyPipelineTest(unittest.TestCase):
@@ -234,6 +236,33 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         binding["producerId"] = "unrelated/opk-test-qos-delay-Delay-0"
         contact.set_property("input-bindings", json.dumps([binding]))
         self.assertFalse(self.elements["unrelated"].get_property("active"))
+
+        self.stop_pipeline()
+        self.create_pipeline(is_live=False, source_name="source")
+        self.pipeline.set_state(self.Gst.State.PAUSED)
+        source = self.pipeline.get_by_name("source")
+        source.emit("push-buffer", self.Gst.Buffer.new_allocate(None, 16 * 16 * 4, None))
+        state_change, current_state, _ = self.pipeline.get_state(self.Gst.SECOND)
+        self.assertEqual(state_change, self.Gst.StateChangeReturn.SUCCESS)
+        self.assertEqual(current_state, self.Gst.State.PAUSED)
+
+        contact = self.elements["contact"]
+        binding["producerId"] = "face-b/opk-test-qos-delay-Delay-0"
+        with ThreadPoolExecutor(max_workers=1) as updates:
+            try:
+                updates.submit(contact.set_property, "input-bindings", json.dumps([binding])).result(
+                    timeout=PROPERTY_UPDATE_TIMEOUT_SECONDS)
+                for active in (True, False, True):
+                    updates.submit(contact.set_property, "active", active).result(
+                        timeout=PROPERTY_UPDATE_TIMEOUT_SECONDS)
+                self.assertEqual(json.loads(contact.get_property("input-bindings")), [binding])
+                self.assertTrue(self.elements["face-b"].get_property("active"))
+                self.assertFalse(self.elements["face-a"].get_property("active"))
+                self.pipeline.set_state(self.Gst.State.PLAYING)
+                self.assertEqual(self.pipeline.get_state(self.Gst.SECOND)[1], self.Gst.State.PLAYING)
+            finally:
+                # Release preroll before joining a property update if the regression blocks it.
+                self.pipeline.set_state(self.Gst.State.READY)
 
     def test_duplicate_producer_addresses_report_an_error(self):
         self.create_pipeline()
