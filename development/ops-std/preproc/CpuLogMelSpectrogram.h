@@ -47,10 +47,17 @@ struct LogMelSpectrogramConfig {
     Layout layout;
     std::variant<std::monostate, WindowNormalization, RollingNormalization> normalization;
 
+    enum class Spectrum { Power, Magnitude };
+    enum class CenterPadding { None, Reflect };
+    Spectrum spectrum = Spectrum::Power;
+    CenterPadding centerPadding = CenterPadding::None;
+    // Zero selects all available frames; otherwise publish this leading prefix.
+    size_t frameCount = 0;
+
     bool isValid() const;
 };
 
-/// Periodic Hann, power-squared HTK log-mel at 16 kHz. Owns no borrowed PCM.
+/// Periodic Hann HTK log-mel at 16 kHz. Owns no borrowed PCM.
 class CpuLogMelSpectrogram {
   public:
     CpuLogMelSpectrogram();
@@ -114,6 +121,9 @@ class CpuLogMelSpectrogram {
     size_t windowSampleCount_ = 0;
     size_t frameHopSamples_ = 0;
     size_t melBins_ = 0;
+    LogMelSpectrogramConfig::Spectrum spectrumKind_ = LogMelSpectrogramConfig::Spectrum::Power;
+    LogMelSpectrogramConfig::CenterPadding centerPadding_ =
+        LogMelSpectrogramConfig::CenterPadding::None;
     float logOffset_ = 0;
     LogMelSpectrogramConfig::Layout layout_ = LogMelSpectrogramConfig::Layout::TimeMajor;
 };

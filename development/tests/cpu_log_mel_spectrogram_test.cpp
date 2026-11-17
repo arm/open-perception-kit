@@ -271,4 +271,31 @@ TEST(CpuLogMelSpectrogram, LayoutDoesNotChangeNormalizationAndRawSilenceUsesConf
     EXPECT_EQ(raw, std::vector<float>(raw.size(), std::log(config.logOffset)));
 }
 
+TEST(CpuLogMelSpectrogram, ReflectionAndFrameSelectionValidateBeforePublishing) {
+    auto config = log_mel_reference::cases[4].config;
+    CpuLogMelSpectrogram kernel;
+    ASSERT_TRUE(kernel.configure(config, 64));
+    EXPECT_EQ(kernel.getOutputCount(), 96u * 64);
+    opk::PcmRingBuffer wrapped(config.windowSampleCount + 3);
+    ASSERT_TRUE(wrapped.append(std::array<float, 7>{}));
+    ASSERT_TRUE(wrapped.append(waveform(config.windowSampleCount)));
+    const auto pcm = wrapped.latest(config.windowSampleCount);
+    ASSERT_TRUE(pcm);
+    ASSERT_FALSE(pcm->second().empty());
+    std::vector<float> output(kernel.getOutputCount());
+    ASSERT_TRUE(kernel.process(*pcm, bytes(output), 1600, true));
+    for (size_t i = 0; i < output.size(); ++i)
+        EXPECT_NEAR(output[i], log_mel_reference::cases[4].expected[i], 3e-4f);
+    config.frameCount = 100;
+    EXPECT_FALSE(kernel.configure(config, 64));
+    config.frameCount = 0;
+    ASSERT_TRUE(kernel.configure(config, 64));
+    EXPECT_EQ(kernel.getOutputCount(), 99u * 64);
+    config.spectrum = static_cast<LogMelSpectrogramConfig::Spectrum>(99);
+    EXPECT_FALSE(kernel.configure(config, 64));
+    config = rollingConfig();
+    config.centerPadding = LogMelSpectrogramConfig::CenterPadding::Reflect;
+    EXPECT_FALSE(kernel.configure(config, 24));
+}
+
 } // namespace

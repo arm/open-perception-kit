@@ -105,6 +105,14 @@ bool LogMelSpectrogramConfig::isValid() const {
         minFrequencyHz >= maxFrequencyHz || maxFrequencyHz > 8000 || !std::isfinite(logOffset) ||
         logOffset <= 0 || (layout != Layout::TimeMajor && layout != Layout::MelMajor))
         return false;
+    if ((spectrum != Spectrum::Power && spectrum != Spectrum::Magnitude) ||
+        (centerPadding != CenterPadding::None && centerPadding != CenterPadding::Reflect))
+        return false;
+    const size_t availableFrames =
+        1 + (windowSampleCount - (centerPadding == CenterPadding::None ? fftSize : 0)) /
+                frameHopSamples;
+    if (frameCount > availableFrames)
+        return false;
     size_t remaining = fftSize;
     for (const size_t factor : {2, 3, 5}) {
         while (remaining % factor == 0)
@@ -117,7 +125,7 @@ bool LogMelSpectrogramConfig::isValid() const {
     if (const auto *const rolling = std::get_if<RollingNormalization>(&normalization))
         return std::isfinite(rolling->epsilon) && rolling->epsilon > 0 &&
                rolling->historyFrames >= 1 && rolling->historyFrames <= 4096 &&
-               windowSampleCount == fftSize;
+               windowSampleCount == fftSize && centerPadding == CenterPadding::None;
     return true;
 }
 
@@ -127,7 +135,12 @@ bool CpuLogMelSpectrogram::configure(const LogMelSpectrogramConfig &config, cons
     features_.clear();
     if (!config.isValid() || melBins == 0 || melBins > 512)
         return false;
-    const size_t frames = 1 + (config.windowSampleCount - config.fftSize) / config.frameHopSamples;
+    const size_t availableFrames =
+        1 + (config.windowSampleCount -
+             (config.centerPadding == LogMelSpectrogramConfig::CenterPadding::None ? config.fftSize
+                                                                                   : 0)) /
+                config.frameHopSamples;
+    const size_t frames = config.frameCount ? config.frameCount : availableFrames;
     if (frames > 1048576 / melBins ||
         (std::holds_alternative<LogMelSpectrogramConfig::WindowNormalization>(
              config.normalization) &&
@@ -148,6 +161,8 @@ bool CpuLogMelSpectrogram::configure(const LogMelSpectrogramConfig &config, cons
     melBins_ = melBins;
     logOffset_ = config.logOffset;
     layout_ = config.layout;
+    spectrumKind_ = config.spectrum;
+    centerPadding_ = config.centerPadding;
     features_.resize(frames * melBins);
     struct NormalizationFactory {
         Normalization operator()(std::monostate) const {
@@ -245,14 +260,25 @@ bool CpuLogMelSpectrogram::computePowerFrame(const PcmRingBuffer::View &pcm, con
     const auto first = pcm.first();
     const auto second = pcm.second();
     for (size_t i = 0; i < window_.size(); ++i) {
-        const size_t position = start + i;
+        // Reflect without repeating boundary samples, matching centered STFT reflection padding.
+        int64_t position = static_cast<int64_t>(start + i);
+        if (centerPadding_ == LogMelSpectrogramConfig::CenterPadding::Reflect) {
+            position -= static_cast<int64_t>(window_.size() / 2);
+            if (position < 0)
+                position = -position;
+            if (position >= static_cast<int64_t>(pcm.size()))
+                position = 2 * static_cast<int64_t>(pcm.size() - 1) - position;
+        }
+        const auto sampleIndex = static_cast<size_t>(position);
         const float sample =
-            position < first.size() ? first[position] : second[position - first.size()];
+            sampleIndex < first.size() ? first[sampleIndex] : second[sampleIndex - first.size()];
         fftInput_[i] = sample * window_[i];
     }
     gst_fft_f32_fft(fft_.get(), fftInput_.data(), spectrum_.data());
     for (size_t i = 0; i < power_.size(); ++i) {
         power_[i] = spectrum_[i].r * spectrum_[i].r + spectrum_[i].i * spectrum_[i].i;
+        if (spectrumKind_ == LogMelSpectrogramConfig::Spectrum::Magnitude)
+            power_[i] = std::sqrt(power_[i]);
         if (!std::isfinite(power_[i]))
             return false;
     }

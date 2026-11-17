@@ -253,6 +253,25 @@
                     }
                   }
                 ]
+              },
+              "spectrum": {
+                "enum": [
+                  "power",
+                  "magnitude"
+                ],
+                "default": "power"
+              },
+              "centerPadding": {
+                "enum": [
+                  "none",
+                  "reflect"
+                ],
+                "default": "none"
+              },
+              "frameCount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1048576
               }
             }
           }

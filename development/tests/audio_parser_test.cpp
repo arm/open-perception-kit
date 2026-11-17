@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "postproc/AudioEventClassificationParser.h"
 #include "postproc/KeywordClassificationParser.h"
 #include "postproc/VoiceActivityParser.h"
 
@@ -528,6 +529,87 @@ TEST(KeywordClassificationParser, RejectsInvalidScoresAndTensorShapes) {
     fixture.tensor = opk::TensorView(
         fixture.scores.data(), sizeof(fixture.scores), opk::Shape(4), opk::Dtype::Int8, 1, 0);
     EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+    EXPECT_EQ(results.size(), 0u);
+}
+
+struct EventFixture : KeywordFixture {
+    opk::stdop::postproc::AudioEventClassificationParser eventParser;
+    EventFixture() {
+        attributes.set("activation", "sigmoid");
+        attributes.set("topK", int64_t{3});
+        attributes.set("confidenceThreshold", 0.5);
+        input.producerInfo.implementation = "AudioEventClassificationParser";
+    }
+};
+
+TEST(AudioEventClassificationParser, PreservesIndependentScoresAndIdentityThroughSerialization) {
+    EventFixture fixture;
+    fixture.scores = {2, 1000, 2, 0};
+    Results results;
+    ASSERT_TRUE(fixture.eventParser.parse(fixture.input, results));
+    const auto bytes = open_perception_kit::serialize(results);
+    const Results decoded{std::span<const uint8_t>(bytes)};
+    ASSERT_EQ(decoded.size(), 1u);
+    decoded.for_each<KeywordPayload>([](const auto &payload) {
+        EXPECT_EQ(payload.layer->content_type, "esc");
+        EXPECT_EQ(payload.layer->model, "synthetic-command-scores");
+        EXPECT_EQ(payload.layer->infer_element_id, "commands");
+        EXPECT_EQ(payload.layer->producer->implementation, "AudioEventClassificationParser");
+        ASSERT_EQ(payload.classifications.size(), 1u);
+        const auto &candidates = payload.classifications[0]->candidates;
+        ASSERT_EQ(candidates.size(), 3u);
+        EXPECT_EQ(candidates[0]->class_id, 0);
+        EXPECT_EQ(candidates[1]->class_id, 2);
+        EXPECT_EQ(candidates[2]->text, "hold");
+        EXPECT_NEAR(candidates[0]->confidence, 0.880797f, 1e-6f);
+        EXPECT_EQ(candidates[0]->confidence, candidates[1]->confidence);
+        EXPECT_EQ(candidates[2]->confidence, 0.5f);
+    });
+}
+
+TEST(AudioEventClassificationParser, HandlesExtremesTopKAndEmptyResults) {
+    EventFixture fixture;
+    fixture.scores = {-1000, 0, 1000, 2};
+    fixture.attributes.set("topK", int64_t{1});
+    Results results;
+    ASSERT_TRUE(fixture.eventParser.parse(fixture.input, results));
+    results.for_each<KeywordPayload>([](const auto &payload) {
+        const auto &candidates = payload.classifications[0]->candidates;
+        ASSERT_EQ(candidates.size(), 1u);
+        EXPECT_EQ(candidates[0]->class_id, 2);
+        EXPECT_EQ(candidates[0]->confidence, 1.0f);
+    });
+    fixture.attributes.set("activation", "none");
+    fixture.scores = {.1f, 1.f, .2f, .3f};
+    Results empty;
+    ASSERT_TRUE(fixture.eventParser.parse(fixture.input, empty));
+    EXPECT_EQ(empty.size(), 0u);
+}
+
+TEST(AudioEventClassificationParser, RejectsInvalidScoresConfigurationAndShapeAtomically) {
+    EventFixture fixture;
+    for (const float score :
+         {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()}) {
+        fixture.scores = {2, 3, 4, score};
+        Results results;
+        EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+        EXPECT_EQ(results.size(), 0u);
+    }
+    fixture.scores = {0, 0, 0, 0};
+    fixture.attributes.set("activation", "softmax");
+    Results results;
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("activation", "none");
+    fixture.scores[0] = 1.1f;
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.scores[0] = 0;
+    fixture.attributes.set("topK", int64_t{0});
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("topK", int64_t{3});
+    fixture.attributes.setArray("labels", {"wrong", "count"});
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.input.tensors[1] = nullptr;
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
     EXPECT_EQ(results.size(), 0u);
 }
 

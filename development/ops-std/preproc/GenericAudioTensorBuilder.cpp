@@ -132,10 +132,39 @@ readNormalization(const opk::AttributeMap &attributes) {
 
 opk::Result<LogMelSpectrogramConfig> readLogMelConfig(const opk::AttributeMap &attributes) {
     const auto config = attributes.getObjectOrNull("logMel");
-    if (!config || config->raw().size() != 9 || attributes.contains("contextSampleCount"))
+    if (!config || attributes.contains("contextSampleCount"))
         return invalidConfiguration(
             "logMel requires its complete frontend configuration without PCM context");
+    for (const auto &[name, value] : config->raw()) {
+        if (name != "windowSampleCount" && name != "fftSize" && name != "windowLengthSamples" &&
+            name != "frameHopSamples" && name != "minFrequencyHz" && name != "maxFrequencyHz" &&
+            name != "logOffset" && name != "layout" && name != "normalization" &&
+            name != "spectrum" && name != "centerPadding" && name != "frameCount")
+            return invalidConfiguration("Unknown logMel frontend attribute");
+    }
     LogMelSpectrogramConfig frontend{};
+    if (config->contains("spectrum")) {
+        if (!config->at("spectrum").isString())
+            return invalidConfiguration("logMel spectrum must be power or magnitude");
+        const auto &spectrum = config->getString("spectrum");
+        if (spectrum != "power" && spectrum != "magnitude")
+            return invalidConfiguration("logMel spectrum must be power or magnitude");
+        frontend.spectrum = spectrum == "power" ? LogMelSpectrogramConfig::Spectrum::Power
+                                                : LogMelSpectrogramConfig::Spectrum::Magnitude;
+    }
+    if (config->contains("centerPadding")) {
+        if (!config->at("centerPadding").isString())
+            return invalidConfiguration("logMel centerPadding must be none or reflect");
+        const auto &padding = config->getString("centerPadding");
+        if (padding != "none" && padding != "reflect")
+            return invalidConfiguration("logMel centerPadding must be none or reflect");
+        frontend.centerPadding = padding == "none"
+                                     ? LogMelSpectrogramConfig::CenterPadding::None
+                                     : LogMelSpectrogramConfig::CenterPadding::Reflect;
+    }
+    if (config->contains("frameCount") &&
+        (!readCount(*config, "frameCount", frontend.frameCount) || frontend.frameCount == 0))
+        return invalidConfiguration("logMel frameCount must be a positive integer");
     if (!readCount(*config, "windowSampleCount", frontend.windowSampleCount) ||
         !readCount(*config, "fftSize", frontend.fftSize) ||
         !readCount(*config, "windowLengthSamples", frontend.windowLengthSamples) ||
