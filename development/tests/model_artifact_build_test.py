@@ -513,6 +513,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             digest = hashlib.sha256(archive.read_bytes()).hexdigest()
             shutil.copy2(REPO_ROOT / "scripts/release/smoke-opk-package.sh", context / "smoke.sh")
             shutil.copy2(REPO_ROOT / "scripts/release/ReleaseTool.py", context / "ReleaseTool.py")
+            shutil.copy2(REPO_ROOT / SCHEMAS_DIR / "v2/opchain.schema.json", context / "opchain.schema.json")
             operation = context / "development/tests/python_script_op/runtime_environment.py"
             operation.parent.mkdir(parents=True)
             operation.touch()
@@ -528,6 +529,8 @@ assert not [p for p in root.rglob('*') if p.suffix in ('.onnx', '.pte', '.bin')]
 for arg in sys.argv:
     if arg.startswith('opchain-path='):
         opchain = json.loads(Path(arg.removeprefix('opchain-path=')).read_text())
+        supported_version = json.loads(Path('/tmp/opchain.schema.json').read_text())['x-opk-supported-version']
+        assert opchain['version'] == supported_version
         assert [op['id'] for op in opchain['ops']] == ['opk-python-ops/PythonScript']
         script = Path(opchain['ops'][0]['attributes']['script'])
         assert script.is_absolute() and script.is_file()
@@ -543,6 +546,7 @@ for arg in sys.argv:
                 "COPY package.tar.gz /opt/opk-release-artifacts/opk-1.0.0-linux-x86_64.tar.gz\n"
                 "COPY smoke.sh /work/scripts/release/smoke-opk-package.sh\n"
                 "COPY ReleaseTool.py /work/scripts/release/ReleaseTool.py\n"
+                "COPY opchain.schema.json /tmp/opchain.schema.json\n"
                 "COPY gst-stub /usr/local/bin/gst-inspect-1.0\n"
                 "COPY gst-stub /usr/local/bin/gst-launch-1.0\n"
                 "RUN python3 -m venv /opt/opk-venvs/python-ops-runtime\n"

@@ -14,32 +14,34 @@
 # limitations under the License.
 
 
-# The runtime ABI conformance suite has no OPK runtime dependencies.
-or_host_conformance_tests = executable(
-  'or_host_conformance_tests',
-  [
-    '../third-party/optimized-runtimes/interfaces/or/conformance/host_conformance_test.cpp',
-    '../third-party/optimized-runtimes/interfaces/or/conformance/mock_runtime.cpp',
-  ],
-  dependencies : [gtest_main_dep, gtest_dep],
-)
-test('or_host_conformance_tests', or_host_conformance_tests, timeout : 60)
-test(
-  'or_host_conformance_rejects_wrong_output',
-  or_host_conformance_tests,
-  args : ['--gtest_filter=HostConformance.RepeatedHostExecution'],
-  env : ['OR_MOCK_FAULT=wrong-output'],
-  should_fail : true,
-  timeout : 60,
-)
-test(
-  'or_host_conformance_rejects_bootstrap_write',
-  or_host_conformance_tests,
-  args : ['--gtest_filter=HostConformance.BootstrapVersionMismatchPreservesTable'],
-  env : ['OR_MOCK_FAULT=clobber-bootstrap'],
-  should_fail : true,
-  timeout : 60,
-)
+if get_option('or_runtime')
+  # The runtime ABI conformance suite has no OPK runtime dependencies.
+  or_host_conformance_tests = executable(
+    'or_host_conformance_tests',
+    [
+      '../third-party/optimized-runtimes/interfaces/or/conformance/host_conformance_test.cpp',
+      '../third-party/optimized-runtimes/interfaces/or/conformance/mock_runtime.cpp',
+    ],
+    dependencies : [gtest_main_dep, gtest_dep],
+  )
+  test('or_host_conformance_tests', or_host_conformance_tests, timeout : 60)
+  test(
+    'or_host_conformance_rejects_wrong_output',
+    or_host_conformance_tests,
+    args : ['--gtest_filter=HostConformance.RepeatedHostExecution'],
+    env : ['OR_MOCK_FAULT=wrong-output'],
+    should_fail : true,
+    timeout : 60,
+  )
+  test(
+    'or_host_conformance_rejects_bootstrap_write',
+    or_host_conformance_tests,
+    args : ['--gtest_filter=HostConformance.BootstrapVersionMismatchPreservesTable'],
+    env : ['OR_MOCK_FAULT=clobber-bootstrap'],
+    should_fail : true,
+    timeout : 60,
+  )
+endif
 
 jsoncons_dep = dependency(
   'jsoncons',
