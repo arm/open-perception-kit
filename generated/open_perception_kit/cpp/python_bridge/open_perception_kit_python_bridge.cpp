@@ -207,6 +207,16 @@ make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_proxy(
+    const open_perception_kit::metadata::AudioWindowT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
 pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e43616e646964617465() {
     static PyTypeObject type = make_py_type_object();
     return type;
@@ -3914,6 +3924,238 @@ make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f
 }
 
 PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n736f757263655f6964(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->source_id);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n73657373696f6e5f6964(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->session_id);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n7365676d656e745f696e646578(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->segment_index);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n73616d706c655f726174655f687a(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->sample_rate_hz);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n77696e646f775f73746172745f73616d706c65(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->window_start_sample);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n77696e646f775f656e645f73616d706c65(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->window_end_sample);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n77696e646f775f73746172745f74735f6e73(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (!value->window_start_ts_ns) {
+        Py_RETURN_NONE;
+    }
+    return py_long_from_unsigned(*(value->window_start_ts_ns));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n77696e646f775f656e645f74735f6e73(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (!value->window_end_ts_ns) {
+        Py_RETURN_NONE;
+    }
+    return py_long_from_unsigned(*(value->window_end_ts_ns));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n646973636f6e74696e75697479(
+    PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::AudioWindowT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (value->discontinuity) {
+        Py_RETURN_TRUE;
+    }
+    Py_RETURN_FALSE;
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77() {
+    static PyGetSetDef definitions[] = {
+        {"sourceId",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n736f757263655f6964),
+         nullptr,
+         "read-only source_id",
+         nullptr},
+        {"sessionId",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n73657373696f6e5f6964),
+         nullptr,
+         "read-only session_id",
+         nullptr},
+        {"segmentIndex",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n7365676d656e745f696e646578),
+         nullptr,
+         "read-only segment_index",
+         nullptr},
+        {"sampleRateHz",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n73616d706c655f726174655f687a),
+         nullptr,
+         "read-only sample_rate_hz",
+         nullptr},
+        {"windowStartSample",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n77696e646f775f73746172745f73616d706c65),
+         nullptr,
+         "read-only window_start_sample",
+         nullptr},
+        {"windowEndSample",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n77696e646f775f656e645f73616d706c65),
+         nullptr,
+         "read-only window_end_sample",
+         nullptr},
+        {"windowStartTsNs",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n77696e646f775f73746172745f74735f6e73),
+         nullptr,
+         "read-only window_start_ts_ns",
+         nullptr},
+        {"windowEndTsNs",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n77696e646f775f656e645f74735f6e73),
+         nullptr,
+         "read-only window_end_ts_ns",
+         nullptr},
+        {"discontinuity",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_n646973636f6e74696e75697479),
+         nullptr,
+         "read-only discontinuity",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge."
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::AudioWindowT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::AudioWindowT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_proxy(
+    const open_perception_kit::metadata::AudioWindowT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::AudioWindowT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
 get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e43616e646964617465_n636f6e666964656e6365(
     PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
@@ -4097,6 +4339,24 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c6173736966696
     return py_long_from_unsigned(*(value->subject_id));
 }
 
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_n617564696f5f77696e646f77(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::ClassificationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->audio_window.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::ClassificationT>(self));
+}
+
 PyGetSetDef *
 getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e() {
     static PyGetSetDef definitions[] = {
@@ -4129,6 +4389,12 @@ getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696
              get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_n7375626a6563745f6964),
          nullptr,
          "read-only subject_id",
+         nullptr},
+        {"audioWindow",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_n617564696f5f77696e646f77),
+         nullptr,
+         "read-only audio_window",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };
@@ -9730,8 +9996,8 @@ bool ensure_known_proxy_types() {
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b54726163652e706f696e74732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b5472616365732e7472616365732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e732e646574656374696f6e732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e732e646574656374696f6e732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e74616374526573756c74_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e74616374_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e7461637473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e43616e646964617465_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a6563744d657461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6475636572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496d6167655370616365_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f756e64696e67426f78_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566964656f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a65416e676c6573_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a654d6561737572656d656e74_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a654d6561737572656d656e7473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b73_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b5472616365732e7472616365732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e732e646574656374696f6e732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e732e646574656374696f6e732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e74616374526573756c74_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e74616374_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e7461637473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e43616e646964617465_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a6563744d657461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6475636572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496d6167655370616365_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f756e64696e67426f78_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566964656f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a65416e676c6573_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a654d6561737572656d656e74_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a654d6561737572656d656e7473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b73_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e456d62656464696e675370616365_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e67_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e6773_type() ||
@@ -9739,7 +10005,11 @@ bool ensure_known_proxy_types() {
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b73_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365526573756c74_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e636573_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365526573756c74_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e636573_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b73_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73_type() ||
@@ -9801,6 +10071,12 @@ bool add_known_proxy_types(PyObject *python_module) {
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e7461637473(),
             "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e746163747"
             "3")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f57696e646f77")) {
         return false;
     }
     if (!add_python_type(

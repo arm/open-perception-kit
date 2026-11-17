@@ -4,6 +4,28 @@ namespace open_perception_kit.metadata;
 
 enum ClassificationKind:ubyte { Unspecified, Categorical, RecognizedText }
 
+// Self-contained scheduled PCM window, not the input buffer carrying this result
+// or the keyword's duration. Model-only context/state and padding are not its bounds.
+table AudioWindow {
+  // Logical processing source, e.g. <infer-id>/pipelineAudioData.
+  source_id:string;
+  // Opaque token for this source's runtime binding; differs across independent runs.
+  session_id:string;
+  // One-based continuity segment within the session. Advances after a reset when
+  // the next complete window executes; repeated resets without execution coalesce.
+  segment_index:ulong;
+  // Rate of the mono processing timeline, not the original input-buffer rate.
+  sample_rate_hz:uint;
+  // Half-open range of real samples since this segment's origin; end > start.
+  window_start_sample:ulong;
+  window_end_sample:ulong;
+  // Media PTS, both absent if unavailable. Zero is valid; end must exceed start.
+  window_start_ts_ns:ulong = null;
+  window_end_ts_ns:ulong = null;
+  // First assessment after a reset, including an assessment with no candidates.
+  discontinuity:bool;
+}
+
 table ClassificationCandidate {
   // Optional finite score in [0,1]. Zero is valid; absence means no score supplied.
   confidence:float = null;
@@ -24,6 +46,10 @@ table Classification {
   // Input observation, independent of derivation. Image consumers resolve a
   // unique VideoFrameContext, BoxDetection or ObjectTrack in this packet.
   subject_id:ulong = null;
+  // Audio assessments carry this window instead of a spatial subject_id.
+  // A present but invalid window is not an unwindowed classification.
+  // Empty candidates mean this window was assessed but no candidate was accepted.
+  audio_window:AudioWindow;
 }
 
 table Classifications {

@@ -522,6 +522,13 @@ producers and sends `model_inputs` with the full binding array. An empty produce
 ID is unconnected; unavailable and ambiguous sources are not substituted.
 Declarations describe capability, not whether a producer ran on the current frame.
 
+Audio classifications expose `audioWindow` with logical source/session identity,
+continuity segment, processing rate, exact sample bounds and optional media PTS.
+The inference panel and copied text show the analyzed window; empty candidates
+replace the previous keyword with "No candidates". Invalid audio context is shown
+as unavailable, without a spatial-subject fallback. These assessments follow the
+same retention and source-stop/reset lifecycle as VAD/turn output.
+
 Decoded layers distinguish available observations, successful empty collections
 and invalid data. Unsupported/malformed payload entries are reported separately;
 invalid outputs do not become valid zero measurements or empty successes. Audio

@@ -14,13 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export function validAudioResult(data, probability, decision) {
-    const score = data[probability];
-    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > 1 || typeof data[decision] !== 'boolean') return false;
-    const unsigned = value => value != null && (typeof value !== 'number' || Number.isSafeInteger(value))
-        && /^[0-9]{1,20}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
+const unsigned = value => value != null && (typeof value !== 'number' || Number.isSafeInteger(value))
+    && /^[0-9]{1,20}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
+
+function validWindowBounds(data) {
     if (!unsigned(data.windowStartSample) || !unsigned(data.windowEndSample)
         || BigInt(data.windowEndSample) <= BigInt(data.windowStartSample)) return false;
     const start = data.windowStartTsNs, end = data.windowEndTsNs;
     return start == null && end == null || unsigned(start) && unsigned(end) && BigInt(start) < BigInt(end);
+}
+
+export function validAudioWindow(window) {
+    return window != null && typeof window.sourceId === 'string' && window.sourceId.length > 0
+        && typeof window.sessionId === 'string' && window.sessionId.length > 0
+        && unsigned(window.segmentIndex) && BigInt(window.segmentIndex) > 0n
+        && Number.isInteger(window.sampleRateHz) && window.sampleRateHz > 0 && window.sampleRateHz <= 0xffffffff
+        && typeof window.discontinuity === 'boolean' && validWindowBounds(window);
+}
+
+export function validAudioResult(data, probability, decision) {
+    const score = data[probability];
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > 1 || typeof data[decision] !== 'boolean') return false;
+    return validWindowBounds(data);
 }

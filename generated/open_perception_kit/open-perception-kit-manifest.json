@@ -35,8 +35,8 @@
     },
     {
       "path": "cpp/fb/classifications_generated.h",
-      "sha256": "3ac0901c1898a369a5399f5a1400a64d4e2878d1b822c7ba2582b669fcbebc24",
-      "size": 31335
+      "sha256": "f0d66b7518241e84b5f697cedbff94696e95cd6269044b454be3e3557bdb9042",
+      "size": 44361
     },
     {
       "path": "cpp/fb/common_generated.h",
@@ -125,13 +125,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "974a6b69d0300a0a987f4efc3f4a5c9264c195832c80daae4ebd804e5df8a23d",
+      "sha256": "ddc968d741554ce957d5d8a78c1d3e7ea855b7fe39d118e9d447b5c082c5d2b9",
       "size": 37133
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "0ed6fb917c3524ce456c649ba96b277699480c8de0964e21d1816d8daba6c260",
-      "size": 447516
+      "sha256": "cafeb8cb066f114f232a25328020467652264aa75ea7ccf6e5741f9a6fc37b23",
+      "size": 458651
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -155,7 +155,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "3653059cfedcbec5111b076b0718f9c0f9d184c090b59e82b429f78dddbaa0b5",
+      "sha256": "35ff1530bf5ed2c61a0ae0cac42a57df065bce421852bc83c889b93d2bce2fae",
       "size": 1166
     },
     {
@@ -172,6 +172,11 @@
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/AudioFrameContext.py",
       "sha256": "a70dc7f2be1857e402437a6e5b3850ad5bfd4672fa5170e7acac8df9f04a6dbb",
       "size": 8752
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/AudioWindow.py",
+      "sha256": "fd5b5e70273cce9008deb95cb3cd2270d981d2b6cf8ec4c9aef4715dc5e67b86",
+      "size": 9108
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/BitmapData.py",
@@ -215,8 +220,8 @@
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/Classification.py",
-      "sha256": "9843ea53fe03f59f0770099ed0101a8b886806e1df01b78e5286ace40fd76e68",
-      "size": 8785
+      "sha256": "669f8b0353d4b3cd296a8ca7ca4e0f504f2f94a6c8b329e5d0d598e7ad141c8e",
+      "size": 10129
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ClassificationCandidate.py",
@@ -490,7 +495,7 @@
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "187abec47422ac9ceb1e4ad6a4488c428b4252f23bcd197a32b4e9cb5417df85",
+      "sha256": "c3d828fe49855e291d521cbe99e32bd0223511af90d15bf2aaa88f400dcfc86b",
       "size": 15484
     },
     {
@@ -517,6 +522,11 @@
       "path": "rust/src/fb/open_perception_kit/metadata/audio_frame_context_generated.rs",
       "sha256": "99f5094f0d6a8682a0beb785154629517f390b5566e3e4176a15596b9de2ac42",
       "size": 12978
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/audio_window_generated.rs",
+      "sha256": "c52e90e212e2560b98f0493efc9f517506baa2e828a75f9806c515d5e4d75e02",
+      "size": 14233
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/bitmap_data_generated.rs",
@@ -565,8 +575,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/classification_generated.rs",
-      "sha256": "67958c7a13f196a371497a173760967dec3f22601426ef09f58c0378320b5920",
-      "size": 10651
+      "sha256": "eabb16764e7eb05ac5388edb7949acbb26a5d6ce9737d4377cf42e251f2b196e",
+      "size": 12123
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/classification_kind_generated.rs",
@@ -640,8 +650,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "43f86273826292b5959d90fee1654a12e23ef74e13e69ec7ff63a6cac62acea9",
-      "size": 5002
+      "sha256": "36c2ab95b668fc5c811d2c68fc023383f88b81aa70d0d21f216c68beadc674e9",
+      "size": 5071
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -820,12 +830,12 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "ac0523a6707ac8121ed51159d673f64c16a0caa2b722de608004006dda7ba0af",
+      "sha256": "1c4c975e600ee617170eea5c5f41ad80b98ef599b6ac7e4d14e8cabecf7265c7",
       "size": 58636
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
-      "sha256": "845b47296ffc8f51958d93d2c1410e7d572db83a8ff0187881eceb16066f7f44",
+      "sha256": "81686985638c402ae26a2a3fb5773bc441187700f1861efbf90e00b41da18956",
       "size": 1025
     },
     {
@@ -845,12 +855,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "442ae2cb332d572d0b31dd7c766deb137e621ec6971e1fd48e7a413b57f3b984",
+      "sha256": "e035c5aec252f5786c1f99b49a901e79635ff0cb21294c1c370f381f41372232",
       "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "e188382effb4288c017f704db1a87c7c250a719bd97e3e30e57465fff0b3931b",
+      "sha256": "4df255ff16d6681cc364d0bd7e7cc4617550a61bcde28dc030066ee8efe5f1ae",
       "size": 14047
     },
     {
@@ -892,6 +902,16 @@
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.js",
       "sha256": "bb86726ab362c4426f3f7ff1cec1390b1c8b2dca3cfb69276fa97c39fe1166a6",
       "size": 6479
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-window.d.ts",
+      "sha256": "843c8cfa0a119b69734b3cddb8b04e55c999bd685e76fd3529da4cdc101c0e47",
+      "size": 3783
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-window.js",
+      "sha256": "ab953f684910fe9ce47e1a493c64030fbd0f656de4a495c3a3cc6460cab99fa4",
+      "size": 7006
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.d.ts",
@@ -995,13 +1015,13 @@
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification.d.ts",
-      "sha256": "42678f35a812f75e93594a4bca16e5a4e15a928ce5093da66c5a47abb71531a2",
-      "size": 3564
+      "sha256": "e3841f105822bfab997a2ec8ce93c4b7794e548e8a328f2466ae7757dae183fb",
+      "size": 3648
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification.js",
-      "sha256": "44762542432169d1989a7f7ab1cf4e1adda9a53bb993e15826c346897e61cdae",
-      "size": 5882
+      "sha256": "137962c269627790ee3692a42192db8bc0981787c6fc66345dd2754b7b86e748",
+      "size": 6428
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.d.ts",
@@ -1445,12 +1465,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "23312f6405657c7a9ef66fdf0c2240251842e75cbb4af866742d9750827f977e",
+      "sha256": "175f3269ef55ace6c6a0997941523c1b49509afde1578857eb967e38fe7dab93",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "388335c74b2a5049ece82d496937f7bb2871e4e06696b4b926c72a383f131ac2",
+      "sha256": "886cad21e470d96b5cdc99cf66a880f49f2c08768c8dbeaf29dbc08291b2565f",
       "size": 1203
     },
     {
@@ -1470,7 +1490,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "c8936c4603fde466d8c193be3770c11f35c9194ae82fada23d808fbe39a31e4c",
+      "sha256": "42384c3bfb678370f071d93408992b9fecca5bf342e78fc6f363e015fd3db5f0",
       "size": 12726
     },
     {
@@ -1492,6 +1512,11 @@
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.ts",
       "sha256": "6f951f84568baa3d646e2bfdd83402dabf8009ca75a4106a1f381f43d58a31b0",
       "size": 6674
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/audio-window.ts",
+      "sha256": "dabad8341d27cefbda37d4c1b8fe3f694bd83370bc500e6c0273d38f280a6da7",
+      "size": 7406
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.ts",
@@ -1545,8 +1570,8 @@
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/classification.ts",
-      "sha256": "b1fbd2e1f5c758a61c11f97a3b72c61d9fd5cf8f81a5c8ab5791fb6693a80e66",
-      "size": 6640
+      "sha256": "9faf05083c558348f27b7d5fecdd3d3875b0d6d9cc275bf685812baafa0909e1",
+      "size": 7082
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/classifications.ts",
@@ -1770,7 +1795,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "e7c7269a2be97a60ba175a67e852b87c670a74bfd5b5c7506abe16b73f3858d6",
+      "sha256": "5e1e4aa0693c37b6674eedafc5cf8f124348ff5650d1097e91913b84b3f4dc6b",
       "size": 1216
     },
     {
@@ -2109,8 +2134,8 @@
         },
         {
           "path": "fb/classifications_generated.h",
-          "sha256": "3167ea7416f3e3e4601cb1fae6e39222f875f2d7064564e62601946a263a815d",
-          "size": 27491
+          "sha256": "ef5492fc5c363f78a1dc30a77efefa54b003fb811735478c9a5a532bd3e515a6",
+          "size": 38425
         },
         {
           "path": "fb/common_generated.h",
@@ -2199,13 +2224,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "800811671261c5433fcd7d2914bdb163864acb9bb35c84eab422936ab42e97a9",
+          "sha256": "720ba10e8559be8c6be8f14e65642282151b7b1ca74a39b21b6a6e71698ae237",
           "size": 35746
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "c2a0e983baca2b81124bc06cfcd8c348d47be45c37dc66a4830580e9351b216b",
-          "size": 425360
+          "sha256": "34624c069b6a97ef0b2602aed97d509c648e8bf5763ccf437a178a558ccfbc45",
+          "size": 435971
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -2356,8 +2381,8 @@
         },
         {
           "path": "classifications.fbs",
-          "sha256": "7897972a9769249eabff9588624f458a40a70ddb9df9a627a713c9887dd12296",
-          "size": 1349
+          "sha256": "6493c8f4ad295969b72ccc72cd64684882d3b9a92582debc7c64000e0182e414",
+          "size": 2670
         },
         {
           "path": "common.fbs",
@@ -2430,7 +2455,7 @@
           "size": 1082
         }
       ],
-      "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
+      "schema_set_sha256": "72bab0c078acdcb1ad2f31df8bc9c208ddb6e710c90b4822b1dfb056ab38f0e1",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2445,7 +2470,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "35c924ca0cc2e59583c7c8f4cf597fd33039cd333b0fa629df9705c69890dd6b",
+          "sha256": "f77be1d2e21814b164a754d42a42c92713fda7f77da92938d17eb54601488834",
           "size": 506
         },
         {
@@ -2462,6 +2487,11 @@
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/AudioFrameContext.py",
           "sha256": "67cd377014f3dbd2bc78c75bafaeac042145e7a957693d53c32bf6fafd3d3030",
           "size": 8059
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/AudioWindow.py",
+          "sha256": "600bb73cb43c71457e60b51b561c2badbc38e067eeafe84dfc39c0e8654467ec",
+          "size": 8439
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/BitmapData.py",
@@ -2505,8 +2535,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/Classification.py",
-          "sha256": "2904fa63f17460fe8d43f8a609516e379a376250a7eaa4997d1403fbdab3520e",
-          "size": 8058
+          "sha256": "c4f3e85b4dc7846f65a6c930622be3f33eed862a348f440f93a266537833f1ed",
+          "size": 9378
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ClassificationCandidate.py",
@@ -2780,7 +2810,7 @@
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "922ab81a14f33ff3a20bf38d5e3da2e1cdd8e3dfa23bc58c9c58a0d2f0d3741f",
+          "sha256": "31383cadd955e39ea99ad6bf167e491fee9a433f5501ff9fc19f70e30c7f67ab",
           "size": 14823
         }
       ],
@@ -2925,8 +2955,8 @@
         },
         {
           "path": "classifications.fbs",
-          "sha256": "7897972a9769249eabff9588624f458a40a70ddb9df9a627a713c9887dd12296",
-          "size": 1349
+          "sha256": "6493c8f4ad295969b72ccc72cd64684882d3b9a92582debc7c64000e0182e414",
+          "size": 2670
         },
         {
           "path": "common.fbs",
@@ -2999,7 +3029,7 @@
           "size": 1082
         }
       ],
-      "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
+      "schema_set_sha256": "72bab0c078acdcb1ad2f31df8bc9c208ddb6e710c90b4822b1dfb056ab38f0e1",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3021,6 +3051,11 @@
           "path": "src/fb/open_perception_kit/metadata/audio_frame_context_generated.rs",
           "sha256": "949f00b295aa1721b2c2cd80f1f1efce3124fb77fac9d1dcfd5a937349ab8abf",
           "size": 12297
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/audio_window_generated.rs",
+          "sha256": "d0225b0efef9e9b5d0fa4e6ae738c718ad15392a87a1742da1aaa555ac383cce",
+          "size": 13552
         },
         {
           "path": "src/fb/open_perception_kit/metadata/bitmap_data_generated.rs",
@@ -3069,8 +3104,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/classification_generated.rs",
-          "sha256": "ea08f6473976a10d9655cf36c22e10587969b0cd8936e26ecdb3b1249dd7956d",
-          "size": 9970
+          "sha256": "ccc9faf2c9572aed62a56deb6a22b46f3b996032c3afe650bfa298cfb4285f78",
+          "size": 11442
         },
         {
           "path": "src/fb/open_perception_kit/metadata/classification_kind_generated.rs",
@@ -3144,8 +3179,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "dd5f7367a2c4e084fcef0b0c72209ca02d15401b0fcced80713c44d212c6922a",
-          "size": 4321
+          "sha256": "345b6e2356d205b9fffb61e1d4b0faf0c2343c4410af6ac7ce45f4eb4447ee16",
+          "size": 4390
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -3324,7 +3359,7 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "c7269281693177c417ace1a4076d3efaf169e07f8f8918e65777ae53f12ccb6b",
+          "sha256": "db3106f1b5ef00fa55c75feed029d8355724cf31b5366aac9a25c7e73c4b391d",
           "size": 57955
         }
       ],
@@ -3454,8 +3489,8 @@
         },
         {
           "path": "classifications.fbs",
-          "sha256": "7897972a9769249eabff9588624f458a40a70ddb9df9a627a713c9887dd12296",
-          "size": 1349
+          "sha256": "6493c8f4ad295969b72ccc72cd64684882d3b9a92582debc7c64000e0182e414",
+          "size": 2670
         },
         {
           "path": "common.fbs",
@@ -3528,7 +3563,7 @@
           "size": 1082
         }
       ],
-      "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
+      "schema_set_sha256": "72bab0c078acdcb1ad2f31df8bc9c208ddb6e710c90b4822b1dfb056ab38f0e1",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3543,7 +3578,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "f548dbc8d38704c2e710eda9542d50a2f38313f9bd335bd2d907257ca53427b6",
+          "sha256": "3e1bcbdf2838288eb4baebca243341c8dbe16a0e26d37d19089e26b9e074ed19",
           "size": 12045
         },
         {
@@ -3570,6 +3605,11 @@
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.ts",
           "sha256": "3ca3d2cefca838fc4d8bbd8f93bac6c0a21e06fbddbd3e18f19cbfe578e2918a",
           "size": 5993
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/audio-window.ts",
+          "sha256": "c57ee56225eeaa0ea1d45a1068365655700a614b6e59f9c82e6710f71b81c568",
+          "size": 6725
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.ts",
@@ -3623,8 +3663,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/classification.ts",
-          "sha256": "579f0ba5abc5bd62785e223969781a317f0e5a25d0fb8f28cea6cb5afa7ac936",
-          "size": 5959
+          "sha256": "e437f6abe0dcc4aab2a6e25bf51a50ccb2b4a70cf59bfff397681a473ceb926d",
+          "size": 6401
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/classifications.ts",
@@ -3843,7 +3883,7 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "22a2d27f33d94b20366bc7c57dde861705f6c4b2b2fd5f259515406665a0f5dc",
+          "sha256": "0a0392a758eff712e706aa3174a12ba58b126cfb46214108f86d700e78c12dde",
           "size": 535
         },
         {
@@ -3983,8 +4023,8 @@
         },
         {
           "path": "classifications.fbs",
-          "sha256": "7897972a9769249eabff9588624f458a40a70ddb9df9a627a713c9887dd12296",
-          "size": 1349
+          "sha256": "6493c8f4ad295969b72ccc72cd64684882d3b9a92582debc7c64000e0182e414",
+          "size": 2670
         },
         {
           "path": "common.fbs",
@@ -4057,7 +4097,7 @@
           "size": 1082
         }
       ],
-      "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
+      "schema_set_sha256": "72bab0c078acdcb1ad2f31df8bc9c208ddb6e710c90b4822b1dfb056ab38f0e1",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"

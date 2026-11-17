@@ -2468,11 +2468,28 @@ var ClassificationKind;
   ClassificationKind2[ClassificationKind2["RecognizedText"] = 2] = "RecognizedText";
 })(ClassificationKind || (ClassificationKind = {}));
 
+// development/web/src/audio-data.js
+var unsigned = (value) => value != null && (typeof value !== "number" || Number.isSafeInteger(value)) && /^[0-9]{1,20}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
+function validWindowBounds(data) {
+  if (!unsigned(data.windowStartSample) || !unsigned(data.windowEndSample) || BigInt(data.windowEndSample) <= BigInt(data.windowStartSample)) return false;
+  const start = data.windowStartTsNs, end = data.windowEndTsNs;
+  return start == null && end == null || unsigned(start) && unsigned(end) && BigInt(start) < BigInt(end);
+}
+function validAudioWindow(window2) {
+  return window2 != null && typeof window2.sourceId === "string" && window2.sourceId.length > 0 && typeof window2.sessionId === "string" && window2.sessionId.length > 0 && unsigned(window2.segmentIndex) && BigInt(window2.segmentIndex) > 0n && Number.isInteger(window2.sampleRateHz) && window2.sampleRateHz > 0 && window2.sampleRateHz <= 4294967295 && typeof window2.discontinuity === "boolean" && validWindowBounds(window2);
+}
+function validAudioResult(data, probability, decision) {
+  const score = data[probability];
+  if (typeof score !== "number" || !Number.isFinite(score) || score < 0 || score > 1 || typeof data[decision] !== "boolean") return false;
+  return validWindowBounds(data);
+}
+
 // development/web/src/classification-results.js
 var validProbability = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
-var validEmptyClassification = (value) => value.kind === ClassificationKind.Categorical && Boolean(value.labelSet) || value.kind === ClassificationKind.RecognizedText && !value.labelSet;
+var validClassificationContext = (value) => value.audioWindow == null || value.subjectUuid == null && validAudioWindow(value.audioWindow);
+var validEmptyClassification = (value) => validClassificationContext(value) && (value.kind === ClassificationKind.Categorical && Boolean(value.labelSet) || value.kind === ClassificationKind.RecognizedText && !value.labelSet);
 function validCandidate(classification, candidate) {
-  if (!candidate || candidate.confidence != null && !validProbability(candidate.confidence)) return false;
+  if (!validClassificationContext(classification) || !candidate || candidate.confidence != null && !validProbability(candidate.confidence)) return false;
   if (classification.kind === ClassificationKind.Categorical)
     return Boolean(classification.labelSet) && Number.isInteger(candidate.classId) && candidate.classId >= 0;
   if (classification.kind === ClassificationKind.RecognizedText)
@@ -2507,7 +2524,12 @@ var currentLayers = [];
 var latestOutput = null;
 var audioAssessments = /* @__PURE__ */ new Map();
 var disabledModels = /* @__PURE__ */ new Set();
-var isAudioAssessment = (layer2) => ["VoiceActivityDetections", "TurnDetections"].includes(layer2.payloadType);
+var isAudioAssessment = (layer2) => ["VoiceActivityDetections", "TurnDetections"].includes(layer2.payloadType) || layer2.payloadType === "Classifications" && layer2.detections?.some((item) => item.data?.audioWindow != null);
+var audioEpochs = (output) => new Set(output.layers.flatMap((layer2) => layer2.detections || []).filter((item) => item.data?.audioWindow != null).map((item) => {
+  const window2 = item.data.audioWindow;
+  return JSON.stringify([window2.sourceId, window2.sessionId, String(window2.segmentIndex)]);
+}));
+var windowDetail = (window2) => `audio ${window2.sourceId}; session ${window2.sessionId}; segment ${window2.segmentIndex}; samples [${window2.windowStartSample}, ${window2.windowEndSample}) at ${window2.sampleRateHz} Hz; PTS [${window2.windowStartTsNs ?? "unavailable"}, ${window2.windowEndTsNs ?? "unavailable"}) ns` + (window2.discontinuity ? "; stream reset" : "");
 function renderWithAudio(layers) {
   renderInferenceOutput({ layers: [
     ...layers.filter((layer2) => !isAudioAssessment(layer2)),
@@ -2552,17 +2574,20 @@ function detectionSummary(detection) {
     };
   }
   if (type === "Classification") {
+    if (!validClassificationContext(data))
+      return { title: "Classification unavailable", detail: "Invalid audio window or conflicting subject", meta: "" };
+    const detail = data.audioWindow ? windowDetail(data.audioWindow) : "classification";
     const best = Array.isArray(data.candidates) ? data.candidates[0] : null;
     if (!best) return {
       title: validEmptyClassification(data) ? "No candidates" : "Classification unavailable",
-      detail: validEmptyClassification(data) ? "Empty classification result" : "Missing classification kind or identity",
+      detail: validEmptyClassification(data) ? `Empty classification result; ${detail}` : "Missing classification kind or identity",
       meta: ""
     };
     if (best && !validCandidate(data, best))
       return { title: "Classification unavailable", detail: "Invalid kind, identity or score", meta: "" };
     return {
       title: best?.text || `Class ${best?.classId ?? "-"}`,
-      detail: "classification",
+      detail,
       meta: number(best?.confidence)
     };
   }
@@ -2710,16 +2735,24 @@ copyButton2?.addEventListener("click", () => {
 window.addEventListener("metadata-message", (event) => {
   const layers = event.detail?.inference_output?.layers;
   if (!Array.isArray(layers)) return;
+  const outputs2 = collectOutputs({ layers });
   if (window.OPK_FEED_PAUSED || event.detail.decode_error) {
     audioAssessments.clear();
   } else {
-    const resetElements = new Set(layers.filter((layer2) => isAudioAssessment(layer2) && layer2.detections?.some((item) => item.data?.discontinuity)).map((layer2) => layer2.inferElementId || ""));
+    const resetElements = new Set(layers.filter((layer2) => isAudioAssessment(layer2) && layer2.detections?.some((item) => item.data?.audioWindow?.discontinuity || item.data?.discontinuity)).map((layer2) => layer2.inferElementId || ""));
+    for (const [key, output] of outputs2) {
+      const previous = audioAssessments.get(key);
+      if (!previous) continue;
+      const epochs = audioEpochs(previous);
+      if ([...audioEpochs(output)].some((epoch) => !epochs.has(epoch)))
+        resetElements.add(output.source.inferElementId);
+    }
     for (const [key, output] of audioAssessments)
       if (resetElements.has(output.source.inferElementId)) audioAssessments.delete(key);
   }
   if (!window.OPK_FEED_PAUSED && !event.detail.decode_error) {
-    for (const [key, output] of collectOutputs({ layers }))
-      if (isAudioAssessment(output.source) && !disabledModels.has(output.source.inferElementId))
+    for (const [key, output] of outputs2)
+      if (output.layers.some(isAudioAssessment) && !disabledModels.has(output.source.inferElementId))
         audioAssessments.set(key, output);
   }
   renderWithAudio(layers);
@@ -4651,6 +4684,143 @@ var CameraContactsT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-window.js
+var AudioWindow = class _AudioWindow {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsAudioWindow(bb, obj) {
+    return (obj || new _AudioWindow()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsAudioWindow(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _AudioWindow()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  sourceId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  sessionId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  segmentIndex() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  sampleRateHz() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  windowStartSample() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  windowEndSample() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  windowStartTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  windowEndTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 18);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  discontinuity() {
+    const offset = this.bb.__offset(this.bb_pos, 20);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  static startAudioWindow(builder) {
+    builder.startObject(9);
+  }
+  static addSourceId(builder, sourceIdOffset) {
+    builder.addFieldOffset(0, sourceIdOffset, 0);
+  }
+  static addSessionId(builder, sessionIdOffset) {
+    builder.addFieldOffset(1, sessionIdOffset, 0);
+  }
+  static addSegmentIndex(builder, segmentIndex) {
+    builder.addFieldInt64(2, segmentIndex, BigInt("0"));
+  }
+  static addSampleRateHz(builder, sampleRateHz) {
+    builder.addFieldInt32(3, sampleRateHz, 0);
+  }
+  static addWindowStartSample(builder, windowStartSample) {
+    builder.addFieldInt64(4, windowStartSample, BigInt("0"));
+  }
+  static addWindowEndSample(builder, windowEndSample) {
+    builder.addFieldInt64(5, windowEndSample, BigInt("0"));
+  }
+  static addWindowStartTsNs(builder, windowStartTsNs) {
+    builder.addFieldInt64(6, windowStartTsNs, null);
+  }
+  static addWindowEndTsNs(builder, windowEndTsNs) {
+    builder.addFieldInt64(7, windowEndTsNs, null);
+  }
+  static addDiscontinuity(builder, discontinuity) {
+    builder.addFieldInt8(8, +discontinuity, 0);
+  }
+  static endAudioWindow(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createAudioWindow(builder, sourceIdOffset, sessionIdOffset, segmentIndex, sampleRateHz, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
+    _AudioWindow.startAudioWindow(builder);
+    _AudioWindow.addSourceId(builder, sourceIdOffset);
+    _AudioWindow.addSessionId(builder, sessionIdOffset);
+    _AudioWindow.addSegmentIndex(builder, segmentIndex);
+    _AudioWindow.addSampleRateHz(builder, sampleRateHz);
+    _AudioWindow.addWindowStartSample(builder, windowStartSample);
+    _AudioWindow.addWindowEndSample(builder, windowEndSample);
+    if (windowStartTsNs !== null)
+      _AudioWindow.addWindowStartTsNs(builder, windowStartTsNs);
+    if (windowEndTsNs !== null)
+      _AudioWindow.addWindowEndTsNs(builder, windowEndTsNs);
+    _AudioWindow.addDiscontinuity(builder, discontinuity);
+    return _AudioWindow.endAudioWindow(builder);
+  }
+  unpack() {
+    return new AudioWindowT(this.sourceId(), this.sessionId(), this.segmentIndex(), this.sampleRateHz(), this.windowStartSample(), this.windowEndSample(), this.windowStartTsNs(), this.windowEndTsNs(), this.discontinuity());
+  }
+  unpackTo(_o) {
+    _o.sourceId = this.sourceId();
+    _o.sessionId = this.sessionId();
+    _o.segmentIndex = this.segmentIndex();
+    _o.sampleRateHz = this.sampleRateHz();
+    _o.windowStartSample = this.windowStartSample();
+    _o.windowEndSample = this.windowEndSample();
+    _o.windowStartTsNs = this.windowStartTsNs();
+    _o.windowEndTsNs = this.windowEndTsNs();
+    _o.discontinuity = this.discontinuity();
+  }
+};
+var AudioWindowT = class {
+  constructor(sourceId = null, sessionId = null, segmentIndex = BigInt("0"), sampleRateHz = 0, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+    this.sourceId = sourceId;
+    this.sessionId = sessionId;
+    this.segmentIndex = segmentIndex;
+    this.sampleRateHz = sampleRateHz;
+    this.windowStartSample = windowStartSample;
+    this.windowEndSample = windowEndSample;
+    this.windowStartTsNs = windowStartTsNs;
+    this.windowEndTsNs = windowEndTsNs;
+    this.discontinuity = discontinuity;
+  }
+  pack(builder) {
+    const sourceId = this.sourceId !== null ? builder.createString(this.sourceId) : 0;
+    const sessionId = this.sessionId !== null ? builder.createString(this.sessionId) : 0;
+    return AudioWindow.createAudioWindow(builder, sourceId, sessionId, this.segmentIndex, this.sampleRateHz, this.windowStartSample, this.windowEndSample, this.windowStartTsNs, this.windowEndTsNs, this.discontinuity);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.js
 var ClassificationCandidate = class _ClassificationCandidate {
   constructor() {
@@ -4769,8 +4939,12 @@ var Classification = class _Classification {
     const offset = this.bb.__offset(this.bb_pos, 12);
     return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
   }
+  audioWindow(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? (obj || new AudioWindow()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
   static startClassification(builder) {
-    builder.startObject(5);
+    builder.startObject(6);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -4797,22 +4971,15 @@ var Classification = class _Classification {
   static addSubjectId(builder, subjectId) {
     builder.addFieldInt64(4, subjectId, null);
   }
+  static addAudioWindow(builder, audioWindowOffset) {
+    builder.addFieldOffset(5, audioWindowOffset, 0);
+  }
   static endClassification(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createClassification(builder, objectOffset, candidatesOffset, labelSetOffset, kind, subjectId) {
-    _Classification.startClassification(builder);
-    _Classification.addObject(builder, objectOffset);
-    _Classification.addCandidates(builder, candidatesOffset);
-    _Classification.addLabelSet(builder, labelSetOffset);
-    _Classification.addKind(builder, kind);
-    if (subjectId !== null)
-      _Classification.addSubjectId(builder, subjectId);
-    return _Classification.endClassification(builder);
-  }
   unpack() {
-    return new ClassificationT(this.object() !== null ? this.object().unpack() : null, this.bb.createObjList(this.candidates.bind(this), this.candidatesLength()), this.labelSet(), this.kind(), this.subjectId());
+    return new ClassificationT(this.object() !== null ? this.object().unpack() : null, this.bb.createObjList(this.candidates.bind(this), this.candidatesLength()), this.labelSet(), this.kind(), this.subjectId(), this.audioWindow() !== null ? this.audioWindow().unpack() : null);
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
@@ -4820,21 +4987,32 @@ var Classification = class _Classification {
     _o.labelSet = this.labelSet();
     _o.kind = this.kind();
     _o.subjectId = this.subjectId();
+    _o.audioWindow = this.audioWindow() !== null ? this.audioWindow().unpack() : null;
   }
 };
 var ClassificationT = class {
-  constructor(object = null, candidates = [], labelSet = null, kind = ClassificationKind.Unspecified, subjectId = null) {
+  constructor(object = null, candidates = [], labelSet = null, kind = ClassificationKind.Unspecified, subjectId = null, audioWindow = null) {
     this.object = object;
     this.candidates = candidates;
     this.labelSet = labelSet;
     this.kind = kind;
     this.subjectId = subjectId;
+    this.audioWindow = audioWindow;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const candidates = Classification.createCandidatesVector(builder, builder.createObjectOffsetList(this.candidates));
     const labelSet = this.labelSet !== null ? builder.createString(this.labelSet) : 0;
-    return Classification.createClassification(builder, object, candidates, labelSet, this.kind, this.subjectId);
+    const audioWindow = this.audioWindow !== null ? this.audioWindow.pack(builder) : 0;
+    Classification.startClassification(builder);
+    Classification.addObject(builder, object);
+    Classification.addCandidates(builder, candidates);
+    Classification.addLabelSet(builder, labelSet);
+    Classification.addKind(builder, this.kind);
+    if (this.subjectId !== null)
+      Classification.addSubjectId(builder, this.subjectId);
+    Classification.addAudioWindow(builder, audioWindow);
+    return Classification.endClassification(builder);
   }
 };
 
@@ -8422,7 +8600,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5";
+var SCHEMA_SET_SHA256 = "72bab0c078acdcb1ad2f31df8bc9c208ddb6e710c90b4822b1dfb056ab38f0e1";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -8779,16 +8957,6 @@ function usableEmbedding({ space, values }) {
   return typeof space?.id === "string" && space.id.length > 0 && space.metric === EmbeddingMetric.Cosine && Array.isArray(values) && space.dimensions === values.length && values.length > 0 && values.every(Number.isFinite) && values.some((value) => value !== 0);
 }
 
-// development/web/src/audio-data.js
-function validAudioResult(data, probability, decision) {
-  const score = data[probability];
-  if (typeof score !== "number" || !Number.isFinite(score) || score < 0 || score > 1 || typeof data[decision] !== "boolean") return false;
-  const unsigned = (value) => value != null && (typeof value !== "number" || Number.isSafeInteger(value)) && /^[0-9]{1,20}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
-  if (!unsigned(data.windowStartSample) || !unsigned(data.windowEndSample) || BigInt(data.windowEndSample) <= BigInt(data.windowStartSample)) return false;
-  const start = data.windowStartTsNs, end = data.windowEndTsNs;
-  return start == null && end == null || unsigned(start) && unsigned(end) && BigInt(start) < BigInt(end);
-}
-
 // development/web/src/frame-results.js
 var FRAME_RESULTS_ENCODING = "perception-frame-results+base64";
 var FrameResultsDecodeError = class extends Error {
@@ -8871,7 +9039,18 @@ var classificationMappers = /* @__PURE__ */ new Map([
     candidates: item.candidates.map(candidateData),
     labelSet: text(item.labelSet),
     kind: item.kind,
-    subjectUuid: item.subjectId == null ? null : identifier(item.subjectId)
+    subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+    audioWindow: item.audioWindow ? {
+      sourceId: text(item.audioWindow.sourceId),
+      sessionId: text(item.audioWindow.sessionId),
+      segmentIndex: identifier(item.audioWindow.segmentIndex),
+      sampleRateHz: item.audioWindow.sampleRateHz,
+      windowStartSample: identifier(item.audioWindow.windowStartSample),
+      windowEndSample: identifier(item.audioWindow.windowEndSample),
+      windowStartTsNs: item.audioWindow.windowStartTsNs == null ? null : identifier(item.audioWindow.windowStartTsNs),
+      windowEndTsNs: item.audioWindow.windowEndTsNs == null ? null : identifier(item.audioWindow.windowEndTsNs),
+      discontinuity: item.audioWindow.discontinuity
+    } : null
   } }))],
   ["CameraContacts", (payload) => payload.contacts.map((item) => ({ type: "CameraContact", data: {
     ...objectData(item.object),

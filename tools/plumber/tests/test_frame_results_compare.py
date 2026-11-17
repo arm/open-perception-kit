@@ -38,6 +38,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import Pro
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.AudioFrameContext import AudioFrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.AudioWindow import AudioWindowT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.PerformanceMeasurements import PerformanceMeasurementsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.FrameRate import FrameRateT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT  # noqa: E402
@@ -145,6 +146,56 @@ def gaze_frame(measurements, subjects=None, tracks=False):
 class FrameResultsCompareTests(unittest.TestCase):
     def setUp(self) -> None:
         self.args = SimpleNamespace(verbose=False)
+
+    def test_audio_classifications_compare_windows_without_original_buffers_or_spatial_subjects(self):
+        def window(**changes):
+            return AudioWindowT(**{"sourceId": "audio/pcm", "sessionId": "run-a", "segmentIndex": 1,
+                                   "sampleRateHz": 16000, "windowStartSample": 0, "windowEndSample": 512,
+                                   "windowStartTsNs": 0, "windowEndTsNs": 32000000, "discontinuity": True, **changes})
+
+        def frame(*windows, **changes):
+            result = FrameResults()
+            for audio in windows:
+                result.add(ClassificationsT(layer=LayerInfoT(inferElementId="audio", model="keywords",
+                                                             producer=ProducerInfoT(component="test", instanceId="audio/output")), classifications=[ClassificationT(**{
+                                                                 "object": ObjectMetaT(id=3, parentId=999), "kind": ClassificationKind.Categorical,
+                                                                 "labelSet": "test:commands-v1", "audioWindow": audio,
+                                                                 "candidates": [ClassificationCandidateT(classId=0, confidence=0, text="open")], **changes})]))
+            return frame_results_frame(FrameResults(result.serialize()))
+
+        first, second = window(), window(windowStartSample=256, windowEndSample=768, discontinuity=False,
+                                         windowStartTsNs=16000000, windowEndTsNs=48000000)
+        reference = frame(first, second)
+        renamed_session = frame(window(sessionId="run-b", windowStartSample=256, windowEndSample=768,
+                                       windowStartTsNs=16000000, windowEndTsNs=48000000, discontinuity=False),
+                                window(sessionId="run-b"))
+        self.assertTrue(compare_frame_results_frame(self.args, reference, renamed_session)[0])
+        empty = frame(first, candidates=[])
+        self.assertTrue(compare_frame_results_frame(self.args, empty, empty)[0])
+        unknown_pts = frame(window(windowStartTsNs=None, windowEndTsNs=None))
+        self.assertTrue(compare_frame_results_frame(self.args, unknown_pts, unknown_pts)[0])
+
+        for changes in ({"sourceId": "other/pcm"}, {"segmentIndex": 2}, {"sampleRateHz": 8000},
+                        {"windowStartSample": 1}, {"windowEndSample": 513}, {"discontinuity": False},
+                        {"windowStartTsNs": None, "windowEndTsNs": None},
+                        {"windowStartTsNs": 1}, {"windowEndTsNs": 32000001}):
+            with self.subTest(changes=changes):
+                for candidates in ([], [ClassificationCandidateT(classId=0, confidence=0, text="open")]):
+                    self.assertFalse(compare_frame_results_frame(
+                        self.args, frame(first, candidates=candidates), frame(window(**changes), candidates=candidates))[0])
+        for other in (frame(None), empty,
+                      frame(first, candidates=[ClassificationCandidateT(classId=1, text="open")])):
+            self.assertFalse(compare_frame_results_frame(self.args, frame(first), other)[0])
+            self.assertFalse(compare_frame_results_frame(self.args, other, frame(first))[0])
+
+        for invalid in (frame(AudioWindowT()), frame(window(sourceId="")), frame(window(sessionId="")),
+                        frame(window(segmentIndex=0)), frame(window(sampleRateHz=0)),
+                        frame(window(windowEndSample=0)), frame(window(windowEndTsNs=None)),
+                        frame(window(windowStartTsNs=None)), frame(window(windowEndTsNs=0)),
+                        frame(first, subjectId=0), frame(first, subjectId=1),
+                        frame(first, first), frame(first, window(sessionId="other", windowStartSample=256)),
+                        frame(first, candidates=[ClassificationCandidateT(classId=0, confidence=float("nan"))])):
+            self.assertFalse(compare_frame_results_frame(self.args, invalid, invalid)[0])
 
     def test_subjectless_keyword_classifications_preserve_identity_and_subject_checks(self):
         def frame(subject=None, producer="keywords/output", parent=0, **changes):

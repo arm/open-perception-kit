@@ -17,6 +17,8 @@
 use super::*;
 mod audio_frame_context_generated;
 pub use self::audio_frame_context_generated::*;
+mod audio_window_generated;
+pub use self::audio_window_generated::*;
 mod bitmap_data_generated;
 pub use self::bitmap_data_generated::*;
 mod bitmap_encoding_generated;

@@ -33,6 +33,10 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 
 namespace open_perception_kit {
 namespace metadata {
 
+struct AudioWindow;
+struct AudioWindowBuilder;
+struct AudioWindowT;
+
 struct ClassificationCandidate;
 struct ClassificationCandidateBuilder;
 struct ClassificationCandidateT;
@@ -72,6 +76,181 @@ inline const char *EnumNameClassificationKind(ClassificationKind e) {
     const size_t index = static_cast<size_t>(e);
     return EnumNamesClassificationKind()[index];
 }
+
+struct AudioWindowT : public ::flatbuffers::NativeTable {
+    typedef AudioWindow TableType;
+    std::string source_id{};
+    std::string session_id{};
+    uint64_t segment_index = 0;
+    uint32_t sample_rate_hz = 0;
+    uint64_t window_start_sample = 0;
+    uint64_t window_end_sample = 0;
+    ::flatbuffers::Optional<uint64_t> window_start_ts_ns = ::flatbuffers::nullopt;
+    ::flatbuffers::Optional<uint64_t> window_end_ts_ns = ::flatbuffers::nullopt;
+    bool discontinuity = false;
+};
+
+struct AudioWindow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+    typedef AudioWindowT NativeTableType;
+    typedef AudioWindowBuilder Builder;
+    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+        VT_SOURCE_ID = 4,
+        VT_SESSION_ID = 6,
+        VT_SEGMENT_INDEX = 8,
+        VT_SAMPLE_RATE_HZ = 10,
+        VT_WINDOW_START_SAMPLE = 12,
+        VT_WINDOW_END_SAMPLE = 14,
+        VT_WINDOW_START_TS_NS = 16,
+        VT_WINDOW_END_TS_NS = 18,
+        VT_DISCONTINUITY = 20
+    };
+    const ::flatbuffers::String *source_id() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_SOURCE_ID);
+    }
+    const ::flatbuffers::String *session_id() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_SESSION_ID);
+    }
+    uint64_t segment_index() const {
+        return GetField<uint64_t>(VT_SEGMENT_INDEX, 0);
+    }
+    uint32_t sample_rate_hz() const {
+        return GetField<uint32_t>(VT_SAMPLE_RATE_HZ, 0);
+    }
+    uint64_t window_start_sample() const {
+        return GetField<uint64_t>(VT_WINDOW_START_SAMPLE, 0);
+    }
+    uint64_t window_end_sample() const {
+        return GetField<uint64_t>(VT_WINDOW_END_SAMPLE, 0);
+    }
+    ::flatbuffers::Optional<uint64_t> window_start_ts_ns() const {
+        return GetOptional<uint64_t, uint64_t>(VT_WINDOW_START_TS_NS);
+    }
+    ::flatbuffers::Optional<uint64_t> window_end_ts_ns() const {
+        return GetOptional<uint64_t, uint64_t>(VT_WINDOW_END_TS_NS);
+    }
+    bool discontinuity() const {
+        return GetField<uint8_t>(VT_DISCONTINUITY, 0) != 0;
+    }
+    bool Verify(::flatbuffers::Verifier &verifier) const {
+        return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_SOURCE_ID) &&
+               verifier.VerifyString(source_id()) && VerifyOffset(verifier, VT_SESSION_ID) &&
+               verifier.VerifyString(session_id()) &&
+               VerifyField<uint64_t>(verifier, VT_SEGMENT_INDEX, 8) &&
+               VerifyField<uint32_t>(verifier, VT_SAMPLE_RATE_HZ, 4) &&
+               VerifyField<uint64_t>(verifier, VT_WINDOW_START_SAMPLE, 8) &&
+               VerifyField<uint64_t>(verifier, VT_WINDOW_END_SAMPLE, 8) &&
+               VerifyField<uint64_t>(verifier, VT_WINDOW_START_TS_NS, 8) &&
+               VerifyField<uint64_t>(verifier, VT_WINDOW_END_TS_NS, 8) &&
+               VerifyField<uint8_t>(verifier, VT_DISCONTINUITY, 1) && verifier.EndTable();
+    }
+    AudioWindowT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    void UnPackTo(AudioWindowT *_o,
+                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    static ::flatbuffers::Offset<AudioWindow>
+    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+         const AudioWindowT *_o,
+         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct AudioWindowBuilder {
+    typedef AudioWindow Table;
+    ::flatbuffers::FlatBufferBuilder &fbb_;
+    ::flatbuffers::uoffset_t start_;
+    void add_source_id(::flatbuffers::Offset<::flatbuffers::String> source_id) {
+        fbb_.AddOffset(AudioWindow::VT_SOURCE_ID, source_id);
+    }
+    void add_session_id(::flatbuffers::Offset<::flatbuffers::String> session_id) {
+        fbb_.AddOffset(AudioWindow::VT_SESSION_ID, session_id);
+    }
+    void add_segment_index(uint64_t segment_index) {
+        fbb_.AddElement<uint64_t>(AudioWindow::VT_SEGMENT_INDEX, segment_index, 0);
+    }
+    void add_sample_rate_hz(uint32_t sample_rate_hz) {
+        fbb_.AddElement<uint32_t>(AudioWindow::VT_SAMPLE_RATE_HZ, sample_rate_hz, 0);
+    }
+    void add_window_start_sample(uint64_t window_start_sample) {
+        fbb_.AddElement<uint64_t>(AudioWindow::VT_WINDOW_START_SAMPLE, window_start_sample, 0);
+    }
+    void add_window_end_sample(uint64_t window_end_sample) {
+        fbb_.AddElement<uint64_t>(AudioWindow::VT_WINDOW_END_SAMPLE, window_end_sample, 0);
+    }
+    void add_window_start_ts_ns(uint64_t window_start_ts_ns) {
+        fbb_.AddElement<uint64_t>(AudioWindow::VT_WINDOW_START_TS_NS, window_start_ts_ns);
+    }
+    void add_window_end_ts_ns(uint64_t window_end_ts_ns) {
+        fbb_.AddElement<uint64_t>(AudioWindow::VT_WINDOW_END_TS_NS, window_end_ts_ns);
+    }
+    void add_discontinuity(bool discontinuity) {
+        fbb_.AddElement<uint8_t>(
+            AudioWindow::VT_DISCONTINUITY, static_cast<uint8_t>(discontinuity), 0);
+    }
+    explicit AudioWindowBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+        start_ = fbb_.StartTable();
+    }
+    ::flatbuffers::Offset<AudioWindow> Finish() {
+        const auto end = fbb_.EndTable(start_);
+        auto o = ::flatbuffers::Offset<AudioWindow>(end);
+        return o;
+    }
+};
+
+inline ::flatbuffers::Offset<AudioWindow>
+CreateAudioWindow(::flatbuffers::FlatBufferBuilder &_fbb,
+                  ::flatbuffers::Offset<::flatbuffers::String> source_id = 0,
+                  ::flatbuffers::Offset<::flatbuffers::String> session_id = 0,
+                  uint64_t segment_index = 0,
+                  uint32_t sample_rate_hz = 0,
+                  uint64_t window_start_sample = 0,
+                  uint64_t window_end_sample = 0,
+                  ::flatbuffers::Optional<uint64_t> window_start_ts_ns = ::flatbuffers::nullopt,
+                  ::flatbuffers::Optional<uint64_t> window_end_ts_ns = ::flatbuffers::nullopt,
+                  bool discontinuity = false) {
+    AudioWindowBuilder builder_(_fbb);
+    if (window_end_ts_ns) {
+        builder_.add_window_end_ts_ns(*window_end_ts_ns);
+    }
+    if (window_start_ts_ns) {
+        builder_.add_window_start_ts_ns(*window_start_ts_ns);
+    }
+    builder_.add_window_end_sample(window_end_sample);
+    builder_.add_window_start_sample(window_start_sample);
+    builder_.add_segment_index(segment_index);
+    builder_.add_sample_rate_hz(sample_rate_hz);
+    builder_.add_session_id(session_id);
+    builder_.add_source_id(source_id);
+    builder_.add_discontinuity(discontinuity);
+    return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<AudioWindow> CreateAudioWindowDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *source_id = nullptr,
+    const char *session_id = nullptr,
+    uint64_t segment_index = 0,
+    uint32_t sample_rate_hz = 0,
+    uint64_t window_start_sample = 0,
+    uint64_t window_end_sample = 0,
+    ::flatbuffers::Optional<uint64_t> window_start_ts_ns = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint64_t> window_end_ts_ns = ::flatbuffers::nullopt,
+    bool discontinuity = false) {
+    auto source_id__ = source_id ? _fbb.CreateString(source_id) : 0;
+    auto session_id__ = session_id ? _fbb.CreateString(session_id) : 0;
+    return open_perception_kit::metadata::CreateAudioWindow(_fbb,
+                                                            source_id__,
+                                                            session_id__,
+                                                            segment_index,
+                                                            sample_rate_hz,
+                                                            window_start_sample,
+                                                            window_end_sample,
+                                                            window_start_ts_ns,
+                                                            window_end_ts_ns,
+                                                            discontinuity);
+}
+
+::flatbuffers::Offset<AudioWindow>
+CreateAudioWindow(::flatbuffers::FlatBufferBuilder &_fbb,
+                  const AudioWindowT *_o,
+                  const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct ClassificationCandidateT : public ::flatbuffers::NativeTable {
     typedef ClassificationCandidate TableType;
@@ -175,6 +354,7 @@ struct ClassificationT : public ::flatbuffers::NativeTable {
     open_perception_kit::metadata::ClassificationKind kind =
         open_perception_kit::metadata::ClassificationKind::Unspecified;
     ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt;
+    std::unique_ptr<open_perception_kit::metadata::AudioWindowT> audio_window{};
     ClassificationT() = default;
     ClassificationT(const ClassificationT &o);
     ClassificationT(ClassificationT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -189,7 +369,8 @@ struct Classification FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         VT_CANDIDATES = 6,
         VT_LABEL_SET = 8,
         VT_KIND = 10,
-        VT_SUBJECT_ID = 12
+        VT_SUBJECT_ID = 12,
+        VT_AUDIO_WINDOW = 14
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -211,13 +392,18 @@ struct Classification FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     ::flatbuffers::Optional<uint64_t> subject_id() const {
         return GetOptional<uint64_t, uint64_t>(VT_SUBJECT_ID);
     }
+    const open_perception_kit::metadata::AudioWindow *audio_window() const {
+        return GetPointer<const open_perception_kit::metadata::AudioWindow *>(VT_AUDIO_WINDOW);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) && VerifyOffset(verifier, VT_CANDIDATES) &&
                verifier.VerifyVector(candidates()) && verifier.VerifyVectorOfTables(candidates()) &&
                VerifyOffset(verifier, VT_LABEL_SET) && verifier.VerifyString(label_set()) &&
                VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
-               VerifyField<uint64_t>(verifier, VT_SUBJECT_ID, 8) && verifier.EndTable();
+               VerifyField<uint64_t>(verifier, VT_SUBJECT_ID, 8) &&
+               VerifyOffset(verifier, VT_AUDIO_WINDOW) && verifier.VerifyTable(audio_window()) &&
+               verifier.EndTable();
     }
     ClassificationT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(ClassificationT *_o,
@@ -248,6 +434,10 @@ struct ClassificationBuilder {
     void add_subject_id(uint64_t subject_id) {
         fbb_.AddElement<uint64_t>(Classification::VT_SUBJECT_ID, subject_id);
     }
+    void add_audio_window(
+        ::flatbuffers::Offset<open_perception_kit::metadata::AudioWindow> audio_window) {
+        fbb_.AddOffset(Classification::VT_AUDIO_WINDOW, audio_window);
+    }
     explicit ClassificationBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -267,11 +457,13 @@ inline ::flatbuffers::Offset<Classification> CreateClassification(
     ::flatbuffers::Offset<::flatbuffers::String> label_set = 0,
     open_perception_kit::metadata::ClassificationKind kind =
         open_perception_kit::metadata::ClassificationKind::Unspecified,
-    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt) {
+    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt,
+    ::flatbuffers::Offset<open_perception_kit::metadata::AudioWindow> audio_window = 0) {
     ClassificationBuilder builder_(_fbb);
     if (subject_id) {
         builder_.add_subject_id(*subject_id);
     }
+    builder_.add_audio_window(audio_window);
     builder_.add_label_set(label_set);
     builder_.add_candidates(candidates);
     builder_.add_object(object);
@@ -287,7 +479,8 @@ inline ::flatbuffers::Offset<Classification> CreateClassificationDirect(
     const char *label_set = nullptr,
     open_perception_kit::metadata::ClassificationKind kind =
         open_perception_kit::metadata::ClassificationKind::Unspecified,
-    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt) {
+    ::flatbuffers::Optional<uint64_t> subject_id = ::flatbuffers::nullopt,
+    ::flatbuffers::Offset<open_perception_kit::metadata::AudioWindow> audio_window = 0) {
     auto candidates__ =
         candidates
             ? _fbb.CreateVector<
@@ -296,7 +489,7 @@ inline ::flatbuffers::Offset<Classification> CreateClassificationDirect(
             : 0;
     auto label_set__ = label_set ? _fbb.CreateString(label_set) : 0;
     return open_perception_kit::metadata::CreateClassification(
-        _fbb, object, candidates__, label_set__, kind, subject_id);
+        _fbb, object, candidates__, label_set__, kind, subject_id, audio_window);
 }
 
 ::flatbuffers::Offset<Classification>
@@ -422,6 +615,97 @@ CreateClassifications(::flatbuffers::FlatBufferBuilder &_fbb,
                       const ClassificationsT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+inline AudioWindowT *
+AudioWindow::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+    auto _o = std::unique_ptr<AudioWindowT>(new AudioWindowT());
+    UnPackTo(_o.get(), _resolver);
+    return _o.release();
+}
+
+inline void AudioWindow::UnPackTo(AudioWindowT *_o,
+                                  const ::flatbuffers::resolver_function_t *_resolver) const {
+    (void)_o;
+    (void)_resolver;
+    {
+        auto _e = source_id();
+        if (_e)
+            _o->source_id = _e->str();
+    }
+    {
+        auto _e = session_id();
+        if (_e)
+            _o->session_id = _e->str();
+    }
+    {
+        auto _e = segment_index();
+        _o->segment_index = _e;
+    }
+    {
+        auto _e = sample_rate_hz();
+        _o->sample_rate_hz = _e;
+    }
+    {
+        auto _e = window_start_sample();
+        _o->window_start_sample = _e;
+    }
+    {
+        auto _e = window_end_sample();
+        _o->window_end_sample = _e;
+    }
+    {
+        auto _e = window_start_ts_ns();
+        _o->window_start_ts_ns = _e;
+    }
+    {
+        auto _e = window_end_ts_ns();
+        _o->window_end_ts_ns = _e;
+    }
+    {
+        auto _e = discontinuity();
+        _o->discontinuity = _e;
+    }
+}
+
+inline ::flatbuffers::Offset<AudioWindow>
+AudioWindow::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+                  const AudioWindowT *_o,
+                  const ::flatbuffers::rehasher_function_t *_rehasher) {
+    return CreateAudioWindow(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<AudioWindow>
+CreateAudioWindow(::flatbuffers::FlatBufferBuilder &_fbb,
+                  const AudioWindowT *_o,
+                  const ::flatbuffers::rehasher_function_t *_rehasher) {
+    (void)_rehasher;
+    (void)_o;
+    struct _VectorArgs {
+        ::flatbuffers::FlatBufferBuilder *__fbb;
+        const AudioWindowT *__o;
+        const ::flatbuffers::rehasher_function_t *__rehasher;
+    } _va = {&_fbb, _o, _rehasher};
+    (void)_va;
+    auto _source_id = _o->source_id.empty() ? 0 : _fbb.CreateString(_o->source_id);
+    auto _session_id = _o->session_id.empty() ? 0 : _fbb.CreateString(_o->session_id);
+    auto _segment_index = _o->segment_index;
+    auto _sample_rate_hz = _o->sample_rate_hz;
+    auto _window_start_sample = _o->window_start_sample;
+    auto _window_end_sample = _o->window_end_sample;
+    auto _window_start_ts_ns = _o->window_start_ts_ns;
+    auto _window_end_ts_ns = _o->window_end_ts_ns;
+    auto _discontinuity = _o->discontinuity;
+    return open_perception_kit::metadata::CreateAudioWindow(_fbb,
+                                                            _source_id,
+                                                            _session_id,
+                                                            _segment_index,
+                                                            _sample_rate_hz,
+                                                            _window_start_sample,
+                                                            _window_end_sample,
+                                                            _window_start_ts_ns,
+                                                            _window_end_ts_ns,
+                                                            _discontinuity);
+}
+
 inline ClassificationCandidateT *
 ClassificationCandidate::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
     auto _o = std::unique_ptr<ClassificationCandidateT>(new ClassificationCandidateT());
@@ -477,7 +761,10 @@ CreateClassificationCandidate(::flatbuffers::FlatBufferBuilder &_fbb,
 
 inline ClassificationT::ClassificationT(const ClassificationT &o)
     : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
-      label_set(o.label_set), kind(o.kind), subject_id(o.subject_id) {
+      label_set(o.label_set), kind(o.kind), subject_id(o.subject_id),
+      audio_window((o.audio_window)
+                       ? new open_perception_kit::metadata::AudioWindowT(*o.audio_window)
+                       : nullptr) {
     candidates.reserve(o.candidates.size());
     for (const auto &candidates_ : o.candidates) {
         candidates.emplace_back(
@@ -493,6 +780,7 @@ inline ClassificationT &ClassificationT::operator=(ClassificationT o) FLATBUFFER
     std::swap(label_set, o.label_set);
     std::swap(kind, o.kind);
     std::swap(subject_id, o.subject_id);
+    std::swap(audio_window, o.audio_window);
     return *this;
 }
 
@@ -550,6 +838,19 @@ inline void Classification::UnPackTo(ClassificationT *_o,
         auto _e = subject_id();
         _o->subject_id = _e;
     }
+    {
+        auto _e = audio_window();
+        if (_e) {
+            if (_o->audio_window) {
+                _e->UnPackTo(_o->audio_window.get(), _resolver);
+            } else {
+                _o->audio_window = std::unique_ptr<open_perception_kit::metadata::AudioWindowT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->audio_window) {
+            _o->audio_window.reset();
+        }
+    }
 }
 
 inline ::flatbuffers::Offset<Classification>
@@ -586,8 +887,10 @@ CreateClassification(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _label_set = _o->label_set.empty() ? 0 : _fbb.CreateString(_o->label_set);
     auto _kind = _o->kind;
     auto _subject_id = _o->subject_id;
+    auto _audio_window =
+        _o->audio_window ? CreateAudioWindow(_fbb, _o->audio_window.get(), _rehasher) : 0;
     return open_perception_kit::metadata::CreateClassification(
-        _fbb, _object, _candidates, _label_set, _kind, _subject_id);
+        _fbb, _object, _candidates, _label_set, _kind, _subject_id, _audio_window);
 }
 
 inline ClassificationsT::ClassificationsT(const ClassificationsT &o)

@@ -38,6 +38,8 @@ import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open
 import {InstanceSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.js';
 import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {AudioFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.js';
+import {AudioWindowT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-window.js';
+import {validCandidate, validEmptyClassification} from '../src/classification-results.js';
 import {ObjectTrackT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js';
 import {TrackIdentityT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-identity.js';
 import {TrackingSampleT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/tracking-sample.js';
@@ -329,6 +331,43 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
     assert.equal(indexFrame(decoded.frame_results).objects.get('20')[0].data.text, 'face');
 });
 
+test('classification audio windows retain precise timing and validate empty and invalid assessments', () => {
+    const start = 9007199254740993n;
+    const window = Object.assign(new AudioWindowT(), {sourceId: 'audio/pcm', sessionId: 'run', segmentIndex: 2n,
+        sampleRateHz: 16000, windowStartSample: start, windowEndSample: start + 512n,
+        windowStartTsNs: 0n, windowEndTsNs: 32000000n, discontinuity: true});
+    const assessment = audioWindow => Object.assign(new ClassificationT(), {
+        kind: ClassificationKind.Categorical, labelSet: 'test:commands', audioWindow,
+        candidates: [new ClassificationCandidateT(0, 0, 'open')],
+    });
+    const envelope = new Envelope();
+    envelope.add(new ClassificationsT(1, 0, layer(), [assessment(window),
+        Object.assign(assessment(window), {candidates: []})]));
+    const decoded = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')}).frame_results;
+    const [value, empty] = decoded.layers[0].detections.map(item => item.data);
+    assert.equal(value.audioWindow.windowStartSample, start.toString());
+    assert.equal(value.audioWindow.windowEndSample, (start + 512n).toString());
+    assert.equal(value.audioWindow.windowStartTsNs, '0');
+    assert.equal(value.audioWindow.segmentIndex, '2');
+    assert.equal(value.audioWindow.sessionId, 'run');
+    assert.equal(value.audioWindow.sampleRateHz, 16000);
+    assert.equal(value.audioWindow.discontinuity, true);
+    assert.ok(validCandidate(value, value.candidates[0]));
+    assert.ok(validEmptyClassification(empty));
+    const unknownPts = {...empty, audioWindow: {...empty.audioWindow, windowStartTsNs: null, windowEndTsNs: null}};
+    assert.ok(validEmptyClassification(unknownPts));
+    for (const changes of [{sourceId: ''}, {sessionId: ''}, {segmentIndex: '0'}, {sampleRateHz: 0},
+        {windowEndSample: start.toString()}, {windowEndTsNs: null}, {windowEndTsNs: '0'},
+        {windowStartSample: Number(start)}, {windowEndSample: '18446744073709551616'}]) {
+        const invalid = {...value, audioWindow: {...value.audioWindow, ...changes}};
+        assert.equal(validCandidate(invalid, value.candidates[0]), false);
+        assert.equal(validEmptyClassification(invalid), false);
+    }
+    assert.equal(validCandidate({...value, subjectUuid: '7'}, value.candidates[0]), false);
+    assert.ok(validCandidate({...value, audioWindow: null}, value.candidates[0]));
+});
+
 test('decodes audio assessments with exact sample positions, timestamp presence and resets', () => {
     const envelope = new Envelope();
     const largeSample = 9007199254740993n;
@@ -485,6 +524,38 @@ test('renders, copies and retains audio assessments until their source resets or
         assert.equal(button.disabled, true);
         send([voice]);
         listeners.get('metadata-message')({detail: {inference_output: {layers: []}, decode_error: 'invalid packet'}});
+        assert.equal(button.disabled, true);
+
+        const keywordWindow = {sourceId: 'keywords/pcm', sessionId: 'run', segmentIndex: '1', sampleRateHz: 16000,
+            windowStartSample: '0', windowEndSample: '512', windowStartTsNs: '0', windowEndTsNs: '32000000', discontinuity: true};
+        const keyword = {model: 'commands', payloadType: 'Classifications', inferElementId: 'keywords',
+            producer: {instanceId: 'keywords/output'}, count: 1, detections: [{type: 'Classification', data: {
+                kind: ClassificationKind.Categorical, labelSet: 'test:commands', subjectUuid: null,
+                audioWindow: keywordWindow, candidates: [{classId: 0, text: 'Open command', confidence: .9}],
+            }}]};
+        send([keyword]);
+        send([]);
+        assert.ok(renderedText().includes('Open command'));
+        assert.ok(renderedText().includes('samples [0, 512) at 16000 Hz'));
+        button.listeners.get('click')();
+        await new Promise(resolve => setImmediate(resolve));
+        assert.ok(copied.includes('PTS [0, 32000000) ns'));
+        send([{...voice, inferElementId: 'keywords', producer: {instanceId: 'keywords/vad'}}]);
+        assert.ok(renderedText().includes('Speech active'));
+        const emptyKeyword = {...keyword, detections: [{type: 'Classification', data: {
+            ...keyword.detections[0].data, candidates: [], audioWindow: {...keywordWindow, segmentIndex: '2', discontinuity: false},
+        }}]};
+        send([emptyKeyword]);
+        send([]);
+        assert.ok(renderedText().includes('No candidates'));
+        assert.ok(renderedText().includes('segment 2'));
+        assert.ok(!renderedText().includes('Open command'));
+        assert.ok(!renderedText().includes('Speech active'));
+        send([{...keyword, detections: [{type: 'Classification', data: {
+            ...keyword.detections[0].data, audioWindow: {...keywordWindow, sampleRateHz: 0},
+        }}]}]);
+        assert.ok(renderedText().includes('Classification unavailable'));
+        listeners.get('microphone-state')({detail: {active: false}});
         assert.equal(button.disabled, true);
     } finally {
         clearTimeout(button.copyFeedbackTimer);
