@@ -449,6 +449,14 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         animationFrame();
         assert.deepEqual(drawn, []);
 
+        window.fire('video-frame-results', {detail: {layers: [matched]}});
+        window.fire('video-frame-results', {detail: null});
+        drawn.length = 0;
+        window.fire('pipeline-stopped');
+        assert.deepEqual(drawn, [], 'stopping clears retained overlays immediately');
+        animationFrame();
+        assert.deepEqual(drawn, []);
+
         // All visual features share the same bounded hold.
         let trackedDraws = 0;
         OVERLAY_FEATURES.find(feature => feature.id === 'tracked-objects').render = () => { trackedDraws++; };

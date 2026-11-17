@@ -17,11 +17,13 @@
 
 #include "glib.h"
 #include "gst/gstelement.h"
-#include <condition_variable>
+#include <chrono>
 #include <functional>
 #include <nlohmann/json_fwd.hpp>
+#include <stdexcept>
 
 #include <mutex>
+#include <optional>
 #include <ranges>
 #include <unordered_map>
 #include <utility>
@@ -32,39 +34,174 @@
 
 #include "Log.h"
 #include "ctrl_ws.h"
+#include "gst/PipelineControl.h"
 #include "opksink.h"
 #include "utils.h"
 
 using namespace nlohmann;
 
+static constexpr auto kChangePipelineStateRequestType = "change_pipeline_state";
+
 CtrlWebSocket::CtrlWebSocket(_GstOpkSink *self) : self_(self) {
     using namespace std::placeholders;
 
     message_types = {
-        {"play_pause", std::bind(&CtrlWebSocket::play_pause, this, _1)},
+        {kChangePipelineStateRequestType,
+         [this](const json &message) { set_pipeline_state(message); }},
         {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
         {"model_inputs", [this](const json &message) { model_inputs(message); }},
     };
 }
 
-static void toggleModel(gpointer element, gpointer) {
-    g_autoptr(GstElement) targetElement = GST_ELEMENT(element);
-    gboolean active = FALSE;
-    g_object_get(targetElement, "active", &active, nullptr);
-    g_object_set(targetElement, "active", !active, nullptr);
-    GST_INFO_OBJECT(targetElement, "Set active=%d", !active);
+namespace {
+
+constexpr auto kReportInterval = std::chrono::milliseconds(250);
+constexpr std::size_t kMaxControlMessageBytes = 1024 * 1024;
+constexpr std::size_t kMaxElementNameBytes = 1024;
+constexpr std::size_t kMaxInputBindings = 128;
+constexpr std::size_t kMaxInputBindingsBytes = 65536;
+
+struct ControlRequest {
+    GstOpkSink *m_sink;
+    std::weak_ptr<ws_server> m_server;
+    json m_message;
+
+    ~ControlRequest() {
+        gst_object_unref(m_sink);
+    }
+};
+
+// Never wait for a state lock while shutdown may be joining the WebSocket thread.
+class PipelineStateLock {
+  public:
+    explicit PipelineStateLock(GstElement *const sink) {
+        m_elements.push_back(GST_ELEMENT(gst_object_ref(sink)));
+        while (GstElement *const parent = GST_ELEMENT(gst_element_get_parent(m_elements.back()))) {
+            m_elements.push_back(parent);
+        }
+        for (GstElement *const element : std::views::reverse(m_elements)) {
+            if (!g_rec_mutex_trylock(GST_STATE_GET_LOCK(element))) {
+                return;
+            }
+            ++m_lockedCount;
+        }
+    }
+
+    PipelineStateLock(const PipelineStateLock &) = delete;
+    PipelineStateLock &operator=(const PipelineStateLock &) = delete;
+
+    ~PipelineStateLock() {
+        for (std::size_t index = m_elements.size() - m_lockedCount; index < m_elements.size();
+             ++index) {
+            GST_STATE_UNLOCK(m_elements[index]);
+        }
+        for (GstElement *const element : m_elements) {
+            gst_object_unref(element);
+        }
+    }
+
+    bool acquired() const {
+        return m_lockedCount == m_elements.size();
+    }
+
+  private:
+    std::vector<GstElement *> m_elements;
+    std::size_t m_lockedCount = 0;
+};
+
+} // namespace
+
+void CtrlWebSocket::process_command(gpointer data, gpointer) {
+    const std::unique_ptr<ControlRequest> request(static_cast<ControlRequest *>(data));
+    auto *const control = request->m_sink->private_data->ctrl_websocket.get();
+    if (request->m_server.expired() || !control->available()) {
+        return;
+    }
+    try {
+        const auto &requestType = request->m_message.at("type");
+        const bool changesPipelineState = requestType == kChangePipelineStateRequestType;
+        std::optional<PipelineStateLock> stateLock;
+        if (changesPipelineState) {
+            stateLock.emplace(GST_ELEMENT(request->m_sink));
+            if (!stateLock->acquired()) {
+                throw std::runtime_error("Pipeline is changing state; retry when it finishes");
+            }
+            if (request->m_server.expired() || !control->available()) {
+                return;
+            }
+        }
+        control->execute_command(request->m_message);
+    } catch (const std::exception &error) {
+        control->record_error(error.what());
+    }
+    {
+        std::scoped_lock lock(control->hdl_lock);
+        if (request->m_server.lock() != control->ws) {
+            return;
+        }
+        --control->pending_commands;
+    }
+    {
+        std::scoped_lock lock(control->reporter_lock);
+        control->last_report.clear();
+    }
+    control->report();
+}
+
+void CtrlWebSocket::enqueue_command(const json &message) {
+    std::scoped_lock lock(hdl_lock);
+    if (!accepting_commands || !command_queue) {
+        return;
+    }
+    ++pending_commands;
+    auto request = std::make_unique<ControlRequest>(
+        reinterpret_cast<GstOpkSink *>(gst_object_ref(self_)), ws, message);
+    g_thread_pool_push(command_queue.get(), request.release(), nullptr);
+}
+
+void CtrlWebSocket::execute_command(const json &message) {
+    {
+        std::scoped_lock lock(command_status_mutex);
+        command_error.clear();
+    }
+    message_types.at(message.at("type").get<std::string>())(message);
+}
+
+bool CtrlWebSocket::available() const {
+    return accepting_commands;
+}
+
+void CtrlWebSocket::record_error(const std::string &message) {
+    std::scoped_lock lock(command_status_mutex);
+    command_error = message;
+}
+
+void CtrlWebSocket::schedule_report() {
+    report_timer->expires_after(kReportInterval);
+    report_timer->async_wait([this](const asio::error_code &error) {
+        if (!error && accepting_commands) {
+            report();
+            schedule_report();
+        }
+    });
 }
 
 CtrlSockerError CtrlWebSocket::setup() {
     std::lock_guard<std::mutex> g(hdl_lock);
     ws = std::make_shared<ws_server>();
-    constexpr int modelToggleWorkerCount = 1;
-    auto *const toggleQueue = g_thread_pool_new_full(
-        toggleModel, nullptr, gst_object_unref, modelToggleWorkerCount, FALSE, nullptr);
-    model_toggle_queue.reset(toggleQueue, [](GThreadPool *const queue) {
-        // A callback may stop this server; discard queued work without joining it.
-        g_thread_pool_free(queue, TRUE, FALSE);
+    constexpr int commandWorkerCount = 1;
+    auto *const queue = g_thread_pool_new_full(
+        process_command,
+        nullptr,
+        [](gpointer data) { delete static_cast<ControlRequest *>(data); },
+        commandWorkerCount,
+        FALSE,
+        nullptr);
+    command_queue.reset(queue, [](GThreadPool *const pool) {
+        // A property callback may stop this server from the command worker.
+        g_thread_pool_free(pool, TRUE, FALSE);
     });
+    pending_commands = 0;
 
     ws->init_asio();
     ws->clear_access_channels(websocketpp::log::alevel::all);
@@ -77,9 +214,13 @@ CtrlSockerError CtrlWebSocket::setup() {
         on_message(hdl, msg);
     });
 
+    ws->set_max_message_size(kMaxControlMessageBytes);
     ws->set_reuse_addr(true);
     ws->listen(self_->ctrl_port);
     ws->start_accept();
+    accepting_commands = true;
+    report_timer = std::make_shared<asio::steady_timer>(ws->get_io_service());
+    schedule_report();
 
     opk::log::debug("WebSocket server started");
 
@@ -103,8 +244,12 @@ CtrlSockerError CtrlWebSocket::start() {
 }
 
 CtrlSockerError CtrlWebSocket::stop() {
+    accepting_commands = false;
     if (ws) {
         ws->get_io_service().post([this] {
+            if (report_timer) {
+                report_timer->cancel();
+            }
             websocketpp::lib::error_code ec;
             ws->stop_listening(ec);
             std::lock_guard<std::mutex> g(hdl_lock);
@@ -120,7 +265,8 @@ CtrlSockerError CtrlWebSocket::stop() {
         ws->run(); // Startup may have failed before the worker was created.
     }
 
-    model_toggle_queue.reset();
+    command_queue.reset();
+    report_timer.reset();
     std::lock_guard<std::mutex> g(hdl_lock);
     hdls.clear();
     ws.reset();
@@ -153,6 +299,10 @@ void CtrlWebSocket::on_open(const connection_hdl &hdl) {
         hdls.insert(hdl);
     }
 
+    {
+        std::scoped_lock lock(reporter_lock);
+        last_report.clear();
+    }
     report();
 }
 
@@ -171,7 +321,7 @@ void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::messa
         auto type = jsn.at("type").get<std::string>();
 
         if (auto it = message_types.find(type); it != message_types.end()) {
-            (*it).second(jsn);
+            enqueue_command(jsn);
         }
     } catch (const json::exception &) {
         opk::log::debug("Dropping invalid control message");
@@ -188,110 +338,41 @@ void CtrlWebSocket::register_status_reporter(const std::string &name,
 
 void CtrlWebSocket::report() {
     nlohmann::json rep;
-    opk::log::debug("reporting");
 
     std::lock_guard<std::mutex> g(reporter_lock);
 
-    for (auto kv : status_reporters) {
-        auto [name, reporter] = kv;
-
+    for (const auto &[name, reporter] : status_reporters) {
         rep[name] = reporter->report();
     }
 
-    send_to_all(rep.dump());
-    opk::log::debug("reported: {}", rep.dump());
-}
-
-struct ToggleStateRequest {
-    GstElement *element = nullptr;
-    GstState resulting = GST_STATE_NULL;
-
-    std::mutex m;
-    std::condition_variable cv;
-    bool done = false;
-    bool ok = false;
-};
-
-struct ToggleInvokeBox {
-    std::shared_ptr<ToggleStateRequest> req;
-    // Track the originating server without keeping it alive. After stop() joins
-    // its worker and resets ws, expired() lets the callback discard this request
-    // so a delayed play/pause command cannot restart a stopped pipeline.
-    std::weak_ptr<ws_server> server;
-};
-
-static void toggle_state_async(GstElement *sink, gpointer user_data) {
-    auto *box = static_cast<ToggleInvokeBox *>(user_data);
-    auto request = box->req;
-
-    // Keep the sink and its parents alive while applying the request.
-    std::vector<GstElement *> state_elements{GST_ELEMENT(gst_object_ref(sink))};
-    while (GstElement *parent = GST_ELEMENT(gst_element_get_parent(state_elements.back()))) {
-        state_elements.push_back(parent);
-        if (GST_IS_PIPELINE(parent)) { // NOSONAR
-            break;
-        }
-    }
-    request->element = GST_IS_PIPELINE(state_elements.back()) ? state_elements.back() : sink;
-
-    // Lock pipeline -> bins -> sink so play/pause cannot race shutdown.
-    for (GstElement *state_element : std::views::reverse(state_elements)) {
-        GST_STATE_LOCK(state_element);
-    }
-
-    bool state_change_ok = false;
-    // A queued command from a stopped server must not restart the pipeline.
-    if (!box->server.expired()) {
-        GstState current = GST_STATE_NULL, pending = GST_STATE_NULL;
-        gst_element_get_state(request->element, &current, &pending, 0);
-        const bool playing = current == GST_STATE_PLAYING || pending == GST_STATE_PLAYING;
-        const GstState next_state = playing ? GST_STATE_PAUSED : GST_STATE_PLAYING;
-        state_change_ok =
-            gst_element_set_state(request->element, next_state) != GST_STATE_CHANGE_FAILURE;
-    }
-
-    for (GstElement *state_element : state_elements) {
-        GST_STATE_UNLOCK(state_element);
-    }
-
-    // Wait without holding state locks, then release the references.
-    GstState resulting = GST_STATE_NULL, pending = GST_STATE_NULL;
-    if (state_change_ok) {
-        gst_element_get_state(request->element, &resulting, &pending, 200 * GST_MSECOND);
-    }
-    request->element = nullptr;
-    for (GstElement *state_element : state_elements) {
-        gst_object_unref(state_element);
-    }
-
     {
-        std::lock_guard<std::mutex> lock(request->m);
-        request->resulting = resulting;
-        request->ok = state_change_ok;
-        request->done = true;
+        std::scoped_lock lock(command_status_mutex);
+        rep["pipeline_state"]["error"] = command_error;
     }
-    request->cv.notify_one();
+    rep["pipeline_state"]["busy"] = pending_commands.load() != 0;
+    const auto encoded = rep.dump();
+    if (encoded != last_report) {
+        last_report = encoded;
+        send_to_all(encoded);
+    }
 }
 
-static void destroy_box(gpointer user_data) {
-    delete static_cast<ToggleInvokeBox *>(user_data);
-}
-
-// handle the play button presses on the html frontend
-void CtrlWebSocket::play_pause(const json &jsn) {
-    opk::log::debug("play-pause: {}", jsn.dump());
-
-    auto request = std::make_shared<ToggleStateRequest>();
-    auto *box = new ToggleInvokeBox{request, ws};
-    gst_element_call_async(GST_ELEMENT(self_), toggle_state_async, box, destroy_box);
-
-    {
-        std::unique_lock<std::mutex> lock(request->m);
-        request->cv.wait_for(lock, std::chrono::milliseconds(800), [&] { return request->done; });
+void CtrlWebSocket::set_pipeline_state(const json &message) {
+    const auto requested = message.at("state").get<std::string>();
+    const std::unordered_map<std::string, GstState> states{
+        {"PLAYING", GST_STATE_PLAYING}, {"PAUSED", GST_STATE_PAUSED}, {"READY", GST_STATE_READY}};
+    const auto target = states.find(requested);
+    if (target == states.end()) {
+        throw std::runtime_error("Use Play, Pause or Stop to change pipeline state");
     }
-
-    // send the current pipeline state back to browser
-    report();
+    g_autoptr(GstElement) pipeline = get_top_pipeline(GST_ELEMENT(self_));
+    if (!pipeline) {
+        throw std::runtime_error("Pipeline is unavailable");
+    }
+    if (gst::pipeline_control::setState(pipeline, target->second) == GST_STATE_CHANGE_FAILURE) {
+        gst::pipeline_control::setState(pipeline, GST_STATE_READY);
+        throw std::runtime_error("Pipeline could not start; correct the configuration and retry");
+    }
 }
 
 void CtrlWebSocket::model_toggle(const json &jsn) {
@@ -323,8 +404,14 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
             return;
         }
 
-        // Transfer the reference to the FIFO worker, outside the server thread.
-        g_thread_pool_push(model_toggle_queue.get(), target_element, nullptr);
+        const auto *const property =
+            g_object_class_find_property(G_OBJECT_GET_CLASS(target_element), "active");
+        if (property && G_PARAM_SPEC_VALUE_TYPE(property) == G_TYPE_BOOLEAN) {
+            gboolean active = FALSE;
+            g_object_get(target_element, "active", &active, nullptr);
+            g_object_set(target_element, "active", !active, nullptr);
+        }
+        gst_object_unref(target_element);
     } catch (const json::exception &e) {
         opk::log::debug("Dropping invalid model toggle: {}", e.what());
     }
@@ -334,11 +421,12 @@ void CtrlWebSocket::model_inputs(const json &jsn) {
     try {
         const auto name = jsn.at("name").get<std::string>();
         const auto &bindings = jsn.at("bindings");
-        if (name.empty() || name.size() > 1024 || name.find('\0') != std::string::npos ||
-            !bindings.is_array() || bindings.size() > 128)
+        if (name.empty() || name.size() > kMaxElementNameBytes ||
+            name.find('\0') != std::string::npos || !bindings.is_array() ||
+            bindings.size() > kMaxInputBindings)
             return;
         const auto encoded = bindings.dump();
-        if (encoded.size() > 65536)
+        if (encoded.size() > kMaxInputBindingsBytes)
             return;
         GstElement *const pipeline = get_top_pipeline(GST_ELEMENT(self_));
         if (!pipeline)

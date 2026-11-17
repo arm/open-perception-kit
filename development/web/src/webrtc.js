@@ -115,4 +115,10 @@ const client = createWebRtcClient({
 window.addEventListener('feed-pause-change', (event) => {
     client.setPaused(event.detail?.paused);
 });
+window.addEventListener('pipeline-state-change', (event) => {
+    const state = event.detail;
+    if (!state || state.pending) return;
+    if (state.state === 'READY') client.stop();
+    else if (state.state === 'PLAYING' || state.state === 'PAUSED') client.start();
+});
 client.start();

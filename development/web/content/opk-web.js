@@ -691,19 +691,29 @@ var client = createWebRtcClient({
 window.addEventListener("feed-pause-change", (event) => {
   client.setPaused(event.detail?.paused);
 });
+window.addEventListener("pipeline-state-change", (event) => {
+  const state = event.detail;
+  if (!state || state.pending) return;
+  if (state.state === "READY") client.stop();
+  else if (state.state === "PLAYING" || state.state === "PAUSED") client.start();
+});
 client.start();
 
 // development/web/src/video-controls.js
 var playBtn = document.getElementById("playPauseBtn");
 var playIcon = document.getElementById("playPauseIcon");
 var playText = playBtn ? playBtn.querySelector(".video-control-text") : null;
+var stopBtn = document.getElementById("stopPipelineBtn");
+var pipelineStatus = document.getElementById("pipelineStatus");
+var pipelineError = document.getElementById("pipelineError");
 var video2 = document.getElementById("video");
-var isPipelinePlaying = true;
-var lastToggleRequestedAt = 0;
-var DUPLICATE_EVENT_MS = 350;
+var isPipelinePlaying = false;
+var currentPipelineState = null;
 var setBusy = (busy) => {
   if (!playBtn) return;
-  playBtn.disabled = busy;
+  const unavailable = busy || !currentPipelineState;
+  playBtn.disabled = unavailable;
+  if (stopBtn) stopBtn.disabled = unavailable || currentPipelineState.state === "READY";
   playBtn.setAttribute("aria-busy", String(busy));
 };
 var renderPlayPause = () => {
@@ -711,9 +721,11 @@ var renderPlayPause = () => {
   const isPaused = !isPipelinePlaying;
   document.body.classList.toggle("is-feed-paused", isPaused);
   playIcon.dataset.icon = isPaused ? "play" : "pause";
-  playText.textContent = isPaused ? "Resume" : "Pause";
-  playBtn.setAttribute("aria-label", isPaused ? "Resume pipeline" : "Pause pipeline");
-  setBusy(false);
+  const action = isPaused ? "Play" : "Pause";
+  playText.textContent = action;
+  playBtn.setAttribute("aria-label", `${action} pipeline`);
+  playBtn.title = `${action} pipeline`;
+  setBusy(Boolean(currentPipelineState?.busy || currentPipelineState?.pending));
 };
 var dispatchPauseState = () => {
   window.dispatchEvent(new CustomEvent("feed-pause-change", {
@@ -755,29 +767,47 @@ var resumeFeedFrame = async () => {
     console.warn("Video resume failed", error);
   }
 };
-var setPlayPause = (isPlaying) => {
-  if (typeof isPlaying === "boolean") {
-    isPipelinePlaying = isPlaying;
-    window.OPK_FEED_PAUSED = !isPipelinePlaying;
-    if (isPipelinePlaying) {
-      void resumeFeedFrame();
-    } else {
-      freezeFeedFrame();
-    }
+var setPipelineState = (state) => {
+  const previousState = currentPipelineState;
+  currentPipelineState = state;
+  const isChanging = Boolean(state?.busy || state?.pending);
+  const labels = { PLAYING: "Running", PAUSED: "Paused", READY: "Stopped" };
+  if (pipelineStatus) pipelineStatus.textContent = !state ? "Disconnected" : isChanging ? "Changing\u2026" : state.error ? "Error" : labels[state.state] || state.state;
+  if (pipelineError) {
+    pipelineError.textContent = state?.error || "";
+    pipelineError.hidden = !state?.error;
+  }
+  if (!state) {
     renderPlayPause();
-    dispatchPauseState();
     return;
+  }
+  const wasPlaying = isPipelinePlaying;
+  isPipelinePlaying = Boolean(state?.playing);
+  window.OPK_FEED_PAUSED = !isPipelinePlaying;
+  const pauseStateNeedsSync = !previousState || wasPlaying !== isPipelinePlaying;
+  if (pauseStateNeedsSync) {
+    if (isPipelinePlaying) void resumeFeedFrame();
+    else freezeFeedFrame();
+    dispatchPauseState();
+  }
+  if (state?.state === "READY" && previousState?.state !== "READY") {
+    window.dispatchEvent(new CustomEvent("pipeline-stopped"));
   }
   renderPlayPause();
 };
+var requestState = (state) => {
+  setBusy(true);
+  try {
+    ctrlSend({ type: "change_pipeline_state", state });
+  } catch (error) {
+    setPipelineState(null);
+  }
+};
 var requestPlayPause = (event) => {
   event?.preventDefault();
-  const now = Date.now();
-  if (now - lastToggleRequestedAt < DUPLICATE_EVENT_MS) return;
-  lastToggleRequestedAt = now;
-  setBusy(true);
-  ctrlSend({ type: "play_pause" });
+  requestState(isPipelinePlaying ? "PAUSED" : "PLAYING");
 };
+stopBtn?.addEventListener("click", () => requestState("READY"));
 playBtn?.addEventListener("click", requestPlayPause);
 renderPlayPause();
 
@@ -1359,14 +1389,14 @@ function connectCtrl(manual = false) {
   ctrl = new WebSocket(CTRL_URL);
   ctrl.onopen = () => {
     ctrlReconnectDelay = 1e3;
-    flushQueue();
   };
   ctrl.onmessage = async (event) => {
     const data = JSON.parse(event.data);
     console.log("ctrl.onmessage: " + event.data);
     enableAudioButton(data.pipeline_state.audio);
     enableMicrophoneButton(data.pipeline_state.microphone);
-    setPlayPause(data.pipeline_state.playing);
+    setPipelineState(data.pipeline_state);
+    window.dispatchEvent(new CustomEvent("pipeline-state-change", { detail: data.pipeline_state }));
     window.dispatchEvent(new CustomEvent("models-change", { detail: data.models }));
     modelsManager.render(data.models);
   };
@@ -1374,6 +1404,8 @@ function connectCtrl(manual = false) {
     ;
   };
   ctrl.onclose = () => {
+    setPipelineState(null);
+    window.dispatchEvent(new CustomEvent("pipeline-state-change", { detail: null }));
     enableMicrophoneButton(false);
     setTimeout(() => {
       ctrlReconnectDelay = Math.min(ctrlReconnectDelay * CTRL_BACKOFF_FACTOR, CTRL_RECONNECT_DELAY_MAX);
@@ -1381,21 +1413,14 @@ function connectCtrl(manual = false) {
     }, ctrlReconnectDelay);
   };
 }
-var sendQueue = [];
-function flushQueue() {
-  while (ctrl && ctrl.readyState === WebSocket.OPEN && sendQueue.length) {
-    ctrl.send(sendQueue.shift());
-  }
-}
 function ctrlSend(obj) {
   const payload = JSON.stringify(obj);
   if (ctrl && ctrl.readyState === WebSocket.OPEN) {
     ctrl.send(payload);
     return true;
   }
-  sendQueue.push(payload);
   connectCtrl();
-  return false;
+  throw new Error("Control connection lost; reconnect before making changes");
 }
 connectCtrl();
 
@@ -2735,6 +2760,10 @@ window.addEventListener("metadata-connection", (event) => {
 });
 window.addEventListener("microphone-state", (event) => {
   if (!event.detail.active) resetAudioAssessments();
+});
+window.addEventListener("pipeline-stopped", () => {
+  audioAssessments.clear();
+  renderInferenceOutput({ layers: [] });
 });
 window.addEventListener("feed-pause-change", () => {
   if (window.OPK_FEED_PAUSED) resetAudioAssessments();
@@ -11029,18 +11058,22 @@ function clearDisplayedFrame() {
 }
 video4.addEventListener("emptied", clearDisplayedFrame);
 window.addEventListener("video-frame-reset", clearDisplayedFrame);
-window.addEventListener("metadata-connection", (event) => {
-  if (event.detail.connected) return;
+function resetSources(message) {
   frameIndex = indexFrame(null);
   knownOutputs.clear();
-  connection.textContent = "Metadata disconnected. Waiting for pipeline outputs.";
+  clearDisplayedFrame();
+  connection.textContent = message;
   updateStatuses();
   updateSourceLabels();
   if (dialog.open) {
     refreshFeatures();
     refreshOutputs();
   }
+}
+window.addEventListener("metadata-connection", (event) => {
+  if (!event.detail.connected) resetSources("Metadata disconnected. Waiting for pipeline outputs.");
 });
+window.addEventListener("pipeline-stopped", () => resetSources("Pipeline stopped. Play to discover outputs."));
 function drawDisplayedFrame() {
   if (missingFrameSince !== null && performance.now() - missingFrameSince >= OVERLAY_HOLD_MS) {
     clearDisplayedFrame();

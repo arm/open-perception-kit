@@ -16,6 +16,7 @@
  */
 
 #include "runtime/Pipeline.h"
+#include "gst/PipelineControl.h"
 
 #include "Log.h"
 #include "gst/FrameResultsMeta.h"
@@ -263,7 +264,7 @@ class Pipeline::Impl {
                 makeError(ErrorFlag::InvalidPipeline, "No pipeline has been loaded"));
         }
 
-        const GstStateChangeReturn ret = gst_element_set_state(pipeline, state);
+        const GstStateChangeReturn ret = gst::pipeline_control::setState(pipeline, state);
         if (ret == GST_STATE_CHANGE_FAILURE) {
             return tl::unexpected(
                 makeError(ErrorFlag::RuntimeError,
@@ -291,6 +292,10 @@ class Pipeline::Impl {
 
         const GstStateChangeReturn stateChange = gst_element_set_state(pipeline, GST_STATE_PLAYING);
         if (stateChange == GST_STATE_CHANGE_FAILURE) {
+            if (gst::pipeline_control::stopNeededForUserCorrection(
+                    pipeline, "Pipeline could not start; correct the configuration and retry")) {
+                return {};
+            }
             stopBusWatcher();
             return tl::make_unexpected(
                 makeError(ErrorFlag::RuntimeError, "Failed to set pipeline state to PLAYING"));
@@ -748,6 +753,9 @@ class Pipeline::Impl {
             return false;
         };
         auto tryInitialLoopSegment = [&]() {
+            if (!pipelineIsPlaying(watchedPipeline)) {
+                return false;
+            }
             ensureLoopTargetDiscoveryDeadline();
             return handleInitialLoopResult(restartLoopingSegment(watchedPipeline, true, true));
         };
@@ -823,8 +831,29 @@ class Pipeline::Impl {
                     g_free(debugInfo);
                 }
                 gst_message_unref(message);
+                if (gst::pipeline_control::stopNeededForUserCorrection(watchedPipeline,
+                                                                       runtimeError.info.c_str())) {
+                    opk::log::instantError("Pipeline stopped for correction: {}\n",
+                                           runtimeError.info);
+                    continue;
+                }
                 finishWithError(runtimeError);
                 break;
+            }
+
+            if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_STATE_CHANGED &&
+                GST_MESSAGE_SRC(message) == GST_OBJECT(watchedPipeline)) {
+                GstState previous = GST_STATE_VOID_PENDING;
+                GstState current = GST_STATE_VOID_PENDING;
+                GstState pending = GST_STATE_VOID_PENDING;
+                gst_message_parse_state_changed(message, &previous, &current, &pending);
+                const bool processingStopped =
+                    previous > GST_STATE_READY && current == GST_STATE_READY;
+                if (processingStopped) {
+                    std::scoped_lock lock(lifecycleMutex);
+                    loopSegmentStarted = false;
+                    loopTargetDiscoveryDeadline.reset();
+                }
             }
 
             if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_QOS) {

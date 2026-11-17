@@ -150,6 +150,22 @@ acceptance. GObject rejects type/range violations through its normal diagnostics
 OPK reports resource failures through the bus. A failed startup must be corrected
 by the caller before retrying. OPK does not save or restore working combinations.
 
+## Stop and reload from the browser
+
+The left panel keeps **Play/Pause**, **Stop**, and the pipeline state above the
+scrolling model list. WebRTC controls sit above the playback controls.
+Pause preserves the loaded OpChains. Stop moves the whole pipeline to READY
+and keeps the HTTP and control services available.
+Wait for **Stopped**, replace the OpChain JSON on the pipeline machine, then
+press Play. The next start reads the file again, including changes at the same
+path. File sources may restart from the beginning.
+
+When running through `opk-menu` or the C++ Runtime, a GStreamer error stops
+processing and leaves the editor available for correction while its control
+service can remain open. The error appears beside the playback buttons. Correct
+the configuration and retry; no working configuration is restored automatically.
+An error that prevents the control service from running still ends the run.
+
 ## Platform validation
 
 The property API is independent of the host OS, but OPK's media, networking and

@@ -113,8 +113,10 @@ class Pipeline {
     using ProgressCallback = std::function<void(const Progress &)>;
 
     /**
-     * @brief Called when pipeline execution reports an error.
+     * @brief Called when pipeline execution reports a terminal error.
      *
+     * With an available opksink controller, recoverable GStreamer errors stop
+     * processing in READY and appear in the browser for user correction instead.
      * Error callbacks can run from Pipeline's background bus watcher thread.
      */
     using ErrorCallback = std::function<void(const Error &)>;

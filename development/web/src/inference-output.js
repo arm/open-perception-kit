@@ -294,6 +294,11 @@ window.addEventListener('microphone-state', (event) => {
     if (!event.detail.active) resetAudioAssessments();
 });
 
+window.addEventListener('pipeline-stopped', () => {
+    audioAssessments.clear();
+    renderInferenceOutput({layers: []});
+});
+
 window.addEventListener('feed-pause-change', () => {
     if (window.OPK_FEED_PAUSED) resetAudioAssessments();
     else renderInferenceOutput(latestOutput);
