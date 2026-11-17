@@ -86,15 +86,17 @@ algorithm, implement this supported frontend family:
 1. An unnormalized real FFT, with a configurable periodic Hann window centered
    inside it (floor of half the difference on the left). Generate its coefficients
    with Float32 phase and cosine arithmetic, consistent with the Float32 frontend.
-2. No waveform centering, reflection, end padding, dither or pre-emphasis.
-3. Squared complex magnitude, then HTK triangular mel filters over a configured frequency range,
+2. No waveform padding by default. Optional centered reflection pads half an FFT
+   on each side without repeating boundary samples. No dither or pre-emphasis.
+3. Squared complex magnitude by default, or magnitude when configured, then
+   HTK triangular mel filters over a configured frequency range,
    without filter-area normalization.
-4. Natural logarithm of `mel_power + logOffset`.
+4. Natural logarithm of `mel_value + logOffset`.
 5. The selected normalization below.
 
 The 16 kHz input rate is the existing audio runtime contract. Periodic Hann,
-HTK, power-squared, natural logarithm and no padding define the supported
-algorithm; this is not a promise to reproduce every possible frontend dialect.
+HTK and natural logarithm define the supported algorithm; this is not a promise
+to reproduce every possible frontend dialect.
 Model-specific dimensions, frequency limits and normalization settings belong
 in model-local opchains. Use GStreamer's existing
 `gstreamer-fft-1.0` float FFT facility. Allocate the FFT plan, window and mel
@@ -124,7 +126,14 @@ new FFT implementation/dependency.
 `contextSampleCount` remains available only for PCM. Bins come from the
 configured layout's mel axis, and frames must equal
 `1 + floor((windowSampleCount - fftSize) / frameHopSamples)`; all preceding
-dimensions are singleton. Support 1–512 mel bins and at most 1,048,576 output
+dimensions are singleton. With `centerPadding: "reflect"`, the available frame count is
+`1 + floor(windowSampleCount / frameHopSamples)`. Optional `frameCount` selects
+that many leading frames, must be positive, and cannot exceed the available
+count. Omission emits all available frames. Reflection is local to each scheduled
+PCM window; it does not retain context from previous windows.
+Optional `spectrum` accepts `power` (default) or `magnitude`; the latter takes
+the square root of FFT power before mel projection. `centerPadding` defaults
+to `none`. These options do not change existing configurations. Support 1–512 mel bins and at most 1,048,576 output
 values. These bounds limit resource use, not model identities. The opchain and model schemas validate these contracts, while bind
 checks tensor agreement with the loaded model. `OpChain` obtains the scheduled
 PCM window from the adjacent preprocessor for log-mel inference; bare log-mel
@@ -140,7 +149,7 @@ Float64 reductions avoid cancellation artifacts on constant features.
 Rolling normalization computes global mean and population variance over all
 bins of the latest `historyFrames` frames, including the current frame. Accumulate moments in
 float64, clamp roundoff below zero before sqrt, and add `epsilon` to the standard
-deviation. Require `windowSampleCount == fftSize`. On a new stream use only
+deviation. Require `windowSampleCount == fftSize` and `centerPadding: "none"`. On a new stream use only
 observed frames; reset statistics and ONNX recurrent feedback on discontinuity.
 Require the scheduler hop to equal `frameHopSamples` and contiguous frame
 positions; invalid cadence is an error. Allocate history only at configuration.
@@ -169,6 +178,23 @@ existing `keyword` semantic content type and producer/model identity.
 Parser IDs name the operation rather than a model. Model names belong in
 model-local descriptors, runnable profiles and artifact integration tests.
 Shared algorithms and their unit tests use algorithm or payload-based filenames.
+
+### Audio event classifications
+
+`AudioEventClassificationParser` publishes existing `Classifications` payloads
+with semantic content type `esc`. It requires `outputTensorIndex`, `activation`
+(`sigmoid` for logits or `none` for probabilities), `confidenceThreshold`,
+positive `topK`, and a `labels` array matching the Float32 class vector. Leading
+tensor dimensions must be singleton. Labels are nonempty strings or null, with
+at least one string. Null suppresses that class independently.
+
+All scores must be finite; `none` additionally requires [0,1]. Sigmoid is computed
+stably per class, without normalizing across classes. Candidates at or above the
+Float32 threshold are sorted by descending probability, ties by ascending class
+index, and limited to `topK`. No qualifying classes produces no payload. Each
+payload preserves model, inference element, producer and parent-object identity.
+Classification results do not carry audio-window bounds. See the
+[YAMNet model](../../config/models/yamnet-esc/index.md) for its frontend and artifacts.
 
 ## Conversation audio and metadata
 

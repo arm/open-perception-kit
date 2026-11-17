@@ -399,3 +399,21 @@ softmax before SSD decoding and confidence filtering. Existing probability
 outputs retain their behavior. Chains adopting this option use version `1.9.0`.
 Rebuild the runtime and its embedded configuration schemas before using it;
 older readers reject the new attribute.
+
+## OpChain 1.14: audio event classification
+
+OpChain reader schema `1.14.0` adds `AudioEventClassificationParser` and optional
+log-mel `spectrum`, `centerPadding`, and `frameCount` attributes. Existing chains
+retain power spectra, no waveform padding, and all available frames. Chains using
+the new attributes must rebuild or upgrade native readers and runtime; older
+readers reject these attributes. The YAMNet chain uses the new contract with
+magnitude spectra, centered reflection, a leading frame prefix, and sigmoid
+postprocessing. This reuses `Classifications`; no payload schema changes are needed.
+
+## OpChain 1.15: audio event debug logging
+
+OpChain reader schema `1.15.0` adds optional boolean `log` (default `false`) to
+`AudioEventClassificationParser`. When enabled, every accepted candidate is
+printed to stderr with its model, label, class ID and confidence, independently
+of the global log level. Rebuild
+native readers and runtime before using the attribute; older readers reject it.

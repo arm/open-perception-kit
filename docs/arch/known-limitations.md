@@ -82,7 +82,7 @@ runtime. Treat these as constraints when extending the system.
   presentation timestamps through `VoiceActivityDetections` in `FrameResults`.
 - Audio inference requires an unlooped chain with fixed input shapes and a
   common scheduled PCM window size. Native log-mel supports the documented
-  [configurable HTK frontend](audio-log-mel.md); other mel scales, waveform padding,
+  [configurable HTK frontend](audio-log-mel.md); other mel scales, waveform padding other than centered reflection,
   dynamic/batched inputs and planar PCM input are unsupported. The hop cannot exceed the
   window; Silero's context requires contiguous, nonoverlapping 512-sample hops.
   EOS does not pad or infer a partial window or drain the resampler's filter tail.

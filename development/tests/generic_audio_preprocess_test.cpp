@@ -597,4 +597,25 @@ TEST(GenericAudioPreprocess, BindsGenericMelMajorTensorAndPreservesRawFeatureOrd
             EXPECT_EQ(inference.data[bin * 10 + frame], timeMajor[frame * 23 + bin]);
     }
 }
+TEST(GenericAudioPreprocess, ConfiguresCenteredMagnitudePrefixAndRejectsInvalidOptions) {
+    opk::stdop::GenericAudioPreprocessOp pre;
+    auto attributes = logMelAttributes(15680, 160, "none");
+    const auto frontend = attributes.getObject("logMel");
+    frontend->set("fftSize", int64_t{512});
+    frontend->set("windowLengthSamples", int64_t{400});
+    frontend->set("spectrum", "magnitude");
+    frontend->set("centerPadding", "reflect");
+    frontend->set("frameCount", int64_t{96});
+    ASSERT_TRUE(pre.configure(attributes));
+    for (const auto *const name : {"spectrum", "centerPadding", "frameCount"}) {
+        auto invalid = attributes.cloneDeep();
+        invalid.getObject("logMel")->set(name, true);
+        EXPECT_FALSE(pre.configure(invalid));
+    }
+    frontend->set("frameCount", int64_t{100});
+    EXPECT_FALSE(pre.configure(attributes));
+    frontend->set("frameCount", int64_t{0});
+    EXPECT_FALSE(pre.configure(attributes));
+}
+
 } // namespace
