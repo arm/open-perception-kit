@@ -47,7 +47,7 @@ done
 
 cp "$python_operation" "$smoke_root/runtime_environment.py"
 python3 -c \
-    'import json, os, sys; json.dump({"version": "1.0.0", "name": "Python runtime smoke", "description": "Check PythonScript with host dependencies.", "ops": [{"id": "opk-python-ops/PythonScript", "attributes": {"script": os.path.abspath(sys.argv[2])}}]}, open(sys.argv[1], "w", encoding="utf-8"))' \
+    'import json, os, sys; json.dump({"version": "2.0.0", "name": "Python runtime smoke", "description": "Check PythonScript with host dependencies.", "ops": [{"id": "opk-python-ops/PythonScript", "attributes": {"script": os.path.abspath(sys.argv[2])}}]}, open(sys.argv[1], "w", encoding="utf-8"))' \
     "$smoke_root/opchain-python-smoke.json" "$smoke_root/runtime_environment.py"
 env -u OPK_DEVTOOLS_VENV \
     timeout 120s gst-launch-1.0 -q \
