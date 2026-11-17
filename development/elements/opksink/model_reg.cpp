@@ -65,11 +65,7 @@ std::optional<ModelStatus> model_status_from_registration(const GstStructure *st
 }
 
 void ModelRegistry::add_model(const ModelStatus &status) {
-
-    {
-        std::lock_guard<std::mutex> lock(model_registry_mutex);
-        model_registry[status.element_name] = status;
-    }
+    storeModelStatus(status);
 
     opk::log::info("[opksink] Registered model: {} from element: {} (active: {})\n",
                    status.name,
@@ -95,30 +91,59 @@ void ModelRegistry::del_model(const std::string &element_name) {
     trigger_reporting();
 }
 
-nlohmann::json ModelRegistry::report() const {
-    using namespace nlohmann;
+void ModelRegistry::storeModelStatus(ModelStatus status) {
+    std::scoped_lock lock(model_registry_mutex);
+    model_registry[status.element_name] = std::move(status);
+}
 
-    json ret = json::array();
+void ModelRegistry::addConfiguredModel(const ModelStatus &status) {
+    std::scoped_lock lock(model_registry_mutex);
+    // Discovery must not replace metadata already published by a running model.
+    model_registry.try_emplace(status.element_name, status);
+}
 
-    std::lock_guard<std::mutex> lock(model_registry_mutex);
+std::map<std::string, ModelStatus> ModelRegistry::getModels() const {
+    std::scoped_lock lock(model_registry_mutex);
+    return model_registry;
+}
 
-    for (auto &[name, status] : model_registry) {
-        json model = json::object({
-            {"name", status.name},
-            {"active", status.active},
-            {"element_name", status.element_name},
-            {"providedOutputs", output_json(status.provided_outputs)},
-            {"requiredInputs", output_json(status.required_inputs)},
-            {"availableInputs", output_json(status.available_inputs)},
-        });
-        if (!status.display_name.empty())
-            model["displayName"] = status.display_name;
-        if (!status.task.empty())
-            model["task"] = status.task;
-        if (!status.runtime.empty())
-            model["runtime"] = status.runtime;
-        ret.push_back(std::move(model));
+nlohmann::json ModelStatus::getMetadataJson() const {
+    nlohmann::json metadata{{"name", name}};
+    if (!display_name.empty()) {
+        metadata["displayName"] = display_name;
     }
+    if (!task.empty()) {
+        metadata["task"] = task;
+    }
+    if (!runtime.empty()) {
+        metadata["runtime"] = runtime;
+    }
+    return metadata;
+}
 
-    return ret;
+nlohmann::json ModelStatus::getJson() const {
+    auto model = getMetadataJson();
+    model["active"] = active;
+    model["element_name"] = element_name;
+    model["providedOutputs"] = output_json(provided_outputs);
+    model["requiredInputs"] = output_json(required_inputs);
+    model["availableInputs"] = output_json(available_inputs);
+    if (opchain_path.has_value()) {
+        model["opchainPath"] = *opchain_path;
+    }
+    if (model_group.has_value()) {
+        model["modelGroup"] = *model_group;
+    }
+    if (connected.has_value()) {
+        model["connected"] = *connected;
+    }
+    return model;
+}
+
+nlohmann::json ModelRegistry::report() const {
+    auto models = nlohmann::json::array();
+    for (const auto &[elementName, status] : getModels()) {
+        models.push_back(status.getJson());
+    }
+    return models;
 }

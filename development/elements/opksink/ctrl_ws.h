@@ -36,6 +36,7 @@
 #include <websocketpp/frame.hpp>
 #include <websocketpp/server.hpp>
 
+#include "model_editor.h"
 #include "status_reporter.h"
 
 #pragma GCC diagnostic pop
@@ -63,6 +64,7 @@ class CtrlWebSocket {
     mutable std::mutex command_status_mutex;
     std::string command_error;
     std::string last_report;
+    std::unique_ptr<ModelEditor> model_editor;
 
     void schedule_report();
     void enqueue_command(const nlohmann::json &message);

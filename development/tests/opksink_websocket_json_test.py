@@ -21,7 +21,8 @@ from contextlib import ExitStack
 import json
 from pathlib import Path
 import sys
-from time import monotonic
+from threading import Event
+from time import monotonic, sleep
 
 import gi
 from gi.repository import GLib, GObject
@@ -31,6 +32,7 @@ from opksink_configured_ports_test import reserve_ports
 
 MODEL_TOGGLE_BURST_SIZE = 16
 CROSS_MODEL_TOGGLE_PAIR_COUNT = 100
+REPORT_SETTLE_SECONDS = 0.5
 
 
 def wait_for(predicate, context="WebSocket activity"):
@@ -295,12 +297,80 @@ def check_webrtc(session, pipeline, gst):
     )
 
 
+def check_model_edit_lifecycle(gst, port_properties):
+    from gi.repository import Soup
+
+    # Both editors discover the same real opkinfer before either changes the topology.
+    for stop_on_removal in (False, True):
+        with ExitStack() as reservations:
+            sink_names = ("first", "second")
+            ports, _ = reserve_ports(reservations, len(port_properties) * len(sink_names))
+            pipeline = gst.parse_launch(
+                "videotestsrc name=source ! opkinfer name=shared-model ! tee name=split "
+                "split. ! queue ! opksink name=first "
+                "split. ! queue ! opksink name=second"
+            )
+            sinks = [pipeline.get_by_name(name) for name in sink_names]
+            for index, sink in enumerate(sinks):
+                offset = index * len(port_properties)
+                for name, port in zip(port_properties, ports[offset:]):
+                    sink.set_property(name, port)
+        session = Soup.Session()
+        reports = [[], []]
+        stopped = Event()
+        try:
+            assert pipeline.set_state(gst.State.READY) != gst.StateChangeReturn.FAILURE
+            sockets = []
+            for index, sink in enumerate(sinks):
+                websocket = connect_websocket(session, sink.get_property("ctrl-port"))
+                websocket.connect("message", lambda _, kind, data, index=index:
+                                  reports[index].append(json.loads(data.get_data())))
+                sockets.append(websocket)
+            wait_for(lambda: all(reports), "both model editor snapshots")
+            requests = [
+                {"type": "model_edit", "action": "remove", "modelGroup": "shared-model",
+                 "name": "shared-model", "configurationId": report[-1]["model_editor"]["configurationId"]}
+                for report in reports
+            ]
+
+            def stop_from_removal(_pipeline, element):
+                if element.get_name() == "shared-model":
+                    # Let periodic status reporting overlap the removal callback.
+                    sleep(REPORT_SETTLE_SECONDS)
+                    pipeline.set_state(gst.State.NULL)
+                    stopped.set()
+
+            if stop_on_removal:
+                pipeline.connect("element-removed", stop_from_removal)
+            sockets[0].send_text(json.dumps(requests[0]))
+            if stop_on_removal:
+                wait_for(stopped.is_set, "shutdown from model removal")
+                assert pipeline.get_state(0)[1] == gst.State.NULL
+            else:
+                wait_for(lambda: any(
+                    report["model_editor"]["configurationId"] > requests[0]["configurationId"] and
+                    not report["pipeline_state"]["busy"] for report in reports[0]
+                ), "first model removal")
+                source = pipeline.get_by_name("source").get_static_pad("src")
+                destination = pipeline.get_by_name("split").get_static_pad("sink")
+                assert source.get_peer() == destination
+                sockets[1].send_text(json.dumps(requests[1]))
+                wait_for(lambda: any(
+                    report["pipeline_state"].get("error") for report in reports[1]
+                ), "stale model removal rejection")
+                assert source.get_peer() == destination, "Stale edit disconnected the bypass"
+                assert reports[1][-1]["model_editor"]["configurationId"] == requests[1]["configurationId"]
+        finally:
+            session.abort()
+            release_pipeline(pipeline, gst)
+
+
 def check_messages():
     gi.require_version("Soup", "3.0")
     from gi.repository import Soup
 
-    plugin, endpoint = sys.argv[1:]
-    gst = load_gstreamer_plugins([Path(plugin)])
+    plugin, endpoint, inference_plugin = sys.argv[1:]
+    gst = load_gstreamer_plugins([Path(plugin), Path(inference_plugin)])
     port_properties = ("http-port", "ws-port", "ctrl-port")
     with ExitStack() as reservations:
         ports, _ = reserve_ports(reservations, len(port_properties))
@@ -330,6 +400,9 @@ def check_messages():
     finally:
         session.abort()
         release_pipeline(pipeline, gst)
+
+    if endpoint == "control":
+        check_model_edit_lifecycle(gst, port_properties)
 
 
 if __name__ == "__main__":

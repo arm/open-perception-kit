@@ -26,6 +26,7 @@
 
 TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
     ModelRegistry registry;
+    registry.addConfiguredModel({.name = "Configured model", .element_name = "opkinfer0"});
     registry.add_model({
         .name = "YoloV11",
         .active = true,
@@ -40,6 +41,12 @@ TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
                              "embed/output"}},
     });
 
+    registry.addConfiguredModel({.name = "Stale descriptor", .element_name = "opkinfer0"});
+    auto snapshot = registry.getModels();
+    ASSERT_EQ(snapshot.size(), 1);
+    auto &modelStatus = snapshot.at("opkinfer0");
+    EXPECT_EQ(modelStatus.name, "YoloV11");
+    EXPECT_EQ(modelStatus.runtime, "ONNX");
     const auto report = registry.report();
 
     ASSERT_EQ(report.size(), 1);
@@ -58,11 +65,29 @@ TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
                                 {"consumerId", "consumer"},
                                 {"inputId", "input"},
                                 {"producerId", "embed/output"}}}));
+
+    EXPECT_EQ(modelStatus.getJson(), report[0]);
+    EXPECT_EQ(modelStatus.getMetadataJson().at("displayName"), report[0].at("displayName"));
+    modelStatus.opchain_path = "/models/opchain.json";
+    modelStatus.model_group = "";
+    modelStatus.connected = false;
+    const auto pipelineView = modelStatus.getJson();
+    EXPECT_EQ(pipelineView.at("opchainPath"), "/models/opchain.json");
+    EXPECT_EQ(pipelineView.at("modelGroup"), "");
+    EXPECT_EQ(pipelineView.at("connected"), false);
+    EXPECT_FALSE(registry.getModels().at("opkinfer0").connected.has_value());
+
+    registry.storeModelStatus({.name = "Replacement", .element_name = "opkinfer0"});
+    const auto replacement = registry.getModels().at("opkinfer0");
+    EXPECT_EQ(replacement.name, "Replacement");
+    EXPECT_TRUE(replacement.required_inputs.empty());
+    EXPECT_TRUE(replacement.provided_outputs.empty());
+    EXPECT_EQ(modelStatus.name, "YoloV11");
 }
 
 TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
     ModelRegistry registry;
-    registry.add_model({.name = "Custom", .active = false, .element_name = "opkinfer0"});
+    registry.addConfiguredModel({.name = "Custom", .active = false, .element_name = "opkinfer0"});
 
     const auto report = registry.report();
 
@@ -75,6 +100,9 @@ TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
     EXPECT_FALSE(report[0].contains("runtime"));
     EXPECT_EQ(report[0].at("providedOutputs"), nlohmann::json::array());
     EXPECT_EQ(report[0].at("requiredInputs"), nlohmann::json::array());
+    EXPECT_FALSE(report[0].contains("opchainPath"));
+    EXPECT_FALSE(report[0].contains("modelGroup"));
+    EXPECT_FALSE(report[0].contains("connected"));
 }
 
 TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
@@ -100,6 +128,10 @@ TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
 
     EXPECT_EQ(runtimes.at("opkinfer-onnx"), "ONNX");
     EXPECT_EQ(runtimes.at("opkinfer-executorch"), "ExecuTorch");
+    registry.del_model("opkinfer-onnx");
+    const auto remainingModels = registry.getModels();
+    EXPECT_EQ(remainingModels.size(), 1);
+    EXPECT_TRUE(remainingModels.contains("opkinfer-executorch"));
 }
 
 TEST(ModelRegistration, ParsesOptionalFieldsAndTypedOutputs) {

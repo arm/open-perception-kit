@@ -48,6 +48,16 @@ CtrlWebSocket::CtrlWebSocket(_GstOpkSink *self) : self_(self) {
     message_types = {
         {kChangePipelineStateRequestType,
          [this](const json &message) { set_pipeline_state(message); }},
+        {"refresh_available_opchains",
+         [this](const json &) { model_editor->refreshAvailableOpChains(); }},
+        {"model_edit",
+         [this](const json &message) {
+             g_autoptr(GstElement) pipeline = get_top_pipeline(GST_ELEMENT(self_));
+             if (!pipeline) {
+                 throw std::runtime_error("Pipeline is unavailable");
+             }
+             model_editor->edit(pipeline, message, *self_->private_data->model_registry);
+         }},
         {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
         {"model_inputs", [this](const json &message) { model_inputs(message); }},
     };
@@ -119,9 +129,10 @@ void CtrlWebSocket::process_command(gpointer data, gpointer) {
     }
     try {
         const auto &requestType = request->m_message.at("type");
-        const bool changesPipelineState = requestType == kChangePipelineStateRequestType;
+        const bool requiresStablePipeline =
+            requestType == kChangePipelineStateRequestType || requestType == "model_edit";
         std::optional<PipelineStateLock> stateLock;
-        if (changesPipelineState) {
+        if (requiresStablePipeline) {
             stateLock.emplace(GST_ELEMENT(request->m_sink));
             if (!stateLock->acquired()) {
                 throw std::runtime_error("Pipeline is changing state; retry when it finishes");
@@ -188,6 +199,10 @@ void CtrlWebSocket::schedule_report() {
 
 CtrlSockerError CtrlWebSocket::setup() {
     std::lock_guard<std::mutex> g(hdl_lock);
+    if (!model_editor) {
+        model_editor =
+            std::make_unique<ModelEditor>(GST_ELEMENT(self_), *self_->private_data->model_registry);
+    }
     ws = std::make_shared<ws_server>();
     constexpr int commandWorkerCount = 1;
     auto *const queue = g_thread_pool_new_full(
@@ -342,9 +357,18 @@ void CtrlWebSocket::report() {
     std::lock_guard<std::mutex> g(reporter_lock);
 
     for (const auto &[name, reporter] : status_reporters) {
-        rep[name] = reporter->report();
+        const bool editorReportsModels =
+            model_editor && reporter == self_->private_data->model_registry;
+        if (!editorReportsModels) {
+            rep[name] = reporter->report();
+        }
     }
 
+    if (model_editor) {
+        const auto snapshot = model_editor->statusOf(*self_->private_data->model_registry);
+        rep["models"] = snapshot.at("models");
+        rep["model_editor"] = snapshot.at("editor");
+    }
     {
         std::scoped_lock lock(command_status_mutex);
         rep["pipeline_state"]["error"] = command_error;

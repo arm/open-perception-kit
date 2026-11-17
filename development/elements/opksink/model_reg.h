@@ -32,13 +32,20 @@
 struct ModelStatus {
     std::string name;
     bool active = false;
-    std::string element_name;
+    std::string element_name{};
     std::string display_name{};
     std::string task{};
     std::string runtime{};
     std::vector<opk::OutputReference> provided_outputs{};
     std::vector<opk::InputBinding> required_inputs{};
     std::vector<opk::OutputReference> available_inputs{};
+    // Registrations from other inference elements may have no discovered pipeline placement.
+    std::optional<std::string> opchain_path{};
+    std::optional<std::string> model_group{};
+    std::optional<bool> connected{};
+
+    nlohmann::json getMetadataJson() const;
+    nlohmann::json getJson() const;
 };
 
 std::optional<ModelStatus> model_status_from_registration(const GstStructure *structure);
@@ -50,6 +57,12 @@ class ModelRegistry : public StatusReporter {
   public:
     void add_model(const ModelStatus &status);
     void del_model(const std::string &element_name);
+
+    // Store without callbacks; editor commands report after publishing their topology.
+    void storeModelStatus(ModelStatus status);
+    void addConfiguredModel(const ModelStatus &status);
+    // A snapshot keeps callers from holding the registry mutex while querying the pipeline.
+    std::map<std::string, ModelStatus> getModels() const;
 
     nlohmann::json report() const override;
 };

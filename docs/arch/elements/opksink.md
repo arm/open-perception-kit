@@ -96,6 +96,40 @@ These are out-of-band downstream events so model toggles and input selections
 can report their new state while video is paused.
 It also handles unregister events if an upstream component emits them.
 
+The registry owns the typed `ModelStatus` records for configured and registered
+models. The editor takes a snapshot, reads current element properties and adds
+pipeline placement before serializing the browser report. Installed OpChain
+choices use the same record type and expose its metadata view. Model data is
+not serialized to JSON and parsed back between the registry and editor.
+
+The model editor discovers upstream `opkinfer` stages from the sink's connected
+pads and reports their pipeline order, including disabled stages. Contiguous
+stages form editable model groups with fixed neighbouring pads in the same bin.
+Other stages remain visible with editing disabled. Empty model groups retain their
+boundary pads so that models can be added again.
+
+`refresh_available_opchains` refreshes the server's installed OpChain choices. Discovery reads
+`config/models` and `config/opchains` below `OPK_PROJECT_ROOT` (the working directory
+when unset), plus the initial OpChain files and neighbouring `opchain.json` / `opchain-*.json` files.
+Candidates must pass the existing descriptor readers and have every referenced
+inference model file present. Backend availability and execution are checked on
+start. No upload, download or file write is performed.
+
+`model_edit` requests carry `action` (`add`, `replace`, `remove`, `move`), `modelGroup`
+and the current `configurationId` from `model_editor`. Existing stages use their `name`
+(element name); Add/Replace use a `path` from `model_editor.availableOpChains`,
+and Move uses a zero-based `position` within its model group. Add optionally accepts
+a zero-based `position` from zero through the group size; omitting it appends the
+model. The serialized worker holds pipeline state locks,
+requires stable READY and rejects stale configuration IDs before mutation. Reports contain
+the resulting model list and model group connectivity. Link errors leave the attempted
+configuration available for correction; there is no rollback. These session edits
+do not modify the pipeline preset. Reordering and replacement preserve element
+identity and activation. Every Replace rereads the descriptor and clears that
+stage's input bindings, including selection of the same path. The next start
+builds a fresh runtime. Reordering and other stages' bindings are untouched.
+Add creates a fresh stage.
+
 The browser receives serialized FrameResults records on the metadata WebSocket.
 Its committed `opk-web.js` bundle contains the generated TypeScript Open Perception Kit
 SDK and FlatBuffers runtime. The client requires the

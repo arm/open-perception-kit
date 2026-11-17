@@ -168,7 +168,7 @@ button[aria-pressed="true"]:not(:disabled):active {
   color: var(--wfr-txt-interactive-accent-active);
 }
 button[aria-busy="true"] { cursor: progress; }
-.section-copy-button, .video-control-button, .overlay-remove {
+.section-copy-button, .video-control-button, .overlay-remove, .model-remove {
   width: var(--wfr-element-lg);
   height: var(--wfr-element-lg);
   padding: 0;
@@ -282,10 +282,9 @@ body.video-feed-hidden :is(.video-freeze-frame, #video, .client-osd-canvas) { op
 }
 .overlay-card[data-unavailable="true"] .overlay-card-header .overlay-swatch { background: var(--wfr-bg-input-disabled); }
 .overlay-card[data-unavailable="true"] .overlay-title { color: var(--wfr-txt-secondary); }
-.overlay-remove { background: var(--wfr-bg-interactive-danger-default); border-color: transparent; color: var(--wfr-txt-interactive-accent-default); }
-.overlay-remove:not(:disabled):hover { background: var(--wfr-bg-interactive-danger-hover); color: var(--wfr-txt-interactive-accent-hover); }
-.overlay-remove:not(:disabled):active { background: var(--wfr-bg-interactive-danger-active); color: var(--wfr-txt-interactive-accent-active); }
-.overlay-remove:disabled { background: var(--wfr-bg-interactive-danger-disabled); color: var(--wfr-txt-interactive-danger-disabled); }
+:is(.overlay-remove, .model-remove) { background: var(--wfr-bg-interactive-danger-default); border-color: transparent; color: var(--wfr-txt-interactive-accent-default); }
+:is(.overlay-remove, .model-remove):not(:disabled):hover { background: var(--wfr-bg-interactive-danger-hover); color: var(--wfr-txt-interactive-accent-hover); }
+:is(.overlay-remove, .model-remove):not(:disabled):active { background: var(--wfr-bg-interactive-danger-active); color: var(--wfr-txt-interactive-accent-active); }
 .overlay-settings { padding: var(--wfr-padding-lg) var(--wfr-padding-md); }
 .overlay-legend { margin-top: var(--wfr-margin-lg); }
 .overlay-legend-header { display: flex; align-items: center; justify-content: space-between; gap: var(--wfr-margin-sm); }
@@ -366,11 +365,29 @@ input:disabled::file-selector-button { background: var(--wfr-bg-interactive-seco
 [data-state="danger"] { color: var(--wfr-txt-system-danger); background: var(--wfr-bg-system-danger); border-left: var(--wfr-padding-sm) solid var(--wfr-bdr-system-danger); padding: var(--wfr-padding-md); }
 
 /* Model list and compact overlay switches share the same presentation. */
-.models-container { display: flex; flex-direction: column; gap: var(--wfr-margin-xs); }
-.model-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--wfr-margin-sm); padding-block: var(--wfr-padding-md); }
+.model-selector-divider {
+  margin: var(--wfr-margin-lg) calc(-1 * var(--wfr-padding-xl)) 0;
+  border: 0;
+  border-top: 1px solid var(--wfr-bdr-bounds);
+}
+.models-container { display: flex; flex-direction: column; gap: 0; }
+.model-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--wfr-margin-sm);
+  /* Include the sidebar inset in the item so its drag image keeps the full padding. */
+  margin-inline: calc(-1 * var(--wfr-padding-xl));
+  padding: var(--wfr-padding-xl);
+}
+.model-item.model-editable { padding-inline-end: calc(var(--wfr-padding-xl) + var(--wfr-element-lg) + var(--wfr-margin-sm)); }
+.model-item:not(:last-child) { border-bottom: 1px solid var(--wfr-bdr-bounds); }
+.model-item.model-dragging { cursor: grabbing; background: var(--wfr-bg-tertiary); outline: 1px solid var(--wfr-bdr-focus); outline-offset: -1px; }
 .model-info, .model-copy { min-width: 0; }
 .model-copy { display: grid; gap: var(--wfr-margin-xs); }
-.model-input-binding { display: grid; gap: var(--wfr-margin-xs); min-width: 0; overflow-wrap: anywhere; }
+.model-input-binding { display: grid; gap: var(--wfr-margin-sm); margin-block-start: var(--wfr-margin-sm); min-width: 0; overflow-wrap: anywhere; }
+.model-item:not(.model-edit-mode):has(.model-input-binding) { row-gap: var(--wfr-margin-md); }
 .model-input-binding select { width: 100%; min-width: 0; }
 .model-task, .model-details { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-details { color: var(--wfr-txt-secondary); }
@@ -499,6 +516,7 @@ body.is-resizing-sidebar, body.is-resizing-sidebar *, body.is-resizing-bottom-co
 }
 
 /* Pipeline controls remain visible while the model list scrolls. */
+.status-line.stopped .status-line-dot { background: var(--wfr-txt-tertiary); }
 .pipeline-controls {
   flex-shrink: 0;
   border-bottom: 1px solid var(--wfr-bdr-bounds);
@@ -508,3 +526,98 @@ body.is-resizing-sidebar, body.is-resizing-sidebar *, body.is-resizing-bottom-co
 .pipeline-error { color: var(--wfr-txt-system-danger); overflow-wrap: anywhere; }
 
 .sidebar > .sidebar-section { padding: var(--wfr-padding-lg) var(--wfr-padding-xl); }
+.model-edit-actions { grid-column: 1 / -1; display: flex; gap: var(--wfr-margin-sm); }
+.model-link-error { grid-column: 1 / -1; color: var(--wfr-txt-system-danger); }
+.model-item button.model-drag-handle {
+  position: absolute;
+  inset-inline-end: var(--wfr-padding-xl);
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--wfr-element-lg);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--wfr-icon-lg);
+  line-height: 1;
+}
+.model-drag-handle:not(:disabled) { cursor: grab; }
+.model-item button.model-drag-handle:not(:disabled):hover { background: var(--wfr-bg-interactive-secondary-hover); }
+.model-item button.model-drag-handle:not(:disabled):active { cursor: grabbing; background: var(--wfr-bg-interactive-secondary-active); }
+.model-picker { color: var(--wfr-txt-primary); background: var(--wfr-bg-secondary); border: 1px solid var(--wfr-bdr-bounds); border-radius: var(--wfr-rounded-md); padding: var(--wfr-padding-xl); max-width: min(90vw, 50rem); }
+.model-picker::backdrop { background: var(--wfr-bg-overlay); }
+.model-picker form, .model-picker label { display: grid; gap: var(--wfr-margin-lg); }
+.model-picker select { width: 100%; min-width: 0; }
+.model-picker-actions { display: flex; justify-content: end; gap: var(--wfr-margin-sm); }
+
+.model-edit-actions[hidden], .model-item button[hidden] { display: none; }
+
+/* Include both half-button spaces in the actual panel and native drag image.
+   Negative margins preserve the list spacing while panels meet at divider centres. */
+.model-insertion + .model-item:has(+ .model-insertion), .model-item.model-drag-preview {
+  padding-block: calc(var(--wfr-padding-xl) + var(--wfr-element-lg) / 2);
+  margin-block: calc(-1 * var(--wfr-element-lg) / 2);
+}
+
+/* Add controls share the full-width panel boundary instead of a separate row of lines. */
+.model-insertion {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  height: var(--wfr-element-lg);
+  margin-block: 0;
+  margin-inline: calc(-1 * var(--wfr-padding-xl));
+}
+.model-insertion::before {
+  content: ""; position: absolute; inset-inline: 0; top: 50%;
+  height: 1px; transform: translateY(-50%); background: var(--wfr-bdr-bounds); pointer-events: none;
+}
+.model-insertion.model-drop-target::before { height: var(--wfr-padding-sm); background: var(--wfr-bdr-focus); }
+.model-insertion.model-drop-target .model-insert-button { border-color: var(--wfr-bdr-focus); }
+.model-insertion .model-insert-button { position: relative; z-index: 1; width: var(--wfr-element-lg); height: var(--wfr-element-lg); padding: 0; flex-shrink: 0; }
+.model-item:has(+ .model-insertion) { border-bottom: 0; }
+.model-selector-divider:has(+ .models-container > .model-insertion:first-child) { border-top: 0; }
+.model-insertion:first-child { margin-block-start: calc(-1 * var(--wfr-margin-lg)); }
+#editPipelineBtn[aria-pressed="true"] { border-color: var(--wfr-bdr-focus); }
+
+.pipeline-edit-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--wfr-margin-sm); }
+.pipeline-edit-buttons button[hidden] { display: none; }
+.model-selector-header:has(#discardPipelineBtn:not([hidden])) .pipeline-edit-buttons { flex-direction: row; align-items: center; flex-wrap: nowrap; }
+
+/* Wrappers receive hover/focus even when the native button is disabled. */
+.disabled-control-tooltip { position: relative; display: inline-flex; }
+.disabled-control-tooltip.has-tooltip > button:disabled { pointer-events: none; }
+.disabled-control-tooltip-text {
+  position: absolute; inset-inline-start: 0; top: calc(100% + var(--wfr-margin-sm)); z-index: 30;
+  width: max-content; max-width: min(16rem, calc(100vw - 2 * var(--wfr-padding-xl)));
+  padding: var(--wfr-padding-md) var(--wfr-padding-lg);
+  background: var(--wfr-bg-tertiary); color: var(--wfr-txt-primary);
+  border: 1px solid var(--wfr-bdr-bounds); border-radius: var(--wfr-rounded-md);
+  box-shadow: 0 var(--wfr-margin-xs) var(--wfr-margin-lg) var(--wfr-bg-box-shadow);
+  white-space: normal; text-align: left; opacity: 0; visibility: hidden; pointer-events: none;
+}
+.disabled-control-tooltip--right .disabled-control-tooltip-text { inset-inline-start: auto; inset-inline-end: 0; }
+.disabled-control-tooltip.has-tooltip:is(:hover, :focus-visible) .disabled-control-tooltip-text { opacity: 1; visibility: visible; }
+.pipeline-controls:has(.disabled-control-tooltip.has-tooltip:is(:hover, :focus-visible)) { position: relative; z-index: 40; }
+
+/* Snapshot only a standalone panel, excluding adjacent Add controls and scrollbars. */
+.model-item.model-drag-preview {
+  position: fixed;
+  top: 0;
+  inset-inline-start: -100vw;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: var(--wfr-rounded-md);
+  pointer-events: none;
+}
+
+.model-dependency-warning > .model-dependency-icon { color: var(--wfr-txt-system-warning); }
+
+/* Editing focuses on model composition; live input and activation controls return on exit. */
+.model-edit-mode .model-input-binding,
+.model-edit-mode .model-toggle-switch,
+.model-edit-mode .model-actions { display: none; }
+.model-edit-mode { grid-template-columns: minmax(0, 1fr); }
