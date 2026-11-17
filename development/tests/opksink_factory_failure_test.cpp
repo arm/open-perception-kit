@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM,
+        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB,
                                                gst_structure_new("opk-model-unregister",
                                                                  "element-name",
                                                                  G_TYPE_STRING,

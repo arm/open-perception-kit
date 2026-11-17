@@ -17,6 +17,7 @@
 """Exercise valid and invalid messages through the control and WebRTC sockets."""
 
 from collections import deque
+from contextlib import ExitStack
 import json
 from pathlib import Path
 import sys
@@ -26,6 +27,7 @@ import gi
 from gi.repository import GLib, GObject
 
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
+from opksink_configured_ports_test import reserve_ports
 
 MODEL_TOGGLE_BURST_SIZE = 16
 CROSS_MODEL_TOGGLE_PAIR_COUNT = 100
@@ -92,39 +94,49 @@ def check_control(session, pipeline, gst):
     )
     reports = deque()
     websocket.connect("message", lambda _, kind, data: reports.append(
-        json.loads(data.get_data())["pipeline_state"]["playing"]
+        json.loads(data.get_data())["pipeline_state"]
     ))
 
-    def check_play_pause_after(message):
-        for playing in (False, True):
-            websocket.send_text('{"type":"play_pause"}')
+    def check_playback_after(message):
+        for state in ("PAUSED", "PLAYING", "READY", "PLAYING"):
+            reports.clear()
+            websocket.send_text(json.dumps({"type": "change_pipeline_state", "state": state}))
             wait_for(lambda: reports, f"pipeline state after {message!r}")
-            while reports.popleft() != playing:
+            while True:
+                report = reports.popleft()
+                if report["state"] == state and not report["pending"] and not report["busy"]:
+                    break
                 wait_for(lambda: reports, f"pipeline state after {message!r}")
-            assert pipeline.get_state(0)[1] == (
-                gst.State.PLAYING if playing else gst.State.PAUSED
-            ), f"Unexpected pipeline state after {message!r}"
+            assert pipeline.get_state(0)[1] == getattr(gst.State, state), (
+                f"Unexpected pipeline state after {message!r}"
+            )
+            if state == "PLAYING":
+                decoder = pipeline.get_by_name("decoder")
+                wait_for(
+                    lambda: decoder.srcpads and all(pad.is_linked() for pad in decoder.srcpads),
+                    "recreated decoder output connection",
+                )
 
     try:
         # JSON
         message = "{"
         websocket.send_text(message)
-        check_play_pause_after(message)
+        check_playback_after(message)
 
         # type
         message = '{"type":1}'
         websocket.send_text(message)
-        check_play_pause_after(message)
+        check_playback_after(message)
 
         # name: valid toggles the model; invalid leaves it unchanged.
         valid = json.dumps({"type": "model_toggle", "name": "model"})
         invalid = json.dumps({"type": "model_toggle", "name": "model\0extra"})
         websocket.send_text(valid)
         wait_for(lambda: applied_values, "model toggle")
-        check_play_pause_after(valid)
+        check_playback_after(valid)
         assert model.props.active, f"Unexpected model state after {valid!r}"
         websocket.send_text(invalid)
-        check_play_pause_after(invalid)
+        check_playback_after(invalid)
         assert model.props.active, f"Unexpected model state after {invalid!r}"
 
         bindings = [{"consumerId": "crop", "inputId": "input",
@@ -132,14 +144,14 @@ def check_control(session, pipeline, gst):
                      "producerId": "detector/output"}]
         binding_update = json.dumps({"type": "model_inputs", "name": "model", "bindings": bindings})
         websocket.send_text(binding_update)
-        check_play_pause_after(binding_update)
+        check_playback_after(binding_update)
         assert json.loads(model.props.input_bindings) == bindings
         for update in ({"name": "model\0extra", "bindings": []},
                        {"name": "model", "bindings": "invalid"},
                        {"name": "model", "bindings": [bindings[0]] * 129}):
             invalid = json.dumps({"type": "model_inputs", **update})
             websocket.send_text(invalid)
-            check_play_pause_after(invalid)
+            check_playback_after(invalid)
             assert json.loads(model.props.input_bindings) == bindings
 
         applied_values.clear()
@@ -289,10 +301,17 @@ def check_messages():
 
     plugin, endpoint = sys.argv[1:]
     gst = load_gstreamer_plugins([Path(plugin)])
-    pipeline = gst.parse_launch(
-        "videotestsrc is-live=true ! "
-        "video/x-raw,format=I420,width=160,height=120,framerate=5/1 ! opksink name=sink"
-    )
+    port_properties = ("http-port", "ws-port", "ctrl-port")
+    with ExitStack() as reservations:
+        ports, _ = reserve_ports(reservations, len(port_properties))
+        pipeline = gst.parse_launch(
+            "videotestsrc is-live=true ! "
+            "video/x-raw,format=I420,width=160,height=120,framerate=5/1 ! "
+            "decodebin name=decoder ! opksink name=sink"
+        )
+        sink = pipeline.get_by_name("sink")
+        for name, port in zip(port_properties, ports):
+            sink.set_property(name, port)
     if endpoint == "control":
         class Model(gst.Bin):
             active = GObject.Property(type=bool, default=False)

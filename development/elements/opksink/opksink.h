@@ -18,6 +18,7 @@
 #ifndef __OPKSINK_H__
 #define __OPKSINK_H__
 
+#include <atomic>
 #include <memory>
 #include <string>
 
@@ -46,12 +47,12 @@ typedef struct _GstOpkSinkClass GstOpkSinkClass;
 class PipelineStateReporter : public StatusReporter {
     GstOpkSink *self_ = nullptr;
 
-    bool has_audio_ = false;
+    std::atomic_bool has_audio_{false};
 
   public:
     explicit PipelineStateReporter(GstOpkSink *self) : self_(self) {}
 
-    inline void set_paused() {
+    inline void notify_state_change() {
         trigger_reporting();
     }
 

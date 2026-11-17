@@ -492,3 +492,9 @@ body.is-resizing-sidebar, body.is-resizing-sidebar *, body.is-resizing-bottom-co
   .model-toggle-switch input:checked + .model-toggle-track { background: Highlight; forced-color-adjust: none; }
   .model-toggle-switch input:checked + .model-toggle-track .model-toggle-thumb { background: HighlightText; }
 }
+
+/* Pipeline controls remain visible while the model list scrolls. */
+.pipeline-controls { flex-shrink: 0; }
+.pipeline-controls .controls-row { flex-wrap: wrap; }
+.pipeline-stop-icon { width: var(--wfr-icon-md); height: var(--wfr-icon-md); }
+.pipeline-error { color: var(--wfr-txt-system-danger); overflow-wrap: anywhere; }
