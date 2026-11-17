@@ -27,6 +27,7 @@ const CTRL_PORT = (window.OPK_CONFIG && window.OPK_CONFIG.ctrlPort) ||
                 (location.port || (location.protocol === 'https:' ? 443 : 80));
 
 const CTRL_URL = `${CTRL_PROTO}://${CTRL_HOST}:${CTRL_PORT}/ws`;
+export const MODEL_EDIT_SESSION = 'model_edit_session';
 
 let ctrl = null;
 
@@ -54,19 +55,28 @@ function connectCtrl(manual = false) {
     ctrl.onmessage = async (event) => {
         const data = JSON.parse(event.data);
         console.log("ctrl.onmessage: " + event.data);
+        if (data.type === MODEL_EDIT_SESSION) {
+            modelsManager.acceptEditSession(data);
+            return;
+        }
+        if (data.type === 'control_error') {
+            modelsManager.showControlError(data.error);
+            return;
+        }
 
         enableAudioButton(data.pipeline_state.audio);
         enableMicrophoneButton(data.pipeline_state.microphone);
         setPipelineState(data.pipeline_state);
         window.dispatchEvent(new CustomEvent('pipeline-state-change', {detail: data.pipeline_state}));
         window.dispatchEvent(new CustomEvent('models-change', {detail: data.models}));
-        modelsManager.render(data.models);
+        modelsManager.render(data.models, data.model_editor, data.pipeline_state);
     };
 
     ctrl.onerror = () => { ; };
 
     ctrl.onclose = () => {
         setPipelineState(null);
+        modelsManager.render(modelsManager.serverModels, modelsManager.editor, null);
         window.dispatchEvent(new CustomEvent('pipeline-state-change', {detail: null}));
         enableMicrophoneButton(false);
         setTimeout(() => {

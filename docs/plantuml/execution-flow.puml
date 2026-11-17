@@ -55,10 +55,10 @@ partition "Startup and module setup" {
     :`opktracker::start()`, `opkperformance`,\nand `opkosd::start()` prepare\ntracker, interval baseline, and filter state;
   fork again
     :`opksink::init()` builds the internal\nvideo/audio branches,\nsilence fallback, and drain branches;
-    :Create `ModelRegistry`, start;
+    :Discover models in `ModelManager`, start;
     :WebRTC signaling, control WebSocket;
     :Start embedded HTTP server;
-    :Register status reporters\n(`models`, `pipeline_state`, `perf_overlay`);
+    :Report pipeline state and model snapshots\nover the control WebSocket;
   end fork
   :`opksink` receives `opk-model-register`\nand exposes the registered model;
   :Pipeline reaches PLAYING state;

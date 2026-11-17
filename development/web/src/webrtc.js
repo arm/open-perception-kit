@@ -31,10 +31,10 @@ const logEl = document.getElementById('log');
 // ===== UI HELPERS =====
 function setStatus(state, label, subtext) {
     if (statusPill) {
-        statusPill.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected');
+        statusPill.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected', 'stopped');
         statusPill.classList.add(state);
     }
-    statusLineEl.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected');
+    statusLineEl.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected', 'stopped');
     statusLineEl.classList.add(state);
     if (statusLabelEl)
         statusLabelEl.textContent = label.toUpperCase();
@@ -50,6 +50,7 @@ function setStatus(state, label, subtext) {
             overlayText.textContent = subtext || label;
             break;
         case 'connected':
+        case 'stopped':
             overlay.classList.add('hidden');
             break;
     }
@@ -118,7 +119,10 @@ window.addEventListener('feed-pause-change', (event) => {
 window.addEventListener('pipeline-state-change', (event) => {
     const state = event.detail;
     if (!state || state.pending) return;
-    if (state.state === 'READY') client.stop();
+    if (state.state === 'READY') {
+        client.stop();
+        setStatus('stopped', 'WebRTC stopped');
+    }
     else if (state.state === 'PLAYING' || state.state === 'PAUSED') client.start();
 });
 client.start();

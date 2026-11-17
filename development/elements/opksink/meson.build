@@ -35,7 +35,9 @@ opkinferpre = shared_module(
     'webrtc_ws.cpp',
     'ctrl_ws.cpp',
     'utils.cpp',
-    'model_reg.cpp'
+    'model.cpp',
+    'model_group.cpp',
+    'model_manager.cpp'
   ],
   cpp_args: opksink_cpp_args,
   include_directories: [common_include],

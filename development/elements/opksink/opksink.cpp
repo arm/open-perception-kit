@@ -32,7 +32,9 @@ g++ -fPIC -shared -o libgstopksink.so opksink.cpp \
 #define GST_USE_UNSTABLE_API
 
 #include "Log.h"
+#include "gst/ResultRequirementEvent.h"
 #include "http_server.h"
+#include "model_manager.h"
 #include "opksink.h"
 #include "utils.h"
 #include "webrtc_ws.h"
@@ -148,6 +150,12 @@ static gchar *default_static_files_location() {
             return g_strdup(path.c_str());
     }
     return g_strdup(candidates[0].lexically_normal().c_str());
+}
+
+void PipelineStateReporter::notify_state_change() {
+    if (const auto &control = self_->private_data->ctrl_websocket) {
+        control->report();
+    }
 }
 
 nlohmann::json PipelineStateReporter::report() const {
@@ -287,6 +295,9 @@ static bool gst_opk_sink_start_servers(GstOpkSink *self) {
     bool started = false;
 
     try {
+        if (!private_data->modelManager) {
+            private_data->modelManager = std::make_unique<ModelManager>(GST_ELEMENT(self));
+        }
         if (!private_data->webrtc_websocket) {
             private_data->webrtc_websocket = std::make_unique<WebRtcWebSocket>(self);
         }
@@ -296,13 +307,8 @@ static bool gst_opk_sink_start_servers(GstOpkSink *self) {
             private_data->http_server = std::make_unique<OpkSinkHttpServer>(self);
         }
         if (private_data->http_server->start() == OpkSinkHttpServerError::OK) {
-            // Keep reporters attached to the same control object across restarts.
             if (!private_data->ctrl_websocket) {
                 private_data->ctrl_websocket = std::make_unique<CtrlWebSocket>(self);
-                private_data->ctrl_websocket->register_status_reporter(
-                    "models", private_data->model_registry);
-                private_data->ctrl_websocket->register_status_reporter(
-                    "pipeline_state", private_data->pipeline_state_reporter);
             }
             private_data->ctrl_websocket->start();
             started = true;
@@ -334,6 +340,32 @@ static bool gst_opk_sink_start_servers(GstOpkSink *self) {
     }
 
     return started;
+}
+
+static bool gst_opk_sink_is_only_sink(GstOpkSink *const self) {
+    g_autoptr(GstElement) pipeline = get_top_pipeline(GST_ELEMENT(self));
+    if (!pipeline) {
+        return true;
+    }
+    g_autoptr(GstIterator) elements = gst_bin_iterate_recurse(GST_BIN(pipeline));
+    GValue other = G_VALUE_INIT;
+    const bool found = gst_iterator_find_custom(
+        elements,
+        [](gconstpointer const item, gconstpointer const current) {
+            auto *const element = g_value_get_object(static_cast<const GValue *>(item));
+            return element != current && G_TYPE_CHECK_INSTANCE_TYPE(element, GST_TYPE_OPK_SINK) ? 0
+                                                                                                : 1;
+        },
+        &other,
+        self);
+    if (G_VALUE_TYPE(&other)) {
+        g_value_unset(&other);
+    }
+    if (found) {
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, SETTINGS, ("Only one opksink is supported per pipeline"), (nullptr));
+    }
+    return !found;
 }
 
 static void gst_opk_sink_report_state_async(GstElement *element, gpointer user_data) {
@@ -380,7 +412,8 @@ static GstStateChangeReturn gst_opk_sink_change_state(GstElement *element,
 
     // gst_parse_launch() applies element properties after instance initialization.
     if (transition == GST_STATE_CHANGE_NULL_TO_READY) {
-        if (!gst_opk_sink_resolve_metadata(self) || !gst_opk_sink_start_servers(self)) {
+        if (!gst_opk_sink_is_only_sink(self) || !gst_opk_sink_resolve_metadata(self) ||
+            !gst_opk_sink_start_servers(self)) {
             return GST_STATE_CHANGE_FAILURE;
         }
     }
@@ -599,6 +632,34 @@ static void gst_opk_sink_stop_pipeline_async(GstElement *element, gpointer user_
     }
 }
 
+namespace {
+std::string optionalString(const GstStructure *const structure, const char *const field) {
+    const auto *const value = gst_structure_get_string(structure, field);
+    return value ? value : "";
+}
+
+std::optional<ModelData> readModelRegistration(const GstStructure *const structure) {
+    const auto *const name = gst_structure_get_string(structure, "model-name");
+    const auto *const elementName = gst_structure_get_string(structure, "element-name");
+    if (!name || !elementName) {
+        return std::nullopt;
+    }
+    gboolean active = FALSE;
+    gst_structure_get_boolean(structure, "active", &active);
+    return ModelData{
+        .m_elementName = elementName,
+        .m_metadata = {name,
+                       optionalString(structure, "display-name"),
+                       optionalString(structure, "task"),
+                       optionalString(structure, "runtime")},
+        .m_interface = {opk::result_requirement_event::readInputs(structure, "required-inputs"),
+                        opk::result_requirement_event::readOutputs(structure, "provided-outputs"),
+                        opk::result_requirement_event::readOutputs(structure, "available-inputs")},
+        .m_active = active != FALSE};
+}
+
+} // namespace
+
 /* ===== Event handling ===== */
 static gboolean gst_opk_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent *event) {
     auto *self = reinterpret_cast<GstOpkSink *>(parent);
@@ -612,21 +673,16 @@ static gboolean gst_opk_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
         const GstStructure *structure = gst_event_get_structure(event);
 
         if (gst_structure_has_name(structure, "opk-model-register")) {
-            if (auto status = model_status_from_registration(structure))
-                self->private_data->model_registry->add_model(*status);
-
-            // Consume the event (don't pass it further)
-            gst_event_unref(event);
-            return TRUE;
-        } else if (gst_structure_has_name(structure, "opk-model-unregister")) {
-            const gchar *element_name = gst_structure_get_string(structure, "element-name");
-
-            if (element_name) {
-                self->private_data->model_registry->del_model(element_name);
+            const auto modelData = readModelRegistration(structure);
+            const auto &manager = self->private_data->modelManager;
+            if (modelData && manager) {
+                manager->registerModel(*modelData);
+                if (self->private_data->ctrl_websocket) {
+                    self->private_data->ctrl_websocket->report();
+                }
             }
 
             // Consume the event (don't pass it further)
-
             gst_event_unref(event);
             return TRUE;
         }
@@ -1021,8 +1077,7 @@ static void gst_opk_sink_init(GstOpkSink *self) {
     }
 
     // private data
-    self->private_data->model_registry = std::make_shared<ModelRegistry>();
-    self->private_data->pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
+    self->private_data->pipeline_state_reporter = std::make_unique<PipelineStateReporter>(self);
 
     self->private_data->initialized = true;
 }

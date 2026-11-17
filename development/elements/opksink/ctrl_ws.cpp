@@ -35,28 +35,154 @@
 #include "Log.h"
 #include "ctrl_ws.h"
 #include "gst/PipelineControl.h"
+#include "model_manager.h"
 #include "opksink.h"
 #include "utils.h"
 
 using namespace nlohmann;
 
+namespace {
+using json = nlohmann::json;
+
+constexpr auto kConfigurationId = "configurationId";
+constexpr auto kPosition = "position";
+constexpr auto kProducerId = "producerId";
+constexpr auto kName = "name";
+
+template <typename Entry> json serializeInterfaceEntries(const std::vector<Entry> &outputs) {
+    auto result = json::array();
+    for (const auto &output : outputs) {
+        json entry{{"payloadType", output.payloadType}, {kProducerId, output.producerId}};
+        if constexpr (requires { output.consumerId; }) {
+            entry["consumerId"] = output.consumerId;
+            entry["inputId"] = output.inputId;
+        }
+        result.push_back(std::move(entry));
+    }
+    return result;
+}
+
+json serializeMetadata(const OpChainMetadata &metadata) {
+    json result{{kName, metadata.m_name}};
+    if (!metadata.m_displayName.empty()) {
+        result["displayName"] = metadata.m_displayName;
+    }
+    if (!metadata.m_task.empty()) {
+        result["task"] = metadata.m_task;
+    }
+    if (!metadata.m_runtime.empty()) {
+        result["runtime"] = metadata.m_runtime;
+    }
+    return result;
+}
+
+json serializeModel(const Model &model, const std::string &groupId, const bool connected) {
+    auto result = serializeMetadata(model.getMetadata());
+    const auto &modelInterface = model.getInterface();
+    result["element_name"] = model.getElementName();
+    result["active"] = model.isActive();
+    result["providedOutputs"] = serializeInterfaceEntries(modelInterface.m_providedOutputs);
+    result["requiredInputs"] = serializeInterfaceEntries(model.getRequiredInputs());
+    result["availableInputs"] = serializeInterfaceEntries(modelInterface.m_upstreamInputProviders);
+    if (model.isConfigured()) {
+        result["opchainPath"] = model.getOpChainPath();
+        result["modelGroup"] = groupId;
+        result["connected"] = connected;
+    }
+    return result;
+}
+
+ChangeAction readChangeAction(const std::string &action) {
+    if (action == "add") {
+        return ChangeAction::Add;
+    }
+    if (action == "replace") {
+        return ChangeAction::Replace;
+    }
+    if (action == "remove") {
+        return ChangeAction::Remove;
+    }
+    if (action == "move") {
+        return ChangeAction::Move;
+    }
+    throw std::runtime_error("Unknown model edit");
+}
+
+ChangeRequest readChangeRequest(const json &message) {
+    if (!message.at(kConfigurationId).is_number_unsigned()) {
+        throw std::runtime_error("Invalid configuration ID");
+    }
+    const auto action = readChangeAction(message.at("action").get<std::string>());
+    const bool needsPath = action == ChangeAction::Add || action == ChangeAction::Replace;
+    std::optional<std::size_t> position;
+    if (action == ChangeAction::Move ||
+        (action == ChangeAction::Add && message.contains(kPosition))) {
+        if (!message.at(kPosition).is_number_unsigned()) {
+            throw std::runtime_error("Model position must be a non-negative integer");
+        }
+        position = message.at(kPosition).get<std::size_t>();
+    }
+    return {action,
+            message.at(kConfigurationId).get<std::uint64_t>(),
+            message.at("modelGroup").get<std::string>(),
+            message.value(kName, std::string{}),
+            needsPath ? message.at("path").get<std::string>() : "",
+            position};
+}
+
+json serializeModels(const ModelGroupsSnapshot &snapshot) {
+    auto result = json::array();
+    for (const auto &group : snapshot.m_modelGroups) {
+        const bool connected = group.isConnected();
+        for (const auto &model : group.getModels()) {
+            result.push_back(serializeModel(model, group.getId(), connected));
+        }
+    }
+    return result;
+}
+
+json serializeModelConfiguration(const ModelGroupsSnapshot &snapshot,
+                                 const std::map<std::string, OpChainMetadata> &availableModels) {
+    auto groups = json::array();
+    for (const auto &group : snapshot.m_modelGroups) {
+        if (group.isEditable()) {
+            groups.push_back({{"id", group.getId()}, {"connected", group.isConnected()}});
+        }
+    }
+    auto choices = json::array();
+    for (const auto &[path, metadata] : availableModels) {
+        auto choice = serializeMetadata(metadata);
+        choice["path"] = path;
+        choices.push_back(std::move(choice));
+    }
+    return {{"modelGroups", groups},
+            {"availableOpChains", choices},
+            {kConfigurationId, snapshot.m_configurationId}};
+}
+
+} // namespace
+
 static constexpr auto kChangePipelineStateRequestType = "change_pipeline_state";
+static constexpr auto kModelEditSession = "model_edit_session";
+static constexpr auto kControlError = "control_error";
+static constexpr auto kPipelineAlreadyEditing = "This pipeline is being edited in another session.";
 
 CtrlWebSocket::CtrlWebSocket(_GstOpkSink *self) : self_(self) {
-    using namespace std::placeholders;
-
-    message_types = {
+    command_handlers = {
         {kChangePipelineStateRequestType,
-         [this](const json &message) { set_pipeline_state(message); }},
-        {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
-        {"model_inputs", [this](const json &message) { model_inputs(message); }},
+         std::bind_front(&CtrlWebSocket::set_pipeline_state, this)},
+        {"refresh_available_opchains",
+         std::bind_front(&CtrlWebSocket::refresh_available_models, this)},
+        {"model_edit", std::bind_front(&CtrlWebSocket::edit_models, this)},
+        {"model_toggle", std::bind_front(&CtrlWebSocket::model_toggle, this)},
+        {"model_inputs", std::bind_front(&CtrlWebSocket::model_inputs, this)},
     };
 }
 
 namespace {
 
 constexpr auto kReportInterval = std::chrono::milliseconds(250);
-constexpr std::size_t kMaxControlMessageBytes = 1024 * 1024;
+constexpr std::size_t kMaxControlMessageBytes = std::size_t{1024} * 1024;
 constexpr std::size_t kMaxElementNameBytes = 1024;
 constexpr std::size_t kMaxInputBindings = 128;
 constexpr std::size_t kMaxInputBindingsBytes = 65536;
@@ -64,6 +190,7 @@ constexpr std::size_t kMaxInputBindingsBytes = 65536;
 struct ControlRequest {
     GstOpkSink *m_sink;
     std::weak_ptr<ws_server> m_server;
+    BrowserSessionId m_browserSessionId;
     json m_message;
 
     ~ControlRequest() {
@@ -119,9 +246,11 @@ void CtrlWebSocket::process_command(gpointer data, gpointer) {
     }
     try {
         const auto &requestType = request->m_message.at("type");
-        const bool changesPipelineState = requestType == kChangePipelineStateRequestType;
+        const bool requiresStablePipeline =
+            requestType == kChangePipelineStateRequestType || requestType == "model_edit" ||
+            (requestType == kModelEditSession && request->m_message.value("active", false));
         std::optional<PipelineStateLock> stateLock;
-        if (changesPipelineState) {
+        if (requiresStablePipeline) {
             stateLock.emplace(GST_ELEMENT(request->m_sink));
             if (!stateLock->acquired()) {
                 throw std::runtime_error("Pipeline is changing state; retry when it finishes");
@@ -130,12 +259,18 @@ void CtrlWebSocket::process_command(gpointer data, gpointer) {
                 return;
             }
         }
-        control->execute_command(request->m_message);
+        control->execute_command(request->m_browserSessionId, request->m_message);
     } catch (const std::exception &error) {
-        control->record_error(error.what());
+        if (request->m_message.at("type") == kModelEditSession) {
+            control->send_to(
+                request->m_browserSessionId,
+                {{"type", kModelEditSession}, {"active", false}, {"error", error.what()}});
+        } else {
+            control->record_error(error.what());
+        }
     }
     {
-        std::scoped_lock lock(control->hdl_lock);
+        std::scoped_lock lock(control->browserSessionsMutex);
         if (request->m_server.lock() != control->ws) {
             return;
         }
@@ -148,23 +283,85 @@ void CtrlWebSocket::process_command(gpointer data, gpointer) {
     control->report();
 }
 
-void CtrlWebSocket::enqueue_command(const json &message) {
-    std::scoped_lock lock(hdl_lock);
+void CtrlWebSocket::enqueue_command(const BrowserSessionId &browserSessionId, const json &message) {
+    std::scoped_lock lock(browserSessionsMutex);
     if (!accepting_commands || !command_queue) {
         return;
     }
     ++pending_commands;
     auto request = std::make_unique<ControlRequest>(
-        reinterpret_cast<GstOpkSink *>(gst_object_ref(self_)), ws, message);
+        reinterpret_cast<GstOpkSink *>(gst_object_ref(self_)), ws, browserSessionId, message);
     g_thread_pool_push(command_queue.get(), request.release(), nullptr);
 }
 
-void CtrlWebSocket::execute_command(const json &message) {
-    {
-        std::scoped_lock lock(command_status_mutex);
-        command_error.clear();
+void CtrlWebSocket::execute_command(const BrowserSessionId &browserSessionId, const json &message) {
+    const auto type = message.at("type").get<std::string>();
+    if (type == kModelEditSession) {
+        handle_edit_session(browserSessionId, message.at("active").get<bool>());
+        return;
     }
-    message_types.at(message.at("type").get<std::string>())(message);
+    std::string rejection;
+    {
+        std::scoped_lock lock(browserSessionsMutex);
+        if (!browserSessionIds.contains(browserSessionId)) {
+            // An unrecognized browser session tries to edit
+            return;
+        }
+        const bool ownsEdit = !edit_owner.owner_before(browserSessionId) &&
+                              !browserSessionId.owner_before(edit_owner);
+        const bool editingInProgress = !edit_owner.expired();
+        const bool pipelineIsEditedByAnotherSession = editingInProgress && !ownsEdit;
+        const bool modelToggleOrInputSelectionCommandArrived =
+            (type != "model_edit") && (type != "refresh_available_opchains");
+        if (pipelineIsEditedByAnotherSession) {
+            rejection = kPipelineAlreadyEditing;
+        } else if (type == "model_edit" && !editingInProgress) {
+            rejection = "Choose Edit Pipeline before changing models.";
+        } else if (editingInProgress && modelToggleOrInputSelectionCommandArrived) {
+            rejection = "Save or discard pipeline edits first.";
+        }
+    }
+    if (!rejection.empty()) {
+        send_to(browserSessionId, {{"type", kControlError}, {"error", rejection}});
+        return;
+    }
+    clear_command_error();
+    command_handlers.at(type)(message);
+}
+
+void CtrlWebSocket::handle_edit_session(const BrowserSessionId &browserSessionId,
+                                        const bool active) {
+    if (active) {
+        g_autoptr(GstElement) pipeline = get_top_pipeline(GST_ELEMENT(self_));
+        GstState current = GST_STATE_NULL;
+        GstState pending = GST_STATE_VOID_PENDING;
+        if (pipeline) {
+            gst_element_get_state(pipeline, &current, &pending, 0);
+        }
+        if (current != GST_STATE_READY || pending != GST_STATE_VOID_PENDING) {
+            throw std::runtime_error("Stop the pipeline before editing models");
+        }
+    }
+    {
+        std::scoped_lock lock(browserSessionsMutex);
+        if (!browserSessionIds.contains(browserSessionId)) {
+            return;
+        }
+        const bool ownsEdit = !edit_owner.owner_before(browserSessionId) &&
+                              !browserSessionId.owner_before(edit_owner);
+        if (!active) {
+            if (ownsEdit) {
+                edit_owner.reset();
+            }
+            return;
+        }
+        if (!edit_owner.expired() && !ownsEdit) {
+            throw std::runtime_error(kPipelineAlreadyEditing);
+        }
+        edit_owner = browserSessionId;
+    }
+    clear_command_error();
+    send_to(browserSessionId, {{"type", kModelEditSession}, {"active", true}, {"error", ""}});
 }
 
 bool CtrlWebSocket::available() const {
@@ -174,6 +371,11 @@ bool CtrlWebSocket::available() const {
 void CtrlWebSocket::record_error(const std::string &message) {
     std::scoped_lock lock(command_status_mutex);
     command_error = message;
+}
+
+void CtrlWebSocket::clear_command_error() {
+    std::scoped_lock lock(command_status_mutex);
+    command_error.clear();
 }
 
 void CtrlWebSocket::schedule_report() {
@@ -187,7 +389,7 @@ void CtrlWebSocket::schedule_report() {
 }
 
 CtrlSockerError CtrlWebSocket::setup() {
-    std::lock_guard<std::mutex> g(hdl_lock);
+    std::scoped_lock lock(browserSessionsMutex);
     ws = std::make_shared<ws_server>();
     constexpr int commandWorkerCount = 1;
     auto *const queue = g_thread_pool_new_full(
@@ -202,17 +404,21 @@ CtrlSockerError CtrlWebSocket::setup() {
         g_thread_pool_free(pool, TRUE, FALSE);
     });
     pending_commands = 0;
+    edit_owner.reset();
 
     ws->init_asio();
     ws->clear_access_channels(websocketpp::log::alevel::all);
     ws->clear_error_channels(websocketpp::log::elevel::all);
     ws->set_error_channels(websocketpp::log::elevel::fatal);
 
-    ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
-    ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
-    ws->set_message_handler([this](const connection_hdl &hdl, const ws_server::message_ptr &msg) {
-        on_message(hdl, msg);
-    });
+    ws->set_open_handler(
+        [this](const BrowserSessionId &browserSessionId) { on_open(browserSessionId); });
+    ws->set_close_handler(
+        [this](const BrowserSessionId &browserSessionId) { on_close(browserSessionId); });
+    ws->set_message_handler(
+        [this](const BrowserSessionId &browserSessionId, const ws_server::message_ptr &msg) {
+            on_message(browserSessionId, msg);
+        });
 
     ws->set_max_message_size(kMaxControlMessageBytes);
     ws->set_reuse_addr(true);
@@ -252,9 +458,9 @@ CtrlSockerError CtrlWebSocket::stop() {
             }
             websocketpp::lib::error_code ec;
             ws->stop_listening(ec);
-            std::lock_guard<std::mutex> g(hdl_lock);
-            for (const auto &hdl : hdls) {
-                ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+            std::scoped_lock lock(browserSessionsMutex);
+            for (const auto &browserSessionId : browserSessionIds) {
+                ws->close(browserSessionId, websocketpp::close::status::going_away, "", ec);
             }
         });
     }
@@ -267,36 +473,45 @@ CtrlSockerError CtrlWebSocket::stop() {
 
     command_queue.reset();
     report_timer.reset();
-    std::lock_guard<std::mutex> g(hdl_lock);
-    hdls.clear();
+    std::scoped_lock lock(browserSessionsMutex);
+    browserSessionIds.clear();
+    edit_owner.reset();
     ws.reset();
 
     return CtrlSockerError::OK;
 }
 
 void CtrlWebSocket::send_to_all(const std::string &text) {
-    std::lock_guard<std::mutex> g(hdl_lock);
+    std::scoped_lock lock(browserSessionsMutex);
 
     if (!ws) {
         return;
     }
 
-    for (const auto &hdl : hdls) {
+    for (const auto &browserSessionId : browserSessionIds) {
         websocketpp::lib::error_code ec;
-        ws->send(hdl, text, websocketpp::frame::opcode::text, ec);
+        ws->send(browserSessionId, text, websocketpp::frame::opcode::text, ec);
     }
 }
 
-void CtrlWebSocket::on_open(const connection_hdl &hdl) {
+void CtrlWebSocket::send_to(const BrowserSessionId &browserSessionId, const json &message) {
+    std::scoped_lock lock(browserSessionsMutex);
+    if (ws && browserSessionIds.contains(browserSessionId)) {
+        websocketpp::lib::error_code error;
+        ws->send(browserSessionId, message.dump(), websocketpp::frame::opcode::text, error);
+    }
+}
+
+void CtrlWebSocket::on_open(const BrowserSessionId &browserSessionId) {
     // A handshake accepted before stop_listening() can complete during shutdown.
     if (!ws->is_listening()) {
         websocketpp::lib::error_code ec;
-        ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+        ws->close(browserSessionId, websocketpp::close::status::going_away, "", ec);
         return;
     }
     {
-        std::lock_guard<std::mutex> g(hdl_lock);
-        hdls.insert(hdl);
+        std::scoped_lock lock(browserSessionsMutex);
+        browserSessionIds.insert(browserSessionId);
     }
 
     {
@@ -306,45 +521,52 @@ void CtrlWebSocket::on_open(const connection_hdl &hdl) {
     report();
 }
 
-void CtrlWebSocket::on_close(const connection_hdl &hdl) {
+void CtrlWebSocket::on_close(const BrowserSessionId &browserSessionId) {
     opk::log::debug("on_close");
 
-    std::lock_guard<std::mutex> g(hdl_lock);
-    hdls.erase(hdl);
+    std::scoped_lock lock(browserSessionsMutex);
+    browserSessionIds.erase(browserSessionId);
+    if (!edit_owner.owner_before(browserSessionId) && !browserSessionId.owner_before(edit_owner)) {
+        edit_owner.reset();
+    }
 }
 
-void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
+void CtrlWebSocket::on_message(const BrowserSessionId &browserSessionId,
+                               const ws_server::message_ptr &msg) {
     opk::log::debug("on_message");
     try {
         auto payload = msg->get_payload();
         auto jsn = json::parse(payload);
         auto type = jsn.at("type").get<std::string>();
 
-        if (auto it = message_types.find(type); it != message_types.end()) {
-            enqueue_command(jsn);
+        if (type == kModelEditSession || command_handlers.contains(type)) {
+            enqueue_command(browserSessionId, jsn);
         }
     } catch (const json::exception &) {
         opk::log::debug("Dropping invalid control message");
     }
 }
 
-void CtrlWebSocket::register_status_reporter(const std::string &name,
-                                             std::shared_ptr<StatusReporter> status_reporter) {
-    std::lock_guard<std::mutex> g(reporter_lock);
-
-    status_reporter->trigger_reporting = std::bind(&CtrlWebSocket::report, this);
-    status_reporters[name] = std::move(status_reporter);
-}
-
 void CtrlWebSocket::report() {
+    {
+        std::scoped_lock lock(browserSessionsMutex);
+        if (browserSessionIds.empty()) {
+            return;
+        }
+    }
     nlohmann::json rep;
 
-    std::lock_guard<std::mutex> g(reporter_lock);
+    std::scoped_lock lock(reporter_lock);
 
-    for (const auto &[name, reporter] : status_reporters) {
-        rep[name] = reporter->report();
+    rep["pipeline_state"] = self_->private_data->pipeline_state_reporter->report();
+    const auto &manager = self_->private_data->modelManager;
+    const auto snapshot = manager->getModelGroups();
+    rep["models"] = serializeModels(snapshot);
+    rep["model_editor"] = serializeModelConfiguration(snapshot, manager->getAvailableModels());
+    {
+        std::scoped_lock lock(browserSessionsMutex);
+        rep["model_editor"]["editing"] = !edit_owner.expired();
     }
-
     {
         std::scoped_lock lock(command_status_mutex);
         rep["pipeline_state"]["error"] = command_error;
@@ -355,6 +577,18 @@ void CtrlWebSocket::report() {
         last_report = encoded;
         send_to_all(encoded);
     }
+}
+
+void CtrlWebSocket::refresh_available_models(const json & /*message*/) {
+    self_->private_data->modelManager->refreshAvailableModels();
+}
+
+void CtrlWebSocket::edit_models(const json &message) {
+    g_autoptr(GstElement) pipeline = get_top_pipeline(GST_ELEMENT(self_));
+    if (!pipeline) {
+        throw std::runtime_error("Pipeline is unavailable");
+    }
+    self_->private_data->modelManager->edit(pipeline, readChangeRequest(message));
 }
 
 void CtrlWebSocket::set_pipeline_state(const json &message) {
