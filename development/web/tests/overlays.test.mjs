@@ -18,7 +18,7 @@
 import assert from 'node:assert/strict';
 import test, {after} from 'node:test';
 import {collectOutputs, outputSource, sourceDetails, sourceKey, sourceLabel, sourceLabels} from '../src/overlay-sources.js';
-import {bindPendingOverlays, createOverlay, loadOverlays, saveOverlays, OVERLAY_STORAGE_KEY} from '../src/overlays.js';
+import {addDefaultOverlays, bindPendingOverlays, createOverlay, loadOverlays, saveOverlays, OVERLAY_STORAGE_KEY} from '../src/overlays.js';
 import {OVERLAY_FEATURES} from '../src/overlay-features.js';
 import {fixtureFeatures} from './overlay-test-utils.mjs';
 
@@ -52,13 +52,74 @@ test('output identity survives frame reordering, empty results, and restart; iso
 test('saved preferences round trip independently of live frames and availability', () => {
     let raw = null;
     const storage = {getItem: () => raw, setItem: (_key, value) => { raw = value; }};
-    assert.deepEqual(loadOverlays(storage), {overlays: [], notice: ''});
+    assert.deepEqual(loadOverlays(storage), {overlays: [], defaultSources: new Set(), notice: ''});
     const overlays = [{...createOverlay('bounding-boxes', outputSource(layer)), enabled: false, settings: {color: '#123456', opacity: 0.25}}];
     assert.equal(saveOverlays(storage, overlays), '');
     assert.deepEqual(loadOverlays(storage).overlays, overlays);
     assert.equal(collectOutputs(null).size, 0);
     assert.deepEqual(loadOverlays(storage).overlays, overlays);
     assert.ok(!raw.includes('detections'));
+});
+
+test('fresh defaults use real sources once, preserve edits and removals, and leave existing setups alone', () => {
+    const fixtures = [...OVERLAY_FEATURES];
+    OVERLAY_FEATURES.splice(0, OVERLAY_FEATURES.length, ...registered);
+    try {
+        const records = new Map();
+        const storage = {getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value)};
+        let {overlays, defaultSources} = loadOverlays(storage);
+        const sources = [layer, {...layer, producer: {...layer.producer, instanceId: 'other/parser'}},
+            ...['TrackTraces', 'Classifications', 'PersonPresences', 'CameraContacts', 'GazeMeasurements',
+                'PerformanceMeasurements', 'SegmentationMasks', 'SemanticSegmentationMasks', 'InstanceSegmentationMasks',
+                'ObjectTracks', 'UnknownPayload'].map(payloadType => ({...layer, payloadType})),
+            {...layer, producer: null}].map(outputSource);
+        const catalog = new Map(sources.map(source => [sourceKey(source), source]));
+        assert.equal(addDefaultOverlays(overlays, catalog, defaultSources), true);
+        assert.deepEqual(overlays.map(overlay => overlay.featureId), ['bounding-boxes', 'bounding-boxes',
+            'movement-trails', 'classifications', 'classifications', 'camera-contact', 'gaze', 'performance',
+            'background-replacement', 'semantic-segmentation', 'instance-segmentation']);
+        assert.ok(overlays.every(overlay => overlay.enabled && overlay.selection.primary.producerInstanceId));
+        assert.deepEqual(overlays.slice(0, 2).map(overlay => overlay.selection.primary), sources.slice(0, 2));
+        overlays[0].enabled = false;
+        overlays[0].settings.color = '#123456';
+        overlays.splice(1, 1);
+        const customized = structuredClone(overlays);
+        assert.equal(addDefaultOverlays(overlays, catalog, defaultSources), false);
+        assert.equal(saveOverlays(storage, overlays, defaultSources), '');
+        ({overlays, defaultSources} = loadOverlays(storage));
+        assert.equal(addDefaultOverlays(overlays, new Map(), defaultSources), false);
+        assert.equal(addDefaultOverlays(overlays, catalog, defaultSources), false);
+        assert.deepEqual(overlays, customized);
+
+        // A newly enabled model gets a new row without rebinding existing selections.
+        const later = {...sources[0], producerInstanceId: 'later/parser'};
+        catalog.set(sourceKey(later), later);
+        assert.equal(addDefaultOverlays(overlays, catalog, defaultSources), true);
+        assert.deepEqual(overlays.at(-1).selection.primary, later);
+        assert.deepEqual(overlays.slice(0, -1), customized);
+        assert.equal(saveOverlays(storage, [], defaultSources), '');
+        const empty = loadOverlays(storage);
+        assert.equal(addDefaultOverlays(empty.overlays, catalog, empty.defaultSources), false);
+        assert.deepEqual(empty.overlays, []);
+
+        // No new defaults are injected into existing v3 or migrated v2 configurations.
+        for (const version of [2, 3]) {
+            records.clear();
+            records.set(`opk-overlays:v${version}`, JSON.stringify({version, overlays: []}));
+            const existing = loadOverlays(storage);
+            assert.equal(existing.defaultSources, null);
+            assert.equal(addDefaultOverlays(existing.overlays, catalog, existing.defaultSources), false);
+        }
+        const manual = [createOverlay('face-circles', sources[0]), createOverlay('gaze')];
+        assert.equal(addDefaultOverlays(manual, new Map([[sourceKey(sources[0]), sources[0]]]), new Set()), true);
+        assert.equal(manual.length, 2, 'a manual presentation must not get an automatic duplicate');
+        const gaze = sources.find(source => source.payloadType === 'GazeMeasurements');
+        addDefaultOverlays(manual, new Map([[sourceKey(gaze), gaze]]), new Set());
+        assert.equal(manual.length, 2, 'a waiting manual overlay retains its existing binding rules');
+        assert.match(saveOverlays(undefined, overlays, defaultSources), /could not be saved/);
+    } finally {
+        OVERLAY_FEATURES.splice(0, OVERLAY_FEATURES.length, ...fixtures);
+    }
 });
 
 test('corrupt, unsupported, and unavailable storage cannot break the editor', () => {
