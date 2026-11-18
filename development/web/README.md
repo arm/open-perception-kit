@@ -19,13 +19,20 @@ limitations under the License.
 
 ## Browser capture
 
-The Mic and Cam controls request audio and video independently and share one
+The **Unmute Mic** and **Cam** controls request audio and video independently and share one
 send-only WebRTC connection to `opksrc` on port 8003 (or `OPK_CONFIG.micWsPort`).
 Both controls use the existing `pipeline_state.microphone` flag, which indicates
 that `opksrc` is present. Turning off one device releases its tracks without
 closing the other device; turning off both closes the connection. Permission
 denial affects only the requested device. Control disconnect and page exit
 release all capture devices.
+
+The microphone action switches between **Unmute Mic** and **Mute Mic**; muting
+releases its capture tracks, and unmuting requests capture again. Playback uses
+**Unmute Audio** / **Mute Audio** independently. Icons reflect the current muted
+state. Controls wrap within the sidebar. Normal on/off state needs no extra status
+line; permission requests, connection progress and errors still appear beneath
+the controls.
 
 Offers are serialized: adding or removing a device while an answer is pending
 queues a new offer after that answer. The receiver must support repeated offers,

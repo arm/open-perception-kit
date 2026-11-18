@@ -28,9 +28,11 @@ test('control availability gates microphone capture and hides it on disconnect',
     let requests = 0;
     let stopped = false;
     const events = [];
+    const text = {};
     const button = {
         style: {display: 'none'}, disabled: true,
-        setAttribute() {},
+        setAttribute(name, value) { this[name] = value; },
+        querySelector() { return text; },
         addEventListener(name, callback) { click = callback; },
     };
     const status = {hidden: true};
@@ -61,17 +63,23 @@ test('control availability gates microphone capture and hides it on disconnect',
         enableMicrophoneButton(true);
         assert.equal(button.style.display, 'inline-flex');
         assert.equal(button.disabled, false);
-        assert.equal(status.hidden, false);
+        assert.equal(status.hidden, true);
         assert.equal(elements.cameraBtn.disabled, false);
-        assert.equal(elements.cameraStatus.hidden, false);
+        assert.equal(elements.cameraStatus.hidden, true);
         click();
         assert.equal(requests, 1);
         assert.equal(icon.dataset.icon, 'mic');
+        assert.equal(text.textContent, 'Mute Mic');
+        assert.equal(button['aria-label'], 'Mute Mic');
+        assert.equal(status.hidden, false);
+        assert.match(status.textContent, /permission/);
         assert.equal(events.at(-1).type, 'microphone-state');
         assert.equal(events.at(-1).detail.active, true);
         enableMicrophoneButton(false);
         assert.equal(events.at(-1).detail.active, false);
         assert.equal(icon.dataset.icon, 'mic-off');
+        assert.equal(text.textContent, 'Unmute Mic');
+        assert.equal(button['aria-label'], 'Unmute Mic');
         assert.equal(button.style.display, 'none');
         assert.equal(button.disabled, true);
         assert.equal(status.hidden, true);
@@ -94,6 +102,17 @@ test('control availability gates microphone capture and hides it on disconnect',
         await Promise.resolve();
         assert.equal(stopped, true);
         enableMicrophoneButton(false);
+        enableMicrophoneButton(true);
+        navigator.mediaDevices.getUserMedia = async () => { throw new Error('Permission denied'); };
+        click();
+        await Promise.resolve();
+        assert.equal(text.textContent, 'Unmute Mic');
+        assert.equal(status.hidden, false);
+        assert.match(status.textContent, /Permission denied/);
+        navigator.mediaDevices = undefined;
+        click();
+        assert.equal(status.hidden, false);
+        assert.match(status.textContent, /localhost/);
     } finally {
         globals.forEach((name, index) => {
             if (originals[index])
@@ -101,6 +120,40 @@ test('control availability gates microphone capture and hides it on disconnect',
             else
                 delete globalThis[name];
         });
+    }
+});
+
+test('playback actions and icons follow the media muted state, including external changes', async () => {
+    const original = globalThis.document;
+    const listeners = {};
+    const text = {};
+    const icon = {dataset: {}};
+    const button = {querySelector: () => text,
+        setAttribute(name, value) { this[name] = value; },
+        addEventListener(name, callback) { listeners[name] = callback; }};
+    const video = {muted: true, addEventListener(name, callback) { listeners[name] = callback; }};
+    globalThis.document = {getElementById: id => ({video, muteUnmuteBtn: button, muteUnmuteIcon: icon})[id]};
+    try {
+        const {enableAudioButton} = await import('../src/audio.js');
+        enableAudioButton(true);
+        assert.equal(button.hidden, false);
+        assert.equal(text.textContent, 'Unmute Audio');
+        assert.equal(icon.dataset.icon, 'volume-x');
+        listeners.click();
+        assert.equal(video.muted, false);
+        assert.equal(text.textContent, 'Mute Audio');
+        assert.equal(button['aria-label'], 'Mute Audio');
+        assert.equal(icon.dataset.icon, 'volume-2');
+        video.muted = true;
+        listeners.volumechange();
+        assert.equal(text.textContent, 'Unmute Audio');
+        assert.equal(button.title, 'Unmute Audio');
+        assert.equal(icon.dataset.icon, 'volume-x');
+        enableAudioButton(false);
+        assert.equal(button.hidden, true);
+    } finally {
+        if (original === undefined) delete globalThis.document;
+        else globalThis.document = original;
     }
 });
 

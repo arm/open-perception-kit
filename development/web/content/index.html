@@ -51,11 +51,11 @@ limitations under the License.
                                     <span class="video-control-text">Pause</span>
                                 </button>
                                 <button id="microphoneBtn" class="control-button" type="button"
-                                    aria-label="Share microphone" aria-pressed="false" title="Share microphone"
+                                    aria-label="Unmute Mic" aria-pressed="false" title="Unmute Mic"
                                     style="display:none" disabled>
                                     <span id="microphoneIcon" class="icon" data-icon="mic-off"
                                         aria-hidden="true"></span>
-                                    <span class="video-control-text">Mic</span>
+                                    <span class="video-control-text">Unmute Mic</span>
                                 </button>
                                 <button id="cameraBtn" class="control-button" type="button"
                                     aria-label="Share camera" aria-pressed="false" title="Share camera"
@@ -63,14 +63,14 @@ limitations under the License.
                                     <span id="cameraIcon" class="icon" data-icon="video-off" aria-hidden="true"></span>
                                     <span class="video-control-text">Cam</span>
                                 </button>
-                                <button id="muteUnmuteBtn" type="button" aria-label="Unmute" hidden>
+                                <button id="muteUnmuteBtn" type="button" aria-label="Unmute Audio" title="Unmute Audio" hidden>
                                     <span id="muteUnmuteIcon" class="icon" data-icon="volume-x" aria-hidden="true"></span>
-                                    <span class="video-control-text">Unmute</span>
+                                    <span class="video-control-text">Unmute Audio</span>
                                 </button>
                             </div>
                         </div>
-                        <div id="microphoneStatus" role="status" aria-live="polite" hidden>Microphone off</div>
-                        <div id="cameraStatus" role="status" aria-live="polite" hidden>Camera off</div>
+                        <div id="microphoneStatus" role="status" aria-live="polite" hidden></div>
+                        <div id="cameraStatus" role="status" aria-live="polite" hidden></div>
                     </div>
                 </div>
 

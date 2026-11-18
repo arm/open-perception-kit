@@ -47,11 +47,16 @@ const client = new MicrophoneClient({
         const output = kind === 'video' ? cameraStatus : status;
         const name = kind === 'video' ? 'camera' : 'microphone';
         const glyph = kind === 'video' ? 'video' : 'mic';
+        const action = kind === 'video' ? (active ? `Stop sharing ${name}` : `Share ${name}`)
+            : active ? 'Mute Mic' : 'Unmute Mic';
         control.setAttribute('aria-pressed', String(active));
-        control.setAttribute('aria-label', active ? `Stop sharing ${name}` : `Share ${name}`);
-        control.title = message;
+        control.setAttribute('aria-label', action);
+        if (kind === 'audio') control.querySelector('.video-control-text').textContent = action;
+        control.title = action;
         indicator.dataset.icon = active ? glyph : `${glyph}-off`;
-        output.textContent = message;
+        // The button conveys normal on/off state; keep permission, connection and error feedback.
+        output.textContent = ['Microphone off', 'Camera off', 'Microphone sharing', 'Camera sharing'].includes(message) ? '' : message;
+        output.hidden = !microphoneAvailable || !output.textContent;
     },
 });
 
@@ -59,10 +64,10 @@ export function enableMicrophoneButton(enable) {
     microphoneAvailable = enable === true;
     button.style.display = microphoneAvailable ? 'inline-flex' : 'none';
     button.disabled = !microphoneAvailable;
-    status.hidden = !microphoneAvailable;
+    status.hidden = !microphoneAvailable || !status.textContent;
     cameraButton.style.display = microphoneAvailable ? 'inline-flex' : 'none';
     cameraButton.disabled = !microphoneAvailable;
-    cameraStatus.hidden = !microphoneAvailable;
+    cameraStatus.hidden = !microphoneAvailable || !cameraStatus.textContent;
     if (!microphoneAvailable)
         client.stop();
 }
@@ -74,6 +79,7 @@ button.addEventListener('click', () => {
         client.stopTrack('audio');
     } else if (!navigator.mediaDevices?.getUserMedia) {
         status.textContent = 'Microphone unavailable. Open this page through localhost.';
+        status.hidden = false;
     } else {
         void client.start();
     }
@@ -84,6 +90,7 @@ cameraButton.addEventListener('click', () => {
         client.stopTrack('video');
     } else if (!navigator.mediaDevices?.getUserMedia) {
         cameraStatus.textContent = 'Camera unavailable. Open this page through localhost.';
+        cameraStatus.hidden = false;
     } else {
         void client.start('video');
     }
