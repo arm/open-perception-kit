@@ -112,7 +112,9 @@ start. No upload, download or file write is performed.
 `model_edit` requests carry `action` (`add`, `replace`, `remove`, `move`), `modelGroup`
 and the current `revision` from `model_editor`. Existing stages use their `name`
 (element name); Add/Replace use a `path` from `model_editor.availableOpChains`,
-and Move uses a zero-based `position` within its model group. The serialized worker holds pipeline state locks,
+and Move uses a zero-based `position` within its model group. Add optionally accepts
+a zero-based `position` from zero through the group size; omitting it appends the
+model. The serialized worker holds pipeline state locks,
 requires stable READY and rejects stale revisions before mutation. Reports contain
 the resulting model list and model group connectivity. Link errors leave the attempted
 configuration available for correction; there is no rollback. These session edits

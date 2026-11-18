@@ -35,10 +35,6 @@ class FakeClassList {
     this.sync();
   }
 
-  contains(name) {
-    return this.values.has(name);
-  }
-
   toggle(name, force) {
     const enabled = force === undefined ? !this.values.has(name) : Boolean(force);
     if (enabled) {
@@ -48,6 +44,10 @@ class FakeClassList {
     }
     this.sync();
     return enabled;
+  }
+
+  contains(name) {
+    return this.values.has(name);
   }
 
   sync() {
@@ -98,6 +98,25 @@ class FakeElement {
 
   append(...children) {
     children.forEach((child) => this.appendChild(child));
+  }
+
+  cloneNode(deep) {
+    const copy = new FakeElement(this.tagName);
+    copy.className = this.className;
+    copy.attributes = new Map(this.attributes);
+    if (deep) copy.children = this.children.map(child => child.cloneNode(true));
+    return copy;
+  }
+
+  remove() { this.removed = true; }
+
+  querySelectorAll(selector) {
+    const matches = [];
+    for (const child of this.children) {
+      if (child.tagName === selector.toUpperCase()) matches.push(child);
+      matches.push(...child.querySelectorAll(selector));
+    }
+    return matches;
   }
 
   setAttribute(name, value) {
@@ -223,20 +242,23 @@ test("selector preserves the reported pipeline order", () => {
     {...stopped, pending: 'PLAYING'}, {...stopped, busy: true}]) {
     modelsManager.render(stages, editor, state);
     assert.ok(editButtons().every(button => button.disabled));
+    assert.ok(editButtons().every(button => button.hidden));
+    assert.ok(modelsContainer.children.every(item => item.querySelector('.model-edit-actions').hidden));
   }
   modelsManager.render(stages, editor, stopped);
-  const [sourceItem, destinationItem] = modelsContainer.children;
-  assert.equal(sourceItem.draggable, true);
-  sourceItem.dispatchEvent({
-    type: 'dragstart', clientX: 0, clientY: 0,
-    dataTransfer: {setDragImage() {}, setData() {}},
-  });
-  destinationItem.dispatchEvent({type: 'drop', preventDefault() {}});
-  assert.deepEqual(sentMessages.at(-1), {type: 'model_edit', action: 'move', revision: editor.revision,
-    modelGroup: 'inference', name: stages[0].element_name, position: 1});
-  assert.ok(editButtons().every(button => button.disabled), 'wait for the server to confirm the edit');
-  assert.deepEqual(modelsContainer.children.map(item => item.getAttribute('data-model-element-name')),
-    stages.map(model => model.element_name), 'do not reorder before server confirmation');
+  assert.ok(editButtons().every(button => button.hidden), 'stopped does not imply editing');
+  modelsManager.beginEditing();
+  const items = () => modelsContainer.children.filter(item => item.classList.contains('model-item'));
+  const handle = items()[0].querySelector('.model-drag-handle');
+  assert.equal(handle.disabled, false);
+  assert.equal(handle.hidden, false);
+  const before = sentMessages.length;
+  handle.dispatchEvent({type: 'keydown', key: 'ArrowDown', preventDefault() {}});
+  assert.equal(sentMessages.length, before, 'draft moves do not change the server');
+  assert.equal(modelsManager.models[1].element_name, stages[0].element_name);
+  modelsManager.discardEdits();
+  assert.deepEqual(modelsManager.models.map(model => model.element_name), stages.map(model => model.element_name));
+
 });
 
 test("selector renders task and model details from descriptor metadata", () => {
@@ -312,8 +334,8 @@ test("dependent models show their provider networks beside the toggle", () => {
   assert.equal(dependencyIcon.getAttribute("data-icon"), "info");
   assert.equal(dependencyIcon.getAttribute("aria-hidden"), "true");
   assert.equal(dependencyPopup.querySelector(".model-dependency-heading").textContent, "Depends on:");
-  assert.equal(dependencyPopup.querySelector("li").textContent, "Face detection");
-  assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: Face detection");
+  assert.equal(dependencyPopup.querySelector("li").textContent, "Face detection (off)");
+  assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: Face detection (off)");
   assert.equal(actions.children[0], dependencyInfo);
   assert.equal(actions.children[1].tagName, "LABEL");
 });
@@ -477,4 +499,221 @@ test("missing model names use an explicit fallback", () => {
   const item = modelsContainer.children[0];
   assert.equal(item.querySelector(".model-task").textContent, "Unknown model");
   assert.equal(item.querySelector(".model-details"), null);
+});
+
+
+test("only the drag handle starts a model move, and editing state gates it", () => {
+  const models = ["first", "second"].map(name => ({name, element_name: name, modelGroup: "main"}));
+  const editor = {revision: 7, modelGroups: [{id: "main"}]};
+  modelsManager.render(models, editor, {state: "READY"});
+  modelsManager.beginEditing();
+  const item = modelsContainer.children.find(item => item.classList.contains('model-item'));
+  const handle = item.querySelector('.model-drag-handle');
+  assert.equal(handle.draggable, true);
+  assert.equal(Boolean(item.draggable), false);
+  assert.equal(item.listeners.has('dragstart'), false);
+  item.getBoundingClientRect = () => ({left: 0, top: 0, width: 339, height: 240});
+  let payload;
+  const event = {type: 'dragstart', clientX: 5, clientY: 5,
+    preventDefault() { throw new Error('Enabled handle should allow dragging'); },
+    dataTransfer: {setDragImage(preview) {
+      assert.notEqual(preview, item);
+      assert.ok(preview.classList.contains('model-drag-preview'));
+      assert.equal(preview.style.width, '339px');
+      assert.equal(preview.style.height, '240px');
+      assert.equal(preview.querySelector('.model-insertion'), null);
+    }, setData(type, value) { payload = value; }}};
+  handle.dispatchEvent(event);
+  assert.equal(payload, 'first');
+  assert.equal(modelsManager.draggedModel.name, 'first');
+  handle.dispatchEvent({type: 'dragend'});
+  assert.equal(modelsManager.draggedModel, null);
+  assert.equal(modelsManager.dragPreview, null);
+  modelsManager.pipelineState = {state: 'PLAYING'};
+  modelsManager.updateEditorControls();
+  assert.equal(handle.draggable, false);
+  let blocked = false;
+  handle.dispatchEvent({type: 'dragstart', preventDefault() { blocked = true; }});
+  assert.equal(blocked, true);
+  modelsManager.discardEdits();
+});
+
+test('drop markers identify the insertion boundary and submit the matching final position', () => {
+  const models = ['a', 'b', 'c', 'd'].map(name => ({name, element_name: name, modelGroup: 'main'}));
+  for (const [source, target, y, expected, marker] of [
+    [0, 2, 10, 1, 'model-drop-before'],
+    [0, 2, 90, 2, 'model-drop-after'],
+    [3, 1, 10, 1, 'model-drop-before'],
+    [3, 1, 90, 2, 'model-drop-after'],
+    [0, 1, 10, null, null],
+  ]) {
+    modelsManager.render(models, {revision: 8, modelGroups: [{id: 'main'}]}, {state: 'READY'});
+    modelsManager.beginEditing();
+    const item = modelsContainer.children.filter(item => item.classList.contains('model-item'))[target];
+    item.getBoundingClientRect = () => ({top: 0, height: 100});
+    modelsManager.draggedModel = {name: models[source].name, modelGroup: 'main', revision: 8, position: source};
+    const before = sentMessages.length;
+    item.dispatchEvent({type: 'dragover', clientY: y, preventDefault() {}, dataTransfer: {}});
+    const boundary = target + (y >= 50 ? 1 : 0);
+    const divider = modelsManager.insertionTargets.get(JSON.stringify(['main', boundary]));
+    assert.equal(modelsManager.dropTarget, marker ? divider : null);
+    if (marker) assert.ok(divider.classList.contains('model-drop-target'));
+    item.dispatchEvent({type: 'drop', clientY: y, preventDefault() {}});
+    assert.equal(modelsManager.dropTarget, null);
+    assert.equal(item.classList.contains('model-drop-before'), false);
+    assert.equal(item.classList.contains('model-drop-after'), false);
+    assert.equal(sentMessages.length, before);
+    if (expected !== null) assert.equal(modelsManager.models[expected].element_name, models[source].element_name);
+    modelsManager.discardEdits();
+  }
+});
+
+test("edit mode provides every insertion boundary and preserves model group positions", () => {
+  const models = [
+    {name: 'First', element_name: 'first', modelGroup: 'a'},
+    {name: 'Second', element_name: 'second', modelGroup: 'a'},
+  ];
+  const editor = {revision: 7, modelGroups: [{id: 'a'}, {id: 'empty'}]};
+  modelsManager.render(models, editor, {state: 'READY'});
+  modelsManager.beginEditing();
+  assert.equal(modelsManager.insertionButtons.length, 4);
+  const originalPicker = modelsManager.openPicker;
+  const selections = [];
+  modelsManager.openPicker = (model, insertion) => selections.push(insertion);
+  for (const button of modelsManager.insertionButtons) button.dispatchEvent({type: 'click'});
+  assert.deepEqual(selections, [
+    {modelGroup: 'a', position: 0}, {modelGroup: 'a', position: 1},
+    {modelGroup: 'a', position: 2}, {modelGroup: 'empty', position: 0},
+  ]);
+  modelsManager.openPicker = originalPicker;
+  modelsManager.render(models, editor, {state: 'PLAYING'});
+  assert.equal(modelsManager.insertionButtons.length, 0);
+  assert.equal(modelsManager.editMode, false);
+});
+
+
+test('saving a draft waits for server acknowledgements and maps newly added model names', () => {
+  const models = [{name: 'Original', element_name: 'original', modelGroup: 'a'}];
+  const editor = {revision: 20, modelGroups: [{id: 'a'}], availableOpChains: [{name: 'Added', path: '/added.json'}]};
+  const state = {state: 'READY', busy: false, pending: '', error: ''};
+  modelsManager.render(models, editor, state);
+  modelsManager.beginEditing();
+  const before = sentMessages.length;
+  modelsManager.submitEdit({action: 'add', modelGroup: 'a', path: '/added.json', position: 0});
+  const draftName = modelsManager.models[0].element_name;
+  modelsManager.submitEdit({action: 'move', modelGroup: 'a', name: draftName, position: 1});
+  assert.equal(sentMessages.length, before);
+  modelsManager.saveEdits();
+  assert.deepEqual(sentMessages.at(-1), {type:'model_edit', action:'add', modelGroup:'a', path:'/added.json', position:0, revision:20});
+  modelsManager.render(models, editor, {...state, busy:true});
+  assert.equal(sentMessages.length, before + 1);
+  const added = {name: 'Added', element_name:'server-added', modelGroup:'a'};
+  modelsManager.render([added, ...models], {...editor, revision:21}, state);
+  assert.deepEqual(sentMessages.at(-1), {type:'model_edit', action:'move', modelGroup:'a', name:'server-added', position:1, revision:21});
+  modelsManager.render([...models, added], {...editor, revision:22}, state);
+  assert.equal(modelsManager.saving, false);
+  assert.equal(modelsManager.editMode, false);
+  assert.deepEqual(modelsManager.models.map(model=>model.element_name), ['original','server-added']);
+});
+
+test('discarding add, replace and remove drafts never sends changes', () => {
+  const models = [{name:'First', element_name:'first', modelGroup:'a'}, {name:'Second', element_name:'second', modelGroup:'a'}];
+  modelsManager.render(models, {revision:30, modelGroups:[{id:'a'}], availableOpChains:[{name:'New',path:'/new.json'}]}, {state:'READY'});
+  modelsManager.beginEditing();
+  const before = sentMessages.length;
+  modelsManager.submitEdit({action:'replace', modelGroup:'a', name:'first', path:'/new.json'});
+  modelsManager.submitEdit({action:'remove', modelGroup:'a', name:'second'});
+  modelsManager.submitEdit({action:'add', modelGroup:'a', path:'/new.json', position:1});
+  modelsManager.discardEdits();
+  assert.equal(sentMessages.length,before);
+  assert.deepEqual(modelsManager.models,models);
+});
+
+test('a changed server revision invalidates an unsaved draft without sending it', () => {
+  const models = [{name:'First', element_name:'first', modelGroup:'a'}];
+  const editor = {revision:40, modelGroups:[{id:'a'}]};
+  modelsManager.render(models, editor, {state:'READY'});
+  modelsManager.beginEditing();
+  const before = sentMessages.length;
+  modelsManager.submitEdit({action:'remove',modelGroup:'a',name:'first'});
+  modelsManager.render(models,{...editor,revision:41},{state:'READY'});
+  assert.equal(modelsManager.editMode,false);
+  assert.deepEqual(modelsManager.models,models);
+  assert.equal(sentMessages.length,before);
+});
+
+
+test('dragging over either half of an Add control chooses the same insertion boundary', () => {
+  const models = ['a', 'b', 'c'].map(name => ({name,element_name:name,modelGroup:'main'}));
+  for (const y of [1,31]) {
+    modelsManager.render(models,{revision:50,modelGroups:[{id:'main'}]},{state:'READY'});
+    modelsManager.beginEditing();
+    const divider = modelsManager.insertionTargets.get(JSON.stringify(['main',2]));
+    modelsManager.draggedModel = {name:'a',modelGroup:'main',position:0};
+    divider.dispatchEvent({type:'dragover',clientY:y,preventDefault(){},dataTransfer:{}});
+    assert.equal(modelsManager.dropTarget,divider);
+    assert.ok(divider.classList.contains('model-drop-target'));
+    divider.dispatchEvent({type:'drop',clientY:y,preventDefault(){}});
+    assert.deepEqual(modelsManager.models.map(model=>model.element_name),['b','a','c']);
+    assert.equal(divider.classList.contains('model-drop-target'),false);
+    modelsManager.discardEdits();
+  }
+});
+
+
+test('dependency tooltip follows the selected source and its activation state', () => {
+  const payloadType = 'boxes';
+  const face = {name:'Face', task:'Face detection', element_name:'face', active:true, providedOutputs:[{payloadType,producerId:'face/output'}]};
+  const objects = {name:'Objects', task:'Object detection', element_name:'objects', active:true, providedOutputs:[{payloadType,producerId:'objects/output'}]};
+  const consumer = {name:'Gaze', element_name:'gaze', requiredInputs:[]};
+  const check = (producerId, expected) => {
+    consumer.requiredInputs = [{consumerId:'crop',inputId:'input',payloadType,producerId}];
+    modelsManager.render([face,objects,consumer]);
+    assert.equal(modelsContainer.children[2].querySelector('.model-dependency-info').getAttribute('aria-label'), `Depends on: ${expected}`);
+  };
+  check('face/output','Face detection');
+  check('objects/output','Object detection');
+  objects.active = false;
+  check('objects/output','Object detection (off)');
+  check('','No input connected');
+  check('missing/output','Selected source unavailable');
+});
+
+
+test('dependency icon warns only for an enabled consumer with a selected disabled provider', () => {
+  const source = {name:'Face',element_name:'face',active:false,providedOutputs:[{payloadType:'boxes',producerId:'face/output'}]};
+  const consumer = {name:'Gaze',element_name:'gaze',active:true,requiredInputs:[{consumerId:'crop',inputId:'input',payloadType:'boxes',producerId:'face/output'}]};
+  const warns = () => {
+    modelsManager.render([source,consumer]);
+    return modelsContainer.children[1].querySelector('.model-dependency-info').classList.contains('model-dependency-warning');
+  };
+  assert.equal(warns(),true);
+  consumer.active = false;
+  assert.equal(warns(),false);
+  consumer.active = true;
+  source.active = true;
+  assert.equal(warns(),false);
+  source.active = false;
+  consumer.requiredInputs[0].producerId = 'different/output';
+  assert.equal(warns(),false);
+});
+
+
+test('dropdown updates dependency text and warning before any server report arrives', () => {
+  const payloadType = 'boxes';
+  const face = {name:'Face',element_name:'face',active:true,providedOutputs:[{payloadType,producerId:'face/output'}]};
+  const objects = {name:'Objects',element_name:'objects',active:false,providedOutputs:[{payloadType,producerId:'objects/output'}]};
+  const consumer = {name:'Gaze',element_name:'gaze',active:true,requiredInputs:[{consumerId:'crop',inputId:'input',payloadType,producerId:'face/output'}],availableInputs:[...face.providedOutputs,...objects.providedOutputs]};
+  modelsManager.render([face,objects,consumer]);
+  const item = modelsContainer.children[2];
+  const dropdown = item.querySelector('select');
+  const info = item.querySelector('.model-dependency-info');
+  dropdown.value = 'objects/output';
+  dropdown.dispatchEvent({type:'change'});
+  assert.equal(info.getAttribute('aria-label'),'Depends on: Objects (off)');
+  assert.equal(info.classList.contains('model-dependency-warning'),true);
+  dropdown.value = '';
+  dropdown.dispatchEvent({type:'change'});
+  assert.equal(info.getAttribute('aria-label'),'Depends on: No input connected');
+  assert.equal(info.classList.contains('model-dependency-warning'),false);
 });

@@ -297,6 +297,30 @@ nlohmann::json ModelEditor::statusOf(const json &registeredModels) const {
             model["opchainPath"] = path.empty() ? path : fs::absolute(path).string();
             model["modelGroup"] = modelGroupId;
             model["connected"] = connected;
+            // READY retires the inference runtime, so registration metadata can retain
+            // old selections. Read configured bindings even when no frames are flowing.
+            if (g_object_class_find_property(G_OBJECT_GET_CLASS(element), "input-bindings")) {
+                g_autofree gchar *encodedBindings = nullptr;
+                g_object_get(element, "input-bindings", &encodedBindings, nullptr);
+                const auto bindings =
+                    json::parse(encodedBindings ? encodedBindings : "[]", nullptr, false);
+                if (bindings.is_array() && model.contains("requiredInputs") &&
+                    model["requiredInputs"].is_array()) {
+                    for (auto &input : model["requiredInputs"]) {
+                        for (const auto &binding : bindings) {
+                            if (binding.value("consumerId", std::string{}) ==
+                                    input.value("consumerId", std::string{}) &&
+                                binding.value("inputId", std::string{}) ==
+                                    input.value("inputId", std::string{}) &&
+                                binding.value("payloadType", std::string{}) ==
+                                    input.value("payloadType", std::string{})) {
+                                input["producerId"] = binding.value("producerId", std::string{});
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
             models.push_back(std::move(model));
             registeredModelsByElementName.erase(name);
         };
@@ -416,11 +440,20 @@ void ModelEditor::edit(GstElement *const pipeline, const json &message, ModelReg
             throw std::runtime_error("Model position is outside this model group");
         }
     }
+    if (action == "add" && message.contains("position")) {
+        if (!message.at("position").is_number_unsigned()) {
+            throw std::runtime_error("Model position must be a non-negative integer");
+        }
+        if (message.at("position").get<std::size_t>() > modelGroup.m_models.size()) {
+            throw std::runtime_error("Model position is outside this model group");
+        }
+    }
     ++m_revision;
     // GStreamer callbacks may stop the server and join its reporting thread.
     // The command worker and pipeline state lock serialize edits while this lock is released.
     lock.unlock();
 
+    std::string addedModelName;
     std::string invalidatedModel;
     std::shared_ptr<GstElement> modelToDisconnect;
     std::string error;
@@ -448,12 +481,14 @@ void ModelEditor::edit(GstElement *const pipeline, const json &message, ModelReg
         invalidatedModel = name;
         error = linkModelGroup(modelGroup);
     } else if (action == "add") {
+        const auto destination = message.value("position", modelGroup.m_models.size());
         auto model = createModel(pipeline, path);
         if (!gst_bin_add(GST_BIN(parent), model.get())) {
             throw std::runtime_error("Cannot add the selected model");
         }
+        addedModelName = GST_OBJECT_NAME(model.get());
         unlinkModelGroup(modelGroup);
-        modelGroup.m_models.push_back(model);
+        modelGroup.m_models.insert(modelGroup.m_models.begin() + destination, model);
         error = linkModelGroup(modelGroup);
         if (!gst_element_sync_state_with_parent(model.get()) && error.empty()) {
             error = "Cannot prepare the added model";
@@ -463,8 +498,7 @@ void ModelEditor::edit(GstElement *const pipeline, const json &message, ModelReg
     if (action == "replace") {
         m_modelMetadataCollection[name] = std::move(modelMetadata);
     } else if (action == "add") {
-        m_modelMetadataCollection[GST_OBJECT_NAME(modelGroup.m_models.back().get())] =
-            std::move(modelMetadata);
+        m_modelMetadataCollection[addedModelName] = std::move(modelMetadata);
     } else if (action == "remove") {
         m_modelMetadataCollection.erase(name);
     }
