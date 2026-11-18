@@ -45,6 +45,26 @@ available to Ops.
 Ops can query named views to access input or intermediate image data without
 copying frame memory.
 
+## Prompt Inputs
+
+`prompt` is the optional immutable `PromptSnapshot` paired with the invocation's
+media. It owns the session, generated request envelope and a polymorphic semantic
+payload. The context has no box-, text- or model-specific prompt fields. Payload
+format/version and destination support are delegated to `OpInterfacePromptConsumer`.
+
+`preparedPrompt` records completed prompt input preparation for the next matching
+inference. Only a preprocessor that successfully wrote those inputs sets it.
+`OpChain` consumes that preparation at the actual inference boundary and owns
+`inferencePrompt`, the association for successfully produced output tensors.
+A new inference replaces the earlier output association, including when its
+preprocessing used OCR rather than the generic image Op. Chain entry, error,
+abort and skipped-inference paths must not retain stale preparation/association.
+`GenericPostprocess` passes only the output-associated snapshot to the parser,
+which explicitly associates its own produced results with that request.
+The generated request envelope is encapsulated; public accessors expose only
+read-only identity/destination values and serialization uses a detached copy.
+See the [prompt runtime contract](promptable-inputs-proposal.md#runtime-snapshot-and-extension-boundary).
+
 ## Loop Control
 
 `loopId` on each Op identifies a contiguous repeated section. The OpChain

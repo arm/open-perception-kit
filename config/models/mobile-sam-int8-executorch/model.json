@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "name": "mobile-sam-int8-xnnpack",
+  "legal": "Arm optimized MobileSAM, Apache-2.0; see index.md and config/models/licenses/mobile-sam-README.md.",
+  "modelFile": "mobile_sam_raspberry_executorch_optimized.pte",
+  "hfDownload": {
+    "repo_id": "Arm/mobile-sam-int8-xnnpack-executorch",
+    "revision": "cced0b5344c7f01c731df32955290adf1fe7eae1",
+    "filename": "mobile_sam_raspberry_executorch_optimized.pte",
+    "sha256": "5a54ac69f73e542f15cfd4f6e1c117a2c546ae6134c19507f2ce07127a42df25"
+  },
+  "dynamicOutput": false,
+  "inputTensors": [
+    {"shape": [1, 3, 1024, 1024], "dataKind": "ImageRgbChw", "valueType": "Float32", "keepAspectRatio": false},
+    {"shape": [1, 1, 2, 2], "dataKind": "RawTensorData", "valueType": "Float32"}
+  ],
+  "outputTensors": [
+    {"shape": [1, 3, 256, 256], "dataKind": "RawTensorData", "valueType": "Float32"},
+    {"shape": [1, 3], "dataKind": "RawTensorData", "valueType": "Float32"}
+  ]
+}

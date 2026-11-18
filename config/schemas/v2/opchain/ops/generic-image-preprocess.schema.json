@@ -26,6 +26,9 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 15
+          },
+          "inferenceInstance": {
+            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString"
           }
         }
       }

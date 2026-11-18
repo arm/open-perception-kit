@@ -18,6 +18,7 @@
 #include "GenericImagePreprocessOp.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <fmt/core.h>
 #include <memory>
@@ -106,6 +107,52 @@ opk::Result<opk::ImageOpDesc> sourceImageDescription(const opk::mediaio::VideoFr
     return source;
 }
 
+opk::Result<void> validateInputPreprocessors(const std::span<opk::op::Op *const> operations,
+                                             const opk::op::InferenceInputBinding &imageBinding,
+                                             const size_t inputCount) {
+    std::array<bool, opk::MaxTensorCount> written{};
+    const auto claimInputs =
+        [&](const opk::op::InferenceInputBinding &binding) -> opk::Result<void> {
+        if (binding.inferenceInstance != imageBinding.inferenceInstance ||
+            binding.sourceName != imageBinding.sourceName || binding.tensorIndices.empty()) {
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                            "Input preprocessors require matching inference/source "
+                                            "bindings and declared inputs"));
+        }
+        for (const size_t tensorIndex : binding.tensorIndices) {
+            if (tensorIndex >= inputCount || tensorIndex >= written.size() ||
+                written[tensorIndex]) {
+                return tl::unexpected(
+                    OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                              "Input preprocessors require valid, nonoverlapping tensor inputs"));
+            }
+            written[tensorIndex] = true;
+        }
+        return {};
+    };
+
+    if (const auto result = claimInputs(imageBinding); !result) {
+        return result;
+    }
+
+    for (const auto *const operation : operations) {
+        const auto *const preprocessor =
+            operation->as<opk::op::OpInterfaceInferenceInputPreprocessor>();
+        if (operation->loopId != 0 || operation->as<opk::op::OpInterfaceInference>() ||
+            !preprocessor) {
+            return tl::unexpected(OPK_ERROR(
+                opk::ErrorFlag::InvalidOpChain,
+                "Explicit image binding permits only unlooped cooperating input preprocessors "
+                "before inference"));
+        }
+        const auto binding = preprocessor->getInputBinding();
+        if (const auto result = claimInputs(binding); !result) {
+            return result;
+        }
+    }
+    return {};
+}
+
 opk::ImageInferenceMetadata imageMetadata(const opk::PixelRect &cropRect,
                                           const opk::PixelRect &destinationRect,
                                           const opk::PixelRect &letterboxInnerRect) {
@@ -126,7 +173,7 @@ opk::ImageInferenceMetadata imageMetadata(const opk::PixelRect &cropRect,
 GenericImagePreprocessOp::GenericImagePreprocessOp() = default;
 GenericImagePreprocessOp::~GenericImagePreprocessOp() = default;
 
-opk::Result<void> GenericImagePreprocessOp::bind(size_t index,
+opk::Result<void> GenericImagePreprocessOp::bind(const size_t index,
                                                  const std::vector<opk::op::Op *> &ops) {
     // sanity check
     if (index >= ops.size() || ops.size() - index <= 1) {
@@ -134,8 +181,20 @@ opk::Result<void> GenericImagePreprocessOp::bind(size_t index,
                                         "GenericImagePreprocessOp cannot be the last Op"));
     }
 
-    // sanity check (later maybe other ops will be valid between them)
-    upcomingInference = ops[index + 1]->as<opk::op::OpInterfaceInference>();
+    size_t inferenceIndex = index + 1;
+    if (!inferenceInstanceId.empty()) {
+        const auto destination = std::find_if(
+            ops.begin() + static_cast<std::ptrdiff_t>(index + 1),
+            ops.end(),
+            [&](const auto *const op) { return op->instanceId == inferenceInstanceId; });
+        if (destination == ops.end() || loopId != 0 || (*destination)->loopId != 0) {
+            return tl::unexpected(OPK_ERROR(
+                opk::ErrorFlag::InvalidOpChain,
+                "GenericImagePreprocess explicit inference must follow it in an unlooped chain"));
+        }
+        inferenceIndex = static_cast<size_t>(destination - ops.begin());
+    }
+    upcomingInference = ops[inferenceIndex]->as<opk::op::OpInterfaceInference>();
     if (!upcomingInference) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
@@ -144,7 +203,7 @@ opk::Result<void> GenericImagePreprocessOp::bind(size_t index,
 
     // --- grab infos about the upcoming inference
     upcomingInferenceModel = upcomingInference->getModel();
-    sharedInput = ops[index + 1]->as<opk::op::OpInterfaceSharedInput>();
+    sharedInput = ops[inferenceIndex]->as<opk::op::OpInterfaceSharedInput>();
 
     if (inputImageTensorIndex == opk::InvalidTensorIndex) {
         // user not specified a tensor index
@@ -158,6 +217,12 @@ opk::Result<void> GenericImagePreprocessOp::bind(size_t index,
         }
     }
 
+    if (inputImageTensorIndex >= upcomingInferenceModel.inputs.size()) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                      "GenericImagePreprocess image tensor index is out of range"));
+    }
+
     // sanity check
     if (inputImageTensorIndex == opk::InvalidTensorIndex) {
         return tl::unexpected(OPK_ERROR(
@@ -165,16 +230,55 @@ opk::Result<void> GenericImagePreprocessOp::bind(size_t index,
             "GenericImagePreprocessOp cannot find an upcoming tensor index to work with"));
     }
 
+    if (!inferenceInstanceId.empty()) {
+        const opk::op::InferenceInputBinding imageBinding{
+            inferenceInstanceId, inputImageSourceName, {&inputImageTensorIndex, 1}};
+        const std::span<opk::op::Op *const> intermediates{ops.data() + index + 1,
+                                                          inferenceIndex - index - 1};
+        return validateInputPreprocessors(
+            intermediates, imageBinding, upcomingInferenceModel.inputs.size());
+    }
     return {};
 }
 
 opk::Result<void> GenericImagePreprocessOp::configure(const opk::AttributeMap &attributes) {
+    for (const auto *const name : {"inputImageSourceName", "inferenceInstance"}) {
+        if (attributes.contains(name) && !attributes.at(name).isString()) {
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData, std::string(name) + " must be a string"));
+        }
+    }
+    if (attributes.contains("inputImageTensorIndex") &&
+        (!attributes.at("inputImageTensorIndex").isInt() ||
+         attributes.getInt("inputImageTensorIndex") < 0 ||
+         attributes.getInt("inputImageTensorIndex") >= static_cast<int64_t>(opk::MaxTensorCount))) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData, "inputImageTensorIndex must be in [0,15]"));
+    }
     // --- get config info from the json attributes
     inputImageSourceName =
         attributes.getStringOrDefault("inputImageSourceName", "pipelineVideoFrame");
     inputImageTensorIndex =
         attributes.getIntOrDefault("inputImageTensorIndex", opk::InvalidTensorIndex);
+    inferenceInstanceId = attributes.getStringOrDefault("inferenceInstance", "");
+    if (inputImageSourceName.empty() ||
+        (attributes.contains("inferenceInstance") && inferenceInstanceId.empty())) {
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                        "Image source and explicit destination must be nonempty"));
+    }
     return {};
+}
+
+const std::string &GenericImagePreprocessOp::inferenceInstance() const {
+    return inferenceInstanceId;
+}
+
+size_t GenericImagePreprocessOp::imageTensorIndex() const {
+    return inputImageTensorIndex;
+}
+
+const std::string &GenericImagePreprocessOp::imageSourceName() const {
+    return inputImageSourceName;
 }
 
 opk::Result<opk::ImageOpDesc>
@@ -223,6 +327,10 @@ GenericImagePreprocessOp::process(opk::op::OpChainContext &opChainContext) {
 
     if (opChainContext.inferenceImageCrops.size() == 0) {
         return opk::op::OpSignal::BreakLoop;
+    }
+    if (opChainContext.inferenceImageCropIds.size() != opChainContext.inferenceImageCrops.size()) {
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                        "GenericImagePreprocess crop IDs are inconsistent"));
     }
 
     const opk::PixelRect cropRect{opChainContext.inferenceImageCrops.back()};

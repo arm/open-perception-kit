@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "description": "MobileSAM continuing box prompts on a USB camera; submit prompts from the native application hosting the pipeline.",
+  "sourceInfo": "USB camera, ExecuTorch enabled, application prompt commands required for inference",
+  "pipeline": [
+    "v4l2src device=/dev/video0 !",
+    "videoconvert ! video/x-raw,format=BGRA !",
+    "opkprompt name=prompts destination-element=mobileSam inference-instance=mobileSam !",
+    "opkinfer name=mobileSam opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/mobile-sam-int8-executorch/opchain.json\" active=true !",
+    "opkcomm method=file file-name=- !",
+    "fakesink sync=false"
+  ],
+  "alternative-source-image": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/config/models/mobile-sam-int8-executorch/sample_input.jpg\" !",
+    "jpegdec ! imagefreeze is-live=true !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ]
+}

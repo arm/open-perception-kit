@@ -180,3 +180,23 @@ module.
 Checked-in Op implementations live under `development/ops-*`, including standard
 orchestration Ops and backend-specific inference Ops. Treat that tree as the
 source of truth for the current implementation set.
+
+## Cooperating inference input preprocessors
+
+An explicitly bound `GenericImagePreprocess` can precede additional input writers
+that implement `OpInterfaceInferenceInputPreprocessor`. Their `getInputBinding()`
+returns configured inference/source identities and a span of written tensor
+indices. This information is available before the later Ops bind; the views are
+valid until reconfiguration or destruction. It introduces no per-frame allocation.
+
+The capability promises to preserve primary media selection, crop/geometry state
+and storage for other tensor inputs. Generic binding rejects unrecognized Ops,
+intervening inference, loops, target/source mismatches and duplicate or invalid
+input ownership. Concrete consumers retain their model-specific validation.
+`BoxPromptPreprocess` implements this contract; the image Op has no concrete box
+dependency. Descriptor validation admits additional Ops for explicit unlooped
+image stages using shared stage rules, with no box-specific classification or
+topology exception. Each Op's JSON schema still validates its own attributes;
+concrete source/tensor agreement and sequencing errors are rejected during binding.
+Runtime binding verifies actual capabilities. Omitting an explicit inference
+target retains the original adjacency contract.

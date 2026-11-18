@@ -671,6 +671,19 @@
           }
         }
       }
+    },
+    "mobileSamMask": {
+      "title": "MobileSamMaskParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "MobileSamMaskParser"
+        }
+      }
     }
   },
   "if": {
@@ -749,6 +762,9 @@
           },
           {
             "$ref": "#/$defs/keywordClassification"
+          },
+          {
+            "$ref": "#/$defs/mobileSamMask"
           }
         ]
       }

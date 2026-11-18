@@ -34,6 +34,7 @@ config_validator_schema_manifest = [
   ['urn:arm:opk:schema:inference-op:v2', 'config/schemas/v2/opchain/ops/inference.schema.json'],
   ['urn:arm:opk:schema:generic-postprocess-op:v2', 'config/schemas/v2/opchain/ops/generic-postprocess.schema.json'],
   ['urn:arm:opk:schema:python-script-op:v2', 'config/schemas/v2/opchain/ops/python-script.schema.json'],
+  ['urn:arm:opk:schema:box-prompt-preprocess-op:v2', 'config/schemas/v2/opchain/ops/box-prompt-preprocess.schema.json'],
 ]
 
 config_validator_embedded_schemas = ''

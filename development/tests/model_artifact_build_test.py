@@ -613,6 +613,8 @@ for arg in sys.argv:
             "config/models/**/*.vgf.part",
             "config/models/licenses/",
             "config/models/pp-ocrv6-tiny-rec/characters.txt*",
+            "config/models/mobile-sam-int8-executorch/sample_input.jpg",
+            "config/models/mobile-sam-int8-executorch/segmentation.reference",
         ]
         rules = [
             line
@@ -622,6 +624,8 @@ for arg in sys.argv:
         self.assertEqual(rules, expected)
         dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
         self.assertIn("config/models/licenses/", dockerignore)
+        for pattern in expected[-2:]:
+            self.assertIn(pattern, dockerignore)
         for pattern in ("**/*.bin", "**/*.bin.part", "**/*.hef", "**/*.onnx", "**/*.onnx.data", "**/*.pte", "**/*.vgf", "**/*.vgf.part", "**/*.onnx.part", "**/*.pte.part"):
             self.assertIn(pattern, dockerignore)
 

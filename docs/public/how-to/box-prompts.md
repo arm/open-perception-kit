@@ -20,10 +20,10 @@ limitations under the License.
 
 # Send streaming box prompts
 
-Use `opkprompt` before an `opkinfer` branch containing a prompt-aware Op. A submitted
-box continues until replaced, cancelled or its controlling session ends. The
-target pixels arrive through the video pipeline; requests contain no image or
-frame ID. The consuming Op chooses its behavior when no prompt is bound.
+Use `opkprompt` before a dedicated MobileSAM `opkinfer` branch. A submitted box
+continues until replaced, cancelled or its controlling session ends. The target
+pixels arrive through the video pipeline; requests contain no image or frame ID.
+Without a prompt the MobileSAM chain forwards video and skips inference.
 
 ```text
 camera / repeating image -> geometry conversion -> opkprompt -> opkinfer -> opkcomm
@@ -41,10 +41,11 @@ copies preserve the snapshot; region copies and geometry transforms do not.
 A destination/geometry mismatch fails explicitly. Use one ingress per selected
 branch; do not tee prompted buffers into unrelated inference destinations.
 
-The chain must advertise matching format, inference-instance and source support
-through `OpInterfacePromptConsumer`. Unsupported destinations fail before inference.
-Native Op implementations prepare prompt tensors and associate their own results;
-the transport does not infer support from a model name.
+The ready-to-use [model](../../../config/models/mobile-sam-int8-executorch/index.md),
+[pipeline](../../../config/pipelines/mobile-sam-int8-executorch.json) and
+[native example](../../../development/examples/mobilesam-prompts/README.md)
+provide the initial integration. Enable the packaged ExecuTorch backend when
+building. Model provenance and qualification limits are recorded with the model.
 
 ## Public GStreamer protocol version 1
 
@@ -65,8 +66,8 @@ strictly greater revision. New request IDs start at revision 1. IDs are nonzero
 uint64 and cannot be reused within a session, including after cancellation.
 Changing destination requires a new request. Revisions are complete replacements.
 Use generated SDK types and preserve all 64 bits (TypeScript uses `bigint`).
-Build a `GBytes` copy, set it into the structure (which retains a reference),
-then release the local `GBytes` reference before sending the event.
+The example builds a `GBytes` copy, sets it into the structure (which retains a
+reference), then releases its local `GBytes` reference before sending the event.
 
 Box geometry is finite double-precision normalized continuous upright, unmirrored
 image extent: `0 <= left < right <= 1`, `0 <= top < bottom <= 1`. Undo display
@@ -99,8 +100,8 @@ Each outgoing video buffer carries its own immutable private `PromptInputsMeta`.
 Replacement, cancellation and session end affect later attachments; already
 paired buffers retain their original snapshot and may still execute. `opkinfer`
 consumes its input-only metadata even when inactive or skipping inference.
-Prompt-aware producers append typed results and `PromptAssociation` through
-`FrameResultsMeta`/`opkcomm`. The association
+A successful prompted invocation appends existing `InstanceSegmentationMasks`
+and `PromptAssociation` results through `FrameResultsMeta`/`opkcomm`. The association
 contains the generated request envelope, owning `session_id`, media `parent_id`
 and producing layer. Default/unprompted results claim no old prompt identity.
 Consumers must route by session as well as request/revision to handle late results.
@@ -121,8 +122,8 @@ A remote client needs a backend bridge in the process that owns the pipeline.
 The inspected [Cairn backend at revision 700d46e](https://github.com/arm/composable-ai-runtimes/blob/700d46ea0794a5ffc93352dafc9446d9cca9e061/services/perception/src/perception_service/gstreamer/runtime.py)
 only exposes pipeline/stage control and handles error/EOS/state bus messages.
 It needs command submission and element-bus acknowledgement forwarding before
-this path can pass the actual CairnSDK acceptance gate. Public GStreamer
-interfaces alone do not establish end-to-end Cairn support.
+this path can pass the actual CairnSDK acceptance gate. The native example is a
+public-interface demonstration; it does not establish end-to-end Cairn support.
 
 See the [GStreamer event ownership contract](https://gstreamer.freedesktop.org/documentation/gstreamer/gstelement.html#gst_element_send_event),
 [metadata transform contract](https://gstreamer.freedesktop.org/documentation/gstreamer/gstmeta.html)

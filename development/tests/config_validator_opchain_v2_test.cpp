@@ -615,6 +615,114 @@ TEST(ConfigValidator, OpChainV1ValidatesEffectiveThresholdOrder) {
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
 }
 
+TEST(ConfigValidator, MobileSamUsesDefaultImageSamplingWithoutSamplingAttribute) {
+    const auto path = std::filesystem::path{OPK_REPOSITORY_ROOT} /
+                      "config/models/mobile-sam-int8-executorch/opchain.json";
+    std::ifstream input(path);
+    ASSERT_TRUE(input);
+    auto document = nlohmann::json::parse(input);
+    EXPECT_FALSE(document["ops"][1]["attributes"].contains("sampling"));
+    ASSERT_TRUE(opk::config::validateOpChainJson(document.dump(), path.string()));
+    for (const auto *const sampling : {"nearest", "bilinearHalfPixel"}) {
+        document["ops"][1]["attributes"]["sampling"] = sampling;
+        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump(), path.string()));
+    }
+}
+
+TEST(ConfigValidator, ExplicitImageBindingDefersCustomInputCapabilitiesToRuntime) {
+    const auto path = std::filesystem::path{OPK_REPOSITORY_ROOT} /
+                      "config/models/mobile-sam-int8-executorch/opchain.json";
+    std::ifstream input(path);
+    ASSERT_TRUE(input);
+    auto document = nlohmann::json::parse(input);
+    document["ops"][2]["id"] = "custom/InputPreprocessor";
+    const auto contents = document.dump();
+    const auto sourcePath = path.string();
+    const auto validation = opk::config::validateOpChainJson(contents, sourcePath);
+    EXPECT_TRUE(validation);
+
+    auto descriptor = builtInStage();
+    descriptor.ops[1].attributes.set("inferenceInstance", "sam");
+    descriptor.ops[2].instanceId = "sam";
+    descriptor.ops.insert(descriptor.ops.begin() + 2,
+                          {"custom/InputPreprocessor", std::nullopt, {}});
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
+    descriptor.ops.insert(descriptor.ops.begin() + 2,
+                          {"custom/AnotherInputPreprocessor", std::nullopt, {}});
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
+    auto invalid = descriptor;
+    invalid.ops[1].attributes = opk::AttributeMap{};
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+    invalid = descriptor;
+    invalid.ops[1].attributes.set("inferenceInstance", "other");
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+    invalid = descriptor;
+    invalid.ops[2].loopId = 1;
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+    invalid = descriptor;
+    invalid.ops[2].id = "opk-std-ops/GenericImagePreprocess";
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+}
+
+TEST(ConfigValidator, BoxSpecificCrossOperationChecksAreDeferredToBinding) {
+    auto descriptor = builtInStage();
+    descriptor.ops[1].attributes.set("inferenceInstance", "sam");
+    descriptor.ops[2].instanceId = "sam";
+    opk::op::OpChainDescriptor::Op box{"opk-std-ops/BoxPromptPreprocess", std::nullopt, {}};
+    box.attributes.set("inferenceInstance", "sam");
+    box.attributes.set("inputBoxTensorIndex", int64_t{1});
+    descriptor.ops.insert(descriptor.ops.begin() + 2, box);
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
+
+    auto invalid = descriptor;
+    invalid.ops[1].attributes.set("inferenceInstance", "other");
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+    invalid = descriptor;
+    invalid.ops[2].attributes.set("inputBoxTensorIndex", int64_t{0});
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(invalid).ok());
+    invalid = descriptor;
+    invalid.ops[2].attributes.set("inputImageSourceName", "other");
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(invalid).ok());
+    invalid = descriptor;
+    invalid.ops[2].attributes.set("inferenceInstance", "other");
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(invalid).ok());
+    invalid = descriptor;
+    std::swap(invalid.ops[2], invalid.ops[3]);
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(invalid).ok());
+    invalid = descriptor;
+    for (auto &op : invalid.ops) {
+        op.loopId = 1;
+    }
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+}
+
+TEST(ConfigValidator, MobileSamDescriptorAndPromptAttributesUsePublishedFormat) {
+    const auto path = std::filesystem::path{OPK_REPOSITORY_ROOT} /
+                      "config/models/mobile-sam-int8-executorch/opchain.json";
+    std::ifstream file(path);
+    ASSERT_TRUE(file);
+    const auto original = nlohmann::json::parse(file);
+    const auto valid = opk::config::validateOpChainJson(original.dump());
+    ASSERT_TRUE(valid) << valid.error().toText();
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(*valid).ok());
+    for (const auto &attributes :
+         {nlohmann::json{{"inferenceInstance", "sam"}},
+          nlohmann::json{{"inferenceInstance", "sam"}, {"inputBoxTensorIndex", -1}},
+          nlohmann::json{{"inferenceInstance", "sam"}, {"inputBoxTensorIndex", 16}},
+          nlohmann::json{
+              {"inferenceInstance", "sam"}, {"inputBoxTensorIndex", 1}, {"unknown", 0}}}) {
+        auto invalid = original;
+        invalid["ops"][2]["attributes"] = attributes;
+        EXPECT_FALSE(opk::config::validateOpChainJson(invalid.dump()));
+    }
+}
+
 } // namespace
 
 TEST(ConfigValidator, UltraFaceLogitsUseOpChain2Contract) {

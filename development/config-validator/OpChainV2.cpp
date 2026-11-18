@@ -214,11 +214,45 @@ bool validateStageShape(ValidationReport &report,
         addStageIssue(
             report, source, controller + 1, "built-in stage must begin with preprocessing");
     }
-    if (!opk::op::isInferenceOpId(ops[controller + 2].id)) {
-        addStageIssue(report,
-                      source,
-                      controller + 2,
-                      "preprocessing must be immediately followed by backend inference");
+    const auto inferenceOp =
+        std::find_if(ops.begin() + static_cast<std::ptrdiff_t>(controller + 2),
+                     ops.begin() + static_cast<std::ptrdiff_t>(end),
+                     [](const auto &op) { return opk::op::isInferenceOpId(op.id); });
+    if (inferenceOp == ops.begin() + static_cast<std::ptrdiff_t>(end)) {
+        addStageIssue(report, source, controller + 2, "preprocessing must precede inference");
+        return false;
+    }
+    const auto inference = static_cast<size_t>(std::distance(ops.begin(), inferenceOp));
+    if (inference + 1 >= end) {
+        addStageIssue(report, source, inference, "inference requires a terminal postprocessor");
+        return false;
+    }
+    if (inference != controller + 2) {
+        const auto &image = ops[controller + 1];
+        const auto target = stringAttribute(image.attributes, "inferenceInstance");
+        if (image.id != Preprocess || !target || inferenceOp->instanceId != *target) {
+            addStageIssue(report,
+                          source,
+                          controller + 1,
+                          "intervening input preprocessors require an explicit matching "
+                          "image/inference binding");
+        }
+        for (size_t index = controller; index < end; ++index) {
+            if (ops[index].loopId.value_or(0) != 0) {
+                addStageIssue(
+                    report, source, index, "explicit input preprocessing stages must be unlooped");
+            }
+        }
+        for (size_t index = controller + 2; index < inference; ++index) {
+            if (isBuiltInStageOp(ops[index].id)) {
+                addStageIssue(report,
+                              source,
+                              index,
+                              "intervening built-in operations do not preserve the "
+                              "input-preprocessor contract");
+            }
+        }
+        // Concrete input-preprocessor capabilities and bindings are validated at runtime.
     }
     if (!isTerminalPostprocess(ops[end - 1].id)) {
         addStageIssue(report,
@@ -227,7 +261,7 @@ bool validateStageShape(ValidationReport &report,
                       "built-in stage must end with GenericPostprocess or PythonScript");
     }
 
-    for (std::size_t index = controller + 3; index + 1 < end; ++index) {
+    for (std::size_t index = inference + 1; index + 1 < end; ++index) {
         if (isBuiltInStageOp(ops[index].id)) {
             addStageIssue(report,
                           source,

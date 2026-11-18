@@ -187,6 +187,11 @@ unzip "$sdk_root/open-perception-kit-<opk-version>.zip" -d open-perception-kit
 Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK
 version matches the OPK product version.
 
+For continuing MobileSAM box prompts, see the
+[public GStreamer prompt protocol](../how-to/box-prompts.md). It describes
+command events, acknowledgements and session-aware results, plus the remaining
+Cairn backend bridge needed to expose them to remote clients.
+
 ## Download models
 
 Releases contain model descriptors and OpChains, with pinned `hfDownload`

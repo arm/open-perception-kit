@@ -49,6 +49,9 @@
     },
     {
       "$ref": "urn:arm:opk:schema:turn-detector-op:v2"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:box-prompt-preprocess-op:v2"
     }
   ]
 }
