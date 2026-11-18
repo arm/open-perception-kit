@@ -17,7 +17,7 @@
 
 import {renderOsd} from './osd-renderer.js';
 import {OVERLAY_FEATURES, featureFor, overlayStatus, resolveOverlay} from './overlay-features.js';
-import {bindPendingOverlays, createOverlay, loadOverlays, saveOverlays} from './overlays.js';
+import {addDefaultOverlays, bindPendingOverlays, createOverlay, loadOverlays, saveOverlays} from './overlays.js';
 import {indexFrame, sourceDetails, sourceKey, sourceLabels} from './overlay-sources.js';
 import {loadLocalImage} from './overlay-image.js';
 
@@ -72,7 +72,7 @@ function node(tag, className, text) {
 }
 
 function persist() {
-    notice.textContent = saveOverlays(storage, overlays);
+    notice.textContent = saveOverlays(storage, overlays, restored.defaultSources);
 }
 
 function setPanelOpen(open) {
@@ -586,7 +586,10 @@ function updateMetadata(frame, decodeError) {
         }
     }
     const bound = bindPendingOverlays(overlays, knownOutputs);
-    if (bound) persist();
+    const previousCount = overlays.length;
+    const defaultsChanged = addDefaultOverlays(overlays, knownOutputs, restored.defaultSources);
+    if (bound || defaultsChanged) persist();
+    if (overlays.length !== previousCount) renderList();
     updateStatuses();
     if (changed || bound) updateSourceLabels();
     if (dialog.open) {

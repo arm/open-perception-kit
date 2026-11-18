@@ -79,7 +79,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
             return [id, element];
         }));
     const get = (id) => elements.get(id);
-    const storage = new Map();
+    const storage = new Map([[OVERLAY_STORAGE_KEY, JSON.stringify({version: 3, overlays: []})]]);
     let storageWrites = 0;
     const window = new Element('window');
     window.localStorage = {getItem: (key) => storage.get(key) ?? null,

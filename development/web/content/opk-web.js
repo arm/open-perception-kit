@@ -10390,6 +10390,18 @@ function renderOsd(canvas2, video5, index, overlays2 = [], { now = Date.now() } 
 // development/web/src/overlays.js
 var OVERLAY_STORAGE_KEY = "opk-overlays:v3";
 var PREVIOUS_STORAGE_KEY = "opk-overlays:v2";
+var DEFAULT_FEATURES = new Map(Object.entries({
+  BoxDetections: "bounding-boxes",
+  TrackTraces: "movement-trails",
+  Classifications: "classifications",
+  PersonPresences: "classifications",
+  CameraContacts: "camera-contact",
+  GazeMeasurements: "gaze",
+  PerformanceMeasurements: "performance",
+  SegmentationMasks: "background-replacement",
+  SemanticSegmentationMasks: "semantic-segmentation",
+  InstanceSegmentationMasks: "instance-segmentation"
+}));
 function normalizeOverlay(overlay2) {
   const primary = overlay2?.selection?.primary;
   if (!overlay2 || typeof overlay2.featureId !== "string" || !overlay2.featureId || typeof overlay2.enabled !== "boolean" || primary !== null && !validSource(primary)) return null;
@@ -10401,6 +10413,21 @@ function normalizeOverlay(overlay2) {
 }
 function createOverlay(featureId, source = null) {
   return { featureId, selection: { primary: source }, enabled: true, settings: defaultSettings(featureId, source) };
+}
+function addDefaultOverlays(overlays2, catalog, defaultSources) {
+  if (!defaultSources) return false;
+  let changed = false;
+  for (const source of catalog.values()) {
+    const key = sourceKey(source);
+    const featureId = DEFAULT_FEATURES.get(source.payloadType);
+    const feature2 = featureFor(featureId);
+    if (!source.producerInstanceId || defaultSources.has(key) || !feature2?.render || !feature2.discover(/* @__PURE__ */ new Map([[key, source]])).length) continue;
+    defaultSources.add(key);
+    changed = true;
+    if (overlays2.some((overlay2) => overlay2.selection.primary ? sourceKey(overlay2.selection.primary) === key : overlay2.featureId === featureId)) continue;
+    overlays2.push(createOverlay(featureId, source));
+  }
+  return changed;
 }
 function bindPendingOverlays(overlays2, catalog) {
   let changed = false;
@@ -10419,7 +10446,7 @@ function loadOverlays(storage2) {
   try {
     const current = storage2.getItem(OVERLAY_STORAGE_KEY);
     const raw = current ?? storage2.getItem(PREVIOUS_STORAGE_KEY);
-    if (raw === null) return { overlays: [], notice: "" };
+    if (raw === null) return { overlays: [], defaultSources: /* @__PURE__ */ new Set(), notice: "" };
     const saved = JSON.parse(raw);
     const migrating = current === null;
     if (saved?.version !== (migrating ? 2 : 3) || !Array.isArray(saved.overlays)) throw new Error("Unsupported settings");
@@ -10427,20 +10454,25 @@ function loadOverlays(storage2) {
     const overlays2 = candidates.map(normalizeOverlay).filter(Boolean);
     const notices = [];
     if (overlays2.length !== candidates.length) notices.push("Some invalid saved overlays were skipped.");
+    const defaultSources = !migrating && Array.isArray(saved.defaultSources) && saved.defaultSources.every((key) => typeof key === "string") ? new Set(saved.defaultSources) : null;
     if (migrating) {
       notices.push("Saved selections migrated. Marker shape is now an explicit display setting.");
       notices.push(saveOverlays(storage2, overlays2));
     }
-    return { overlays: overlays2, notice: notices.filter(Boolean).join(" ") };
+    return { overlays: overlays2, defaultSources, notice: notices.filter(Boolean).join(" ") };
   } catch {
-    return { overlays: [], notice: "Saved overlays could not be loaded. You can still add overlays." };
+    return { overlays: [], defaultSources: null, notice: "Saved overlays could not be loaded. You can still add overlays." };
   }
 }
-function saveOverlays(storage2, overlays2) {
+function saveOverlays(storage2, overlays2, defaultSources = null) {
   try {
     const saved = overlays2.map(normalizeOverlay);
     if (saved.some((overlay2) => !overlay2)) throw new Error("Invalid overlay settings");
-    storage2.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({ version: 3, overlays: saved }));
+    storage2.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({
+      version: 3,
+      overlays: saved,
+      ...defaultSources ? { defaultSources: [...defaultSources] } : {}
+    }));
     return "";
   } catch {
     return "Overlay settings could not be saved. Changes apply only to this page session.";
@@ -10492,7 +10524,7 @@ function node(tag, className, text2) {
   return result;
 }
 function persist() {
-  notice.textContent = saveOverlays(storage, overlays);
+  notice.textContent = saveOverlays(storage, overlays, restored.defaultSources);
 }
 function setPanelOpen(open) {
   panel.hidden = !open;
@@ -10997,7 +11029,10 @@ function updateMetadata(frame, decodeError) {
     }
   }
   const bound = bindPendingOverlays(overlays, knownOutputs);
-  if (bound) persist();
+  const previousCount = overlays.length;
+  const defaultsChanged = addDefaultOverlays(overlays, knownOutputs, restored.defaultSources);
+  if (bound || defaultsChanged) persist();
+  if (overlays.length !== previousCount) renderList();
   updateStatuses();
   if (changed || bound) updateSourceLabels();
   if (dialog.open) {
