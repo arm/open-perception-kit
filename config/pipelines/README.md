@@ -77,6 +77,12 @@ Setting `active=false` skips per-frame inference only. Each `opkinfer` still
 loads its OpChain and model during startup, so every artifact referenced by the
 selected pipeline must be present.
 
+The browser creates editable overlays as supported outputs first appear in a
+fresh browser setup. Open **Overlays** beside the video to change their styles,
+hide them, or remove them. Saved customizations and removals survive reloads;
+existing saved overlay lists are preserved. These presets send undecorated video,
+so browser controls own the visible overlays.
+
 ## Available presets
 
 ONNX selection presets:
@@ -85,7 +91,7 @@ ONNX selection presets:
 - `full-onnx-raspicam` — model selection on a Raspberry Pi camera.
 - `full-onnx-usb-cam` — model selection on a USB camera at `/dev/video0`.
 - `full-onnx-yuv` — model selection on bundled video while preserving the
-  decoded pixel format, with an OPKOSD overlay.
+  decoded pixel format, with editable browser overlays.
 
 Focused detector and cascade presets:
 
