@@ -64,3 +64,43 @@ TEST(VoicePipelineOutput, QuotesLabelsAndEscapesTerminalControlsAfterSerializati
                   "\r\033[2KKEYWORD " + expected + " (75.0%)\n");
     }
 }
+
+TEST(VoicePipelineOutput, EmptyOrInvalidAudioAssessmentsDoNotProduceKeywordEvents) {
+    using namespace open_perception_kit::metadata;
+    for (int mode = 0; mode < 4; ++mode) {
+        ClassificationsT payload;
+        payload.layer = std::make_unique<LayerInfoT>();
+        payload.layer->producer = std::make_unique<ProducerInfoT>();
+        payload.layer->producer->instance_id = "keywords/opk-std-ops-GenericPostprocess-0";
+        auto value = std::make_unique<ClassificationT>();
+        value->kind = ClassificationKind::Categorical;
+        value->label_set = "test:commands";
+        opk::AudioInferenceMetadata audio;
+        audio.sourceId = "keywords/pcm";
+        audio.sessionId = "session";
+        audio.segmentIndex = 1;
+        audio.sampleRateHz = 16000;
+        audio.windowEndSample = 512;
+        value->audio_window = opk::audio_results::makeWindow(audio);
+        if (mode != 0) {
+            auto candidate = std::make_unique<ClassificationCandidateT>();
+            candidate->class_id = 0;
+            candidate->confidence = 0;
+            candidate->text = "open";
+            value->candidates.push_back(std::move(candidate));
+        }
+        if (mode == 2)
+            value->audio_window->sample_rate_hz = 0;
+        if (mode == 3)
+            value->subject_id = 1;
+        payload.classifications.push_back(std::move(value));
+        open_perception_kit::container::envelope results;
+        results.add(payload);
+        const auto bytes = results.serialize();
+        const open_perception_kit::container::envelope decoded{std::span<const uint8_t>(bytes)};
+        testing::internal::CaptureStdout();
+        voice_pipeline::printKeywords(decoded);
+        EXPECT_EQ(testing::internal::GetCapturedStdout(),
+                  mode == 1 ? "\r\033[2KKEYWORD \"open\" (0.0%)\n" : "");
+    }
+}

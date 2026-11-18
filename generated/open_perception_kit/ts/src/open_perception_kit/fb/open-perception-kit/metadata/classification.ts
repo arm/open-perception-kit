@@ -20,6 +20,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { AudioWindow, AudioWindowT } from '../../open-perception-kit/metadata/audio-window.js';
 import { ClassificationCandidate, ClassificationCandidateT } from '../../open-perception-kit/metadata/classification-candidate.js';
 import { ClassificationKind } from '../../open-perception-kit/metadata/classification-kind.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
@@ -75,8 +76,13 @@ subjectId():bigint|null {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : null;
 }
 
+audioWindow(obj?:AudioWindow):AudioWindow|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? (obj || new AudioWindow()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
 static startClassification(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(6);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -111,21 +117,15 @@ static addSubjectId(builder:flatbuffers.Builder, subjectId:bigint) {
   builder.addFieldInt64(4, subjectId, null);
 }
 
+static addAudioWindow(builder:flatbuffers.Builder, audioWindowOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, audioWindowOffset, 0);
+}
+
 static endClassification(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createClassification(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, candidatesOffset:flatbuffers.Offset, labelSetOffset:flatbuffers.Offset, kind:ClassificationKind, subjectId:bigint|null):flatbuffers.Offset {
-  Classification.startClassification(builder);
-  Classification.addObject(builder, objectOffset);
-  Classification.addCandidates(builder, candidatesOffset);
-  Classification.addLabelSet(builder, labelSetOffset);
-  Classification.addKind(builder, kind);
-  if (subjectId !== null)
-    Classification.addSubjectId(builder, subjectId);
-  return Classification.endClassification(builder);
-}
 
 unpack(): ClassificationT {
   return new ClassificationT(
@@ -133,7 +133,8 @@ unpack(): ClassificationT {
     this.bb!.createObjList<ClassificationCandidate, ClassificationCandidateT>(this.candidates.bind(this), this.candidatesLength()),
     this.labelSet(),
     this.kind(),
-    this.subjectId()
+    this.subjectId(),
+    (this.audioWindow() !== null ? this.audioWindow()!.unpack() : null)
   );
 }
 
@@ -144,6 +145,7 @@ unpackTo(_o: ClassificationT): void {
   _o.labelSet = this.labelSet();
   _o.kind = this.kind();
   _o.subjectId = this.subjectId();
+  _o.audioWindow = (this.audioWindow() !== null ? this.audioWindow()!.unpack() : null);
 }
 }
 
@@ -153,7 +155,8 @@ constructor(
   public candidates: (ClassificationCandidateT)[] = [],
   public labelSet: string|Uint8Array|null = null,
   public kind: ClassificationKind = ClassificationKind.Unspecified,
-  public subjectId: bigint|null = null
+  public subjectId: bigint|null = null,
+  public audioWindow: AudioWindowT|null = null
 ){}
 
 
@@ -161,13 +164,17 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
   const candidates = Classification.createCandidatesVector(builder, builder.createObjectOffsetList(this.candidates));
   const labelSet = (this.labelSet !== null ? builder.createString(this.labelSet!) : 0);
+  const audioWindow = (this.audioWindow !== null ? this.audioWindow!.pack(builder) : 0);
 
-  return Classification.createClassification(builder,
-    object,
-    candidates,
-    labelSet,
-    this.kind,
-    this.subjectId
-  );
+  Classification.startClassification(builder);
+  Classification.addObject(builder, object);
+  Classification.addCandidates(builder, candidates);
+  Classification.addLabelSet(builder, labelSet);
+  Classification.addKind(builder, this.kind);
+  if (this.subjectId !== null)
+    Classification.addSubjectId(builder, this.subjectId);
+  Classification.addAudioWindow(builder, audioWindow);
+
+  return Classification.endClassification(builder);
 }
 }

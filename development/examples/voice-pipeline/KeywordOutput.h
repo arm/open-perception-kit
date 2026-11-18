@@ -18,6 +18,7 @@
 #pragma once
 
 #include "open_perception_kit.h"
+#include "opk/ClassificationScores.h"
 
 #include <fmt/format.h>
 
@@ -32,7 +33,8 @@ inline void printKeywords(const open_perception_kit::container::envelope &result
             if (!classification)
                 continue;
             for (const auto &candidate : classification->candidates) {
-                if (candidate && candidate->confidence)
+                if (candidate && candidate->confidence &&
+                    opk::classification::validCandidate(*classification, *candidate))
                     fmt::print("\r\033[2KKEYWORD {:?} ({:.1f}%)\n",
                                candidate->text,
                                static_cast<double>(*candidate->confidence) * 100.0);

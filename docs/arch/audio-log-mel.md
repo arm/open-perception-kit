@@ -161,11 +161,16 @@ ordered vocabulary, and `labels` (nonempty array of nonempty strings or nulls,
 at least one string). Its length must match the tensor's
 class axis. Null suppresses that class at any position; there is no fixed
 class count, keyword list or unknown/noise index. Softmax and argmax include
-all classes. If the winning label is null, publish nothing; do not select a
-runner-up. `none` accepts finite scores in [0,1]. Publish one winner when its
+all classes. If the winning label is null, retain an empty assessment; do not select a
+runner-up. `none` accepts finite scores in [0,1]. Accept one winner when its
 score is >= the configured threshold, compared in the Float32 score domain;
 ties select the first index. Publish `Classifications` with `kind=Categorical`,
-the configured label-set identity, the input subject and producer/model identity.
+the configured label-set identity, producer/model identity and the scheduler's
+self-contained `audio_window`, rather than an inferred spatial subject. A valid
+window with no accepted keyword still publishes one classification with empty
+candidates. Invalid timing or tensors fail without an empty-success substitute.
+See [audio classification windows](perception.md#audio-classification-windows)
+for source/session/segment identity, sample-rate/PTS semantics and comparison.
 
 Parser IDs name the operation rather than a model. Model names belong in
 model-local descriptors, runnable profiles and artifact integration tests.
@@ -182,17 +187,18 @@ Custom pipelines can add independently scheduled keyword inference in an
 `opkinfer name=keywords` branch, with the postprocessor's `instanceId` set to
 `opk-std-ops-GenericPostprocess-0`. Keep it separate from the conversation's
 terminal turn-detection branch: `AbortChain` skips the remaining Op stages.
-The demo receives its classifications through the runtime callback; keyword
-assessments do not control conversation completion.
+The demo receives its classifications through the runtime callback and prints
+only accepted candidates; empty window assessments do not create keyword events.
+Keyword assessments do not control conversation completion.
 
 Before microphone audio arrives, `opksrc` emits placeholder silence marked
 `GAP`. The audio scheduler resets and skips those buffers, so they do not advance
 normalization state or conversation timers. Inference waits for a complete
 window of real audio.
 
-The web frontend displays the existing VAD/turn probabilities, state and
-audio-window bounds. Its view model preserves 64-bit sample/timestamp values
-and absent timestamps. VAD and turn assessments stay visible between inference
+The web frontend displays VAD/turn probabilities and state, and keyword candidates
+with their audio-window bounds. Its view model preserves 64-bit sample/segment/
+timestamp values and absent timestamps. Audio assessments stay visible between inference
 windows and clear when the source resets or stops. Video results describe the
 current frame. Turn-model assessments remain distinct from the conversation
 controller's final turn decisions.
@@ -214,9 +220,11 @@ trigger turn inference.
 
 ## Compatibility and validation
 
-Model reader 1.4.0 and OpChain reader 1.13.0 support these features; see
+Current Model and OpChain readers use format 2.0.0; see
 [configuration compatibility](../public/concepts/configuration-compatibility.md).
-No payload or product release version changes are required.
+The optional classification audio-window field is part of the unreleased SDK 1.0
+development snapshot. Existing VAD/turn payload fields and algorithms are unchanged;
+native plugins and generated SDK consumers must be rebuilt from matching inputs.
 
 - [Kernel tests](../../development/tests/cpu_log_mel_spectrogram_test.cpp) compare
   independent Torch references, both layouts, rolling eviction/reset, silence,
@@ -229,6 +237,11 @@ No payload or product release version changes are required.
   [turn detector tests](../../development/tests/turn_detector_test.cpp) and
   [scheduler tests](../../development/tests/audio_window_pipeline_test.py) cover
   score decoding, debounce, timing and discontinuities.
+- [Published metadata tests](../../development/tests/audio_metadata_pipeline_test.py)
+  run real preprocessing, keyword parsing and file publication with a deterministic
+  model-shaped Op. They compare identical audio partitioned into different input
+  buffers, including explicit empty assessments. This is runtime integration
+  coverage, not a live microphone or real keyword-model accuracy claim.
 
 ### Reproduce the model-independent reference tests
 

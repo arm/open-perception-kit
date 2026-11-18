@@ -80,7 +80,7 @@ config_validator = static_library(
     'OpChainV2.cpp',
   ],
   include_directories : [config_validator_include, common_include],
-  dependencies : [jsoncons_dep] + config_validator_public_deps,
+  dependencies : [jsoncons_dep, open_perception_kit_dep] + config_validator_public_deps,
   install : false,
 )
 

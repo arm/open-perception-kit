@@ -17,6 +17,7 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
+import { AudioWindow, AudioWindowT } from '../../open-perception-kit/metadata/audio-window.js';
 import { ClassificationCandidate, ClassificationCandidateT } from '../../open-perception-kit/metadata/classification-candidate.js';
 import { ClassificationKind } from '../../open-perception-kit/metadata/classification-kind.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
@@ -33,6 +34,7 @@ export declare class Classification implements flatbuffers.IUnpackableObject<Cla
     labelSet(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     kind(): ClassificationKind;
     subjectId(): bigint | null;
+    audioWindow(obj?: AudioWindow): AudioWindow | null;
     static startClassification(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
     static addCandidates(builder: flatbuffers.Builder, candidatesOffset: flatbuffers.Offset): void;
@@ -41,8 +43,8 @@ export declare class Classification implements flatbuffers.IUnpackableObject<Cla
     static addLabelSet(builder: flatbuffers.Builder, labelSetOffset: flatbuffers.Offset): void;
     static addKind(builder: flatbuffers.Builder, kind: ClassificationKind): void;
     static addSubjectId(builder: flatbuffers.Builder, subjectId: bigint): void;
+    static addAudioWindow(builder: flatbuffers.Builder, audioWindowOffset: flatbuffers.Offset): void;
     static endClassification(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createClassification(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, candidatesOffset: flatbuffers.Offset, labelSetOffset: flatbuffers.Offset, kind: ClassificationKind, subjectId: bigint | null): flatbuffers.Offset;
     unpack(): ClassificationT;
     unpackTo(_o: ClassificationT): void;
 }
@@ -52,6 +54,7 @@ export declare class ClassificationT implements flatbuffers.IGeneratedObject {
     labelSet: string | Uint8Array | null;
     kind: ClassificationKind;
     subjectId: bigint | null;
-    constructor(object?: ObjectMetaT | null, candidates?: (ClassificationCandidateT)[], labelSet?: string | Uint8Array | null, kind?: ClassificationKind, subjectId?: bigint | null);
+    audioWindow: AudioWindowT | null;
+    constructor(object?: ObjectMetaT | null, candidates?: (ClassificationCandidateT)[], labelSet?: string | Uint8Array | null, kind?: ClassificationKind, subjectId?: bigint | null, audioWindow?: AudioWindowT | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

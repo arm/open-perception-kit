@@ -16,6 +16,7 @@
  */
 
 #include "ValidatorInternal.h"
+#include "opk/OutputCapability.h"
 
 #include <algorithm>
 #include <format>
@@ -392,6 +393,33 @@ void validateThresholds(ValidationReport &report,
     }
 }
 
+void validatePythonPayloadTypes(ValidationReport &report,
+                                const opk::op::OpChainDescriptor &descriptor,
+                                const std::string_view source) {
+    for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
+        const auto &op = descriptor.ops[index];
+        if (op.id != PythonScript)
+            continue;
+        for (const char *const field : {"providedOutputs", "requiredInputs"}) {
+            if (!op.attributes.contains(field) || !op.attributes.at(field).isArray())
+                continue;
+            const auto &entries = op.attributes.getArray(field);
+            for (std::size_t entry = 0; entry < entries.size(); ++entry) {
+                if (!entries[entry].isObject())
+                    continue;
+                const auto payload = stringAttribute(*entries[entry].asMapPtr(), "payloadType");
+                if (payload && !opk::isKnownPayloadType(*payload))
+                    report.issues.push_back(makeIssue(
+                        "opchain.v2.python-payload-type",
+                        ValidationPhase::Descriptor,
+                        source,
+                        std::format("/ops/{}/attributes/{}/{}/payloadType", index, field, entry),
+                        std::format("unknown generated SDK payload type: {}", *payload)));
+            }
+        }
+    }
+}
+
 void validateAudioParserIntegers(ValidationReport &report,
                                  const opk::op::OpChainDescriptor &descriptor,
                                  const std::string_view source) {
@@ -429,6 +457,7 @@ ValidationReport validateOpChainV2(const opk::op::OpChainDescriptor &descriptor,
     validateTurnDetectorIntegers(report, descriptor, source);
     validateThresholds(report, descriptor, source);
     validateAudioParserIntegers(report, descriptor, source);
+    validatePythonPayloadTypes(report, descriptor, source);
     report.sort();
     return report;
 }

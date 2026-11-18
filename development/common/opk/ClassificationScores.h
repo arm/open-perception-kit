@@ -18,6 +18,7 @@
 #pragma once
 
 #include "open_perception_kit.h"
+#include "opk/AudioResults.h"
 
 #include <algorithm>
 #include <array>
@@ -50,7 +51,8 @@ inline std::optional<std::array<float, 2>> softmaxPair(const float first, const 
 inline bool
 validCandidate(const open_perception_kit::metadata::ClassificationT &classification,
                const open_perception_kit::metadata::ClassificationCandidateT &candidate) {
-    if (candidate.confidence && !validProbability(*candidate.confidence))
+    if (!opk::audio_results::validClassificationContext(classification) ||
+        (candidate.confidence && !validProbability(*candidate.confidence)))
         return false;
     using Kind = open_perception_kit::metadata::ClassificationKind;
     switch (classification.kind) {

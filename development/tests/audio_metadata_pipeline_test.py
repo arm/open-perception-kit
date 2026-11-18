@@ -23,9 +23,74 @@ import unittest
 from file_pipeline_test_support import run_file_pipeline
 from open_perception_kit.packet import decode
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT
+from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT
 
 
 class AudioMetadataPipelineTest(unittest.TestCase):
+    def test_keyword_windows_are_self_contained_and_independent_of_buffer_boundaries(self):
+        plugins = str(Path(sys.argv[1]).resolve())
+        environment = os.environ.copy()
+        environment["GST_PLUGIN_PATH"] = plugins
+        environment["LD_LIBRARY_PATH"] = os.pathsep.join(filter(None, [plugins, environment.get("LD_LIBRARY_PATH")]))
+        runs = []
+        for rate, buffer_samples, buffers in ((16000, 256, 6), (16000, 768, 2), (48000, 768, 6)):
+            with self.subTest(rate=rate, buffer_samples=buffer_samples), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                descriptor = directory / "opchain.json"
+                descriptor.write_text(json.dumps({"version": "2.0.0", "name": "keyword-window-test",
+                                                  "description": "Real preprocessing and keyword parsing with deterministic model scores",
+                                                  "ops": [
+                                                      {"id": "opk-std-ops/GenericAudioPreprocess", "attributes": {}},
+                                                      {"id": "opk-test-audio-window/Window", "attributes": {
+                                                          "trace": str(directory / "trace.txt"), "window": 512, "preprocessed": True, "keyword": True}},
+                                                      {"id": "opk-std-ops/GenericPostprocess", "instanceId": "output", "attributes": {
+                                                          "parser": "KeywordClassificationParser", "outputTensorIndex": 0, "activation": "none",
+                                                          "confidenceThreshold": .6, "labels": ["open", None, "close", "hold"], "labelSet": "test:commands-v1"}},
+                                                  ]}))
+                output = directory / "results.ndjson"
+                process = run_file_pipeline([
+                    "audiotestsrc", f"num-buffers={buffers}", f"samplesperbuffer={buffer_samples}", "wave=sine", "!",
+                    f"audio/x-raw,format=F32LE,rate={rate},channels=1,layout=interleaved", "!",
+                    "opkinfer", "name=keywords", "audio-hop-samples=256", f"opchain-path={descriptor}", "!",
+                    "opkcomm", "method=file", f"file-name={output}", "!",
+                    "appsink", "wait-on-eos=true", "sync=false", "async=false",
+                ], output, buffers, env=environment, cwd=Path(__file__).resolve().parents[2])
+                self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+                assessments = []
+                sessions = set()
+                for line in output.read_text().splitlines():
+                    envelope = decode(base64.b64decode(json.loads(line)["frame_results_packet_b64"]))
+                    source = list(envelope.for_each(FrameContextT))[0].audio
+                    self.assertEqual(source.originalFrequency, rate)
+                    self.assertEqual(source.originalSampleCount, buffer_samples)
+                    for payload in envelope.for_each(ClassificationsT):
+                        self.assertEqual(payload.layer.producer.instanceId, b"keywords/output")
+                        self.assertEqual(len(payload.classifications), 1)
+                        item = payload.classifications[0]
+                        self.assertIsNone(item.subjectId)
+                        window = item.audioWindow
+                        self.assertIsNotNone(window)
+                        self.assertEqual(window.sourceId, b"keywords/pipelineAudioData")
+                        self.assertEqual(window.sampleRateHz, 16000)
+                        self.assertEqual(window.segmentIndex, 1)
+                        self.assertTrue(window.sessionId)
+                        sessions.add(window.sessionId)
+                        assessments.append((window.windowStartSample, window.windowEndSample,
+                                            window.windowStartTsNs, window.windowEndTsNs, window.discontinuity,
+                                            [candidate.classId for candidate in item.candidates or []]))
+                self.assertEqual(len(sessions), 1)
+                self.assertEqual(len(assessments), 5)
+                for index, assessment in enumerate(assessments):
+                    start = index * 256
+                    delay = 0 if rate == 16000 else 1083333
+                    start_pts = start * 62500 - delay
+                    expected_pts = (None, None) if start_pts < 0 else (start_pts, (start + 512) * 62500 - delay)
+                    self.assertEqual(assessment, (start, start + 512, *expected_pts,
+                                                  index == 0, [0] if index % 3 == 0 else []))
+                if rate == 16000:
+                    runs.append(assessments)
+        self.assertEqual(*runs)
+
     def test_original_buffer_context_is_not_a_fabricated_inference_window(self):
         plugins = str(Path(sys.argv[1]).resolve())
         environment = os.environ.copy()

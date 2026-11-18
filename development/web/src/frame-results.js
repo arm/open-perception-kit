@@ -126,6 +126,15 @@ const classificationMappers = new Map([
     ['Classifications', payload => payload.classifications.map(item => ({type: 'Classification', data: {
         ...objectData(item.object), candidates: item.candidates.map(candidateData), labelSet: text(item.labelSet),
         kind: item.kind, subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+        audioWindow: item.audioWindow ? {
+            sourceId: text(item.audioWindow.sourceId), sessionId: text(item.audioWindow.sessionId),
+            segmentIndex: identifier(item.audioWindow.segmentIndex), sampleRateHz: item.audioWindow.sampleRateHz,
+            windowStartSample: identifier(item.audioWindow.windowStartSample),
+            windowEndSample: identifier(item.audioWindow.windowEndSample),
+            windowStartTsNs: item.audioWindow.windowStartTsNs == null ? null : identifier(item.audioWindow.windowStartTsNs),
+            windowEndTsNs: item.audioWindow.windowEndTsNs == null ? null : identifier(item.audioWindow.windowEndTsNs),
+            discontinuity: item.audioWindow.discontinuity,
+        } : null,
     }}))],
     ['CameraContacts', payload => payload.contacts.map(item => ({type: 'CameraContact', data: {
         ...objectData(item.object), subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),

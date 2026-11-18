@@ -159,7 +159,11 @@ nor the first frame record select a box's coordinate space. Unplaceable geometry
 is omitted from overlays and reported as unavailable in the output panel.
 
 Decoding requires the existing `perception-frame-results+base64` encoding and
-exact SDK producer identity. Invalid/incompatible matched packets clear current
+an exact or compatible SDK identity: the same SDK name and major version.
+Different names or major versions are rejected; schema digests are diagnostic,
+not compatibility gates. Intermediate unreleased SDK 1.0 snapshots must still be
+rebuilt together, as described in the [schema policy](../../schemas/perception/README.md#compatibility-model).
+Invalid/incompatible matched packets clear current
 drawing; live-channel decode failures also show a metadata error. Unknown payload families are not decoded by the current
 typed adapter. Only registered rendering features appear in **Show**; decoding
 a payload does not imply that a renderer is registered for it.
@@ -196,7 +200,7 @@ is unsupported still cannot be added as working overlays.
 - **Ready**: the feature's inputs are available in the latest metadata frame.
 - **Ready · no results**: the selected payload arrived but contains no results.
 - **Partial**: related data is missing. Tracked-object boxes can still draw while
-  waiting for trails; parent-linked markers without parents are omitted.
+  waiting for trails; subject-linked markers without valid subjects are omitted.
 - **Ambiguous**: several related candidates match. Only unambiguous items draw;
   the resolver never picks an arbitrary first candidate.
 - **Unsupported**: the feature or semantic interpretation is unsupported.
@@ -243,9 +247,10 @@ replaced on the next message and cleared on disconnect.
   Model names, engine labels, and label families are not relationship keys.
   Missing trail history gives a partial result; producer metadata is not required for this join. Multiple
   matching trails are ambiguous and omitted. No browser-side history is invented.
-- Gaze and camera contact join `parentId` to face object IDs in the full frame,
-  independently of whether face geometry is visibly drawn. Missing or ambiguous
-  parents are never guessed.
+- Gaze and camera contact join `subject_id` (decoded as `subjectUuid`) to a unique
+  box or track observation's `ObjectMeta.id`, independently of whether that
+  geometry is visibly drawn. Derivation `parent_id` and persistent track IDs are
+  not fallback subjects. Missing, ambiguous or invalid subject geometry is omitted.
 - The persistent full selector still determines which primary output the user
   chose. It is intentionally separate from semantic relationship keys.
 
@@ -400,8 +405,9 @@ source/frame, checked before scanning pixel values. This aggregate budget is
 separate from the unchanged per-bitmap limits (8192 per side, 16,777,216 pixels)
 and applies the same per-image bound to the display-pixel composition surface. Binary validation and
 compositing remain bounded even when many large masks are supplied.
-The entire bitmap is validated; actual foreground bounds then limit compositing
-work, independently of the supplied annotation box.
+One complete pixel pass validates binary membership and finds the foreground
+bounds. Those bounds limit compositing work; the supplied annotation box never
+limits validation.
 
 Drawing uses nearest-neighbor scaling inside the contained video rectangle.
 Raster and annotations share the [overlay hold and clearing rules](#overlay-timing).
@@ -522,6 +528,13 @@ producers and sends `model_inputs` with the full binding array. An empty produce
 ID is unconnected; unavailable and ambiguous sources are not substituted.
 Declarations describe capability, not whether a producer ran on the current frame.
 
+Audio classifications expose `audioWindow` with logical source/session identity,
+continuity segment, processing rate, exact sample bounds and optional media PTS.
+The inference panel and copied text show the analyzed window; empty candidates
+replace the previous keyword with "No candidates". Invalid audio context is shown
+as unavailable, without a spatial-subject fallback. These assessments follow the
+same retention and source-stop/reset lifecycle as VAD/turn output.
+
 Decoded layers distinguish available observations, successful empty collections
 and invalid data. Unsupported/malformed payload entries are reported separately;
 invalid outputs do not become valid zero measurements or empty successes. Audio
@@ -533,9 +546,9 @@ VAD/turn windows remain mono 16 kHz regardless of the original buffer rate.
   item adaptation. Both detector and tracker outputs remain available.
 - `src/overlay-sources.js`: source identities, concise labels, current-frame indexes.
 - `src/overlay-features.js`: registry, lookup, resolution dispatch, and status text.
-- `src/overlay-feature.js`: shared feature contract, palette, and parent lookup.
+- `src/overlay-feature.js`: shared feature contract, palette, and explicit subject lookup.
 - `src/features/`: individual rendering features.
-- `src/features/segmentation.js`: shared full-frame mask validation and generic class preferences, colors, and legends for semantic/instance features.
+- `src/features/segmentation.js`: shared mask metadata validation and generic class preferences, colors, and legends for semantic/instance features.
 - `src/overlay-drawing.js`: coordinate mapping and drawing primitives.
 - `src/osd-renderer.js`: ordered dispatch and isolated canvas state; overlay opacity
   multiplies the renderer's alpha.
@@ -554,7 +567,7 @@ From the repository root, in the OPK development container:
 ```
 
 Tests cover discovery, relationship ambiguity, independent Boxes/Trails controls,
-source/style isolation, hidden-parent geometry, migration/validation, concise
+source/style isolation, hidden-subject geometry, migration/validation, concise
 labels, editing during discovery, plugin registration, decoder behavior, and
 disconnect notifications.
 Foundation tests use non-drawing fixture plugins. Tests under `tests/features/`
@@ -562,27 +575,27 @@ exercise individual registered features, so feature commits remain independently
 testable.
 
 The semantic feature tests cover zero/unknown IDs, palette stability, malformed
-maps, parent geometry, source isolation, and cached colorization. The controlled
+maps, declared image-space geometry, source isolation, and cached colorization. The controlled
 Chromium test in `.github/scripts/quick-start-smoke/smoke.spec.js` checks actual
 canvas pixels at DPR 2, nearest-neighbor boundaries, display letterboxing,
 matched-frame clearing, per-class alpha/color, uninterrupted control focus, and
 saved opacity/visibility/class preferences. Run it through
 that directory's Playwright configuration with `--grep 'semantic class maps'`.
 Instance coverage checks binary foreground, overlapping and same-class masks,
-outlines, frame-local labels, signed/wide class IDs, aggregate limits, independent
+outlines, frame-local labels, optional unsigned/wide class IDs, aggregate limits, independent
 class preferences, and clearing. Run its browser test with `--grep 'instance masks'`.
-OCR coverage checks explicit selection, parent-ID joins, missing/ambiguous data,
+OCR coverage checks explicit selection, subject-ID joins, missing/ambiguous data,
 Unicode and literal markup, confidence semantics, label placement/clipping,
 displayed-frame clearing, and persisted controls. Run its browser test with
 `--grep 'OCR overlays'`. Wire fixtures follow the BoxDetections/Classifications
-contract produced by the EXPKITS-1443 OCR branch; a live OCR pipeline requires
-that runtime and matching producer/browser SDK identities.
+contract in the current runtime; a live OCR pipeline requires its supported
+geometry/subject semantics and compatible producer/browser SDK identities.
 
 In the browser, configure Tracked objects and toggle Boxes/Trails independently.
 Select a tracker through Bounding boxes and verify no trails draw. Add a separate
 Movement trails feature and verify its visibility does not change other overlays.
 Exercise add/edit/cancel/remove, keyboard focus, one-to-many source discovery,
-reload, disconnect/reconnect, missing parents, and unsupported metadata. Run a live
+reload, disconnect/reconnect, missing subjects, and unsupported metadata. Run a live
 pipeline to inspect alignment: synthetic tests do not establish WebRTC timing.
 Also add a feature before its source exists, reload, and then introduce one or
 several compatible sources: only an unambiguous discovery may bind automatically.

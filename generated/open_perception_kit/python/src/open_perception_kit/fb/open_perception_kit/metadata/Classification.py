@@ -17,8 +17,9 @@
 
 # namespace: metadata
 
-import open_perception_kit.fb.open_perception_kit.metadata.ClassificationCandidate
+import open_perception_kit.fb.open_perception_kit.metadata.AudioWindow
 import open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta
+import open_perception_kit.fb.open_perception_kit.metadata.ClassificationCandidate
 import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
@@ -104,9 +105,20 @@ class Classification(object):
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return None
 
+    # Classification
+    def AudioWindow(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from open_perception_kit.fb.open_perception_kit.metadata.AudioWindow import AudioWindow
+            obj = AudioWindow()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
 
 def ClassificationStart(builder):
-    builder.StartObject(5)
+    builder.StartObject(6)
 
 
 def Start(builder):
@@ -161,6 +173,14 @@ def AddSubjectId(builder, subjectId):
     ClassificationAddSubjectId(builder, subjectId)
 
 
+def ClassificationAddAudioWindow(builder, audioWindow):
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(audioWindow), 0)
+
+
+def AddAudioWindow(builder, audioWindow):
+    ClassificationAddAudioWindow(builder, audioWindow)
+
+
 def ClassificationEnd(builder):
     return builder.EndObject()
 
@@ -185,6 +205,7 @@ class ClassificationT(object):
         labelSet=None,
         kind=0,
         subjectId=None,
+        audioWindow=None,
     ):
         # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta.ObjectMetaT]
         self.object = object
@@ -193,6 +214,8 @@ class ClassificationT(object):
         self.labelSet = labelSet  # type: Optional[str]
         self.kind = kind  # type: int
         self.subjectId = subjectId  # type: Optional[int]
+        # type: Optional[open_perception_kit.fb.open_perception_kit.metadata.AudioWindow.AudioWindowT]
+        self.audioWindow = audioWindow
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -230,6 +253,9 @@ class ClassificationT(object):
         self.labelSet = classification.LabelSet()
         self.kind = classification.Kind()
         self.subjectId = classification.SubjectId()
+        if classification.AudioWindow() is not None:
+            self.audioWindow = open_perception_kit.fb.open_perception_kit.metadata.AudioWindow.AudioWindowT.InitFromObj(
+                classification.AudioWindow())
 
     # ClassificationT
     def Pack(self, builder):
@@ -245,6 +271,8 @@ class ClassificationT(object):
             candidates = builder.EndVector()
         if self.labelSet is not None:
             labelSet = builder.CreateString(self.labelSet)
+        if self.audioWindow is not None:
+            audioWindow = self.audioWindow.Pack(builder)
         ClassificationStart(builder)
         if self.object is not None:
             ClassificationAddObject(builder, object)
@@ -254,5 +282,7 @@ class ClassificationT(object):
             ClassificationAddLabelSet(builder, labelSet)
         ClassificationAddKind(builder, self.kind)
         ClassificationAddSubjectId(builder, self.subjectId)
+        if self.audioWindow is not None:
+            ClassificationAddAudioWindow(builder, audioWindow)
         classification = ClassificationEnd(builder)
         return classification

@@ -69,6 +69,12 @@ accepted classifications, escaping control characters in labels. These are rolli
 model assessments, so the same word may appear repeatedly; they do not start or
 stop the conversation state machine.
 
+Every successfully decoded keyword window now publishes a categorical assessment
+with `audio_window` metadata, even when suppression/thresholding leaves no candidates.
+The console prints only accepted candidates, so empty assessments remain silent.
+The window identifies scheduled real PCM samples, not keyword duration or an
+original input buffer; see the [metadata contract](../../../docs/arch/perception.md#audio-classification-windows).
+
 The application applies this policy:
 
 - Speech opens an utterance. Initial silence produces nothing.
