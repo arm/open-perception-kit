@@ -165,3 +165,9 @@ scripts/refresh-container-dns.sh
 artifacts/
 datasets/
 /dist
+
+# Downloaded YAMNet archive contents (owned by scripts/download-models.py).
+config/models/yamnet-esc/yamnet.data*
+config/models/yamnet-esc/metadata.json
+config/models/yamnet-esc/labels.txt
+**/.opk-model-archive-*/
