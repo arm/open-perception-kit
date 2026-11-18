@@ -169,6 +169,7 @@ installed_private_root="${installed_root}/opk"
 plugins=(
     libopkcomm.so
     libopkinfer.so
+    libopkprompt.so
     libopkosd.so
     libopkperformance.so
     libopksink.so

@@ -79,6 +79,9 @@ class OpChain {
     const std::string &getDisplayName() const;
     const std::string &getTask() const;
     const std::string &getRuntime() const;
+    bool acceptsPrompt(const opk::PromptFormat format,
+                       const std::string_view instanceId,
+                       const std::string_view sourceName) const;
     std::vector<std::string_view> getProvidedContentTypes() const;
     std::vector<std::string_view> getRequiredContentTypes() const;
     /// PCM window required by the bound inference inputs; zero means no audio input.

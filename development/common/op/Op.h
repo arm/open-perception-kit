@@ -69,6 +69,31 @@ struct OpInterfaceAudioPreprocessor {
     virtual size_t getRequiredAudioSamples() const = 0;
 };
 
+/// Views into an Op's configured storage, valid until reconfiguration or destruction.
+struct InferenceInputBinding {
+    std::string_view inferenceInstance;
+    std::string_view sourceName;
+    std::span<const size_t> tensorIndices;
+};
+
+/// Cooperating input writer between primary image preparation and inference.
+/// Implementations preserve the selected media, crops, image geometry and other input storage.
+/// Only declared tensor inputs may be written; output views and prompt-consumption state may
+/// change.
+struct OpInterfaceInferenceInputPreprocessor {
+    virtual ~OpInterfaceInferenceInputPreprocessor() = default;
+    /// Available after configure(), before bind() is called on this operation.
+    virtual InferenceInputBinding getInputBinding() const = 0;
+};
+
+/// Bound capability checked before a buffer's typed prompt enters the chain.
+struct OpInterfacePromptConsumer {
+    virtual ~OpInterfacePromptConsumer() = default;
+    virtual bool acceptsPrompt(const opk::PromptFormat format,
+                               const std::string_view inferenceInstance,
+                               const std::string_view sourceName) const = 0;
+};
+
 /** @brief Identifies a preprocessing Op that has only a CPU implementation. */
 struct OpInterfaceCpuPreprocessor {
     virtual ~OpInterfaceCpuPreprocessor() = default;

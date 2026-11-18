@@ -20,6 +20,7 @@
 #include "mediaio/VideoFrame.h"
 #include "opk/FrameResults.h"
 #include "opk/PcmRingBuffer.h"
+#include "opk/PromptInputs.h"
 #include "opk/TensorView.h"
 #include "opk/Types.h"
 #include <array>
@@ -41,6 +42,15 @@ namespace opk::op {
  * process() return signals rather than by mutable context flags.
  */
 struct OpChainContext {
+
+    /// Optional immutable prompt pinned to this invocation; no GStreamer dependency.
+    std::shared_ptr<const opk::PromptSnapshot> prompt;
+
+    /// Prompt inputs successfully prepared for the next matching inference operation.
+    std::shared_ptr<const opk::PromptSnapshot> preparedPrompt;
+
+    /// Set by OpChain only for valid output tensors from the last successful inference.
+    std::shared_ptr<const opk::PromptSnapshot> inferencePrompt;
 
     /// Borrowed PCM windows valid only during this execution. opkinfer supplies
     /// pipelineAudioData as one complete mono Float32 16 kHz inference window.

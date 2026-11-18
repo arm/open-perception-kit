@@ -40,7 +40,7 @@ if [ -f "$package_root/lib/opk/opk-mlwl-ops.so" ]; then
     python3 -c 'import ctypes, sys; ctypes.CDLL(sys.argv[1])' \
         "$package_root/lib/opk/opk-mlwl-ops.so"
 fi
-for element in fakesink opusenc opkcomm opkinfer opkosd opkperformance \
+for element in fakesink opusenc opkcomm opkinfer opkprompt opkosd opkperformance \
     opksink opksrc opktracker videoconvert videotestsrc vp8enc webrtcbin; do
     gst-inspect-1.0 "$element" > /dev/null
 done

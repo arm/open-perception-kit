@@ -19,6 +19,7 @@ common = shared_library(
 
     'gst/Tools.cpp',
     'gst/TensorMeta.cpp',
+    'gst/PromptInputsMeta.cpp',
 
     'opk/Result.cpp',
     'opk/Tools.cpp',
@@ -33,6 +34,9 @@ common = shared_library(
     'opk/Base64.cpp',
 
     'opk/FrameResults.cpp',
+    'opk/PromptInputs.cpp',
+    'opk/BoxPromptInputs.cpp',
+    'opk/BoxPromptCodec.cpp',
 
     'op/Op.cpp',
     'op/OpRef.cpp',

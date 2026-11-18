@@ -896,3 +896,76 @@ test('voice_pipeline_cli', python,
   args: [files('voice_pipeline_cli_test.py'), voice_pipeline.full_path()],
   depends: voice_pipeline,
 )
+
+prompt_inputs_tests = executable(
+  'prompt_inputs_tests',
+  ['prompt_inputs_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('prompt_inputs_tests', prompt_inputs_tests)
+
+prompt_probe_op = shared_module(
+  'opk-test-prompt-probe',
+  ['prompt_probe_op.cpp'],
+  include_directories : [common_include],
+  dependencies : [opk_deps],
+  link_with : [common],
+  name_prefix : '',
+  gnu_symbol_visibility : 'default',
+  install : false,
+)
+
+prompt_inference_tests = executable(
+  'prompt_inference_tests',
+  ['prompt_inference_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps, dependency('gstreamer-app-1.0')],
+  link_with : [common],
+)
+test('prompt_inference_tests', prompt_inference_tests,
+  env : [
+    'GST_PLUGIN_PATH=' + fs.parent(gstopkinfer.full_path()),
+    'LD_LIBRARY_PATH=' + fs.parent(common.full_path()),
+  ],
+  depends : [gstopkprompt, gstopkinfer, prompt_probe_op],
+  timeout : 60,
+)
+
+
+prompt_stage_test_ops = shared_module(
+  'opk-test-prompt-stages',
+  ['prompt_stage_test_ops.cpp'],
+  include_directories : [common_include],
+  dependencies : [opk_deps],
+  link_with : [common],
+  name_prefix : '',
+  gnu_symbol_visibility : 'default',
+  install : false,
+)
+
+prompt_stage_lifecycle_tests = executable(
+  'prompt_stage_lifecycle_tests',
+  ['prompt_stage_lifecycle_test.cpp'],
+  include_directories : [common_include],
+  cpp_args : [
+    '-DOPK_STAGE_TEST_OPS_PATH="' + prompt_stage_test_ops.full_path() + '"',
+    '-DOPK_STDOPS_PATH="' + stdops.full_path() + '"',
+  ],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('prompt_stage_lifecycle_tests', prompt_stage_lifecycle_tests,
+  depends : [prompt_stage_test_ops, stdops],
+)
+
+
+prompt_codec_tests = executable(
+  'prompt_codec_tests',
+  ['prompt_codec_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('prompt_codec_tests', prompt_codec_tests)

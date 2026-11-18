@@ -41,6 +41,7 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/PromptInputsMeta.h"
 #include "gst/PropertyGuard.h"
 #include "gst/Tools.h"
 #include "mediaio/GstAudioFrame.h"
@@ -654,10 +655,35 @@ gst_opkinfer_process_audio_window(GstOpkInfer *self,
     return GST_FLOW_OK;
 }
 
+static void gst_opkinfer_prompt_failure(GstOpkInfer *const self,
+                                        const opk::PromptSnapshot &prompt,
+                                        const std::string &reason) {
+    GstStructure *const diagnostic = gst_structure_new("opk-prompt-failure-v1",
+                                                       "boundary",
+                                                       G_TYPE_STRING,
+                                                       "opkinfer",
+                                                       "session-id",
+                                                       G_TYPE_STRING,
+                                                       prompt.sessionId.c_str(),
+                                                       "request-id",
+                                                       G_TYPE_UINT64,
+                                                       static_cast<guint64>(prompt.requestId()),
+                                                       "revision",
+                                                       G_TYPE_UINT64,
+                                                       static_cast<guint64>(prompt.revision()),
+                                                       "reason",
+                                                       G_TYPE_STRING,
+                                                       reason.c_str(),
+                                                       nullptr);
+    gst_element_post_message(GST_ELEMENT(self),
+                             gst_message_new_element(GST_OBJECT(self), diagnostic));
+}
+
 /// Execute one mapped video frame against writable result metadata.
 static GstFlowReturn
 gst_opkinfer_process_video_frame(GstOpkInfer *self,
                                  const std::shared_ptr<opk::mediaio::VideoFrame> &sharedMediaFrame,
+                                 const std::shared_ptr<const opk::PromptSnapshot> &prompt,
                                  open_perception_kit::FrameResults &frameResults,
                                  std::string &opChainError) {
     // Execute the op-chain with the provided context. The chain can read and mutate the
@@ -668,12 +694,16 @@ gst_opkinfer_process_video_frame(GstOpkInfer *self,
 
     opChainContext.frameResults = &frameResults;
     opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
+    opChainContext.prompt = prompt;
 
-    auto executeResult =
+    const auto executeResult =
         self->runtimeMembers->executeOpChain(opChainContext, GST_BASE_TRANSFORM_SINK_PAD(self));
     if (!executeResult) {
         opChainError = executeResult.error().info;
         opk::log::error("{}\n", executeResult.error().toString());
+        if (prompt) {
+            gst_opkinfer_prompt_failure(self, *prompt, opChainError);
+        }
         return GST_FLOW_CUSTOM_ERROR;
     }
 
@@ -788,6 +818,41 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
 
 /// Apply video QoS policy, map the frame, and run inference when scheduled.
 static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuffer *buffer) {
+    std::shared_ptr<const opk::PromptSnapshot> prompt;
+    if (const auto *const meta = opk::PromptInputsMeta::get(buffer)) {
+        prompt = meta->snapshot;
+        if (!prompt || !prompt->destination() || meta->targetElement != GST_OBJECT_NAME(self) ||
+            meta->width != static_cast<guint>(GST_VIDEO_INFO_WIDTH(&self->videoInfo)) ||
+            meta->height != static_cast<guint>(GST_VIDEO_INFO_HEIGHT(&self->videoInfo))) {
+            GST_ELEMENT_ERROR(
+                self, STREAM, FAILED, ("Prompt media geometry changed after binding"), (nullptr));
+            return GST_FLOW_ERROR;
+        }
+        const auto *const destination = prompt->destination();
+        const auto valid = opk::validatePromptSnapshot(*prompt);
+        if (!valid || !self->runtimeMembers ||
+            (prompt->payload &&
+             !self->runtimeMembers->opChain.acceptsPrompt(prompt->payload->format(),
+                                                          destination->inference_instance,
+                                                          destination->source_name))) {
+            const std::string reason =
+                valid ? "Prompt targets an unsupported payload format or inference/source binding"
+                      : valid.error().info;
+            gst_opkinfer_prompt_failure(self, *prompt, reason);
+            GST_ELEMENT_ERROR(self, STREAM, FAILED, ("%s", reason.c_str()), (nullptr));
+            return GST_FLOW_ERROR;
+        }
+        // Input metadata must not keep old revisions alive in downstream result queues.
+        if (!gst_buffer_remove_meta(buffer, const_cast<GstMeta *>(&meta->meta))) {
+            GST_ELEMENT_ERROR(
+                self, RESOURCE, FAILED, ("Unable to consume prompt metadata"), (nullptr));
+            return GST_FLOW_ERROR;
+        }
+        if (!prompt->payload) {
+            prompt.reset();
+        }
+    }
+
     if (!gst_opkinfer_is_active(self))
         return GST_FLOW_OK;
 
@@ -849,9 +914,9 @@ static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuf
     // Keep the frame and its metadata alive throughout the op-chain execution.
     std::string opChainError;
     auto mutationResult = opk::FrameResultsMeta::mutate<GstFlowReturn>(
-        buffer, [self, sharedMediaFrame, &opChainError](auto &frameResults) {
+        buffer, [self, sharedMediaFrame, prompt, &opChainError](auto &frameResults) {
             return gst_opkinfer_process_video_frame(
-                self, sharedMediaFrame, frameResults, opChainError);
+                self, sharedMediaFrame, prompt, frameResults, opChainError);
         });
 
     // Collapse op-chain failures and metadata mutation failures into a GStreamer
