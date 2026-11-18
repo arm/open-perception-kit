@@ -53,12 +53,15 @@ runs:
         PYTHONPATH=tools/perception python3 - <<'PY'
         import os
         import subprocess
+        import sys
         from pathlib import Path
         from artifacts import acquire_artifact
         from sdk_config import load_sdk_config
 
         config = load_sdk_config()
         destination = Path(os.environ['RUNNER_TEMP']) / 'opk-sdk'
+        wheel = acquire_artifact(config.flatbuffers_wheel, destination)
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', str(wheel)], check=True)
         packages = [acquire_artifact(artifact, destination) for artifact in
                     (config.typescript_runtime, config.typescript_compiler)]
         subprocess.run(['npm', 'install', '--global', '--ignore-scripts', '--no-audit',

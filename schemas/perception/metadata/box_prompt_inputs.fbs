@@ -1,0 +1,26 @@
+include "request.fbs";
+
+namespace open_perception_kit.metadata;
+
+// Continuous normalized upright, unmirrored image extents, with origin at the top left.
+table PromptBox {
+  left:double;
+  top:double;
+  right:double;
+  bottom:double;
+}
+
+table BoxPromptPayload {
+  box:open_perception_kit.metadata.PromptBox;
+}
+
+// Absence of payload is a valid no-prompt state, not a cancellation command.
+table BoxPromptInputs {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  request:open_perception_kit.metadata.RequestEnvelope;
+  payload:open_perception_kit.metadata.BoxPromptPayload;
+}
+
+root_type BoxPromptInputs;
+file_identifier "BPRM";

@@ -1,0 +1,18 @@
+namespace open_perception_kit.metadata;
+
+enum RequestApplication:ubyte {
+  UntilReplaced = 0
+}
+
+table RequestDestination {
+  inference_instance:string;
+  source_name:string;
+}
+
+// IDs are nonzero and unique within the controlling session; revisions strictly increase.
+table RequestEnvelope {
+  request_id:ulong;
+  revision:ulong;
+  destination:open_perception_kit.metadata.RequestDestination;
+  application:open_perception_kit.metadata.RequestApplication = UntilReplaced;
+}

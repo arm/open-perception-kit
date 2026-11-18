@@ -24,6 +24,14 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.BoxDetections',
         'file_identifier': 'BDET',
     },
+    2013649934701805985: {
+        'name': 'open_perception_kit::metadata::BoxPromptInputs',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.BoxPromptInputs',
+        'root_type': 'BoxPromptInputs',
+        'native_type': 'BoxPromptInputsT',
+        'qualified_root_type': 'open_perception_kit.metadata.BoxPromptInputs',
+        'file_identifier': 'BPRM',
+    },
     7630654510173219138: {
         'name': 'open_perception_kit::metadata::CameraContacts',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.CameraContacts',
@@ -95,6 +103,14 @@ _TYPE_REGISTRY = {
         'native_type': 'PersonPresencesT',
         'qualified_root_type': 'open_perception_kit.metadata.PersonPresences',
         'file_identifier': 'PPRS',
+    },
+    5708111647489290303: {
+        'name': 'open_perception_kit::metadata::PromptAssociation',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.PromptAssociation',
+        'root_type': 'PromptAssociation',
+        'native_type': 'PromptAssociationT',
+        'qualified_root_type': 'open_perception_kit.metadata.PromptAssociation',
+        'file_identifier': 'PRAS',
     },
     3128408959875976772: {
         'name': 'open_perception_kit::metadata::SegmentationMasks',
