@@ -130,7 +130,6 @@ executorch_dep = declare_dependency(
       '-lextension_data_loader',
       '-lextension_named_data_map',
       '-lextension_threadpool',
-      '-lexecutorch',
       '-lexecutorch_core',
       '-lpthreadpool',
       '-lcpuinfo',
@@ -143,6 +142,8 @@ executorch_dep = declare_dependency(
 
 # These are the usual “registration / kernels” libs that often get dropped unless whole-archived
 et_force_archives = [
+  # Primitive kernels register through static initializers (for example et_view).
+  executorch_libdir / 'libexecutorch.a',
   executorch_libdir / 'libportable_ops_lib.a',
   executorch_libdir / 'libportable_kernels.a',
 ]
@@ -158,6 +159,13 @@ et_force_archives += [
 #  executorch_libdir / 'libkernels_util_all_deps.a',
 ]
 
+executorch_registration_link_args = [
+  '-Wl,--whole-archive',
+] + et_force_archives + [
+  '-Wl,--no-whole-archive',
+  '-Wl,--no-undefined',
+]
+
 executorchops = shared_module(
   'opk-executorch-ops',
   sources: [
@@ -171,12 +179,7 @@ executorchops = shared_module(
   dependencies: opk_deps + [executorch_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
 
-  link_args: [
-    '-Wl,--whole-archive',
-  ] + et_force_archives + [
-    '-Wl,--no-whole-archive',
-    '-Wl,--no-undefined',
-  ],
+  link_args: executorch_registration_link_args,
 
   name_prefix: '',
   gnu_symbol_visibility: 'default',
@@ -186,3 +189,13 @@ executorchops = shared_module(
   install_dir: get_option('libdir') / 'opk',
   install_rpath: '$ORIGIN',
 )
+
+if get_option('tests')
+  executorch_registration_test = executable(
+    'executorch_registration_test',
+    '../tests/executorch_registration_test.cpp',
+    dependencies: [gtest_main_dep, gtest_dep, executorch_dep],
+    link_args: executorch_registration_link_args,
+  )
+  test('executorch_registration', executorch_registration_test)
+endif
