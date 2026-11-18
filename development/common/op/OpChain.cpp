@@ -30,7 +30,18 @@
 #include <algorithm>
 #include <string>
 #include <unordered_map>
+#include <utility>
 using namespace opk::op;
+
+namespace {
+
+void clearInferenceOutputs(OpChainContext &context) {
+    context.inferencePrompt.reset();
+    context.inferenceOutputTensorCount = 0;
+    context.inferenceOutputTensors = {};
+}
+
+} // namespace
 
 OpChain::OpChain() = default;
 
@@ -61,6 +72,15 @@ const std::string &OpChain::getTask() const {
 
 const std::string &OpChain::getRuntime() const {
     return this->runtime;
+}
+
+bool OpChain::acceptsPrompt(const opk::PromptFormat format,
+                            const std::string_view instanceId,
+                            const std::string_view sourceName) const {
+    return std::ranges::any_of(opPtrs, [format, instanceId, sourceName](const auto *const op) {
+        const auto *const consumer = op->template as<OpInterfacePromptConsumer>();
+        return consumer && consumer->acceptsPrompt(format, instanceId, sourceName);
+    });
 }
 
 namespace {
@@ -324,6 +344,8 @@ opk::Result<void> OpChain::bind() {
 
 opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext,
                                    const bool waitForDeviceSetup) {
+    opChainContext.preparedPrompt.reset();
+    opChainContext.inferencePrompt.reset();
     const auto metricName = name.empty() ? std::string("opchain") : fmt::format("opchain/{}", name);
     OPK_PERF_SCOPE(metricName);
 
@@ -356,18 +378,54 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext,
     };
 
     while (currentIndex < opPtrs.size()) {
-        Op *op = opPtrs[currentIndex];
+        Op *const op = opPtrs[currentIndex];
         const size_t loopId = op->loopId;
 
-        auto result{op->process(opChainContext)};
+        const bool inference = op->as<OpInterfaceInference>() != nullptr;
+        std::shared_ptr<const opk::PromptSnapshot> prepared;
+        if (inference) {
+            prepared = std::exchange(opChainContext.preparedPrompt, nullptr);
+            clearInferenceOutputs(opChainContext);
+            if (prepared) {
+                const auto *const destination = prepared->destination();
+                if (!destination || destination->inference_instance != op->instanceId) {
+                    const auto error =
+                        OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                  "Prepared prompt targets another inference operation");
+                    return tl::unexpected(ExecutionSelection::operationError(*op, error));
+                }
+            }
+        }
+
+        const auto result{op->process(opChainContext)};
         if (!result) {
+            opChainContext.preparedPrompt.reset();
+            clearInferenceOutputs(opChainContext);
             return tl::unexpected(ExecutionSelection::operationError(*op, result.error()));
+        }
+        if (inference && *result == OpSignal::Continue &&
+            opChainContext.inferenceOutputTensorCount != 0 &&
+            opChainContext.inferenceOutputTensorCount <= opk::MaxTensorCount) {
+            const auto end = opChainContext.inferenceOutputTensors.begin() +
+                             opChainContext.inferenceOutputTensorCount;
+            const bool validOutputs = std::all_of(opChainContext.inferenceOutputTensors.begin(),
+                                                  end,
+                                                  [](const auto &view) { return view.isValid(); });
+            if (validOutputs) {
+                opChainContext.inferencePrompt = std::move(prepared);
+            }
         }
 
         switch (*result) {
         case OpSignal::AbortChain:
+            opChainContext.preparedPrompt.reset();
+            clearInferenceOutputs(opChainContext);
             return {};
         case OpSignal::BreakLoop:
+            opChainContext.preparedPrompt.reset();
+            if (inference) {
+                clearInferenceOutputs(opChainContext);
+            }
             currentIndex =
                 (loopId == 0) ? currentIndex + 1 : nextIndexAfterLoop(currentIndex, loopId);
             continue;
@@ -385,5 +443,6 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext,
         }
     }
 
+    opChainContext.preparedPrompt.reset();
     return {};
 }

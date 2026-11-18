@@ -84,6 +84,9 @@ class OpChain {
     getRequiredInputs(const std::string_view inferId,
                       const std::vector<opk::InputBinding> &bindings = {}) const;
     opk::Result<void> validateInputBindings(const std::vector<opk::InputBinding> &bindings) const;
+    bool acceptsPrompt(const opk::PromptFormat format,
+                       const std::string_view instanceId,
+                       const std::string_view sourceName) const;
     /// PCM window required by the bound inference inputs; zero means no audio input.
     /// PCM and preprocessed log-mel inputs require static, agreeing PCM windows.
     /// Audio chains must be unlooped.

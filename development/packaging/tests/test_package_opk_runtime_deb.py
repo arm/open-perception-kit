@@ -154,6 +154,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             for name in (
                 "libopkcomm.so",
                 "libopkinfer.so",
+                "libopkprompt.so",
                 "libopkosd.so",
                 "libopkperformance.so",
                 "libopksink.so",
@@ -371,6 +372,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 {
                     "libopkcomm.so",
                     "libopkinfer.so",
+                    "libopkprompt.so",
                     "libopkosd.so",
                     "libopkperformance.so",
                     "libopksink.so",

@@ -176,6 +176,7 @@ GenericPostprocessOp::process(opk::op::OpChainContext &opChainContext) {
 
     // copy active inference info
     tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;
+    tensorParserInput.prompt = opChainContext.inferencePrompt;
     tensorParserInput.producerInfo = producerInfo(
         opChainContext.inferenceInfo.inferElementId, parserName, "opk-std-ops/GenericPostprocess");
 

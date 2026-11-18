@@ -20,6 +20,7 @@
 #include "opk/AttributeMap.h"
 #include "opk/FrameResults.h"
 #include "opk/OutputCapability.h"
+#include "opk/PromptInputs.h"
 #include "opk/Result.h"
 #include "opk/TensorView.h"
 
@@ -50,6 +51,8 @@ struct TensorParser {
         const opk::AttributeMap &attributes;
         /// Runtime inference information for parser decisions/diagnostics.
         opk::InferenceInfo inferenceInfo;
+        /// Prompt successfully consumed for these tensors; unrelated parsers may ignore it.
+        std::shared_ptr<const opk::PromptSnapshot> prompt;
         /// Identity of the operation and implementation producing result payloads.
         open_perception_kit::metadata::ProducerInfoT producerInfo;
     };

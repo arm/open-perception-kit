@@ -89,6 +89,7 @@ opk_runtime_deb = custom_target(
     executorchops,
     python_ops,
     gstopkinfer,
+    gstopkprompt,
     gstopktracker,
     gstopkperformance,
     gstopkosd,
