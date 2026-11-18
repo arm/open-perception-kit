@@ -145,6 +145,7 @@ globalThis.document = {
   createElement: (tagName) => new FakeElement(tagName),
   getElementById: (id) => {
     if (id === "models-container") return modelsContainer;
+    if (id === "video") return new FakeElement("video");
     if (id === "muteUnmuteBtn") return muteButton;
     if (id === "muteUnmuteIcon") return muteIcon;
     if (id === "microphoneBtn") return microphoneButton;

@@ -226,6 +226,54 @@ test('default overlays are editable, removable and persistent without adding an 
   await expect(card.getByRole('switch')).toBeChecked();
 });
 
+test('media actions stay visible and distinguish capture from playback', async ({page}) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => new Promise((_resolve, reject) => { window.rejectCapture = reject; });
+  });
+  await page.routeWebSocket('**/ws', async ws => {
+    if (new URL(ws.url()).port === String(await page.evaluate(() => window.OPK_CONFIG.ctrlPort)))
+      ws.send(JSON.stringify({pipeline_state: {audio: true, microphone: true, playing: true}, models: []}));
+  });
+  await page.goto('/', {waitUntil: 'domcontentloaded'});
+  const mic = page.locator('#microphoneBtn');
+  const audio = page.locator('#muteUnmuteBtn');
+  await expect(mic).toHaveText('Unmute Mic');
+  await expect(audio).toHaveText('Unmute Audio');
+  await expect(page.locator('#microphoneStatus')).toBeHidden();
+  await expect(page.locator('#cameraStatus')).toBeHidden();
+  for (const width of [1366, 390]) {
+    await page.setViewportSize({width, height: 768});
+    await expect.poll(() => page.evaluate(() => {
+      const sidebar = document.getElementById('sidePanel').getBoundingClientRect();
+      const buttons = [...document.querySelectorAll('.controls-actions button')].map(button => button.getBoundingClientRect());
+      return buttons.every(rect => rect.width > 0 && rect.left >= sidebar.left && rect.right <= sidebar.right
+        && rect.top >= sidebar.top && rect.bottom <= sidebar.bottom)
+        && buttons.every((a, i) => buttons.slice(i + 1).every(b =>
+          a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top));
+    })).toBe(true);
+  }
+  await audio.click();
+  await expect(audio).toHaveAccessibleName('Mute Audio');
+  await expect(page.locator('#muteUnmuteIcon')).toHaveAttribute('data-icon', 'volume-2');
+  await mic.click();
+  await expect(mic).toHaveText('Mute Mic');
+  await expect(mic).toHaveAccessibleName('Mute Mic');
+  await expect(page.locator('#microphoneIcon')).toHaveAttribute('data-icon', 'mic');
+  await expect(page.locator('#microphoneStatus')).toContainText('permission');
+  await mic.click();
+  await expect(mic).toHaveText('Unmute Mic');
+  await expect(page.locator('#microphoneStatus')).toBeHidden();
+  await expect(audio).toHaveText('Mute Audio');
+  await mic.click();
+  await page.evaluate(() => window.rejectCapture(new Error('Permission denied')));
+  await expect(mic).toHaveText('Unmute Mic');
+  await expect(page.locator('#microphoneIcon')).toHaveAttribute('data-icon', 'mic-off');
+  await expect(page.locator('#microphoneStatus')).toContainText('Permission denied');
+  await audio.click();
+  await expect(audio).toHaveText('Unmute Audio');
+  await expect(page.locator('#muteUnmuteIcon')).toHaveAttribute('data-icon', 'volume-x');
+});
+
 test('signaling diagnostics render as text', async ({ page }) => {
   const messages = ['camera ready', '<em>camera & light</em>'];
   await page.routeWebSocket('**/ws', async (ws) => {
