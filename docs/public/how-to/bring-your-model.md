@@ -78,7 +78,7 @@ can also use `model-<variant>.json`. These names select Model validation; `opcha
 `opchain-<variant>.json` select OpChain validation. Variants must be non-empty.
 
 Typical fields are:
-- `version`, initially set to the string `"1.0.0"`
+- `version`, initially set to the string `"2.0.0"`
 - `name`
 - `modelFile`
 - `dynamicOutput`
