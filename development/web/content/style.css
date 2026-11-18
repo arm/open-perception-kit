@@ -95,7 +95,10 @@ h1, h2, h3, p, dl { margin-block: 0; }
 }
 .controls-row, .overlay-panel-header, .debug-log-header, .model-selector-header,
 .performance-metrics-header, .inference-output-header { justify-content: space-between; }
-.controls-actions, .model-actions { flex-shrink: 0; }
+.model-actions { flex-shrink: 0; }
+.controls-row, .controls-actions { flex-wrap: wrap; min-width: 0; }
+.controls-actions button { flex-shrink: 0; white-space: nowrap; }
+.controls-row .status-line { min-width: 0; overflow-wrap: anywhere; }
 .model-selector-header, .performance-metrics-header, .inference-output-header,
 .debug-log-header, .overlay-panel-header { margin-bottom: var(--wfr-margin-lg); }
 .sidebar-section-title { min-width: 0; }
