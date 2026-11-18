@@ -402,6 +402,70 @@ test('model and overlay switches share compact geometry and accessible interacti
   await expect(model).not.toBeChecked();
 });
 
+test('background replacement retains graded masks through bounded gaps without timing drift', async ({page}) => {
+  await page.routeWebSocket('**/ws', () => {});
+  await page.goto('/', {waitUntil: 'domcontentloaded'});
+  const result = await page.evaluate(() => {
+    let now = 0;
+    performance.now = () => now;
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('clientOsdCanvas');
+    Object.defineProperties(video, {videoWidth: {value: 3}, videoHeight: {value: 1}});
+    Object.defineProperties(canvas, {clientWidth: {value: 300}, clientHeight: {value: 100}});
+    const frame = (pixels, empty = false) => ({layers: [{payloadType: 'SegmentationMasks', model: 'RVM fixture',
+      producer: {instanceId: 'rvm/mask', component: 'test', implementation: 'RVM'},
+      detections: empty ? [] : [{type: 'SegmentationMask', data: {
+        width: 3, height: 1, encoding: 1, meaning: 1, pixels: Uint8Array.from(pixels),
+        space: {frameId: 1n, width: 3, height: 1, originX: 0, originY: 0, extentWidth: 3, extentHeight: 1},
+      }}]}]});
+    const emit = detail => window.dispatchEvent(new CustomEvent('video-frame-results', {detail}));
+    const sample = () => [50, 150, 250].map(x => canvas.getContext('2d').getImageData(
+      Math.floor(x * devicePixelRatio), Math.floor(50 * devicePixelRatio), 1, 1).data[3]);
+    const failures = [];
+    const check = (step, expected) => {
+      const actual = sample();
+      if (actual.some((value, i) => value !== expected[i])) failures.push({step, actual, expected});
+    };
+    const clear = [0, 0, 0];
+    // Exercise more than ten minutes of monotonic presentation time without waiting in real time.
+    for (let cycle = 0; cycle < 600; cycle++) {
+      const pixels = cycle % 2 ? [255, 128, 0] : [0, 128, 255];
+      now += 1000;
+      emit(frame(pixels));
+      check(`${cycle}: fresh`, pixels);
+      emit(null);
+      now += 99;
+      emit(null);
+      check(`${cycle}: held`, pixels);
+      // Live-channel masks must neither replace the held mask nor renew its deadline.
+      window.dispatchEvent(new CustomEvent('metadata-message', {detail: {frame_results: frame([255, 255, 255])}}));
+      check(`${cycle}: live`, pixels);
+      now += 1;
+      emit(null);
+      check(`${cycle}: expired`, clear);
+    }
+    emit(frame([0, 128, 255]));
+    emit(null);
+    now += 50;
+    emit(frame([255, 128, 0]));
+    now += 60;
+    check('fresh match cancels expiry', [255, 128, 0]);
+    emit(frame([], true));
+    check('valid empty clears immediately', clear);
+    emit(frame([0, 128, 255]));
+    emit(null);
+    window.dispatchEvent(new CustomEvent('video-frame-metadata', {detail: {frame_results_encoding: 'invalid'}}));
+    check('invalid matched packet clears immediately', clear);
+    emit(frame([0, 128, 255]));
+    emit(null);
+    video.dispatchEvent(new Event('emptied'));
+    check('stream reset clears immediately', clear);
+    return {failures, elapsedMs: now};
+  });
+  expect(result.failures).toEqual([]);
+  expect(result.elapsedMs).toBeGreaterThan(600000);
+});
+
 test('signaling diagnostics render as text', async ({ page }) => {
   const messages = ['camera ready', '<em>camera & light</em>'];
   await page.routeWebSocket('**/ws', async (ws) => {
