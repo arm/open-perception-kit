@@ -59,8 +59,12 @@ export class ObjectTracks {
         const offset = this.bb.__offset(this.bb_pos, 10);
         return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
     }
+    displayIdentity() {
+        const offset = this.bb.__offset(this.bb_pos, 12);
+        return offset ? !!this.bb.readInt8(this.bb_pos + offset) : true;
+    }
     static startObjectTracks(builder) {
-        builder.startObject(4);
+        builder.startObject(5);
     }
     static addSchemaMajor(builder, schemaMajor) {
         builder.addFieldInt16(0, schemaMajor, 1);
@@ -84,6 +88,9 @@ export class ObjectTracks {
     static startTracksVector(builder, numElems) {
         builder.startVector(4, numElems, 4);
     }
+    static addDisplayIdentity(builder, displayIdentity) {
+        builder.addFieldInt8(4, +displayIdentity, +true);
+    }
     static endObjectTracks(builder) {
         const offset = builder.endObject();
         return offset;
@@ -95,21 +102,23 @@ export class ObjectTracks {
         builder.finish(offset, 'TRKS', true);
     }
     unpack() {
-        return new ObjectTracksT(this.schemaMajor(), this.schemaMinor(), (this.layer() !== null ? this.layer().unpack() : null), this.bb.createObjList(this.tracks.bind(this), this.tracksLength()));
+        return new ObjectTracksT(this.schemaMajor(), this.schemaMinor(), (this.layer() !== null ? this.layer().unpack() : null), this.bb.createObjList(this.tracks.bind(this), this.tracksLength()), this.displayIdentity());
     }
     unpackTo(_o) {
         _o.schemaMajor = this.schemaMajor();
         _o.schemaMinor = this.schemaMinor();
         _o.layer = (this.layer() !== null ? this.layer().unpack() : null);
         _o.tracks = this.bb.createObjList(this.tracks.bind(this), this.tracksLength());
+        _o.displayIdentity = this.displayIdentity();
     }
 }
 export class ObjectTracksT {
-    constructor(schemaMajor = 1, schemaMinor = 0, layer = null, tracks = []) {
+    constructor(schemaMajor = 1, schemaMinor = 0, layer = null, tracks = [], displayIdentity = true) {
         this.schemaMajor = schemaMajor;
         this.schemaMinor = schemaMinor;
         this.layer = layer;
         this.tracks = tracks;
+        this.displayIdentity = displayIdentity;
     }
     pack(builder) {
         const layer = (this.layer !== null ? this.layer.pack(builder) : 0);
@@ -119,6 +128,7 @@ export class ObjectTracksT {
         ObjectTracks.addSchemaMinor(builder, this.schemaMinor);
         ObjectTracks.addLayer(builder, layer);
         ObjectTracks.addTracks(builder, tracks);
+        ObjectTracks.addDisplayIdentity(builder, this.displayIdentity);
         return ObjectTracks.endObjectTracks(builder);
     }
 }

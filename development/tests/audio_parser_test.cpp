@@ -73,8 +73,10 @@ struct VoiceFixture {
         results.for_each<VoicePayload>([&](const auto &payload) {
             ++count;
             EXPECT_EQ(payload.detections.size(), 1u);
-            if (!payload.detections.empty())
-                active = payload.detections[0]->speech_active;
+            if (!payload.detections.empty()) {
+                EXPECT_TRUE(payload.detections[0]->speech_active.has_value());
+                active = payload.detections[0]->speech_active.value_or(false);
+            }
         });
         EXPECT_EQ(count, previousSize + 1);
         auto &audio = input.inferenceInfo.audio;
@@ -99,14 +101,13 @@ TEST(VoiceActivityParser, SelectsConfiguredFlatScoreAndPreservesAudioIdentity) {
         ++count;
         EXPECT_EQ(payload.layer->model, "synthetic-speech-scores");
         EXPECT_EQ(payload.layer->infer_element_id, "speech-stream");
-        EXPECT_EQ(payload.layer->content_type, "voiceActivity");
         ASSERT_TRUE(payload.layer->producer);
         EXPECT_EQ(payload.layer->producer->instance_id, "speech-stream/post");
         EXPECT_EQ(payload.layer->producer->implementation, "VoiceActivityParser");
         ASSERT_EQ(payload.detections.size(), 1u);
         const auto &detection = *payload.detections[0];
-        EXPECT_FLOAT_EQ(detection.speech_probability, 0.875f);
-        EXPECT_TRUE(detection.speech_active);
+        EXPECT_FLOAT_EQ(detection.speech_probability.value_or(-1), 0.875f);
+        EXPECT_EQ(detection.speech_active, true);
         EXPECT_EQ(detection.window_start_sample, 160u);
         EXPECT_EQ(detection.window_end_sample, 800u);
         ASSERT_TRUE(detection.window_start_ts_ns);
@@ -129,7 +130,7 @@ TEST(VoiceActivityParser, AppliesOnlyTheConfiguredActivation) {
         ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
         ASSERT_EQ(results.size(), 1u);
         results.for_each<VoicePayload>([&](const auto &payload) {
-            const float probability = payload.detections[0]->speech_probability;
+            const float probability = payload.detections[0]->speech_probability.value_or(-1);
             EXPECT_TRUE(std::isfinite(probability));
             EXPECT_NEAR(probability, 1.0 / (1.0 + std::exp(-static_cast<double>(score))), 1e-6);
         });
@@ -180,7 +181,8 @@ TEST(VoiceActivityParser, RequiresConsecutiveEvidenceAndRetainsBurstResults) {
     size_t count = 0;
     fixture.results.for_each<VoicePayload>([&](const auto &payload) {
         ASSERT_LT(count, sequence.size());
-        EXPECT_FLOAT_EQ(payload.detections[0]->speech_probability, sequence[count].first);
+        EXPECT_FLOAT_EQ(payload.detections[0]->speech_probability.value_or(-1),
+                        sequence[count].first);
         ++count;
     });
     EXPECT_EQ(count, sequence.size());
@@ -362,6 +364,7 @@ struct KeywordFixture {
         attributes.set("activation", "softmax");
         attributes.set("confidenceThreshold", 0.6);
         attributes.setArray("labels", {"open", nullptr, "close", "hold"});
+        attributes.set("labelSet", "test:commands-v1");
         input.tensors[1] = &tensor;
         input.inferenceInfo.modelName = "synthetic-command-scores";
         input.inferenceInfo.inferElementId = "commands";
@@ -383,16 +386,20 @@ TEST(KeywordClassificationParser, UsesArbitraryLabelsAndTheSelectedOutput) {
         results.for_each<KeywordPayload>([&](const auto &payload) {
             EXPECT_EQ(payload.layer->model, "synthetic-command-scores");
             EXPECT_EQ(payload.layer->infer_element_id, "commands");
-            EXPECT_EQ(payload.layer->content_type, "keyword");
             ASSERT_TRUE(payload.layer->producer);
             EXPECT_EQ(payload.layer->producer->instance_id, "commands/post");
             EXPECT_EQ(payload.layer->producer->implementation, "KeywordClassificationParser");
             ASSERT_EQ(payload.classifications.size(), 1u);
+            EXPECT_EQ(payload.classifications[0]->kind,
+                      open_perception_kit::metadata::ClassificationKind::Categorical);
+            EXPECT_EQ(payload.classifications[0]->label_set, "test:commands-v1");
+            EXPECT_EQ(payload.classifications[0]->subject_id, 29u);
             ASSERT_EQ(payload.classifications[0]->candidates.size(), 1u);
             const auto &candidate = *payload.classifications[0]->candidates[0];
             EXPECT_EQ(candidate.class_id, winner);
             EXPECT_EQ(candidate.text, labels[winner]);
-            EXPECT_NEAR(candidate.confidence, 1.0 / (1.0 + 3.0 * std::exp(-10.0)), 1e-6);
+            EXPECT_NEAR(
+                candidate.confidence.value_or(-1), 1.0 / (1.0 + 3.0 * std::exp(-10.0)), 1e-6);
         });
     }
 }
@@ -409,7 +416,7 @@ TEST(KeywordClassificationParser, KeepsIgnoredClassesInTheCompetitionAndNormaliz
     ASSERT_EQ(tied.size(), 1u);
     tied.for_each<KeywordPayload>([](const auto &payload) {
         EXPECT_EQ(payload.classifications[0]->candidates[0]->class_id, 0);
-        EXPECT_FLOAT_EQ(payload.classifications[0]->candidates[0]->confidence, 0.25f);
+        EXPECT_FLOAT_EQ(payload.classifications[0]->candidates[0]->confidence.value_or(-1), 0.25f);
     });
     fixture.attributes.set("confidenceThreshold", 0.0);
     fixture.scores = {0, 5, 4, 0};
@@ -436,7 +443,7 @@ TEST(KeywordClassificationParser, ReadsConfiguredProbabilitiesWithoutRenormalizi
         const auto &candidate = *payload.classifications[0]->candidates[0];
         EXPECT_EQ(candidate.class_id, 1);
         EXPECT_EQ(candidate.text, "standby");
-        EXPECT_FLOAT_EQ(candidate.confidence, 0.7f);
+        EXPECT_FLOAT_EQ(candidate.confidence.value_or(-1), 0.7f);
     });
     fixture.attributes.setArray("labels", {"single-command"});
     fixture.attributes.set("confidenceThreshold", 0.1);
@@ -451,7 +458,7 @@ TEST(KeywordClassificationParser, RejectsMissingOrInvalidConfiguration) {
     KeywordFixture fixture;
     const auto complete = fixture.attributes.cloneDeep();
     for (const auto *const name :
-         {"outputTensorIndex", "activation", "confidenceThreshold", "labels"}) {
+         {"outputTensorIndex", "activation", "confidenceThreshold", "labels", "labelSet"}) {
         SCOPED_TRACE(name);
         fixture.attributes = complete.cloneDeep();
         fixture.attributes.raw().erase(name);
@@ -469,7 +476,9 @@ TEST(KeywordClassificationParser, RejectsMissingOrInvalidConfiguration) {
          {"confidenceThreshold", 1.1},
          {"confidenceThreshold", "0.6"},
          {"confidenceThreshold", std::numeric_limits<double>::quiet_NaN()},
-         {"labels", "open"}});
+         {"labels", "open"},
+         {"labelSet", ""},
+         {"labelSet", 1}});
     for (const auto &[name, value] : invalidAttributes) {
         SCOPED_TRACE(name);
         fixture.attributes = complete.cloneDeep();
@@ -542,7 +551,9 @@ TEST(AudioEventClassificationParser, PreservesIndependentScoresAndIdentityThroug
     const Results decoded{std::span<const uint8_t>(bytes)};
     ASSERT_EQ(decoded.size(), 1u);
     decoded.for_each<KeywordPayload>([](const auto &payload) {
-        EXPECT_EQ(payload.layer->content_type, "esc");
+        EXPECT_EQ(payload.classifications[0]->label_set, "test:commands-v1");
+        EXPECT_EQ(payload.classifications[0]->kind,
+                  open_perception_kit::metadata::ClassificationKind::Categorical);
         EXPECT_EQ(payload.layer->model, "synthetic-command-scores");
         EXPECT_EQ(payload.layer->infer_element_id, "commands");
         EXPECT_EQ(payload.layer->producer->implementation, "AudioEventClassificationParser");
@@ -552,7 +563,7 @@ TEST(AudioEventClassificationParser, PreservesIndependentScoresAndIdentityThroug
         EXPECT_EQ(candidates[0]->class_id, 0);
         EXPECT_EQ(candidates[1]->class_id, 2);
         EXPECT_EQ(candidates[2]->text, "hold");
-        EXPECT_NEAR(candidates[0]->confidence, 0.880797f, 1e-6f);
+        EXPECT_NEAR(candidates[0]->confidence.value_or(-1), 0.880797f, 1e-6f);
         EXPECT_EQ(candidates[0]->confidence, candidates[1]->confidence);
         EXPECT_EQ(candidates[2]->confidence, 0.5f);
     });
@@ -597,6 +608,11 @@ TEST(AudioEventClassificationParser, RejectsInvalidScoresConfigurationAndShapeAt
     fixture.attributes.set("topK", int64_t{0});
     EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
     fixture.attributes.set("topK", int64_t{3});
+    fixture.attributes.set("labelSet", "");
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("labelSet", int64_t{1});
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("labelSet", "test:commands-v1");
     fixture.attributes.setArray("labels", {"wrong", "count"});
     EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
     fixture.input.tensors[1] = nullptr;

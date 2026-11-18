@@ -121,7 +121,8 @@ def main():
                 print(f'{name}: PASS (no qualifying events)')
                 continue
             payload = payloads[0]
-            assert payload.layer.contentType == b'esc'
+            assert payload.classifications[0].labelSet == post['labelSet'].encode()
+            assert payload.classifications[0].kind == 1  # Categorical
             assert payload.layer.model == b'yamnet-esc'
             assert payload.layer.producer.implementation == b'AudioEventClassificationParser'
             candidates = payload.classifications[0].candidates

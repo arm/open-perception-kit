@@ -20,6 +20,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { EmbeddingSpace, EmbeddingSpaceT } from '../../open-perception-kit/metadata/embedding-space.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
 
 
@@ -61,8 +62,18 @@ valuesArray():Float32Array|null {
   return offset ? new Float32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
+space(obj?:EmbeddingSpace):EmbeddingSpace|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? (obj || new EmbeddingSpace()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
+subjectId():bigint|null {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : null;
+}
+
 static startObjectEmbedding(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(4);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -90,22 +101,26 @@ static startValuesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addSpace(builder:flatbuffers.Builder, spaceOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, spaceOffset, 0);
+}
+
+static addSubjectId(builder:flatbuffers.Builder, subjectId:bigint) {
+  builder.addFieldInt64(3, subjectId, null);
+}
+
 static endObjectEmbedding(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createObjectEmbedding(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset, valuesOffset:flatbuffers.Offset):flatbuffers.Offset {
-  ObjectEmbedding.startObjectEmbedding(builder);
-  ObjectEmbedding.addObject(builder, objectOffset);
-  ObjectEmbedding.addValues(builder, valuesOffset);
-  return ObjectEmbedding.endObjectEmbedding(builder);
-}
 
 unpack(): ObjectEmbeddingT {
   return new ObjectEmbeddingT(
     (this.object() !== null ? this.object()!.unpack() : null),
-    this.bb!.createScalarList<number>(this.values.bind(this), this.valuesLength())
+    this.bb!.createScalarList<number>(this.values.bind(this), this.valuesLength()),
+    (this.space() !== null ? this.space()!.unpack() : null),
+    this.subjectId()
   );
 }
 
@@ -113,23 +128,32 @@ unpack(): ObjectEmbeddingT {
 unpackTo(_o: ObjectEmbeddingT): void {
   _o.object = (this.object() !== null ? this.object()!.unpack() : null);
   _o.values = this.bb!.createScalarList<number>(this.values.bind(this), this.valuesLength());
+  _o.space = (this.space() !== null ? this.space()!.unpack() : null);
+  _o.subjectId = this.subjectId();
 }
 }
 
 export class ObjectEmbeddingT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public values: (number)[] = []
+  public values: (number)[] = [],
+  public space: EmbeddingSpaceT|null = null,
+  public subjectId: bigint|null = null
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const object = (this.object !== null ? this.object!.pack(builder) : 0);
   const values = ObjectEmbedding.createValuesVector(builder, this.values);
+  const space = (this.space !== null ? this.space!.pack(builder) : 0);
 
-  return ObjectEmbedding.createObjectEmbedding(builder,
-    object,
-    values
-  );
+  ObjectEmbedding.startObjectEmbedding(builder);
+  ObjectEmbedding.addObject(builder, object);
+  ObjectEmbedding.addValues(builder, values);
+  ObjectEmbedding.addSpace(builder, space);
+  if (this.subjectId !== null)
+    ObjectEmbedding.addSubjectId(builder, this.subjectId);
+
+  return ObjectEmbedding.endObjectEmbedding(builder);
 }
 }

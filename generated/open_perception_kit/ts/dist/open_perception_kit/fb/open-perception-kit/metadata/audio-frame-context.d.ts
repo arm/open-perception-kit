@@ -30,6 +30,7 @@ export declare class AudioFrameContext implements flatbuffers.IUnpackableObject<
     originalSampleCount(): bigint;
     cutLeftSampleCount(): bigint;
     cutRightSampleCount(): bigint;
+    presentationTsNs(): bigint | null;
     static startAudioFrameContext(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
     static addOriginalChannels(builder: flatbuffers.Builder, originalChannels: bigint): void;
@@ -37,8 +38,9 @@ export declare class AudioFrameContext implements flatbuffers.IUnpackableObject<
     static addOriginalSampleCount(builder: flatbuffers.Builder, originalSampleCount: bigint): void;
     static addCutLeftSampleCount(builder: flatbuffers.Builder, cutLeftSampleCount: bigint): void;
     static addCutRightSampleCount(builder: flatbuffers.Builder, cutRightSampleCount: bigint): void;
+    static addPresentationTsNs(builder: flatbuffers.Builder, presentationTsNs: bigint): void;
     static endAudioFrameContext(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createAudioFrameContext(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, originalChannels: bigint, originalFrequency: bigint, originalSampleCount: bigint, cutLeftSampleCount: bigint, cutRightSampleCount: bigint): flatbuffers.Offset;
+    static createAudioFrameContext(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, originalChannels: bigint, originalFrequency: bigint, originalSampleCount: bigint, cutLeftSampleCount: bigint, cutRightSampleCount: bigint, presentationTsNs: bigint | null): flatbuffers.Offset;
     unpack(): AudioFrameContextT;
     unpackTo(_o: AudioFrameContextT): void;
 }
@@ -49,6 +51,7 @@ export declare class AudioFrameContextT implements flatbuffers.IGeneratedObject 
     originalSampleCount: bigint;
     cutLeftSampleCount: bigint;
     cutRightSampleCount: bigint;
-    constructor(object?: ObjectMetaT | null, originalChannels?: bigint, originalFrequency?: bigint, originalSampleCount?: bigint, cutLeftSampleCount?: bigint, cutRightSampleCount?: bigint);
+    presentationTsNs: bigint | null;
+    constructor(object?: ObjectMetaT | null, originalChannels?: bigint, originalFrequency?: bigint, originalSampleCount?: bigint, cutLeftSampleCount?: bigint, cutRightSampleCount?: bigint, presentationTsNs?: bigint | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

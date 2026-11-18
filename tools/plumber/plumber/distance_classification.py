@@ -13,41 +13,93 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
+from open_perception_kit.fb.open_perception_kit.metadata.ClassificationKind import ClassificationKind
+from .distance_subject import distance_subject
+from .distance_rect import GEOMETRY_THRESHOLD
+
+
+def is_subjectless_categorical(item: dict) -> bool:
+    data = item.get("data", {})
+    return (item.get("item_type") == "Classification" and data.get("kind") == ClassificationKind.Categorical
+            and data.get("subjectId") is None)
+
 
 def distance_classification(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item) -> float:
-    """
-    Placeholder: compare top-1 text equality (0 if equal else 1).
-    We'll implement normalized candidate overlap later.
-    """
-
-    del _gt_parent_item
-    del _out_parent_item
+    """Compare classification identity, enforcing correspondence for declared subjects."""
+    if gt_item["data"].get("invalidCandidates") or out_item["data"].get("invalidCandidates"):
+        return 1.0
+    if not (is_subjectless_categorical(gt_item) and is_subjectless_categorical(out_item)):
+        if distance_subject(gt_item, out_item, _gt_parent_item, _out_parent_item) > GEOMETRY_THRESHOLD:
+            return 1.0
 
     g_cands = gt_item.get("data", {}).get("candidates", [])
     o_cands = out_item.get("data", {}).get("candidates", [])
-    if not g_cands or not o_cands:
+    kind = gt_item["data"].get("kind")
+    if kind != out_item["data"].get("kind"):
         return 1.0
-    gt_top = g_cands[0].get("text")
-    out_top = o_cands[0].get("text")
-    return 0.0 if gt_top == out_top else 1.0
+    gt_set = gt_item["data"].get("labelSet", "")
+    out_set = out_item["data"].get("labelSet", "")
+    if not g_cands or not o_cands:
+        valid_kind = (kind == ClassificationKind.Categorical and gt_set and gt_set == out_set
+                      or kind == ClassificationKind.RecognizedText and not gt_set and not out_set)
+        return 0.0 if not g_cands and not o_cands and valid_kind else 1.0
+    for candidate in (g_cands[0], o_cands[0]):
+        if candidate.get("confidence") is not None and not _valid_probability(candidate["confidence"]):
+            return 1.0
+    gt_id = g_cands[0].get("classId")
+    out_id = o_cands[0].get("classId")
+    if kind == ClassificationKind.Categorical and gt_set and out_set and gt_id is not None and out_id is not None:
+        return 0.0 if (gt_set, gt_id) == (out_set, out_id) else 1.0
+    if kind == ClassificationKind.RecognizedText and not gt_set and not out_set and gt_id is None and out_id is None:
+        return 0.0 if g_cands[0].get("text") == o_cands[0].get("text") else 1.0
+    return 1.0  # An incomplete categorical identity cannot establish a match.
+
+
+def _valid_probability(value) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(value) and 0 <= value <= 1
+
+
+def _contact_outcome(data):
+    result = data.get("result")
+    if (result is None or not isinstance(result.get("inContact"), bool)
+            or (result.get("confidence") is not None and not _valid_probability(result["confidence"]))):
+        return None
+    return result["inContact"]
+
+
+def distance_camera_contact(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item: dict) -> float:
+    if distance_subject(gt_item, out_item, _gt_parent_item, _out_parent_item) > GEOMETRY_THRESHOLD:
+        return 1.0
+    gt = _contact_outcome(gt_item.get("data", {}))
+    out = _contact_outcome(out_item.get("data", {}))
+    if gt is None or out is None:
+        return 1.0
+    return 0.0 if gt == out else 1.0
 
 
 def distance_person_presence(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item) -> float:
-    del _gt_parent_item
-    del _out_parent_item
+    if distance_subject(gt_item, out_item, _gt_parent_item, _out_parent_item) > GEOMETRY_THRESHOLD:
+        return 1.0
 
-    gt_data = gt_item.get("data", {})
-    out_data = out_item.get("data", {})
-    yes_diff = abs(float(gt_data.get("yesConfidence", 0.0)) -
-                   float(out_data.get("yesConfidence", 0.0)))
-    no_diff = abs(float(gt_data.get("noConfidence", 0.0)) -
-                  float(out_data.get("noConfidence", 0.0)))
-    return max(0.0, min(1.0, max(yes_diff, no_diff)))
+    gt = gt_item.get("data", {}).get("result")
+    out = out_item.get("data", {}).get("result")
+    for result in (gt, out):
+        if result is None or not isinstance(result.get("personPresent"), bool):
+            return 1.0
+        yes, no = result.get("yesScore"), result.get("noScore")
+        if yes is None and no is None:
+            continue
+        if not isinstance(yes, (float, int)) or not isinstance(no, (float, int)) or not math.isfinite(yes) or not math.isfinite(no):
+            return 1.0
+    return 0.0 if gt["personPresent"] == out["personPresent"] else 1.0
 
 
 def distance_voice_activity(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item: dict) -> float:
     gt = gt_item["data"]
     out = out_item["data"]
+    if not valid_audio_result(gt, "speechProbability", "speechActive") or not valid_audio_result(out, "speechProbability", "speechActive"):
+        return 1.0
     # Match the analyzed interval and decision exactly; tolerate small score differences.
     for key in ("speechActive", "windowStartSample", "windowEndSample",
                 "windowStartTsNs", "windowEndTsNs", "discontinuity"):
@@ -59,9 +111,20 @@ def distance_voice_activity(gt_item: dict, out_item: dict, _gt_parent_item: dict
 def distance_turn_detection(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item: dict) -> float:
     gt = gt_item["data"]
     out = out_item["data"]
+    if not valid_audio_result(gt, "turnProbability", "turnComplete") or not valid_audio_result(out, "turnProbability", "turnComplete"):
+        return 1.0
     # Compare assessments of the same context, not just their completion probabilities.
     for key in ("turnComplete", "windowStartSample", "windowEndSample",
                 "windowStartTsNs", "windowEndTsNs", "discontinuity"):
         if gt[key] != out[key]:
             return 1.0
     return abs(gt["turnProbability"] - out["turnProbability"])
+
+
+def valid_audio_result(data, probability, decision):
+    start, end = data.get("windowStartSample"), data.get("windowEndSample")
+    if (not _valid_probability(data.get(probability)) or not isinstance(data.get(decision), bool)
+            or not isinstance(start, int) or not isinstance(end, int) or start < 0 or end <= start):
+        return False
+    first, last = data.get("windowStartTsNs"), data.get("windowEndTsNs")
+    return first is None and last is None or isinstance(first, int) and isinstance(last, int) and 0 <= first < last

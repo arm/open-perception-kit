@@ -22,14 +22,14 @@
 namespace opk::tracker::frameinputs {
 
 /**
- * @brief Collects valid embedding vectors keyed by their parent detection ID.
+ * @brief Selects unique embedding observations keyed by explicit subject ID.
  *
- * Scans FrameResults embedding payloads, validates dimensions/content,
- * and returns non-owning vector views that participate in association/re-identification.
+ * Applies optional space/producer filters, counts duplicates before validating
+ * vectors, and resolves unique box/track subjects. Null entries are unavailable.
  *
  * @param frameResults Input frame results containing model outputs for the frame.
  * @param config Tracker configuration used to validate embedding usage.
- * @return EmbeddingBatch Mapping of parent ID to embedding vector view.
+ * @return EmbeddingBatch Mapping of subject ID to typed embedding view.
  */
 EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameResults,
                                  const Config &config);
@@ -38,13 +38,16 @@ EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameR
  * @brief Collects and filters detections targeted for tracking.
  *
  * Extracts detection candidates from FrameResults, applies tracker-specific filtering,
- * and returns selected detection views in processing order.
+ * and returns owned copies projected into a stable full-frame pixel basis.
  *
  * @param frameResults Input frame results for the current frame.
  * @param config Tracker configuration controlling detection selection.
- * @return DetectionBatch Ordered detection view batch.
+ * @param imageSpace Established tracking basis, initialized by the first valid detection.
+ * @return Owned detections in processing order; invalid spatial references are omitted.
  */
-DetectionBatch collectDetections(const open_perception_kit::FrameResults &frameResults,
-                                 const Config &config);
+std::vector<open_perception_kit::metadata::BoxDetectionT>
+collectDetections(const open_perception_kit::FrameResults &frameResults,
+                  const Config &config,
+                  std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> &imageSpace);
 
 } // namespace opk::tracker::frameinputs

@@ -38,8 +38,8 @@ class NoOp : public opk::op::Op {
 };
 class Vad : public NoOp, public opk::op::OpInterfacePostprocessor {
   public:
-    std::vector<std::string_view> getProvidedContentTypes() const override {
-        return {"voiceActivity"};
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
+        return {opk::outputCapability<Payload>()};
     }
 };
 class Inference : public NoOp, public opk::op::OpInterfaceInference {
@@ -54,7 +54,6 @@ class Inference : public NoOp, public opk::op::OpInterfaceInference {
         input.shape = opk::Shape(1, 256);
         model.inputs.push_back(input);
         model.name = "smart-turn";
-        model.contentType = "turnDetection";
     }
     const opk::Model &getModel() const override {
         return model;
@@ -84,10 +83,13 @@ class TurnDetector : public testing::Test {
     }
     void addVad(uint64_t begin, bool speech, std::string_view producer = "vad") {
         Payload payload;
+        const auto identity =
+            vad.producerInfo(producer, "fixture", "opk-std-ops/GenericPostprocess");
         payload.layer = open_perception_kit::makeLayerInfo(
-            {.model = "silero-vad", .inferElementId = producer, .contentType = "voiceActivity"});
+            {.model = "silero-vad", .inferElementId = producer, .producer = &identity});
         auto detection = std::make_unique<open_perception_kit::metadata::VoiceActivityDetectionT>();
         detection->speech_active = speech;
+        detection->speech_probability = speech ? 1 : 0;
         detection->window_start_sample = begin;
         detection->window_end_sample = begin + windowSampleCount;
         payload.detections.push_back(std::move(detection));
@@ -156,6 +158,29 @@ TEST_F(TurnDetector, WaitsForSpeechThenSilenceAndBoundsRetries) {
     expectStep(true, OpSignal::AbortChain);
     expectStep(false, OpSignal::AbortChain);
     expectStep(false, OpSignal::Continue); // New speech rearms the gate.
+}
+
+TEST_F(TurnDetector, BoundProducerWinsOverSameModelWindowAndInvalidResultsAreNotSilence) {
+    Payload other;
+    other.layer =
+        open_perception_kit::makeLayerInfo({.model = "silero-vad", .inferElementId = "vad"});
+    other.layer->producer = open_perception_kit::makeProducerInfo(
+        "vad/other", "opk-std-ops/GenericPostprocess", "SileroVadParser");
+    auto value = std::make_unique<open_perception_kit::metadata::VoiceActivityDetectionT>();
+    value->window_end_sample = 16;
+    value->speech_active = false;
+    value->speech_probability = 0;
+    other.detections.push_back(std::move(value));
+    results.add(other);
+    expectStep(true, OpSignal::AbortChain);
+    results = {};
+    other.layer->producer = std::make_unique<open_perception_kit::metadata::ProducerInfoT>(
+        vad.producerInfo("vad", "fixture", "opk-std-ops/GenericPostprocess"));
+    other.detections[0]->window_start_sample = 16;
+    other.detections[0]->window_end_sample = 32;
+    other.detections[0]->speech_probability = flatbuffers::nullopt;
+    results.add(other);
+    EXPECT_FALSE(step(false, false, false));
 }
 
 TEST_F(TurnDetector, PadsStartupAndPreservesRealAudioBoundsAndVadResults) {

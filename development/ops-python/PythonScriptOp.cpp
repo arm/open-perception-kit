@@ -249,6 +249,48 @@ PythonScriptOp::~PythonScriptOp() = default;
 
 opk::Result<void> PythonScriptOp::configure(const opk::AttributeMap &attributes) {
     try {
+        for (const auto &[key, value] : attributes.raw())
+            if (key != "script" && key != "pythonPaths" && key != "providedOutputs" &&
+                key != "requiredInputs")
+                throw opk::AttributeError("Unknown PythonScript attribute: " + key);
+        std::vector<opk::OutputCapability> provided;
+        if (attributes.contains("providedOutputs")) {
+            for (const auto &entry : attributes.getArray("providedOutputs")) {
+                if (!entry.isObject())
+                    throw opk::AttributeError("Output declarations must be objects");
+                const auto &fields = *entry.asMapPtr();
+                opk::OutputCapability output{fields.getString("payloadType")};
+                if (fields.raw().size() != 1 || !opk::isKnownPayloadType(output.payloadType))
+                    throw opk::AttributeError(
+                        "Output declaration must name a generated SDK payload type");
+                if (std::ranges::find(provided, output) == provided.end())
+                    provided.push_back(std::move(output));
+            }
+        }
+        std::vector<opk::InputReference> required;
+        if (attributes.contains("requiredInputs")) {
+            for (const auto &entry : attributes.getArray("requiredInputs")) {
+                if (!entry.isObject())
+                    throw opk::AttributeError("Input declarations must be objects");
+                const auto &fields = *entry.asMapPtr();
+                for (const auto &[key, value] : fields.raw())
+                    if (key != "inputId" && key != "payloadType" && key != "producerId" &&
+                        key != "sourceOp")
+                        throw opk::AttributeError("Unknown input declaration field: " + key);
+                opk::InputReference input{fields.getString("inputId"),
+                                          fields.getString("payloadType"),
+                                          fields.getStringOrDefault("producerId", ""),
+                                          fields.getStringOrDefault("sourceOp", "")};
+                if (input.inputId.empty() || !opk::isKnownPayloadType(input.payloadType) ||
+                    (fields.contains("sourceOp") &&
+                     (input.sourceOp.empty() || fields.contains("producerId"))) ||
+                    std::ranges::any_of(required, [&](const auto &other) {
+                        return other.inputId == input.inputId;
+                    }))
+                    throw opk::AttributeError("Invalid or duplicate Python input declaration");
+                required.push_back(std::move(input));
+            }
+        }
         const std::filesystem::path candidateScriptPath = attributes.getString("script");
         if (!std::filesystem::is_regular_file(candidateScriptPath)) {
             return tl::unexpected(OPK_ERROR(
@@ -287,6 +329,8 @@ opk::Result<void> PythonScriptOp::configure(const opk::AttributeMap &attributes)
         scriptPath = candidateScriptPath;
         loadedScript = std::move(*candidateScript);
         model = nullptr;
+        providedOutputs = provided;
+        requiredInputs = required;
     } catch (const opk::AttributeError &error) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
@@ -333,8 +377,22 @@ opk::Result<opk::op::OpSignal> PythonScriptOp::process(opk::op::OpChainContext &
                                            "opk-python-ops/PythonScript");
         PyObjectPtr pythonProducerInfo(makePythonProducerInfo(
             producer.instance_id, producer.component, producer.implementation));
-        PyObjectPtr scriptContext(pythonProducerInfo ? wrapContext(pythonProducerInfo.get())
-                                                     : nullptr);
+        PyObjectPtr inputProducers(PyDict_New());
+        if (!inputProducers)
+            throw PythonBridgeError("Could not create input connections: " + formatPythonError());
+        for (const auto &input : requiredInputs) {
+            const auto source = context.inputProducerId(instanceId, input);
+            PyObjectPtr key(PyUnicode_FromStringAndSize(
+                input.inputId.data(), static_cast<Py_ssize_t>(input.inputId.size())));
+            PyObjectPtr value(
+                PyUnicode_FromStringAndSize(source.data(), static_cast<Py_ssize_t>(source.size())));
+            if (!key || !value || PyDict_SetItem(inputProducers.get(), key.get(), value.get()) < 0)
+                throw PythonBridgeError("Could not expose input connection: " +
+                                        formatPythonError());
+        }
+        PyObjectPtr scriptContext(pythonProducerInfo
+                                      ? wrapContext(pythonProducerInfo.get(), inputProducers.get())
+                                      : nullptr);
         if (!scriptContext) {
             return tl::unexpected(
                 OPK_ERROR(opk::ErrorFlag::SystemFailure,

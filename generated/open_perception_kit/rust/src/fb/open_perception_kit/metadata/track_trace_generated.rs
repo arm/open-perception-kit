@@ -44,8 +44,9 @@ impl<'a> flatbuffers::Follow<'a> for TrackTrace<'a> {
 
 impl<'a> TrackTrace<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
-    pub const VT_TRACK_ID: flatbuffers::VOffsetT = 6;
+    pub const VT_IDENTITY: flatbuffers::VOffsetT = 6;
     pub const VT_POINTS: flatbuffers::VOffsetT = 8;
+    pub const VT_SPACE: flatbuffers::VOffsetT = 10;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -57,9 +58,14 @@ impl<'a> TrackTrace<'a> {
         args: &'args TrackTraceArgs<'args>,
     ) -> flatbuffers::WIPOffset<TrackTrace<'bldr>> {
         let mut builder = TrackTraceBuilder::new(_fbb);
-        builder.add_track_id(args.track_id);
+        if let Some(x) = args.space {
+            builder.add_space(x);
+        }
         if let Some(x) = args.points {
             builder.add_points(x);
+        }
+        if let Some(x) = args.identity {
+            builder.add_identity(x);
         }
         if let Some(x) = args.object {
             builder.add_object(x);
@@ -69,14 +75,16 @@ impl<'a> TrackTrace<'a> {
 
     pub fn unpack(&self) -> TrackTraceT {
         let object = self.object().map(|x| Box::new(x.unpack()));
-        let track_id = self.track_id();
+        let identity = self.identity().map(|x| Box::new(x.unpack()));
         let points = self
             .points()
             .map(|x| x.iter().map(|t| t.unpack()).collect());
+        let space = self.space().map(|x| Box::new(x.unpack()));
         TrackTraceT {
             object,
-            track_id,
+            identity,
             points,
+            space,
         }
     }
 
@@ -91,27 +99,36 @@ impl<'a> TrackTrace<'a> {
         }
     }
     #[inline]
-    pub fn track_id(&self) -> u64 {
+    pub fn identity(&self) -> Option<TrackIdentity<'a>> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<u64>(TrackTrace::VT_TRACK_ID, Some(0))
-                .unwrap()
+                .get::<flatbuffers::ForwardsUOffset<TrackIdentity>>(TrackTrace::VT_IDENTITY, None)
         }
     }
     #[inline]
     pub fn points(
         &self,
-    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Point2f<'a>>>> {
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TrackTracePoint<'a>>>> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab.get::<flatbuffers::ForwardsUOffset<
-                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Point2f>>,
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TrackTracePoint>>,
             >>(TrackTrace::VT_POINTS, None)
+        }
+    }
+    #[inline]
+    pub fn space(&self) -> Option<ImageSpace<'a>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<flatbuffers::ForwardsUOffset<ImageSpace>>(TrackTrace::VT_SPACE, None)
         }
     }
 }
@@ -129,28 +146,41 @@ impl flatbuffers::Verifiable for TrackTrace<'_> {
                 Self::VT_OBJECT,
                 false,
             )?
-            .visit_field::<u64>("track_id", Self::VT_TRACK_ID, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<TrackIdentity>>(
+                "identity",
+                Self::VT_IDENTITY,
+                false,
+            )?
             .visit_field::<flatbuffers::ForwardsUOffset<
-                flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Point2f>>,
+                flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<TrackTracePoint>>,
             >>("points", Self::VT_POINTS, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<ImageSpace>>(
+                "space",
+                Self::VT_SPACE,
+                false,
+            )?
             .finish();
         Ok(())
     }
 }
 pub struct TrackTraceArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
-    pub track_id: u64,
+    pub identity: Option<flatbuffers::WIPOffset<TrackIdentity<'a>>>,
     pub points: Option<
-        flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Point2f<'a>>>>,
+        flatbuffers::WIPOffset<
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TrackTracePoint<'a>>>,
+        >,
     >,
+    pub space: Option<flatbuffers::WIPOffset<ImageSpace<'a>>>,
 }
 impl<'a> Default for TrackTraceArgs<'a> {
     #[inline]
     fn default() -> Self {
         TrackTraceArgs {
             object: None,
-            track_id: 0,
+            identity: None,
             points: None,
+            space: None,
         }
     }
 }
@@ -166,19 +196,27 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TrackTraceBuilder<'a, 'b, A> {
             .push_slot_always::<flatbuffers::WIPOffset<ObjectMeta>>(TrackTrace::VT_OBJECT, object);
     }
     #[inline]
-    pub fn add_track_id(&mut self, track_id: u64) {
+    pub fn add_identity(&mut self, identity: flatbuffers::WIPOffset<TrackIdentity<'b>>) {
         self.fbb_
-            .push_slot::<u64>(TrackTrace::VT_TRACK_ID, track_id, 0);
+            .push_slot_always::<flatbuffers::WIPOffset<TrackIdentity>>(
+                TrackTrace::VT_IDENTITY,
+                identity,
+            );
     }
     #[inline]
     pub fn add_points(
         &mut self,
         points: flatbuffers::WIPOffset<
-            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<Point2f<'b>>>,
+            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<TrackTracePoint<'b>>>,
         >,
     ) {
         self.fbb_
             .push_slot_always::<flatbuffers::WIPOffset<_>>(TrackTrace::VT_POINTS, points);
+    }
+    #[inline]
+    pub fn add_space(&mut self, space: flatbuffers::WIPOffset<ImageSpace<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<ImageSpace>>(TrackTrace::VT_SPACE, space);
     }
     #[inline]
     pub fn new(
@@ -201,8 +239,9 @@ impl core::fmt::Debug for TrackTrace<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut ds = f.debug_struct("TrackTrace");
         ds.field("object", &self.object());
-        ds.field("track_id", &self.track_id());
+        ds.field("identity", &self.identity());
         ds.field("points", &self.points());
+        ds.field("space", &self.space());
         ds.finish()
     }
 }
@@ -210,15 +249,17 @@ impl core::fmt::Debug for TrackTrace<'_> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TrackTraceT {
     pub object: Option<Box<ObjectMetaT>>,
-    pub track_id: u64,
-    pub points: Option<Vec<Point2fT>>,
+    pub identity: Option<Box<TrackIdentityT>>,
+    pub points: Option<Vec<TrackTracePointT>>,
+    pub space: Option<Box<ImageSpaceT>>,
 }
 impl Default for TrackTraceT {
     fn default() -> Self {
         Self {
             object: None,
-            track_id: 0,
+            identity: None,
             points: None,
+            space: None,
         }
     }
 }
@@ -228,17 +269,19 @@ impl TrackTraceT {
         _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
     ) -> flatbuffers::WIPOffset<TrackTrace<'b>> {
         let object = self.object.as_ref().map(|x| x.pack(_fbb));
-        let track_id = self.track_id;
+        let identity = self.identity.as_ref().map(|x| x.pack(_fbb));
         let points = self.points.as_ref().map(|x| {
             let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
             _fbb.create_vector(&w)
         });
+        let space = self.space.as_ref().map(|x| x.pack(_fbb));
         TrackTrace::create(
             _fbb,
             &TrackTraceArgs {
                 object,
-                track_id,
+                identity,
                 points,
+                space,
             },
         )
     }

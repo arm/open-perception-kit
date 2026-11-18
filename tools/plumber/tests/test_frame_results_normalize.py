@@ -38,20 +38,23 @@ from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerI
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbedding import ObjectEmbeddingT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.Point2f import Point2fT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimation import PoseEstimationT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeAngles import GazeAnglesT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurement import GazeMeasurementT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.GazeMeasurements import GazeMeasurementsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackIdentity import TrackIdentityT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackingSample import TrackingSampleT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTracePoint import TrackTracePointT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ImageSpace import ImageSpaceT  # noqa: E402
 
 
-def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:
+def layer(infer_element_id: str = "infer0") -> LayerInfoT:
     return LayerInfoT(
         model="model-a",
         inferElementId=infer_element_id,
-        contentType=content_type,
         engine="test",
         producer=ProducerInfoT(
             instanceId=f"{infer_element_id}/fixture",
@@ -62,13 +65,30 @@ def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:
 
 
 class FrameResultsNormalizeTests(unittest.TestCase):
+    def test_audio_unavailable_is_not_coerced_to_zero_or_false(self):
+        from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetection import VoiceActivityDetectionT
+        from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
+        from plumber.distance_classification import distance_voice_activity
+        result = FrameResults()
+        result.add(VoiceActivityDetectionsT(detections=[
+            VoiceActivityDetectionT(windowEndSample=512),
+            VoiceActivityDetectionT(speechProbability=0, speechActive=False, windowEndSample=512, windowStartTsNs=0, windowEndTsNs=32000000)]))
+        snapshot = normalize_frame_results(FrameResults(result.serialize()))
+        missing, zero = next(iter(snapshot.payloads.values())).items
+        self.assertIsNone(missing["data"]["speechProbability"])
+        self.assertIsNone(missing["data"]["speechActive"])
+        self.assertEqual(distance_voice_activity(missing, missing, {}, {}), 1)
+        self.assertEqual(distance_voice_activity(zero, zero, {}, {}), 0)
+        zero["data"]["speechProbability"] = float("nan")
+        self.assertEqual(distance_voice_activity(zero, zero, {}, {}), 1)
+
     def test_turn_assessments_roundtrip_and_compare(self):
         from open_perception_kit.fb.open_perception_kit.metadata.TurnDetection import TurnDetectionT
         from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
         from plumber.frame_results_compare import DISTANCE_SPECS
 
         results = FrameResults()
-        results.add(TurnDetectionsT(layer=layer("turnDetection"), detections=[
+        results.add(TurnDetectionsT(layer=layer(), detections=[
             TurnDetectionT(object=ObjectMetaT(id=201), turnProbability=0.8,
                            turnComplete=True, windowStartSample=0, windowEndSample=16000,
                            windowStartTsNs=0, windowEndTsNs=1_000_000_000, discontinuity=True),
@@ -76,7 +96,8 @@ class FrameResultsNormalizeTests(unittest.TestCase):
                            windowStartSample=512, windowEndSample=128512),
         ]))
         snapshot = normalize_frame_results(FrameResults(results.serialize()))
-        key = PayloadKey("open_perception_kit.metadata.TurnDetections", "infer0", "turnDetection", "model-a")
+        key = PayloadKey("open_perception_kit.metadata.TurnDetections", "infer0",
+                         "model-a", "test/Producer", "infer0/fixture")
         items = snapshot.payloads[key].items
         self.assertEqual(len(items), 2)
         self.assertEqual(items[0]["item_type"], "TurnDetection")
@@ -106,7 +127,7 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetection import VoiceActivityDetectionT
         from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
         results = FrameResults()
-        results.add(VoiceActivityDetectionsT(layer=layer("voiceActivity"), detections=[
+        results.add(VoiceActivityDetectionsT(layer=layer(), detections=[
             VoiceActivityDetectionT(object=ObjectMetaT(id=101), speechProbability=0.8,
                                     speechActive=True, windowStartSample=0, windowEndSample=320,
                                     windowStartTsNs=0, windowEndTsNs=20_000_000, discontinuity=True),
@@ -114,7 +135,8 @@ class FrameResultsNormalizeTests(unittest.TestCase):
                                     windowStartSample=320, windowEndSample=640),
         ]))
         snapshot = normalize_frame_results(FrameResults(results.serialize()))
-        key = PayloadKey("open_perception_kit.metadata.VoiceActivityDetections", "infer0", "voiceActivity", "model-a")
+        key = PayloadKey("open_perception_kit.metadata.VoiceActivityDetections", "infer0",
+                         "model-a", "test/Producer", "infer0/fixture")
         items = snapshot.payloads[key].items
         self.assertEqual(len(items), 2)
         self.assertEqual(items[0]["data"]["windowStartTsNs"], 0)
@@ -125,11 +147,18 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         self.assertEqual(distance_voice_activity(items[0], items[0], {}, {}), 0)
         self.assertEqual(distance_voice_activity(items[0], items[1], {}, {}), 1)
 
+    def test_box_category_zero_and_absence_round_trip(self) -> None:
+        frame = FrameResults()
+        frame.add(BoxDetectionsT(detections=[BoxDetectionT(classId=None), BoxDetectionT(classId=0)]))
+        snapshot = normalize_frame_results(FrameResults(frame.serialize()))
+        items = next(iter(snapshot.payloads.values())).items
+        self.assertEqual([item["data"]["classId"] for item in items], [None, 0])
+
     def test_normalizes_frame_and_box_detection_payloads(self) -> None:
         frame_results = FrameResults()
         frame_results.add(
             FrameContextT(
-                layer=layer("frameContext", "camera"),
+                layer=layer("camera"),
                 video=VideoFrameContextT(
                     object=ObjectMetaT(id=1),
                     originalWidth=640,
@@ -139,11 +168,12 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         )
         frame_results.add(
             BoxDetectionsT(
-                layer=layer("humanFace"),
+                layer=layer(),
                 detections=[
                     BoxDetectionT(
                         object=ObjectMetaT(id=2, parentId=1),
-                        box=BoundingBoxT(x=10.0, y=20.0, width=30.0, height=40.0),
+                        box=BoundingBoxT(x=10.0, y=20.0, width=30.0, height=40.0,
+                                         space=ImageSpaceT(frameId=1, width=640, height=480, extentWidth=640, extentHeight=480)),
                         confidence=0.9,
                         classId=3,
                         text="face",
@@ -157,24 +187,26 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         frame_key = PayloadKey(
             "open_perception_kit.metadata.FrameContext",
             infer_element_id="camera",
-            content_type="frameContext",
             model="model-a",
+            producer_component="test/Producer",
+            producer_instance_id="camera/fixture",
         )
         box_key = PayloadKey(
             "open_perception_kit.metadata.BoxDetections",
             infer_element_id="infer0",
-            content_type="humanFace",
             model="model-a",
+            producer_component="test/Producer",
+            producer_instance_id="infer0/fixture",
         )
 
         self.assertEqual(snapshot.frame_counter, 42)
         self.assertIn(frame_key, snapshot.payloads)
         self.assertIn(box_key, snapshot.payloads)
-        self.assertIn(1, snapshot.object_index)
-        self.assertIn(2, snapshot.object_index)
 
         frame_item = snapshot.payloads[frame_key].items[0]
         box_item = snapshot.payloads[box_key].items[0]
+        self.assertEqual(frame_item["data"]["id"], 1)
+        self.assertEqual(box_item["data"]["id"], 2)
         self.assertEqual(frame_item["item_type"], "VideoFrame")
         self.assertEqual(frame_item["data"]["originalWidth"], 640)
         self.assertEqual(box_item["item_type"], "BoxDetection")
@@ -193,7 +225,7 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         frame_results = FrameResults()
         frame_results.add(
             ClassificationsT(
-                layer=layer("classification"),
+                layer=layer(),
                 classifications=[
                     ClassificationT(
                         object=ObjectMetaT(id=3, parentId=1),
@@ -209,21 +241,21 @@ class FrameResultsNormalizeTests(unittest.TestCase):
             )
         )
         frame_results.add(
-            PoseEstimationsT(
-                layer=layer("eyeYawPitch"),
-                poses=[
-                    PoseEstimationT(
+            GazeMeasurementsT(
+                layer=layer(),
+                measurements=[
+                    GazeMeasurementT(
                         object=ObjectMetaT(id=4, parentId=2),
+                        subjectId=2,
                         confidence=0.7,
-                        yaw=11.0,
-                        pitch=-4.0,
+                        angles=GazeAnglesT(yawDegrees=11.0, pitchDegrees=-4.0),
                     )
                 ],
             )
         )
         frame_results.add(
             ObjectEmbeddingsT(
-                layer=layer("objectEmbedding"),
+                layer=layer(),
                 embeddings=[
                     ObjectEmbeddingT(
                         object=ObjectMetaT(id=5, parentId=2),
@@ -234,12 +266,14 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         )
         frame_results.add(
             TrackTracesT(
-                layer=layer("trackTrace"),
+                layer=layer(),
                 traces=[
                     TrackTraceT(
                         object=ObjectMetaT(id=6),
-                        trackId=77,
-                        points=[Point2fT(x=1.0, y=2.0), Point2fT(x=3.0, y=4.0)],
+                        identity=TrackIdentityT(trackerId="tracker", sessionId="session", trackId=77),
+                        points=[TrackTracePointT(x=1, y=2, sample=TrackingSampleT(frameIndex=1, elapsedMs=10, state=1, timeSource=1)),
+                                TrackTracePointT(x=3, y=4, sample=TrackingSampleT(frameIndex=2, elapsedMs=20, state=1, timeSource=1))],
+                        space=ImageSpaceT(frameId=1, width=640, height=480, extentWidth=640, extentHeight=480),
                     )
                 ],
             )
@@ -254,9 +288,9 @@ class FrameResultsNormalizeTests(unittest.TestCase):
 
         self.assertEqual(
             item_types,
-            {"Classification", "PoseEstimation", "ObjectEmbedding", "TrackTrace"},
+            {"Classification", "GazeMeasurement", "ObjectEmbedding", "TrackTrace"},
         )
-        self.assertEqual(len(snapshot.object_index), 4)
+        self.assertEqual(sum(len(payload.items) for payload in snapshot.payloads.values()), 4)
 
 
 if __name__ == "__main__":

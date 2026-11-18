@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "2.0.0",
   "name": "Yolo26n320Mlwl",
   "displayName": "YOLO26n FP32 (320x320)",
   "task": "Object detection",
@@ -9,7 +9,7 @@
     {"id": "opk-std-ops/InferenceController", "attributes": {}},
     {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
     {"id": "opk-mlwl-ops/Inference", "attributes": {"modelDescriptor": "model.json"}},
-    {"id": "opk-std-ops/GenericPostprocess", "attributes": {
+    {"id": "opk-std-ops/GenericPostprocess", "instanceId": "opk-std-ops-GenericPostprocess-0", "attributes": {
       "parser": "YoloParser", "outputFormat": "cornerClassScores", "maxDetections": 300,
       "normalizeOutputCoordinates": false, "applyNms": false, "confidenceThreshold": 0.4
     }}

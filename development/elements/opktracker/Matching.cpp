@@ -18,7 +18,7 @@
 #include "Matching.h"
 
 #include "TrackState.h"
-#include "Utils.h"
+#include "opk/Embedding.h"
 
 #include "algo/Hungarian.h"
 #include "algo/IoU.h"
@@ -26,7 +26,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <fmt/core.h>
 #include <optional>
 
 namespace opk::tracker::matching {
@@ -90,9 +89,8 @@ predictTrackBoxes(ActiveTrackMap &activeTracks, float kalmanDt, const Config &co
     return predictedTrackBoxes;
 }
 
-const std::vector<float> *findDetectionEmbedding(size_t detectionIndex,
-                                                 const DetectionBatch &detections,
-                                                 const EmbeddingBatch &embeddings) {
+const open_perception_kit::metadata::ObjectEmbeddingT *findDetectionEmbedding(
+    size_t detectionIndex, const DetectionBatch &detections, const EmbeddingBatch &embeddings) {
     const auto embeddingIt = embeddings.find(idOf(detectionAt(detections, detectionIndex)));
     if (embeddingIt == embeddings.end() || embeddingIt->second == nullptr) {
         return nullptr;
@@ -108,12 +106,13 @@ std::optional<float> computeValidSimilarity(size_t detectionIndex,
                                             const Config &config) {
     const auto *embedding = findDetectionEmbedding(detectionIndex, detections, embeddings);
     const auto trackIt = activeTracks.find(trackId);
-    if (embedding == nullptr || trackIt == activeTracks.end() || !trackIt->second.hasEmbedding) {
+    if (embedding == nullptr || trackIt == activeTracks.end()) {
         return std::nullopt;
     }
 
-    const float similarity = cosineSimilarity(*embedding, trackIt->second.lastEmbedding);
-    if (similarity < config.minCosineSimilarity) {
+    const auto similarity =
+        opk::embedding::cosineSimilarity(*embedding, trackIt->second.lastEmbedding);
+    if (!similarity || *similarity < config.minCosineSimilarity) {
         return std::nullopt;
     }
 
@@ -155,11 +154,13 @@ float computeAssociationCost(float iou,
     return ((1.0f - weight) * iouCost) + (weight * embeddingCost);
 }
 
-std::string buildMatchDiagnostic(float iou, const std::optional<float> &similarity) {
-    if (similarity.has_value()) {
-        return fmt::format("REID:{:.2f}", *similarity);
-    }
-    return fmt::format("IOU:{:.2f}", iou);
+open_perception_kit::metadata::TrackAssociationT
+makeAssociation(const float iou, const std::optional<float> &similarity) {
+    open_perception_kit::metadata::TrackAssociationT result;
+    result.kind = similarity ? open_perception_kit::metadata::TrackAssociationKind::CosineScore
+                             : open_perception_kit::metadata::TrackAssociationKind::IoUScore;
+    result.score = similarity.value_or(iou);
+    return result;
 }
 
 bool isAssignmentAccepted(float iou, const std::optional<float> &similarity, const Config &config) {
@@ -228,7 +229,7 @@ void collectMatchesFromAssignment(const DetectionBatch &detections,
 
         const TrackId matchedTrackId = trackIds[static_cast<size_t>(trackIdx)];
         result.matches.emplace_back(detIdx, matchedTrackId);
-        result.diagnosticsByDetection[detIdx] = buildMatchDiagnostic(iou, similarity);
+        result.associationsByDetection[detIdx] = makeAssociation(iou, similarity);
         matchedDetection[detIdx] = true;
     }
 

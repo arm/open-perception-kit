@@ -112,7 +112,7 @@ new FFT implementation/dependency.
   would enter its generic allocating radix-1 path.
 - `windowLengthSamples`: periodic Hann length, 2–`fftSize`.
 - `frameHopSamples`: distance between FFT frame starts, 1–`windowSampleCount`.
-- `minFrequencyHz`, `maxFrequencyHz`: finite limits, 0 <= min < max <= 8000.
+- `minFrequencyHz`, `maxFrequencyHz`: finite limits, `0 <= min < max <= 8000`.
   Mel-filter breakpoints must remain distinct and ordered in Float32 arithmetic.
 - `logOffset`: finite, positive and representable as a positive Float32.
 - `layout`: `time-major` (`[T,M]`) or `mel-major` (`[M,T]`).
@@ -165,15 +165,16 @@ Voice-activity decoding, hysteresis and Silero configuration use the existing
 `KeywordClassificationParser.{h,cpp}` consumes a Float32 class vector with
 optional singleton leading dimensions. Required configuration is
 `outputTensorIndex` (0–15), `activation` (`softmax` or `none`),
-`confidenceThreshold` (finite, [0,1]) and `labels` (nonempty array of nonempty
-strings or nulls, at least one string). Its length must match the tensor's
+`confidenceThreshold` (finite, [0,1]), a nonempty `labelSet` identifying the
+ordered vocabulary, and `labels` (nonempty array of nonempty strings or nulls,
+at least one string). Its length must match the tensor's
 class axis. Null suppresses that class at any position; there is no fixed
 class count, keyword list or unknown/noise index. Softmax and argmax include
 all classes. If the winning label is null, publish nothing; do not select a
 runner-up. `none` accepts finite scores in [0,1]. Publish one winner when its
 score is >= the configured threshold, compared in the Float32 score domain;
-ties select the first index. Keep the
-existing `keyword` semantic content type and producer/model identity.
+ties select the first index. Publish `Classifications` with `kind=Categorical`,
+the configured label-set identity, the input subject and producer/model identity.
 
 Parser IDs name the operation rather than a model. Model names belong in
 model-local descriptors, runnable profiles and artifact integration tests.
@@ -204,7 +205,8 @@ VAD/turn inference element named `voice`. See the
 [voice demo](../../development/examples/voice-pipeline/README.md).
 
 Custom pipelines can add independently scheduled keyword inference in an
-`opkinfer name=keywords` branch. Keep it separate from the conversation's
+`opkinfer name=keywords` branch, with the postprocessor's `instanceId` set to
+`opk-std-ops-GenericPostprocess-0`. Keep it separate from the conversation's
 terminal turn-detection branch: `AbortChain` skips the remaining Op stages.
 The demo receives its classifications through the runtime callback; keyword
 assessments do not control conversation completion.

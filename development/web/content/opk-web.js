@@ -1123,12 +1123,15 @@ function orderModels(models) {
 function readableText(value) {
   return String(value ?? "").trim();
 }
-function contentTypes(value) {
-  return Array.isArray(value) ? value.map(readableText).filter(Boolean) : [];
+function outputs(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item?.payloadType === "string" && item.payloadType.length > 0 && typeof item.producerId === "string") : [];
+}
+function inputs(value) {
+  return outputs(value).filter((item) => typeof item.consumerId === "string" && item.consumerId.length > 0 && typeof item.inputId === "string" && item.inputId.length > 0);
 }
 function dependencyProviderTasks(model, models) {
-  const required = new Set(contentTypes(model.requiredContentTypes));
-  return [...new Set(models.filter((candidate) => candidate !== model && contentTypes(candidate.providedContentTypes).some((type) => required.has(type))).map((candidate) => readableText(candidate.task) || readableText(candidate.name)).filter(Boolean))];
+  const required = inputs(model.requiredInputs);
+  return [...new Set(models.filter((candidate) => candidate !== model && outputs(candidate.providedOutputs).some((output) => required.some((input) => output.payloadType === input.payloadType && input.producerId && output.producerId === input.producerId))).map((candidate) => readableText(candidate.task) || readableText(candidate.name)).filter(Boolean))];
 }
 function resolveModelPresentation(model) {
   const rawName = readableText(model.name) || "Unknown model";
@@ -1160,8 +1163,9 @@ var ModelsManager = class {
       displayName: model.displayName || "",
       task: model.task || "",
       runtime: model.runtime || "",
-      providedContentTypes: contentTypes(model.providedContentTypes),
-      requiredContentTypes: contentTypes(model.requiredContentTypes)
+      providedOutputs: outputs(model.providedOutputs),
+      requiredInputs: inputs(model.requiredInputs),
+      availableInputs: outputs(model.availableInputs)
     })));
     if (nextSignature === this._lastModelsSignature) {
       return;
@@ -1204,13 +1208,60 @@ var ModelsManager = class {
       modelDetails.textContent = presentation.secondaryLabel;
       modelCopy.appendChild(modelDetails);
     }
-    const requiredContentTypes = contentTypes(model.requiredContentTypes);
+    const requiredInputs = inputs(model.requiredInputs);
+    const inputSelectors = /* @__PURE__ */ new Map();
     modelInfo.appendChild(modelCopy);
+    for (const input of requiredInputs) {
+      const label = document.createElement("label");
+      label.className = "model-input-binding";
+      label.textContent = `${input.consumerId}/${input.inputId} \u2014 ${input.payloadType.split(".").at(-1)} `;
+      const select = document.createElement("select");
+      inputSelectors.set(input, select);
+      select.setAttribute("aria-label", `Input source for ${presentation.fullLabel}, ${input.consumerId}/${input.inputId}, ${input.payloadType}`);
+      const addOption = (id, text2, disabled = false) => {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = text2;
+        option.disabled = disabled;
+        select.appendChild(option);
+      };
+      addOption("", "Not connected");
+      const candidates = models.filter((candidate) => candidate.element_name !== model.element_name).flatMap((candidate) => outputs(candidate.providedOutputs).filter((output) => output.producerId && output.payloadType === input.payloadType && outputs(model.availableInputs).some((upstream) => upstream.payloadType === output.payloadType && upstream.producerId === output.producerId)).map((output) => ({ ...output, label: resolveModelPresentation(candidate).fullLabel })));
+      const counts = /* @__PURE__ */ new Map();
+      for (const candidate of candidates) counts.set(candidate.producerId, (counts.get(candidate.producerId) || 0) + 1);
+      const seen = /* @__PURE__ */ new Set();
+      for (const candidate of candidates) {
+        if (seen.has(candidate.producerId)) continue;
+        seen.add(candidate.producerId);
+        const ambiguous = counts.get(candidate.producerId) !== 1;
+        addOption(candidate.producerId, `${candidate.label} \u2014 ${candidate.producerId}${ambiguous ? " (ambiguous)" : ""}`, ambiguous);
+      }
+      if (input.producerId && !seen.has(input.producerId))
+        addOption(input.producerId, `Unavailable: ${input.producerId}`, true);
+      select.value = input.producerId;
+      select.addEventListener("change", () => {
+        const bindings = requiredInputs.map((entry) => ({
+          consumerId: entry.consumerId,
+          inputId: entry.inputId,
+          payloadType: entry.payloadType,
+          producerId: inputSelectors.get(entry).value
+        }));
+        this._lastModelsSignature = "";
+        try {
+          ctrlSend({ type: "model_inputs", name: model.element_name, bindings });
+        } catch (error) {
+          select.value = input.producerId;
+          console.error("Error connecting model input:", error);
+        }
+      });
+      label.appendChild(select);
+      modelCopy.appendChild(label);
+    }
     const modelActions = document.createElement("div");
     modelActions.className = "model-actions";
-    if (requiredContentTypes.length > 0) {
+    if (requiredInputs.length > 0) {
       const providerTasks = dependencyProviderTasks(model, models);
-      const accessibleProviders = providerTasks.length > 0 ? providerTasks.join(", ") : "No provider registered";
+      const accessibleProviders = providerTasks.length > 0 ? providerTasks.join(", ") : requiredInputs.some((input) => input.producerId) ? "Selected source unavailable" : "No input connected";
       const dependencyInfo = document.createElement("div");
       dependencyInfo.className = "model-dependency-info";
       dependencyInfo.setAttribute("tabindex", "0");
@@ -1227,7 +1278,7 @@ var ModelsManager = class {
       dependencyHeading.textContent = "Depends on:";
       dependencyPopup.appendChild(dependencyHeading);
       const dependencyList = document.createElement("ul");
-      const items = providerTasks.length > 0 ? providerTasks : ["No provider registered"];
+      const items = providerTasks.length > 0 ? providerTasks : [accessibleProviders];
       for (const task of items) {
         const dependency = document.createElement("li");
         dependency.textContent = task;
@@ -1554,8 +1605,8 @@ function dockColumnAvailableWidth() {
   const handleSpace = visibleDockColumnHandles().length * dockColumnHandleWidth();
   return Math.max(0, dockPanels.getBoundingClientRect().width - handleSpace);
 }
-function dockColumnMinimums(available) {
-  const compact = available < 900;
+function dockColumnMinimums(available2) {
+  const compact = available2 < 900;
   return {
     metrics: compact ? 180 : 220,
     inference: compact ? 220 : 260,
@@ -1563,9 +1614,9 @@ function dockColumnMinimums(available) {
   };
 }
 function defaultDockColumnWidths() {
-  const available = dockColumnAvailableWidth();
+  const available2 = dockColumnAvailableWidth();
   const visibleKeys = visibleDockColumnKeys();
-  const evenWidth = visibleKeys.length ? available / visibleKeys.length : 0;
+  const evenWidth = visibleKeys.length ? available2 / visibleKeys.length : 0;
   return Object.fromEntries(dockColumnKeys.map((key) => [
     key,
     visibleKeys.includes(key) ? evenWidth : 0
@@ -1582,15 +1633,15 @@ function readDockColumnWidths() {
   return defaultDockColumnWidths();
 }
 function normalizeDockColumnWidths(widths) {
-  const available = dockColumnAvailableWidth();
+  const available2 = dockColumnAvailableWidth();
   const visibleKeys = visibleDockColumnKeys();
-  if (!available)
+  if (!available2)
     return widths;
   if (!visibleKeys.length)
     return Object.fromEntries(dockColumnKeys.map((key) => [key, 0]));
-  const minimums = dockColumnMinimums(available);
+  const minimums = dockColumnMinimums(available2);
   const minTotal = visibleKeys.reduce((sum, key) => sum + minimums[key], 0);
-  const usableMinimums = minTotal > available ? Object.fromEntries(visibleKeys.map((key) => [key, minimums[key] * available / minTotal])) : minimums;
+  const usableMinimums = minTotal > available2 ? Object.fromEntries(visibleKeys.map((key) => [key, minimums[key] * available2 / minTotal])) : minimums;
   const next = Object.fromEntries(dockColumnKeys.map((key) => {
     if (!visibleKeys.includes(key)) {
       return [key, 0];
@@ -1599,8 +1650,8 @@ function normalizeDockColumnWidths(widths) {
     return [key, Math.max(usableMinimums[key], requestedWidth)];
   }));
   let total = visibleKeys.reduce((sum, key) => sum + next[key], 0);
-  if (total > available) {
-    let excess = total - available;
+  if (total > available2) {
+    let excess = total - available2;
     for (const key of ["inference", "metrics", "debug"].filter((item) => visibleKeys.includes(item))) {
       const shrinkable = Math.max(0, next[key] - usableMinimums[key]);
       const shrink = Math.min(shrinkable, excess);
@@ -1609,8 +1660,8 @@ function normalizeDockColumnWidths(widths) {
       if (excess <= 0)
         break;
     }
-  } else if (total < available) {
-    const extra = available - total;
+  } else if (total < available2) {
+    const extra = available2 - total;
     const expandableTotal = visibleKeys.reduce((sum, key) => sum + next[key], 0) || 1;
     for (const key of visibleKeys) {
       next[key] += extra * next[key] / expandableTotal;
@@ -1638,9 +1689,9 @@ function setEqualDockColumnWidths(persist2 = false) {
   configureDockColumnHandles();
   if (!dockPanels)
     return;
-  const available = dockColumnAvailableWidth();
+  const available2 = dockColumnAvailableWidth();
   const visibleKeys = visibleDockColumnKeys();
-  const evenWidth = visibleKeys.length ? available / visibleKeys.length : 0;
+  const evenWidth = visibleKeys.length ? available2 / visibleKeys.length : 0;
   const next = Object.fromEntries(dockColumnKeys.map((key) => [
     key,
     visibleKeys.includes(key) ? evenWidth : 0
@@ -2017,25 +2068,18 @@ async function copyTextWithFeedback(button2, text2, emptyText = "Empty") {
     button2.copyFeedbackTimer = null;
   }, 1500);
 }
-function setCopyButtonAvailable(button2, available) {
+function setCopyButtonAvailable(button2, available2) {
   if (!button2) return;
-  button2.disabled = !available;
-  button2.setAttribute("aria-disabled", available ? "false" : "true");
+  button2.disabled = !available2;
+  button2.setAttribute("aria-disabled", available2 ? "false" : "true");
 }
 
 // development/web/src/performance-low-pass.js
 var DISPLAY_INTERVAL_MS = 1e3;
 var SMOOTHING_WEIGHT = 0.5;
-var METRIC_VALUE = /^(\d+(?:\.\d+)?)(ms| FPS)$/;
-function smoothValue(value, previous) {
-  const currentMatch = METRIC_VALUE.exec(value);
-  const previousMatch = METRIC_VALUE.exec(previous || "");
-  if (!currentMatch || !previousMatch || currentMatch[2] !== previousMatch[2]) return value;
-  const current = Number(currentMatch[1]);
-  const old = Number(previousMatch[1]);
-  const decimals = currentMatch[1].split(".")[1]?.length || 0;
-  if (!Number.isFinite(current) || !Number.isFinite(old) || decimals > 10) return value;
-  return `${(old * (1 - SMOOTHING_WEIGHT) + current * SMOOTHING_WEIGHT).toFixed(decimals)}${currentMatch[2]}`;
+function smoothValue(value, previous, digits) {
+  if (value === null || previous === null || !Number.isFinite(value) || !Number.isFinite(previous)) return value;
+  return Number((previous * (1 - SMOOTHING_WEIGHT) + value * SMOOTHING_WEIGHT).toFixed(digits));
 }
 function createPerformanceLowPass() {
   let lastDisplayAt = -Infinity;
@@ -2047,82 +2091,92 @@ function createPerformanceLowPass() {
       return [];
     }
     if (now - lastDisplayAt < DISPLAY_INTERVAL_MS) return null;
+    const counts = /* @__PURE__ */ new Map();
+    for (const row of rows) if (row.key) counts.set(row.key, (counts.get(row.key) || 0) + 1);
+    const identified = (row) => row.key && counts.get(row.key) === 1;
     const filtered = rows.map((row) => {
-      const previous = previousRows.get(row.stage);
+      const previous = identified(row) ? previousRows.get(row.key) : null;
+      if (!previous || previous.unit !== row.unit) return { ...row };
+      const digits = row.unit === "fps" ? 1 : 2;
       return {
         ...row,
-        current: smoothValue(row.current, previous?.current),
-        p95: smoothValue(row.p95, previous?.p95)
+        current: smoothValue(row.current, previous.current, digits),
+        p95: smoothValue(row.p95, previous.p95, digits)
       };
     });
-    previousRows = new Map(filtered.map((row) => [row.stage, row]));
+    previousRows = new Map(filtered.filter(identified).map((row) => [row.key, row]));
     lastDisplayAt = now;
     return filtered;
   };
 }
 
+// development/web/src/performance-data.js
+var available = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
+var scopeLabel = (timing) => typeof timing.name === "string" && timing.name.length ? timing.name : typeof timing.scopeId === "string" && timing.scopeId.length ? timing.scopeId : "Unnamed scope";
+function publishedPrecision(value, digits) {
+  const scale = 10 ** digits;
+  const scaled = value * scale;
+  const lower = Math.floor(scaled);
+  if (Number.isInteger(value * 2 ** (digits + 1)) && scaled - lower === 0.5 && lower % 2 === 0) {
+    return lower / scale;
+  }
+  return Number(value.toFixed(digits));
+}
+function performanceRows(measurements) {
+  const rows = [];
+  for (const measurement of measurements || []) {
+    const producer = measurement.producer;
+    const key = (kind, id) => producer?.component && producer?.instanceId && id ? JSON.stringify([producer.component, producer.instanceId, kind, id]) : null;
+    for (const timing of measurement.timings || []) {
+      if (!timing) continue;
+      rows.push({
+        key: key("timing", timing.scopeId),
+        stage: scopeLabel(timing),
+        unit: "ms",
+        current: available(timing.meanMs) ? publishedPrecision(timing.meanMs, 2) : null,
+        p95: available(timing.p95Ms) ? publishedPrecision(timing.p95Ms, 2) : null
+      });
+    }
+    if (measurement.frameRate) {
+      rows.push({
+        key: key("frameRate", "fps"),
+        stage: "Pipeline",
+        unit: "fps",
+        current: available(measurement.frameRate.fps) ? publishedPrecision(measurement.frameRate.fps, 1) : null,
+        p95: null
+      });
+    }
+  }
+  const counts = /* @__PURE__ */ new Map();
+  for (const row of rows) if (row.key) counts.set(row.key, (counts.get(row.key) || 0) + 1);
+  for (const row of rows) if (counts.get(row.key) > 1) row.key = null;
+  return rows.filter((row) => row.current !== null || row.p95 !== null);
+}
+function formatMetricValue(value, unit) {
+  if (!available(value)) return "";
+  return unit === "fps" ? `${value.toFixed(1)} FPS` : `${value.toFixed(2)}ms`;
+}
+function formatPerformanceLines(measurement) {
+  const rows = [];
+  if (measurement.pixelFormat) rows.push(["Pixel format", measurement.pixelFormat]);
+  for (const timing of measurement.timings || []) {
+    if (!timing) continue;
+    let value = available(timing.meanMs) ? `${publishedPrecision(timing.meanMs, 2).toFixed(2).padStart(7)}ms` : "  --.--ms";
+    if (available(timing.p95Ms)) value += ` (p95: ${publishedPrecision(timing.p95Ms, 2).toFixed(2)}ms)`;
+    rows.push([scopeLabel(timing), value]);
+  }
+  if (measurement.frameRate) {
+    const fps = measurement.frameRate.fps;
+    rows.push(["Pipeline", available(fps) ? `${publishedPrecision(fps, 1).toFixed(1).padStart(6)} FPS` : "   --.- FPS"]);
+  }
+  return rows.map(([name, value]) => `${name.padEnd(24)}: ${value}`);
+}
+
 // development/web/src/performance-metrics.js
 var body = document.getElementById("performanceMetricsBody");
 var copyButton = document.getElementById("copyPerformanceMetricsBtn");
-var MAX_METRIC_LINE_LENGTH = 240;
 var currentRows = [];
 var filterMetrics = createPerformanceLowPass();
-function decimalText(value) {
-  const parts = String(value || "").split(".");
-  if (parts.length > 2 || parts.some((part) => part.length === 0)) {
-    return false;
-  }
-  return parts.every((part) => [...part].every((char) => char >= "0" && char <= "9"));
-}
-function parseMillisToken(token) {
-  if (!token.endsWith("ms")) {
-    return "";
-  }
-  const value = token.slice(0, -2);
-  return decimalText(value) ? `${value}ms` : "";
-}
-function parsePipelineFps(text2) {
-  if (!text2.startsWith("Pipeline")) {
-    return null;
-  }
-  const rest = text2.slice("Pipeline".length).trim();
-  const valueText = (rest.startsWith(":") ? rest.slice(1) : rest).trim();
-  if (!valueText.endsWith(" FPS")) {
-    return null;
-  }
-  const fps = valueText.slice(0, -" FPS".length).trim();
-  return decimalText(fps) ? { stage: "Pipeline", current: `${fps} FPS`, p95: "" } : null;
-}
-function parseP95Text(text2) {
-  if (!text2) {
-    return "";
-  }
-  if (!text2.startsWith("(p95:") || !text2.endsWith(")")) {
-    return "";
-  }
-  return parseMillisToken(text2.slice(5, -1).trim());
-}
-function parseTimedMetric(text2) {
-  const separator = text2.indexOf(":");
-  if (separator <= 0) {
-    return null;
-  }
-  const stage = text2.slice(0, separator).trim();
-  const rest = text2.slice(separator + 1).trim();
-  const firstSpace = rest.indexOf(" ");
-  const currentToken = firstSpace < 0 ? rest : rest.slice(0, firstSpace);
-  const current = parseMillisToken(currentToken);
-  if (!stage || !current) {
-    return null;
-  }
-  const p95Text = firstSpace < 0 ? "" : rest.slice(firstSpace + 1).trim();
-  return { stage, current, p95: parseP95Text(p95Text) };
-}
-function parseMetricLine(line) {
-  const text2 = String(line || "").slice(0, MAX_METRIC_LINE_LENGTH).replaceAll("\u2550", "").trim();
-  if (!text2) return null;
-  return parsePipelineFps(text2) || parseTimedMetric(text2);
-}
 function createCell(text2, className) {
   const cell = document.createElement("td");
   if (className) {
@@ -2141,8 +2195,8 @@ function renderEmptyRow() {
 function renderMetricRow(metric) {
   const row = document.createElement("tr");
   row.appendChild(createCell(metric.stage));
-  row.appendChild(createCell(metric.current));
-  row.appendChild(createCell(metric.p95));
+  row.appendChild(createCell(formatMetricValue(metric.current, metric.unit)));
+  row.appendChild(createCell(formatMetricValue(metric.p95, metric.unit)));
   return row;
 }
 function renderRows(rows) {
@@ -2152,8 +2206,8 @@ function renderRows(rows) {
   body.replaceChildren(...rows.length ? rows.map(renderMetricRow) : [renderEmptyRow()]);
 }
 function renderPerformanceMetrics(performance2) {
-  const lines = Array.isArray(performance2?.lines) ? performance2.lines : [];
-  const rows = filterMetrics(lines.map(parseMetricLine).filter(Boolean));
+  const measurements = Array.isArray(performance2?.measurements) ? performance2.measurements : [];
+  const rows = filterMetrics(performanceRows(measurements));
   if (rows !== null) renderRows(rows);
 }
 function updateCopyButtonState() {
@@ -2163,7 +2217,7 @@ function getMetricsText() {
   if (!currentRows.length) return "";
   return [
     "Stage	Current	P95",
-    ...currentRows.map((row) => `${row.stage}	${row.current}	${row.p95}`)
+    ...currentRows.map((row) => `${row.stage}	${formatMetricValue(row.current, row.unit)}	${formatMetricValue(row.p95, row.unit)}`)
   ].join("\n");
 }
 copyButton?.addEventListener("click", () => {
@@ -2176,10 +2230,121 @@ window.addEventListener("metadata-message", (event) => {
 });
 updateCopyButtonState();
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-observation-state.js
+var TrackObservationState;
+(function(TrackObservationState2) {
+  TrackObservationState2[TrackObservationState2["Unspecified"] = 0] = "Unspecified";
+  TrackObservationState2[TrackObservationState2["Observed"] = 1] = "Observed";
+  TrackObservationState2[TrackObservationState2["Predicted"] = 2] = "Predicted";
+})(TrackObservationState || (TrackObservationState = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/tracking-time-source.js
+var TrackingTimeSource;
+(function(TrackingTimeSource2) {
+  TrackingTimeSource2[TrackingTimeSource2["Unspecified"] = 0] = "Unspecified";
+  TrackingTimeSource2[TrackingTimeSource2["MediaDelta"] = 1] = "MediaDelta";
+  TrackingTimeSource2[TrackingTimeSource2["FallbackDelta"] = 2] = "FallbackDelta";
+})(TrackingTimeSource || (TrackingTimeSource = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-association-kind.js
+var TrackAssociationKind;
+(function(TrackAssociationKind2) {
+  TrackAssociationKind2[TrackAssociationKind2["Unspecified"] = 0] = "Unspecified";
+  TrackAssociationKind2[TrackAssociationKind2["New"] = 1] = "New";
+  TrackAssociationKind2[TrackAssociationKind2["IoUScore"] = 2] = "IoUScore";
+  TrackAssociationKind2[TrackAssociationKind2["CosineScore"] = 3] = "CosineScore";
+  TrackAssociationKind2[TrackAssociationKind2["Reacquired"] = 4] = "Reacquired";
+})(TrackAssociationKind || (TrackAssociationKind = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/coordinate-units.js
+var CoordinateUnits;
+(function(CoordinateUnits2) {
+  CoordinateUnits2[CoordinateUnits2["Pixels"] = 0] = "Pixels";
+  CoordinateUnits2[CoordinateUnits2["Normalized"] = 1] = "Normalized";
+})(CoordinateUnits || (CoordinateUnits = {}));
+
+// development/web/src/image-geometry.js
+function validImageSpace(space) {
+  const id = space?.frameId;
+  return (typeof id === "bigint" ? id > 0n : Number.isSafeInteger(id) && id > 0) && Number.isInteger(space.width) && space.width > 0 && Number.isInteger(space.height) && space.height > 0 && [space.originX, space.originY, space.extentWidth, space.extentHeight].every(Number.isFinite) && space.originX >= 0 && space.originY >= 0 && space.extentWidth > 0 && space.extentHeight > 0 && space.originX + space.extentWidth <= space.width && space.originY + space.extentHeight <= space.height;
+}
+function imagePoint(x, y, space) {
+  return { x: space.originX + x, y: space.originY + y };
+}
+function imageBox(box) {
+  const space = box?.space;
+  if (!validImageSpace(space) || ![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.width <= 0 || box.height <= 0 || ![CoordinateUnits.Pixels, CoordinateUnits.Normalized].includes(box.units)) return null;
+  const unitX = box.units === CoordinateUnits.Normalized ? space.extentWidth : 1;
+  const unitY = box.units === CoordinateUnits.Normalized ? space.extentHeight : 1;
+  return {
+    ...imagePoint(box.x * unitX, box.y * unitY, space),
+    width: box.width * unitX,
+    height: box.height * unitY,
+    frameWidth: space.width,
+    frameHeight: space.height
+  };
+}
+
+// development/web/src/tracking-data.js
+var positiveId = (value) => value != null && (typeof value !== "number" || Number.isSafeInteger(value)) && /^[1-9][0-9]{0,19}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
+function trackKey(identity) {
+  return typeof identity?.trackerId === "string" && identity.trackerId.length && typeof identity.sessionId === "string" && identity.sessionId.length && positiveId(identity.trackId) ? JSON.stringify([identity.trackerId, identity.sessionId, String(identity.trackId)]) : null;
+}
+function validSample(sample) {
+  return positiveId(sample?.frameIndex) && Number.isFinite(sample.elapsedMs) && sample.elapsedMs >= 0 && [TrackObservationState.Observed, TrackObservationState.Predicted].includes(sample.state) && [TrackingTimeSource.MediaDelta, TrackingTimeSource.FallbackDelta].includes(sample.timeSource);
+}
+function sameSample(a, b) {
+  return validSample(a) && validSample(b) && String(a.frameIndex) === String(b.frameIndex) && a.state === b.state && a.timeSource === b.timeSource && Math.abs(a.elapsedMs - b.elapsedMs) <= 1e-6;
+}
+function traceMatchesCurrentTrack(trace, tracks) {
+  return tracks.length === 0 || tracks.length === 1 && tracks[0].data.trackingValid === true && sameSample(trace.points?.at(-1)?.sample, tracks[0].data.sample);
+}
+function validAssociation(value) {
+  if (!value) return true;
+  if ([TrackAssociationKind.Unspecified, TrackAssociationKind.New].includes(value.kind)) return value.score == null;
+  if (value.score == null || !Number.isFinite(value.score)) return false;
+  return value.kind === TrackAssociationKind.IoUScore ? value.score >= 0 && value.score <= 1 : [TrackAssociationKind.CosineScore, TrackAssociationKind.Reacquired].includes(value.kind) && value.score >= -1 && value.score <= 1;
+}
+function validTrack(track) {
+  if (!trackKey(track.identity) || !validSample(track.sample) || !imageBox(track.box) || !validAssociation(track.association)) return false;
+  if (track.sourceConfidence != null && (!Number.isFinite(track.sourceConfidence) || track.sourceConfidence < 0 || track.sourceConfidence > 1)) return false;
+  if (track.sample.state === TrackObservationState.Predicted && track.association) return false;
+  if (track.sourceId == null !== (track.sourceFrameIndex == null)) return false;
+  return track.sourceId == null || positiveId(track.sourceId) && positiveId(track.sourceFrameIndex) && (track.sample.state === TrackObservationState.Observed ? BigInt(track.sourceFrameIndex) === BigInt(track.sample.frameIndex) : BigInt(track.sourceFrameIndex) < BigInt(track.sample.frameIndex));
+}
+function validTrace(trace) {
+  if (!trackKey(trace.identity) || !validImageSpace(trace.space)) return false;
+  let previous = null;
+  for (const point of trace.points || []) {
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || !validSample(point.sample)) return false;
+    if (previous && (BigInt(point.sample.frameIndex) <= BigInt(previous.frameIndex) || point.sample.elapsedMs <= previous.elapsedMs)) return false;
+    previous = point.sample;
+  }
+  return true;
+}
+function trackLabel(track, displayIdentity) {
+  const text2 = track.text || "";
+  if (!displayIdentity || !trackKey(track.identity)) return text2;
+  let diagnostic = "IOU:N/A";
+  if (track.sample?.state === TrackObservationState.Predicted) diagnostic = "PRED";
+  else if (validAssociation(track.association)) {
+    const association = track.association;
+    if (association?.kind === TrackAssociationKind.New) diagnostic = "NEW";
+    else if (association?.score != null) {
+      const prefix = association.kind === TrackAssociationKind.IoUScore ? "IOU" : association.kind === TrackAssociationKind.Reacquired ? "REID-R" : "REID";
+      const sign = association.score < 0 || Object.is(association.score, -0) ? "-" : "";
+      diagnostic = `${prefix}:${sign}${publishedPrecision(Math.abs(association.score), 2).toFixed(2)}`;
+    }
+  }
+  const suffix = `ID:${track.identity.trackId} ${diagnostic}`;
+  return text2 ? `${text2} [${suffix}]` : suffix;
+}
+var identityData = (value) => value ? { trackerId: value.trackerId, sessionId: value.sessionId, trackId: String(value.trackId) } : null;
+var sampleData = (value) => value ? { ...value, frameIndex: String(value.frameIndex) } : null;
+
 // development/web/src/overlay-sources.js
 var SOURCE_FIELDS = [
   "payloadType",
-  "contentType",
   "engine",
   "model",
   "inferElementId",
@@ -2190,7 +2355,6 @@ var SOURCE_FIELDS = [
 ];
 var SOURCE_FIELD_LABELS = {
   payloadType: "Payload type",
-  contentType: "Content type",
   engine: "Engine",
   model: "Model",
   inferElementId: "Inference element",
@@ -2202,7 +2366,6 @@ var SOURCE_FIELD_LABELS = {
 function outputSource(layer2) {
   return {
     payloadType: layer2.payloadType || "",
-    contentType: layer2.contentType || "",
     engine: layer2.engine || "",
     model: layer2.model || "",
     inferElementId: layer2.inferElementId || "",
@@ -2218,18 +2381,17 @@ function sourceKey(source) {
 function validSource(source) {
   return SOURCE_FIELDS.every((field) => typeof source?.[field] === "string") && source.payloadType.length > 0;
 }
+function copySource(source) {
+  return Object.fromEntries(SOURCE_FIELDS.map((field) => [field, source[field]]));
+}
 function producerKey(source) {
   return source.producerInstanceId ? JSON.stringify([source.producerComponent, source.producerInstanceId]) : null;
 }
 function objectId(value) {
   return value == null || String(value) === "0" ? "" : String(value);
 }
-function trackKey(source, id) {
-  const producer = producerKey(source);
-  return producer && objectId(id) ? JSON.stringify([producer, objectId(id)]) : null;
-}
 function sourceLabel(source) {
-  if (source.payloadType === "PerformanceOverlay") return "Pipeline performance";
+  if (source.payloadType === "PerformanceMeasurements") return "Pipeline performance";
   return source.model || source.producerImplementation || source.producerInstanceId || source.inferElementId || source.producerComponent || "Unspecified source";
 }
 function sourceDetails(source) {
@@ -2263,15 +2425,15 @@ function sourceLabels(sources, groupByPayload = true) {
   return labels;
 }
 function collectOutputs(frame) {
-  const outputs = /* @__PURE__ */ new Map();
+  const outputs2 = /* @__PURE__ */ new Map();
   for (const layer2 of frame?.layers || []) {
     if (!layer2.payloadType || layer2.payloadType === "FrameContext") continue;
     const source = outputSource(layer2);
     const key = sourceKey(source);
-    if (!outputs.has(key)) outputs.set(key, { key, source, layers: [] });
-    outputs.get(key).layers.push(layer2);
+    if (!outputs2.has(key)) outputs2.set(key, { key, source, layers: [] });
+    outputs2.get(key).layers.push(layer2);
   }
-  return outputs;
+  return outputs2;
 }
 function append(index, key, value) {
   if (!key) return;
@@ -2279,9 +2441,9 @@ function append(index, key, value) {
   index.get(key).push(value);
 }
 function indexFrame(frame) {
-  const outputs = collectOutputs(frame);
-  const index = { frame, outputs, byPayload: /* @__PURE__ */ new Map(), byProducer: /* @__PURE__ */ new Map(), objects: /* @__PURE__ */ new Map(), byTrack: /* @__PURE__ */ new Map() };
-  for (const output of outputs.values()) {
+  const outputs2 = collectOutputs(frame);
+  const index = { frame, outputs: outputs2, byPayload: /* @__PURE__ */ new Map(), byProducer: /* @__PURE__ */ new Map(), objects: /* @__PURE__ */ new Map(), byTrack: /* @__PURE__ */ new Map() };
+  for (const output of outputs2.values()) {
     append(index.byPayload, output.source.payloadType, output);
     append(index.byProducer, producerKey(output.source), output);
     output.items = [];
@@ -2291,11 +2453,51 @@ function indexFrame(frame) {
         const entry = { ...item, layer: layer2, source: output.source };
         output.items.push(entry);
         append(index.objects, objectId(item.data.uuid), entry);
-        append(index.byTrack, trackKey(output.source, item.data.trackId), entry);
+        append(index.byTrack, trackKey(item.data.identity), entry);
       }
     }
   }
   return index;
+}
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-kind.js
+var ClassificationKind;
+(function(ClassificationKind2) {
+  ClassificationKind2[ClassificationKind2["Unspecified"] = 0] = "Unspecified";
+  ClassificationKind2[ClassificationKind2["Categorical"] = 1] = "Categorical";
+  ClassificationKind2[ClassificationKind2["RecognizedText"] = 2] = "RecognizedText";
+})(ClassificationKind || (ClassificationKind = {}));
+
+// development/web/src/classification-results.js
+var validProbability = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+var validEmptyClassification = (value) => value.kind === ClassificationKind.Categorical && Boolean(value.labelSet) || value.kind === ClassificationKind.RecognizedText && !value.labelSet;
+function validCandidate(classification, candidate) {
+  if (!candidate || candidate.confidence != null && !validProbability(candidate.confidence)) return false;
+  if (classification.kind === ClassificationKind.Categorical)
+    return Boolean(classification.labelSet) && Number.isInteger(candidate.classId) && candidate.classId >= 0;
+  if (classification.kind === ClassificationKind.RecognizedText)
+    return !classification.labelSet && candidate.classId == null;
+  return false;
+}
+function presenceOutcome(data) {
+  const result = data?.result;
+  if (!result || typeof result.personPresent !== "boolean") return null;
+  if (result.yesScore == null && result.noScore == null) return result.personPresent;
+  return Number.isFinite(result.yesScore) && Number.isFinite(result.noScore) ? result.personPresent : null;
+}
+function contactOutcome(data) {
+  const result = data?.result;
+  if (!result || typeof result.inContact !== "boolean" || result.confidence != null && !validProbability(result.confidence)) return null;
+  return result.inContact;
+}
+
+// development/web/src/gaze-results.js
+function validGaze(data) {
+  return Boolean(data?.angles) && Number.isFinite(data.angles.yawDegrees) && Number.isFinite(data.angles.pitchDegrees) && (data.confidence == null || validProbability(data.confidence));
+}
+function wrapDegrees(value) {
+  const angle = value % 360;
+  return angle > 180 ? angle - 360 : angle < -180 ? angle + 360 : angle;
 }
 
 // development/web/src/inference-output.js
@@ -2324,23 +2526,40 @@ function detectionSummary(detection) {
   const type = detection?.type || "Detection";
   const data = detection?.data || {};
   if (type === "Rect") {
-    const label = data.text || `Class ${data.classId ?? "-"}`;
+    const label = data.displayText || data.text || `Class ${data.classId ?? "-"}`;
     const confidence = number(data.confidence);
     return {
       title: label,
-      detail: `box x ${number(data.x)} y ${number(data.y)} w ${number(data.width)} h ${number(data.height)}`,
+      detail: data.spatialValid === false ? "Spatial reference unavailable" : `box x ${number(data.x)} y ${number(data.y)} w ${number(data.width)} h ${number(data.height)}`,
       meta: confidence ? `${confidence}` : ""
     };
   }
-  if (type === "YawPitch") {
+  if (type === "GazeMeasurement") {
     return {
       title: "Yaw / pitch",
-      detail: `yaw ${number(data.yaw)} pitch ${number(data.pitch)}`,
-      meta: number(data.confidence)
+      detail: validGaze(data) ? `yaw ${number(data.angles.yawDegrees)}\xB0 pitch ${number(data.angles.pitchDegrees)}\xB0` : "Gaze unavailable",
+      meta: validGaze(data) ? number(data.confidence) : ""
+    };
+  }
+  if (type === "CameraContact") {
+    if (contactOutcome(data) === null)
+      return { title: "Contact unavailable", detail: "classification", meta: "" };
+    const result = data.result;
+    return {
+      title: result.inContact ? "Contact" : "No contact",
+      detail: "classification",
+      meta: number(result?.confidence)
     };
   }
   if (type === "Classification") {
     const best = Array.isArray(data.candidates) ? data.candidates[0] : null;
+    if (!best) return {
+      title: validEmptyClassification(data) ? "No candidates" : "Classification unavailable",
+      detail: validEmptyClassification(data) ? "Empty classification result" : "Missing classification kind or identity",
+      meta: ""
+    };
+    if (best && !validCandidate(data, best))
+      return { title: "Classification unavailable", detail: "Invalid kind, identity or score", meta: "" };
     return {
       title: best?.text || `Class ${best?.classId ?? "-"}`,
       detail: "classification",
@@ -2348,6 +2567,7 @@ function detectionSummary(detection) {
     };
   }
   if (type === "VoiceActivityDetection" || type === "TurnDetection") {
+    if (!data.usable) return { title: "Audio result unavailable", detail: "Missing or invalid audio measurement", meta: "" };
     const voiceActivity = type === "VoiceActivityDetection";
     return {
       title: voiceActivity ? data.speechActive ? "Speech active" : "Silence" : data.turnComplete ? "Turn assessment: complete" : "Turn assessment: ongoing",
@@ -2362,17 +2582,22 @@ function detectionSummary(detection) {
       meta: ""
     };
   }
+  if (type === "AudioFrame") return {
+    title: "Audio source buffer",
+    detail: `${data.originalChannels} channels, ${data.originalFrequency} Hz`,
+    meta: `${data.originalSampleCount} samples`
+  };
   if (type === "TrackTrace") {
     return {
-      title: `Track ${data.trackId ?? "-"}`,
-      detail: "trace",
+      title: `Track ${data.identity?.trackId ?? "-"}`,
+      detail: data.spatialValid === false ? "Spatial reference unavailable" : "trace",
       meta: ""
     };
   }
   if (type === "PersonClassification") {
     return {
       title: "Person classification",
-      detail: `yes ${number(data.yesConfidence)} no ${number(data.noConfidence)}`,
+      detail: presenceOutcome(data) === null ? "Presence unavailable" : `${data.result.personPresent ? "Person" : "No person"}; raw yes ${number(data.result.yesScore)} no ${number(data.result.noScore)}`,
       meta: ""
     };
   }
@@ -2383,7 +2608,7 @@ function detectionSummary(detection) {
   };
 }
 function layerTitle(layer2) {
-  return layer2.model || layer2.contentType || layer2.engine || "Layer";
+  return layer2.model || layer2.payloadType || layer2.engine || "Layer";
 }
 function createNode(tag, className, text2) {
   const node2 = document.createElement(tag);
@@ -2416,15 +2641,15 @@ function renderLayer(layer2) {
   const container = createNode("div", "inference-layer");
   const header = createNode("div", "inference-layer-header");
   header.appendChild(createNode("span", "inference-layer-title wfr-txt-label", layerTitle(layer2)));
-  header.appendChild(createNode("span", "inference-layer-count wfr-txt-caption", layer2.count || 0));
+  header.appendChild(createNode("span", "inference-layer-count wfr-txt-caption", layer2.status === "invalid" ? "Unavailable" : layer2.count || 0));
   container.appendChild(header);
-  container.appendChild(createNode("div", "inference-layer-kind wfr-txt-caption", layer2.contentType || layer2.labelFamily || "output"));
+  container.appendChild(createNode("div", "inference-layer-kind wfr-txt-caption", layer2.payloadType || "output"));
   if (rows.length) {
     const detectionsNode = createNode("div", "inference-detections");
     rows.forEach((row) => detectionsNode.appendChild(renderDetection(row)));
     container.appendChild(detectionsNode);
   } else {
-    container.appendChild(renderEmpty("No detections"));
+    container.appendChild(renderEmpty(layer2.status === "invalid" ? "Invalid result data" : "No results"));
   }
   if (hiddenCount) {
     container.appendChild(renderEmpty(`${hiddenCount} more not shown`));
@@ -2440,19 +2665,24 @@ function renderInferenceOutput(output) {
     body2.replaceChildren(renderEmpty("Inference paused."));
     return;
   }
-  const layers = Array.isArray(output?.layers) ? output.layers.filter((layer2) => layer2.model || layer2.contentType || layer2.engine) : [];
+  const layers = Array.isArray(output?.layers) ? output.layers.filter((layer2) => layer2.payloadType) : [];
   currentLayers = layers;
   updateCopyButtonState2();
-  if (!layers.length) {
+  if (output?.decodeError) {
+    body2.replaceChildren(renderEmpty(`Metadata unavailable: ${output.decodeError}`));
+    return;
+  }
+  const unsupported = output?.unsupportedPayloadCount > 0 ? [renderEmpty(`${output.unsupportedPayloadCount} unsupported or malformed payload(s) were not interpreted.`)] : [];
+  if (!layers.length && !unsupported.length) {
     body2.replaceChildren(renderEmpty("No inference output yet, enable a model to see inference here."));
     return;
   }
-  body2.replaceChildren(...layers.map(renderLayer));
+  body2.replaceChildren(...unsupported, ...layers.map(renderLayer));
 }
 function copyableLayers() {
   return currentLayers.filter((layer2) => {
     const detections = Array.isArray(layer2.detections) ? layer2.detections : [];
-    return detections.length > 0 || Number(layer2.count || 0) > 0;
+    return layer2.status === "empty" || layer2.status === "invalid" || detections.length > 0;
   });
 }
 function updateCopyButtonState2() {
@@ -2465,7 +2695,7 @@ function getInferenceText() {
     const detections = Array.isArray(layer2.detections) ? layer2.detections : [];
     const rows = detections.map(detectionSummary);
     const lines = [
-      `${layerTitle(layer2)} (${layer2.contentType || layer2.labelFamily || "output"}): ${layer2.count || 0}`,
+      `${layerTitle(layer2)} (${layer2.payloadType || "output"}): ${layer2.count || 0}`,
       ...rows.map((row) => {
         const meta = row.meta ? ` [${row.meta}]` : "";
         return `- ${row.title}${meta}: ${row.detail}`;
@@ -3489,6 +3719,119 @@ var WireEnvelopeT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/image-space.js
+var ImageSpace = class _ImageSpace {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsImageSpace(bb, obj) {
+    return (obj || new _ImageSpace()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsImageSpace(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _ImageSpace()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  frameId() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  width() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  height() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  originX() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  originY() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  extentWidth() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  extentHeight() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  static startImageSpace(builder) {
+    builder.startObject(7);
+  }
+  static addFrameId(builder, frameId) {
+    builder.addFieldInt64(0, frameId, BigInt("0"));
+  }
+  static addWidth(builder, width) {
+    builder.addFieldInt32(1, width, 0);
+  }
+  static addHeight(builder, height) {
+    builder.addFieldInt32(2, height, 0);
+  }
+  static addOriginX(builder, originX) {
+    builder.addFieldFloat64(3, originX, 0);
+  }
+  static addOriginY(builder, originY) {
+    builder.addFieldFloat64(4, originY, 0);
+  }
+  static addExtentWidth(builder, extentWidth) {
+    builder.addFieldFloat64(5, extentWidth, 0);
+  }
+  static addExtentHeight(builder, extentHeight) {
+    builder.addFieldFloat64(6, extentHeight, 0);
+  }
+  static endImageSpace(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createImageSpace(builder, frameId, width, height, originX, originY, extentWidth, extentHeight) {
+    _ImageSpace.startImageSpace(builder);
+    _ImageSpace.addFrameId(builder, frameId);
+    _ImageSpace.addWidth(builder, width);
+    _ImageSpace.addHeight(builder, height);
+    _ImageSpace.addOriginX(builder, originX);
+    _ImageSpace.addOriginY(builder, originY);
+    _ImageSpace.addExtentWidth(builder, extentWidth);
+    _ImageSpace.addExtentHeight(builder, extentHeight);
+    return _ImageSpace.endImageSpace(builder);
+  }
+  unpack() {
+    return new ImageSpaceT(this.frameId(), this.width(), this.height(), this.originX(), this.originY(), this.extentWidth(), this.extentHeight());
+  }
+  unpackTo(_o) {
+    _o.frameId = this.frameId();
+    _o.width = this.width();
+    _o.height = this.height();
+    _o.originX = this.originX();
+    _o.originY = this.originY();
+    _o.extentWidth = this.extentWidth();
+    _o.extentHeight = this.extentHeight();
+  }
+};
+var ImageSpaceT = class {
+  constructor(frameId = BigInt("0"), width = 0, height = 0, originX = 0, originY = 0, extentWidth = 0, extentHeight = 0) {
+    this.frameId = frameId;
+    this.width = width;
+    this.height = height;
+    this.originX = originX;
+    this.originY = originY;
+    this.extentWidth = extentWidth;
+    this.extentHeight = extentHeight;
+  }
+  pack(builder) {
+    return ImageSpace.createImageSpace(builder, this.frameId, this.width, this.height, this.originX, this.originY, this.extentWidth, this.extentHeight);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bounding-box.js
 var BoundingBox = class _BoundingBox {
   constructor() {
@@ -3523,8 +3866,16 @@ var BoundingBox = class _BoundingBox {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
   }
+  space(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? (obj || new ImageSpace()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  units() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : CoordinateUnits.Pixels;
+  }
   static startBoundingBox(builder) {
-    builder.startObject(4);
+    builder.startObject(6);
   }
   static addX(builder, x) {
     builder.addFieldFloat32(0, x, 0);
@@ -3538,37 +3889,47 @@ var BoundingBox = class _BoundingBox {
   static addHeight(builder, height) {
     builder.addFieldFloat32(3, height, 0);
   }
+  static addSpace(builder, spaceOffset) {
+    builder.addFieldOffset(4, spaceOffset, 0);
+  }
+  static addUnits(builder, units) {
+    builder.addFieldInt8(5, units, CoordinateUnits.Pixels);
+  }
   static endBoundingBox(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createBoundingBox(builder, x, y, width, height) {
-    _BoundingBox.startBoundingBox(builder);
-    _BoundingBox.addX(builder, x);
-    _BoundingBox.addY(builder, y);
-    _BoundingBox.addWidth(builder, width);
-    _BoundingBox.addHeight(builder, height);
-    return _BoundingBox.endBoundingBox(builder);
-  }
   unpack() {
-    return new BoundingBoxT(this.x(), this.y(), this.width(), this.height());
+    return new BoundingBoxT(this.x(), this.y(), this.width(), this.height(), this.space() !== null ? this.space().unpack() : null, this.units());
   }
   unpackTo(_o) {
     _o.x = this.x();
     _o.y = this.y();
     _o.width = this.width();
     _o.height = this.height();
+    _o.space = this.space() !== null ? this.space().unpack() : null;
+    _o.units = this.units();
   }
 };
 var BoundingBoxT = class {
-  constructor(x = 0, y = 0, width = 0, height = 0) {
+  constructor(x = 0, y = 0, width = 0, height = 0, space = null, units = CoordinateUnits.Pixels) {
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
+    this.space = space;
+    this.units = units;
   }
   pack(builder) {
-    return BoundingBox.createBoundingBox(builder, this.x, this.y, this.width, this.height);
+    const space = this.space !== null ? this.space.pack(builder) : 0;
+    BoundingBox.startBoundingBox(builder);
+    BoundingBox.addX(builder, this.x);
+    BoundingBox.addY(builder, this.y);
+    BoundingBox.addWidth(builder, this.width);
+    BoundingBox.addHeight(builder, this.height);
+    BoundingBox.addSpace(builder, space);
+    BoundingBox.addUnits(builder, this.units);
+    return BoundingBox.endBoundingBox(builder);
   }
 };
 
@@ -3677,7 +4038,7 @@ var BoxDetection = class _BoxDetection {
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
   }
   text(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 12);
@@ -3696,7 +4057,7 @@ var BoxDetection = class _BoxDetection {
     builder.addFieldFloat32(2, confidence, 0);
   }
   static addClassId(builder, classId) {
-    builder.addFieldInt32(3, classId, -1);
+    builder.addFieldInt32(3, classId, null);
   }
   static addText(builder, textOffset) {
     builder.addFieldOffset(4, textOffset, 0);
@@ -3717,7 +4078,7 @@ var BoxDetection = class _BoxDetection {
   }
 };
 var BoxDetectionT = class {
-  constructor(object = null, box = null, confidence = 0, classId = -1, text2 = null) {
+  constructor(object = null, box = null, confidence = 0, classId = null, text2 = null) {
     this.object = object;
     this.box = box;
     this.confidence = confidence;
@@ -3732,7 +4093,8 @@ var BoxDetectionT = class {
     BoxDetection.addObject(builder, object);
     BoxDetection.addBox(builder, box);
     BoxDetection.addConfidence(builder, this.confidence);
-    BoxDetection.addClassId(builder, this.classId);
+    if (this.classId !== null)
+      BoxDetection.addClassId(builder, this.classId);
     BoxDetection.addText(builder, text2);
     return BoxDetection.endBoxDetection(builder);
   }
@@ -3852,20 +4214,16 @@ var LayerInfo = class _LayerInfo {
     const offset = this.bb.__offset(this.bb_pos, 12);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  contentType(optionalEncoding) {
+  compositingMode(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 14);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  compositingMode(optionalEncoding) {
-    const offset = this.bb.__offset(this.bb_pos, 16);
-    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
-  }
   producer(obj) {
-    const offset = this.bb.__offset(this.bb_pos, 18);
+    const offset = this.bb.__offset(this.bb_pos, 16);
     return offset ? (obj || new ProducerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
   static startLayerInfo(builder) {
-    builder.startObject(8);
+    builder.startObject(7);
   }
   static addEngine(builder, engineOffset) {
     builder.addFieldOffset(0, engineOffset, 0);
@@ -3882,21 +4240,18 @@ var LayerInfo = class _LayerInfo {
   static addLabelFamily(builder, labelFamilyOffset) {
     builder.addFieldOffset(4, labelFamilyOffset, 0);
   }
-  static addContentType(builder, contentTypeOffset) {
-    builder.addFieldOffset(5, contentTypeOffset, 0);
-  }
   static addCompositingMode(builder, compositingModeOffset) {
-    builder.addFieldOffset(6, compositingModeOffset, 0);
+    builder.addFieldOffset(5, compositingModeOffset, 0);
   }
   static addProducer(builder, producerOffset) {
-    builder.addFieldOffset(7, producerOffset, 0);
+    builder.addFieldOffset(6, producerOffset, 0);
   }
   static endLayerInfo(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.contentType(), this.compositingMode(), this.producer() !== null ? this.producer().unpack() : null);
+    return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.compositingMode(), this.producer() !== null ? this.producer().unpack() : null);
   }
   unpackTo(_o) {
     _o.engine = this.engine();
@@ -3904,19 +4259,17 @@ var LayerInfo = class _LayerInfo {
     _o.tags = this.tags();
     _o.inferElementId = this.inferElementId();
     _o.labelFamily = this.labelFamily();
-    _o.contentType = this.contentType();
     _o.compositingMode = this.compositingMode();
     _o.producer = this.producer() !== null ? this.producer().unpack() : null;
   }
 };
 var LayerInfoT = class {
-  constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, contentType = null, compositingMode = null, producer = null) {
+  constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, compositingMode = null, producer = null) {
     this.engine = engine;
     this.model = model;
     this.tags = tags;
     this.inferElementId = inferElementId;
     this.labelFamily = labelFamily;
-    this.contentType = contentType;
     this.compositingMode = compositingMode;
     this.producer = producer;
   }
@@ -3926,7 +4279,6 @@ var LayerInfoT = class {
     const tags = this.tags !== null ? builder.createString(this.tags) : 0;
     const inferElementId = this.inferElementId !== null ? builder.createString(this.inferElementId) : 0;
     const labelFamily = this.labelFamily !== null ? builder.createString(this.labelFamily) : 0;
-    const contentType = this.contentType !== null ? builder.createString(this.contentType) : 0;
     const compositingMode = this.compositingMode !== null ? builder.createString(this.compositingMode) : 0;
     const producer = this.producer !== null ? this.producer.pack(builder) : 0;
     LayerInfo.startLayerInfo(builder);
@@ -3935,7 +4287,6 @@ var LayerInfoT = class {
     LayerInfo.addTags(builder, tags);
     LayerInfo.addInferElementId(builder, inferElementId);
     LayerInfo.addLabelFamily(builder, labelFamily);
-    LayerInfo.addContentType(builder, contentType);
     LayerInfo.addCompositingMode(builder, compositingMode);
     LayerInfo.addProducer(builder, producer);
     return LayerInfo.endLayerInfo(builder);
@@ -4047,6 +4398,259 @@ var BoxDetectionsT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contact-result.js
+var CameraContactResult = class _CameraContactResult {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsCameraContactResult(bb, obj) {
+    return (obj || new _CameraContactResult()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsCameraContactResult(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _CameraContactResult()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  inContact() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  confidence() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  modelClassIndex() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
+  }
+  static startCameraContactResult(builder) {
+    builder.startObject(3);
+  }
+  static addInContact(builder, inContact) {
+    builder.addFieldInt8(0, +inContact, 0);
+  }
+  static addConfidence(builder, confidence) {
+    builder.addFieldFloat32(1, confidence, null);
+  }
+  static addModelClassIndex(builder, modelClassIndex) {
+    builder.addFieldInt32(2, modelClassIndex, null);
+  }
+  static endCameraContactResult(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createCameraContactResult(builder, inContact, confidence, modelClassIndex) {
+    _CameraContactResult.startCameraContactResult(builder);
+    _CameraContactResult.addInContact(builder, inContact);
+    if (confidence !== null)
+      _CameraContactResult.addConfidence(builder, confidence);
+    if (modelClassIndex !== null)
+      _CameraContactResult.addModelClassIndex(builder, modelClassIndex);
+    return _CameraContactResult.endCameraContactResult(builder);
+  }
+  unpack() {
+    return new CameraContactResultT(this.inContact(), this.confidence(), this.modelClassIndex());
+  }
+  unpackTo(_o) {
+    _o.inContact = this.inContact();
+    _o.confidence = this.confidence();
+    _o.modelClassIndex = this.modelClassIndex();
+  }
+};
+var CameraContactResultT = class {
+  constructor(inContact = false, confidence = null, modelClassIndex = null) {
+    this.inContact = inContact;
+    this.confidence = confidence;
+    this.modelClassIndex = modelClassIndex;
+  }
+  pack(builder) {
+    return CameraContactResult.createCameraContactResult(builder, this.inContact, this.confidence, this.modelClassIndex);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contact.js
+var CameraContact = class _CameraContact {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsCameraContact(bb, obj) {
+    return (obj || new _CameraContact()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsCameraContact(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _CameraContact()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  result(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? (obj || new CameraContactResult()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  static startCameraContact(builder) {
+    builder.startObject(3);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addResult(builder, resultOffset) {
+    builder.addFieldOffset(1, resultOffset, 0);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(2, subjectId, null);
+  }
+  static endCameraContact(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new CameraContactT(this.object() !== null ? this.object().unpack() : null, this.result() !== null ? this.result().unpack() : null, this.subjectId());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.result = this.result() !== null ? this.result().unpack() : null;
+    _o.subjectId = this.subjectId();
+  }
+};
+var CameraContactT = class {
+  constructor(object = null, result = null, subjectId = null) {
+    this.object = object;
+    this.result = result;
+    this.subjectId = subjectId;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    const result = this.result !== null ? this.result.pack(builder) : 0;
+    CameraContact.startCameraContact(builder);
+    CameraContact.addObject(builder, object);
+    CameraContact.addResult(builder, result);
+    if (this.subjectId !== null)
+      CameraContact.addSubjectId(builder, this.subjectId);
+    return CameraContact.endCameraContact(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/camera-contacts.js
+var CameraContacts = class _CameraContacts {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsCameraContacts(bb, obj) {
+    return (obj || new _CameraContacts()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsCameraContacts(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _CameraContacts()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("CCON");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  contacts(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new CameraContact()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  contactsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startCameraContacts(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addContacts(builder, contactsOffset) {
+    builder.addFieldOffset(3, contactsOffset, 0);
+  }
+  static createContactsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startContactsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endCameraContacts(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishCameraContactsBuffer(builder, offset) {
+    builder.finish(offset, "CCON");
+  }
+  static finishSizePrefixedCameraContactsBuffer(builder, offset) {
+    builder.finish(offset, "CCON", true);
+  }
+  unpack() {
+    return new CameraContactsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.contacts.bind(this), this.contactsLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.contacts = this.bb.createObjList(this.contacts.bind(this), this.contactsLength());
+  }
+};
+var CameraContactsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, contacts = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.contacts = contacts;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const contacts = CameraContacts.createContactsVector(builder, builder.createObjectOffsetList(this.contacts));
+    CameraContacts.startCameraContacts(builder);
+    CameraContacts.addSchemaMajor(builder, this.schemaMajor);
+    CameraContacts.addSchemaMinor(builder, this.schemaMinor);
+    CameraContacts.addLayer(builder, layer2);
+    CameraContacts.addContacts(builder, contacts);
+    return CameraContacts.endCameraContacts(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.js
 var ClassificationCandidate = class _ClassificationCandidate {
   constructor() {
@@ -4067,97 +4671,59 @@ var ClassificationCandidate = class _ClassificationCandidate {
   }
   confidence() {
     const offset = this.bb.__offset(this.bb_pos, 4);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
   }
   text(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 8);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  x() {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  y() {
-    const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  w() {
-    const offset = this.bb.__offset(this.bb_pos, 14);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  h() {
-    const offset = this.bb.__offset(this.bb_pos, 16);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
   static startClassificationCandidate(builder) {
-    builder.startObject(7);
+    builder.startObject(3);
   }
   static addConfidence(builder, confidence) {
-    builder.addFieldFloat32(0, confidence, 0);
+    builder.addFieldFloat32(0, confidence, null);
   }
   static addClassId(builder, classId) {
-    builder.addFieldInt32(1, classId, -1);
+    builder.addFieldInt32(1, classId, null);
   }
   static addText(builder, textOffset) {
     builder.addFieldOffset(2, textOffset, 0);
-  }
-  static addX(builder, x) {
-    builder.addFieldFloat32(3, x, 0);
-  }
-  static addY(builder, y) {
-    builder.addFieldFloat32(4, y, 0);
-  }
-  static addW(builder, w) {
-    builder.addFieldFloat32(5, w, 0);
-  }
-  static addH(builder, h) {
-    builder.addFieldFloat32(6, h, 0);
   }
   static endClassificationCandidate(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createClassificationCandidate(builder, confidence, classId, textOffset, x, y, w, h) {
+  static createClassificationCandidate(builder, confidence, classId, textOffset) {
     _ClassificationCandidate.startClassificationCandidate(builder);
-    _ClassificationCandidate.addConfidence(builder, confidence);
-    _ClassificationCandidate.addClassId(builder, classId);
+    if (confidence !== null)
+      _ClassificationCandidate.addConfidence(builder, confidence);
+    if (classId !== null)
+      _ClassificationCandidate.addClassId(builder, classId);
     _ClassificationCandidate.addText(builder, textOffset);
-    _ClassificationCandidate.addX(builder, x);
-    _ClassificationCandidate.addY(builder, y);
-    _ClassificationCandidate.addW(builder, w);
-    _ClassificationCandidate.addH(builder, h);
     return _ClassificationCandidate.endClassificationCandidate(builder);
   }
   unpack() {
-    return new ClassificationCandidateT(this.confidence(), this.classId(), this.text(), this.x(), this.y(), this.w(), this.h());
+    return new ClassificationCandidateT(this.confidence(), this.classId(), this.text());
   }
   unpackTo(_o) {
     _o.confidence = this.confidence();
     _o.classId = this.classId();
     _o.text = this.text();
-    _o.x = this.x();
-    _o.y = this.y();
-    _o.w = this.w();
-    _o.h = this.h();
   }
 };
 var ClassificationCandidateT = class {
-  constructor(confidence = 0, classId = -1, text2 = null, x = 0, y = 0, w = 0, h = 0) {
+  constructor(confidence = null, classId = null, text2 = null) {
     this.confidence = confidence;
     this.classId = classId;
     this.text = text2;
-    this.x = x;
-    this.y = y;
-    this.w = w;
-    this.h = h;
   }
   pack(builder) {
     const text2 = this.text !== null ? builder.createString(this.text) : 0;
-    return ClassificationCandidate.createClassificationCandidate(builder, this.confidence, this.classId, text2, this.x, this.y, this.w, this.h);
+    return ClassificationCandidate.createClassificationCandidate(builder, this.confidence, this.classId, text2);
   }
 };
 
@@ -4191,8 +4757,20 @@ var Classification = class _Classification {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
+  labelSet(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  kind() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : ClassificationKind.Unspecified;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
   static startClassification(builder) {
-    builder.startObject(2);
+    builder.startObject(5);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -4210,107 +4788,53 @@ var Classification = class _Classification {
   static startCandidatesVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addLabelSet(builder, labelSetOffset) {
+    builder.addFieldOffset(2, labelSetOffset, 0);
+  }
+  static addKind(builder, kind) {
+    builder.addFieldInt8(3, kind, ClassificationKind.Unspecified);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(4, subjectId, null);
+  }
   static endClassification(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createClassification(builder, objectOffset, candidatesOffset) {
+  static createClassification(builder, objectOffset, candidatesOffset, labelSetOffset, kind, subjectId) {
     _Classification.startClassification(builder);
     _Classification.addObject(builder, objectOffset);
     _Classification.addCandidates(builder, candidatesOffset);
+    _Classification.addLabelSet(builder, labelSetOffset);
+    _Classification.addKind(builder, kind);
+    if (subjectId !== null)
+      _Classification.addSubjectId(builder, subjectId);
     return _Classification.endClassification(builder);
   }
   unpack() {
-    return new ClassificationT(this.object() !== null ? this.object().unpack() : null, this.bb.createObjList(this.candidates.bind(this), this.candidatesLength()));
+    return new ClassificationT(this.object() !== null ? this.object().unpack() : null, this.bb.createObjList(this.candidates.bind(this), this.candidatesLength()), this.labelSet(), this.kind(), this.subjectId());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.candidates = this.bb.createObjList(this.candidates.bind(this), this.candidatesLength());
+    _o.labelSet = this.labelSet();
+    _o.kind = this.kind();
+    _o.subjectId = this.subjectId();
   }
 };
 var ClassificationT = class {
-  constructor(object = null, candidates = []) {
+  constructor(object = null, candidates = [], labelSet = null, kind = ClassificationKind.Unspecified, subjectId = null) {
     this.object = object;
     this.candidates = candidates;
+    this.labelSet = labelSet;
+    this.kind = kind;
+    this.subjectId = subjectId;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const candidates = Classification.createCandidatesVector(builder, builder.createObjectOffsetList(this.candidates));
-    return Classification.createClassification(builder, object, candidates);
-  }
-};
-
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.js
-var PersonPresence = class _PersonPresence {
-  constructor() {
-    this.bb = null;
-    this.bb_pos = 0;
-  }
-  __init(i, bb) {
-    this.bb_pos = i;
-    this.bb = bb;
-    return this;
-  }
-  static getRootAsPersonPresence(bb, obj) {
-    return (obj || new _PersonPresence()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  static getSizePrefixedRootAsPersonPresence(bb, obj) {
-    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _PersonPresence()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  object(obj) {
-    const offset = this.bb.__offset(this.bb_pos, 4);
-    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
-  }
-  yesConfidence() {
-    const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  noConfidence() {
-    const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  static startPersonPresence(builder) {
-    builder.startObject(3);
-  }
-  static addObject(builder, objectOffset) {
-    builder.addFieldOffset(0, objectOffset, 0);
-  }
-  static addYesConfidence(builder, yesConfidence) {
-    builder.addFieldFloat32(1, yesConfidence, 0);
-  }
-  static addNoConfidence(builder, noConfidence) {
-    builder.addFieldFloat32(2, noConfidence, 0);
-  }
-  static endPersonPresence(builder) {
-    const offset = builder.endObject();
-    return offset;
-  }
-  static createPersonPresence(builder, objectOffset, yesConfidence, noConfidence) {
-    _PersonPresence.startPersonPresence(builder);
-    _PersonPresence.addObject(builder, objectOffset);
-    _PersonPresence.addYesConfidence(builder, yesConfidence);
-    _PersonPresence.addNoConfidence(builder, noConfidence);
-    return _PersonPresence.endPersonPresence(builder);
-  }
-  unpack() {
-    return new PersonPresenceT(this.object() !== null ? this.object().unpack() : null, this.yesConfidence(), this.noConfidence());
-  }
-  unpackTo(_o) {
-    _o.object = this.object() !== null ? this.object().unpack() : null;
-    _o.yesConfidence = this.yesConfidence();
-    _o.noConfidence = this.noConfidence();
-  }
-};
-var PersonPresenceT = class {
-  constructor(object = null, yesConfidence = 0, noConfidence = 0) {
-    this.object = object;
-    this.yesConfidence = yesConfidence;
-    this.noConfidence = noConfidence;
-  }
-  pack(builder) {
-    const object = this.object !== null ? this.object.pack(builder) : 0;
-    return PersonPresence.createPersonPresence(builder, object, this.yesConfidence, this.noConfidence);
+    const labelSet = this.labelSet !== null ? builder.createString(this.labelSet) : 0;
+    return Classification.createClassification(builder, object, candidates, labelSet, this.kind, this.subjectId);
   }
 };
 
@@ -4355,16 +4879,8 @@ var Classifications = class _Classifications {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
-  personPresence(index, obj) {
-    const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? (obj || new PersonPresence()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
-  }
-  personPresenceLength() {
-    const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
-  }
   static startClassifications(builder) {
-    builder.startObject(5);
+    builder.startObject(4);
   }
   static addSchemaMajor(builder, schemaMajor) {
     builder.addFieldInt16(0, schemaMajor, 1);
@@ -4388,19 +4904,6 @@ var Classifications = class _Classifications {
   static startClassificationsVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
-  static addPersonPresence(builder, personPresenceOffset) {
-    builder.addFieldOffset(4, personPresenceOffset, 0);
-  }
-  static createPersonPresenceVector(builder, data) {
-    builder.startVector(4, data.length, 4);
-    for (let i = data.length - 1; i >= 0; i--) {
-      builder.addOffset(data[i]);
-    }
-    return builder.endVector();
-  }
-  static startPersonPresenceVector(builder, numElems) {
-    builder.startVector(4, numElems, 4);
-  }
   static endClassifications(builder) {
     const offset = builder.endObject();
     return offset;
@@ -4412,34 +4915,30 @@ var Classifications = class _Classifications {
     builder.finish(offset, "CLSF", true);
   }
   unpack() {
-    return new ClassificationsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.classifications.bind(this), this.classificationsLength()), this.bb.createObjList(this.personPresence.bind(this), this.personPresenceLength()));
+    return new ClassificationsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.classifications.bind(this), this.classificationsLength()));
   }
   unpackTo(_o) {
     _o.schemaMajor = this.schemaMajor();
     _o.schemaMinor = this.schemaMinor();
     _o.layer = this.layer() !== null ? this.layer().unpack() : null;
     _o.classifications = this.bb.createObjList(this.classifications.bind(this), this.classificationsLength());
-    _o.personPresence = this.bb.createObjList(this.personPresence.bind(this), this.personPresenceLength());
   }
 };
 var ClassificationsT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, classifications = [], personPresence = []) {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, classifications = []) {
     this.schemaMajor = schemaMajor;
     this.schemaMinor = schemaMinor;
     this.layer = layer2;
     this.classifications = classifications;
-    this.personPresence = personPresence;
   }
   pack(builder) {
     const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
     const classifications = Classifications.createClassificationsVector(builder, builder.createObjectOffsetList(this.classifications));
-    const personPresence = Classifications.createPersonPresenceVector(builder, builder.createObjectOffsetList(this.personPresence));
     Classifications.startClassifications(builder);
     Classifications.addSchemaMajor(builder, this.schemaMajor);
     Classifications.addSchemaMinor(builder, this.schemaMinor);
     Classifications.addLayer(builder, layer2);
     Classifications.addClassifications(builder, classifications);
-    Classifications.addPersonPresence(builder, personPresence);
     return Classifications.endClassifications(builder);
   }
 };
@@ -4486,8 +4985,12 @@ var AudioFrameContext = class _AudioFrameContext {
     const offset = this.bb.__offset(this.bb_pos, 14);
     return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
   }
+  presentationTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
   static startAudioFrameContext(builder) {
-    builder.startObject(6);
+    builder.startObject(7);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -4507,11 +5010,14 @@ var AudioFrameContext = class _AudioFrameContext {
   static addCutRightSampleCount(builder, cutRightSampleCount) {
     builder.addFieldInt64(5, cutRightSampleCount, BigInt("0"));
   }
+  static addPresentationTsNs(builder, presentationTsNs) {
+    builder.addFieldInt64(6, presentationTsNs, null);
+  }
   static endAudioFrameContext(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createAudioFrameContext(builder, objectOffset, originalChannels, originalFrequency, originalSampleCount, cutLeftSampleCount, cutRightSampleCount) {
+  static createAudioFrameContext(builder, objectOffset, originalChannels, originalFrequency, originalSampleCount, cutLeftSampleCount, cutRightSampleCount, presentationTsNs) {
     _AudioFrameContext.startAudioFrameContext(builder);
     _AudioFrameContext.addObject(builder, objectOffset);
     _AudioFrameContext.addOriginalChannels(builder, originalChannels);
@@ -4519,10 +5025,12 @@ var AudioFrameContext = class _AudioFrameContext {
     _AudioFrameContext.addOriginalSampleCount(builder, originalSampleCount);
     _AudioFrameContext.addCutLeftSampleCount(builder, cutLeftSampleCount);
     _AudioFrameContext.addCutRightSampleCount(builder, cutRightSampleCount);
+    if (presentationTsNs !== null)
+      _AudioFrameContext.addPresentationTsNs(builder, presentationTsNs);
     return _AudioFrameContext.endAudioFrameContext(builder);
   }
   unpack() {
-    return new AudioFrameContextT(this.object() !== null ? this.object().unpack() : null, this.originalChannels(), this.originalFrequency(), this.originalSampleCount(), this.cutLeftSampleCount(), this.cutRightSampleCount());
+    return new AudioFrameContextT(this.object() !== null ? this.object().unpack() : null, this.originalChannels(), this.originalFrequency(), this.originalSampleCount(), this.cutLeftSampleCount(), this.cutRightSampleCount(), this.presentationTsNs());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
@@ -4531,20 +5039,22 @@ var AudioFrameContext = class _AudioFrameContext {
     _o.originalSampleCount = this.originalSampleCount();
     _o.cutLeftSampleCount = this.cutLeftSampleCount();
     _o.cutRightSampleCount = this.cutRightSampleCount();
+    _o.presentationTsNs = this.presentationTsNs();
   }
 };
 var AudioFrameContextT = class {
-  constructor(object = null, originalChannels = BigInt("0"), originalFrequency = BigInt("0"), originalSampleCount = BigInt("0"), cutLeftSampleCount = BigInt("0"), cutRightSampleCount = BigInt("0")) {
+  constructor(object = null, originalChannels = BigInt("0"), originalFrequency = BigInt("0"), originalSampleCount = BigInt("0"), cutLeftSampleCount = BigInt("0"), cutRightSampleCount = BigInt("0"), presentationTsNs = null) {
     this.object = object;
     this.originalChannels = originalChannels;
     this.originalFrequency = originalFrequency;
     this.originalSampleCount = originalSampleCount;
     this.cutLeftSampleCount = cutLeftSampleCount;
     this.cutRightSampleCount = cutRightSampleCount;
+    this.presentationTsNs = presentationTsNs;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
-    return AudioFrameContext.createAudioFrameContext(builder, object, this.originalChannels, this.originalFrequency, this.originalSampleCount, this.cutLeftSampleCount, this.cutRightSampleCount);
+    return AudioFrameContext.createAudioFrameContext(builder, object, this.originalChannels, this.originalFrequency, this.originalSampleCount, this.cutLeftSampleCount, this.cutRightSampleCount, this.presentationTsNs);
   }
 };
 
@@ -4578,40 +5088,12 @@ var VideoFrameContext = class _VideoFrameContext {
     const offset = this.bb.__offset(this.bb_pos, 8);
     return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
   }
-  sourceCropLeft() {
+  presentationTsNs() {
     const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  sourceCropRight() {
-    const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  sourceCropTop() {
-    const offset = this.bb.__offset(this.bb_pos, 14);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  sourceCropBottom() {
-    const offset = this.bb.__offset(this.bb_pos, 16);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  letterboxLeft() {
-    const offset = this.bb.__offset(this.bb_pos, 18);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  letterboxRight() {
-    const offset = this.bb.__offset(this.bb_pos, 20);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  letterboxTop() {
-    const offset = this.bb.__offset(this.bb_pos, 22);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
-  }
-  letterboxBottom() {
-    const offset = this.bb.__offset(this.bb_pos, 24);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
   }
   static startVideoFrameContext(builder) {
-    builder.startObject(11);
+    builder.startObject(4);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -4622,83 +5104,42 @@ var VideoFrameContext = class _VideoFrameContext {
   static addOriginalHeight(builder, originalHeight) {
     builder.addFieldInt64(2, originalHeight, BigInt("0"));
   }
-  static addSourceCropLeft(builder, sourceCropLeft) {
-    builder.addFieldInt64(3, sourceCropLeft, BigInt("0"));
-  }
-  static addSourceCropRight(builder, sourceCropRight) {
-    builder.addFieldInt64(4, sourceCropRight, BigInt("0"));
-  }
-  static addSourceCropTop(builder, sourceCropTop) {
-    builder.addFieldInt64(5, sourceCropTop, BigInt("0"));
-  }
-  static addSourceCropBottom(builder, sourceCropBottom) {
-    builder.addFieldInt64(6, sourceCropBottom, BigInt("0"));
-  }
-  static addLetterboxLeft(builder, letterboxLeft) {
-    builder.addFieldInt64(7, letterboxLeft, BigInt("0"));
-  }
-  static addLetterboxRight(builder, letterboxRight) {
-    builder.addFieldInt64(8, letterboxRight, BigInt("0"));
-  }
-  static addLetterboxTop(builder, letterboxTop) {
-    builder.addFieldInt64(9, letterboxTop, BigInt("0"));
-  }
-  static addLetterboxBottom(builder, letterboxBottom) {
-    builder.addFieldInt64(10, letterboxBottom, BigInt("0"));
+  static addPresentationTsNs(builder, presentationTsNs) {
+    builder.addFieldInt64(3, presentationTsNs, null);
   }
   static endVideoFrameContext(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createVideoFrameContext(builder, objectOffset, originalWidth, originalHeight, sourceCropLeft, sourceCropRight, sourceCropTop, sourceCropBottom, letterboxLeft, letterboxRight, letterboxTop, letterboxBottom) {
+  static createVideoFrameContext(builder, objectOffset, originalWidth, originalHeight, presentationTsNs) {
     _VideoFrameContext.startVideoFrameContext(builder);
     _VideoFrameContext.addObject(builder, objectOffset);
     _VideoFrameContext.addOriginalWidth(builder, originalWidth);
     _VideoFrameContext.addOriginalHeight(builder, originalHeight);
-    _VideoFrameContext.addSourceCropLeft(builder, sourceCropLeft);
-    _VideoFrameContext.addSourceCropRight(builder, sourceCropRight);
-    _VideoFrameContext.addSourceCropTop(builder, sourceCropTop);
-    _VideoFrameContext.addSourceCropBottom(builder, sourceCropBottom);
-    _VideoFrameContext.addLetterboxLeft(builder, letterboxLeft);
-    _VideoFrameContext.addLetterboxRight(builder, letterboxRight);
-    _VideoFrameContext.addLetterboxTop(builder, letterboxTop);
-    _VideoFrameContext.addLetterboxBottom(builder, letterboxBottom);
+    if (presentationTsNs !== null)
+      _VideoFrameContext.addPresentationTsNs(builder, presentationTsNs);
     return _VideoFrameContext.endVideoFrameContext(builder);
   }
   unpack() {
-    return new VideoFrameContextT(this.object() !== null ? this.object().unpack() : null, this.originalWidth(), this.originalHeight(), this.sourceCropLeft(), this.sourceCropRight(), this.sourceCropTop(), this.sourceCropBottom(), this.letterboxLeft(), this.letterboxRight(), this.letterboxTop(), this.letterboxBottom());
+    return new VideoFrameContextT(this.object() !== null ? this.object().unpack() : null, this.originalWidth(), this.originalHeight(), this.presentationTsNs());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.originalWidth = this.originalWidth();
     _o.originalHeight = this.originalHeight();
-    _o.sourceCropLeft = this.sourceCropLeft();
-    _o.sourceCropRight = this.sourceCropRight();
-    _o.sourceCropTop = this.sourceCropTop();
-    _o.sourceCropBottom = this.sourceCropBottom();
-    _o.letterboxLeft = this.letterboxLeft();
-    _o.letterboxRight = this.letterboxRight();
-    _o.letterboxTop = this.letterboxTop();
-    _o.letterboxBottom = this.letterboxBottom();
+    _o.presentationTsNs = this.presentationTsNs();
   }
 };
 var VideoFrameContextT = class {
-  constructor(object = null, originalWidth = BigInt("0"), originalHeight = BigInt("0"), sourceCropLeft = BigInt("0"), sourceCropRight = BigInt("0"), sourceCropTop = BigInt("0"), sourceCropBottom = BigInt("0"), letterboxLeft = BigInt("0"), letterboxRight = BigInt("0"), letterboxTop = BigInt("0"), letterboxBottom = BigInt("0")) {
+  constructor(object = null, originalWidth = BigInt("0"), originalHeight = BigInt("0"), presentationTsNs = null) {
     this.object = object;
     this.originalWidth = originalWidth;
     this.originalHeight = originalHeight;
-    this.sourceCropLeft = sourceCropLeft;
-    this.sourceCropRight = sourceCropRight;
-    this.sourceCropTop = sourceCropTop;
-    this.sourceCropBottom = sourceCropBottom;
-    this.letterboxLeft = letterboxLeft;
-    this.letterboxRight = letterboxRight;
-    this.letterboxTop = letterboxTop;
-    this.letterboxBottom = letterboxBottom;
+    this.presentationTsNs = presentationTsNs;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
-    return VideoFrameContext.createVideoFrameContext(builder, object, this.originalWidth, this.originalHeight, this.sourceCropLeft, this.sourceCropRight, this.sourceCropTop, this.sourceCropBottom, this.letterboxLeft, this.letterboxRight, this.letterboxTop, this.letterboxBottom);
+    return VideoFrameContext.createVideoFrameContext(builder, object, this.originalWidth, this.originalHeight, this.presentationTsNs);
   }
 };
 
@@ -4804,6 +5245,266 @@ var FrameContextT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-angles.js
+var GazeAngles = class _GazeAngles {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsGazeAngles(bb, obj) {
+    return (obj || new _GazeAngles()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsGazeAngles(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _GazeAngles()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  yawDegrees() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  pitchDegrees() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  static startGazeAngles(builder) {
+    builder.startObject(2);
+  }
+  static addYawDegrees(builder, yawDegrees) {
+    builder.addFieldFloat32(0, yawDegrees, 0);
+  }
+  static addPitchDegrees(builder, pitchDegrees) {
+    builder.addFieldFloat32(1, pitchDegrees, 0);
+  }
+  static endGazeAngles(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createGazeAngles(builder, yawDegrees, pitchDegrees) {
+    _GazeAngles.startGazeAngles(builder);
+    _GazeAngles.addYawDegrees(builder, yawDegrees);
+    _GazeAngles.addPitchDegrees(builder, pitchDegrees);
+    return _GazeAngles.endGazeAngles(builder);
+  }
+  unpack() {
+    return new GazeAnglesT(this.yawDegrees(), this.pitchDegrees());
+  }
+  unpackTo(_o) {
+    _o.yawDegrees = this.yawDegrees();
+    _o.pitchDegrees = this.pitchDegrees();
+  }
+};
+var GazeAnglesT = class {
+  constructor(yawDegrees = 0, pitchDegrees = 0) {
+    this.yawDegrees = yawDegrees;
+    this.pitchDegrees = pitchDegrees;
+  }
+  pack(builder) {
+    return GazeAngles.createGazeAngles(builder, this.yawDegrees, this.pitchDegrees);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurement.js
+var GazeMeasurement = class _GazeMeasurement {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsGazeMeasurement(bb, obj) {
+    return (obj || new _GazeMeasurement()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsGazeMeasurement(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _GazeMeasurement()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  angles(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new GazeAngles()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  confidence() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  static startGazeMeasurement(builder) {
+    builder.startObject(4);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(1, subjectId, null);
+  }
+  static addAngles(builder, anglesOffset) {
+    builder.addFieldOffset(2, anglesOffset, 0);
+  }
+  static addConfidence(builder, confidence) {
+    builder.addFieldFloat32(3, confidence, null);
+  }
+  static endGazeMeasurement(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new GazeMeasurementT(this.object() !== null ? this.object().unpack() : null, this.subjectId(), this.angles() !== null ? this.angles().unpack() : null, this.confidence());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.subjectId = this.subjectId();
+    _o.angles = this.angles() !== null ? this.angles().unpack() : null;
+    _o.confidence = this.confidence();
+  }
+};
+var GazeMeasurementT = class {
+  constructor(object = null, subjectId = null, angles = null, confidence = null) {
+    this.object = object;
+    this.subjectId = subjectId;
+    this.angles = angles;
+    this.confidence = confidence;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    const angles = this.angles !== null ? this.angles.pack(builder) : 0;
+    GazeMeasurement.startGazeMeasurement(builder);
+    GazeMeasurement.addObject(builder, object);
+    if (this.subjectId !== null)
+      GazeMeasurement.addSubjectId(builder, this.subjectId);
+    GazeMeasurement.addAngles(builder, angles);
+    if (this.confidence !== null)
+      GazeMeasurement.addConfidence(builder, this.confidence);
+    return GazeMeasurement.endGazeMeasurement(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.js
+var GazeMeasurements = class _GazeMeasurements {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsGazeMeasurements(bb, obj) {
+    return (obj || new _GazeMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsGazeMeasurements(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _GazeMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("GZMS");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  measurements(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new GazeMeasurement()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  measurementsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startGazeMeasurements(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addMeasurements(builder, measurementsOffset) {
+    builder.addFieldOffset(3, measurementsOffset, 0);
+  }
+  static createMeasurementsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startMeasurementsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endGazeMeasurements(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishGazeMeasurementsBuffer(builder, offset) {
+    builder.finish(offset, "GZMS");
+  }
+  static finishSizePrefixedGazeMeasurementsBuffer(builder, offset) {
+    builder.finish(offset, "GZMS", true);
+  }
+  unpack() {
+    return new GazeMeasurementsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.measurements.bind(this), this.measurementsLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.measurements = this.bb.createObjList(this.measurements.bind(this), this.measurementsLength());
+  }
+};
+var GazeMeasurementsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, measurements = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.measurements = measurements;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const measurements = GazeMeasurements.createMeasurementsVector(builder, builder.createObjectOffsetList(this.measurements));
+    GazeMeasurements.startGazeMeasurements(builder);
+    GazeMeasurements.addSchemaMajor(builder, this.schemaMajor);
+    GazeMeasurements.addSchemaMinor(builder, this.schemaMinor);
+    GazeMeasurements.addLayer(builder, layer2);
+    GazeMeasurements.addMeasurements(builder, measurements);
+    return GazeMeasurements.endGazeMeasurements(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-encoding.js
+var BitmapEncoding;
+(function(BitmapEncoding2) {
+  BitmapEncoding2[BitmapEncoding2["Unspecified"] = 0] = "Unspecified";
+  BitmapEncoding2[BitmapEncoding2["Uint8"] = 1] = "Uint8";
+  BitmapEncoding2[BitmapEncoding2["Uint32LE"] = 2] = "Uint32LE";
+})(BitmapEncoding || (BitmapEncoding = {}));
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.js
 var BitmapData = class _BitmapData {
   constructor() {
@@ -4830,9 +5531,9 @@ var BitmapData = class _BitmapData {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
   }
-  valueType(optionalEncoding) {
+  encoding() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : BitmapEncoding.Unspecified;
   }
   pixels(index) {
     const offset = this.bb.__offset(this.bb_pos, 10);
@@ -4846,8 +5547,12 @@ var BitmapData = class _BitmapData {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? new Uint8Array(this.bb.bytes().buffer, this.bb.bytes().byteOffset + this.bb.__vector(this.bb_pos + offset), this.bb.__vector_len(this.bb_pos + offset)) : null;
   }
+  space(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? (obj || new ImageSpace()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
   static startBitmapData(builder) {
-    builder.startObject(4);
+    builder.startObject(5);
   }
   static addWidth(builder, width) {
     builder.addFieldInt32(0, width, 0);
@@ -4855,8 +5560,8 @@ var BitmapData = class _BitmapData {
   static addHeight(builder, height) {
     builder.addFieldInt32(1, height, 0);
   }
-  static addValueType(builder, valueTypeOffset) {
-    builder.addFieldOffset(2, valueTypeOffset, 0);
+  static addEncoding(builder, encoding) {
+    builder.addFieldInt8(2, encoding, BitmapEncoding.Unspecified);
   }
   static addPixels(builder, pixelsOffset) {
     builder.addFieldOffset(3, pixelsOffset, 0);
@@ -4871,39 +5576,42 @@ var BitmapData = class _BitmapData {
   static startPixelsVector(builder, numElems) {
     builder.startVector(1, numElems, 1);
   }
+  static addSpace(builder, spaceOffset) {
+    builder.addFieldOffset(4, spaceOffset, 0);
+  }
   static endBitmapData(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createBitmapData(builder, width, height, valueTypeOffset, pixelsOffset) {
-    _BitmapData.startBitmapData(builder);
-    _BitmapData.addWidth(builder, width);
-    _BitmapData.addHeight(builder, height);
-    _BitmapData.addValueType(builder, valueTypeOffset);
-    _BitmapData.addPixels(builder, pixelsOffset);
-    return _BitmapData.endBitmapData(builder);
-  }
   unpack() {
-    return new BitmapDataT(this.width(), this.height(), this.valueType(), this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength()));
+    return new BitmapDataT(this.width(), this.height(), this.encoding(), this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength()), this.space() !== null ? this.space().unpack() : null);
   }
   unpackTo(_o) {
     _o.width = this.width();
     _o.height = this.height();
-    _o.valueType = this.valueType();
+    _o.encoding = this.encoding();
     _o.pixels = this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength());
+    _o.space = this.space() !== null ? this.space().unpack() : null;
   }
 };
 var BitmapDataT = class {
-  constructor(width = 0, height = 0, valueType = null, pixels = []) {
+  constructor(width = 0, height = 0, encoding = BitmapEncoding.Unspecified, pixels = [], space = null) {
     this.width = width;
     this.height = height;
-    this.valueType = valueType;
+    this.encoding = encoding;
     this.pixels = pixels;
+    this.space = space;
   }
   pack(builder) {
-    const valueType = this.valueType !== null ? builder.createString(this.valueType) : 0;
     const pixels = BitmapData.createPixelsVector(builder, this.pixels);
-    return BitmapData.createBitmapData(builder, this.width, this.height, valueType, pixels);
+    const space = this.space !== null ? this.space.pack(builder) : 0;
+    BitmapData.startBitmapData(builder);
+    BitmapData.addWidth(builder, this.width);
+    BitmapData.addHeight(builder, this.height);
+    BitmapData.addEncoding(builder, this.encoding);
+    BitmapData.addPixels(builder, pixels);
+    BitmapData.addSpace(builder, space);
+    return BitmapData.endBitmapData(builder);
   }
 };
 
@@ -4935,18 +5643,22 @@ var InstanceSegmentationMask = class _InstanceSegmentationMask {
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
   }
   confidence() {
     const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   box(obj) {
     const offset = this.bb.__offset(this.bb_pos, 12);
     return offset ? (obj || new BoundingBox()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
+  labelSet(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
   static startInstanceSegmentationMask(builder) {
-    builder.startObject(5);
+    builder.startObject(6);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -4955,20 +5667,23 @@ var InstanceSegmentationMask = class _InstanceSegmentationMask {
     builder.addFieldOffset(1, bitmapOffset, 0);
   }
   static addClassId(builder, classId) {
-    builder.addFieldInt32(2, classId, -1);
+    builder.addFieldInt32(2, classId, null);
   }
   static addConfidence(builder, confidence) {
-    builder.addFieldFloat32(3, confidence, 0);
+    builder.addFieldFloat32(3, confidence, null);
   }
   static addBox(builder, boxOffset) {
     builder.addFieldOffset(4, boxOffset, 0);
+  }
+  static addLabelSet(builder, labelSetOffset) {
+    builder.addFieldOffset(5, labelSetOffset, 0);
   }
   static endInstanceSegmentationMask(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new InstanceSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.classId(), this.confidence(), this.box() !== null ? this.box().unpack() : null);
+    return new InstanceSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.classId(), this.confidence(), this.box() !== null ? this.box().unpack() : null, this.labelSet());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
@@ -4976,26 +5691,32 @@ var InstanceSegmentationMask = class _InstanceSegmentationMask {
     _o.classId = this.classId();
     _o.confidence = this.confidence();
     _o.box = this.box() !== null ? this.box().unpack() : null;
+    _o.labelSet = this.labelSet();
   }
 };
 var InstanceSegmentationMaskT = class {
-  constructor(object = null, bitmap = null, classId = -1, confidence = 0, box = null) {
+  constructor(object = null, bitmap = null, classId = null, confidence = null, box = null, labelSet = null) {
     this.object = object;
     this.bitmap = bitmap;
     this.classId = classId;
     this.confidence = confidence;
     this.box = box;
+    this.labelSet = labelSet;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const bitmap = this.bitmap !== null ? this.bitmap.pack(builder) : 0;
     const box = this.box !== null ? this.box.pack(builder) : 0;
+    const labelSet = this.labelSet !== null ? builder.createString(this.labelSet) : 0;
     InstanceSegmentationMask.startInstanceSegmentationMask(builder);
     InstanceSegmentationMask.addObject(builder, object);
     InstanceSegmentationMask.addBitmap(builder, bitmap);
-    InstanceSegmentationMask.addClassId(builder, this.classId);
-    InstanceSegmentationMask.addConfidence(builder, this.confidence);
+    if (this.classId !== null)
+      InstanceSegmentationMask.addClassId(builder, this.classId);
+    if (this.confidence !== null)
+      InstanceSegmentationMask.addConfidence(builder, this.confidence);
     InstanceSegmentationMask.addBox(builder, box);
+    InstanceSegmentationMask.addLabelSet(builder, labelSet);
     return InstanceSegmentationMask.endInstanceSegmentationMask(builder);
   }
 };
@@ -5105,6 +5826,87 @@ var InstanceSegmentationMasksT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-metric.js
+var EmbeddingMetric;
+(function(EmbeddingMetric2) {
+  EmbeddingMetric2[EmbeddingMetric2["Unspecified"] = 0] = "Unspecified";
+  EmbeddingMetric2[EmbeddingMetric2["Cosine"] = 1] = "Cosine";
+})(EmbeddingMetric || (EmbeddingMetric = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/embedding-space.js
+var EmbeddingSpace = class _EmbeddingSpace {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsEmbeddingSpace(bb, obj) {
+    return (obj || new _EmbeddingSpace()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsEmbeddingSpace(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _EmbeddingSpace()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  id(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  dimensions() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  metric() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : EmbeddingMetric.Unspecified;
+  }
+  static startEmbeddingSpace(builder) {
+    builder.startObject(3);
+  }
+  static addId(builder, idOffset) {
+    builder.addFieldOffset(0, idOffset, 0);
+  }
+  static addDimensions(builder, dimensions) {
+    builder.addFieldInt32(1, dimensions, 0);
+  }
+  static addMetric(builder, metric) {
+    builder.addFieldInt8(2, metric, EmbeddingMetric.Unspecified);
+  }
+  static endEmbeddingSpace(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createEmbeddingSpace(builder, idOffset, dimensions, metric) {
+    _EmbeddingSpace.startEmbeddingSpace(builder);
+    _EmbeddingSpace.addId(builder, idOffset);
+    _EmbeddingSpace.addDimensions(builder, dimensions);
+    _EmbeddingSpace.addMetric(builder, metric);
+    return _EmbeddingSpace.endEmbeddingSpace(builder);
+  }
+  unpack() {
+    return new EmbeddingSpaceT(this.id(), this.dimensions(), this.metric());
+  }
+  unpackTo(_o) {
+    _o.id = this.id();
+    _o.dimensions = this.dimensions();
+    _o.metric = this.metric();
+  }
+};
+var EmbeddingSpaceT = class {
+  constructor(id = null, dimensions = 0, metric = EmbeddingMetric.Unspecified) {
+    this.id = id;
+    this.dimensions = dimensions;
+    this.metric = metric;
+  }
+  pack(builder) {
+    const id = this.id !== null ? builder.createString(this.id) : 0;
+    return EmbeddingSpace.createEmbeddingSpace(builder, id, this.dimensions, this.metric);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.js
 var ObjectEmbedding = class _ObjectEmbedding {
   constructor() {
@@ -5139,8 +5941,16 @@ var ObjectEmbedding = class _ObjectEmbedding {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? new Float32Array(this.bb.bytes().buffer, this.bb.bytes().byteOffset + this.bb.__vector(this.bb_pos + offset), this.bb.__vector_len(this.bb_pos + offset)) : null;
   }
+  space(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new EmbeddingSpace()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  subjectId() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
   static startObjectEmbedding(builder) {
-    builder.startObject(2);
+    builder.startObject(4);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -5158,33 +5968,44 @@ var ObjectEmbedding = class _ObjectEmbedding {
   static startValuesVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addSpace(builder, spaceOffset) {
+    builder.addFieldOffset(2, spaceOffset, 0);
+  }
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(3, subjectId, null);
+  }
   static endObjectEmbedding(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createObjectEmbedding(builder, objectOffset, valuesOffset) {
-    _ObjectEmbedding.startObjectEmbedding(builder);
-    _ObjectEmbedding.addObject(builder, objectOffset);
-    _ObjectEmbedding.addValues(builder, valuesOffset);
-    return _ObjectEmbedding.endObjectEmbedding(builder);
-  }
   unpack() {
-    return new ObjectEmbeddingT(this.object() !== null ? this.object().unpack() : null, this.bb.createScalarList(this.values.bind(this), this.valuesLength()));
+    return new ObjectEmbeddingT(this.object() !== null ? this.object().unpack() : null, this.bb.createScalarList(this.values.bind(this), this.valuesLength()), this.space() !== null ? this.space().unpack() : null, this.subjectId());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.values = this.bb.createScalarList(this.values.bind(this), this.valuesLength());
+    _o.space = this.space() !== null ? this.space().unpack() : null;
+    _o.subjectId = this.subjectId();
   }
 };
 var ObjectEmbeddingT = class {
-  constructor(object = null, values = []) {
+  constructor(object = null, values = [], space = null, subjectId = null) {
     this.object = object;
     this.values = values;
+    this.space = space;
+    this.subjectId = subjectId;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const values = ObjectEmbedding.createValuesVector(builder, this.values);
-    return ObjectEmbedding.createObjectEmbedding(builder, object, values);
+    const space = this.space !== null ? this.space.pack(builder) : 0;
+    ObjectEmbedding.startObjectEmbedding(builder);
+    ObjectEmbedding.addObject(builder, object);
+    ObjectEmbedding.addValues(builder, values);
+    ObjectEmbedding.addSpace(builder, space);
+    if (this.subjectId !== null)
+      ObjectEmbedding.addSubjectId(builder, this.subjectId);
+    return ObjectEmbedding.endObjectEmbedding(builder);
   }
 };
 
@@ -5293,6 +6114,228 @@ var ObjectEmbeddingsT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-association.js
+var TrackAssociation = class _TrackAssociation {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTrackAssociation(bb, obj) {
+    return (obj || new _TrackAssociation()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTrackAssociation(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TrackAssociation()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  kind() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : TrackAssociationKind.Unspecified;
+  }
+  score() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  static startTrackAssociation(builder) {
+    builder.startObject(2);
+  }
+  static addKind(builder, kind) {
+    builder.addFieldInt8(0, kind, TrackAssociationKind.Unspecified);
+  }
+  static addScore(builder, score) {
+    builder.addFieldFloat32(1, score, null);
+  }
+  static endTrackAssociation(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTrackAssociation(builder, kind, score) {
+    _TrackAssociation.startTrackAssociation(builder);
+    _TrackAssociation.addKind(builder, kind);
+    if (score !== null)
+      _TrackAssociation.addScore(builder, score);
+    return _TrackAssociation.endTrackAssociation(builder);
+  }
+  unpack() {
+    return new TrackAssociationT(this.kind(), this.score());
+  }
+  unpackTo(_o) {
+    _o.kind = this.kind();
+    _o.score = this.score();
+  }
+};
+var TrackAssociationT = class {
+  constructor(kind = TrackAssociationKind.Unspecified, score = null) {
+    this.kind = kind;
+    this.score = score;
+  }
+  pack(builder) {
+    return TrackAssociation.createTrackAssociation(builder, this.kind, this.score);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-identity.js
+var TrackIdentity = class _TrackIdentity {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTrackIdentity(bb, obj) {
+    return (obj || new _TrackIdentity()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTrackIdentity(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TrackIdentity()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  trackerId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  sessionId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  trackId() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  static startTrackIdentity(builder) {
+    builder.startObject(3);
+  }
+  static addTrackerId(builder, trackerIdOffset) {
+    builder.addFieldOffset(0, trackerIdOffset, 0);
+  }
+  static addSessionId(builder, sessionIdOffset) {
+    builder.addFieldOffset(1, sessionIdOffset, 0);
+  }
+  static addTrackId(builder, trackId) {
+    builder.addFieldInt64(2, trackId, BigInt("0"));
+  }
+  static endTrackIdentity(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTrackIdentity(builder, trackerIdOffset, sessionIdOffset, trackId) {
+    _TrackIdentity.startTrackIdentity(builder);
+    _TrackIdentity.addTrackerId(builder, trackerIdOffset);
+    _TrackIdentity.addSessionId(builder, sessionIdOffset);
+    _TrackIdentity.addTrackId(builder, trackId);
+    return _TrackIdentity.endTrackIdentity(builder);
+  }
+  unpack() {
+    return new TrackIdentityT(this.trackerId(), this.sessionId(), this.trackId());
+  }
+  unpackTo(_o) {
+    _o.trackerId = this.trackerId();
+    _o.sessionId = this.sessionId();
+    _o.trackId = this.trackId();
+  }
+};
+var TrackIdentityT = class {
+  constructor(trackerId = null, sessionId = null, trackId = BigInt("0")) {
+    this.trackerId = trackerId;
+    this.sessionId = sessionId;
+    this.trackId = trackId;
+  }
+  pack(builder) {
+    const trackerId = this.trackerId !== null ? builder.createString(this.trackerId) : 0;
+    const sessionId = this.sessionId !== null ? builder.createString(this.sessionId) : 0;
+    return TrackIdentity.createTrackIdentity(builder, trackerId, sessionId, this.trackId);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/tracking-sample.js
+var TrackingSample = class _TrackingSample {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTrackingSample(bb, obj) {
+    return (obj || new _TrackingSample()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTrackingSample(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TrackingSample()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  frameIndex() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  elapsedMs() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  timeSource() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : TrackingTimeSource.Unspecified;
+  }
+  state() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : TrackObservationState.Unspecified;
+  }
+  static startTrackingSample(builder) {
+    builder.startObject(4);
+  }
+  static addFrameIndex(builder, frameIndex2) {
+    builder.addFieldInt64(0, frameIndex2, BigInt("0"));
+  }
+  static addElapsedMs(builder, elapsedMs) {
+    builder.addFieldFloat64(1, elapsedMs, 0);
+  }
+  static addTimeSource(builder, timeSource) {
+    builder.addFieldInt8(2, timeSource, TrackingTimeSource.Unspecified);
+  }
+  static addState(builder, state) {
+    builder.addFieldInt8(3, state, TrackObservationState.Unspecified);
+  }
+  static endTrackingSample(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTrackingSample(builder, frameIndex2, elapsedMs, timeSource, state) {
+    _TrackingSample.startTrackingSample(builder);
+    _TrackingSample.addFrameIndex(builder, frameIndex2);
+    _TrackingSample.addElapsedMs(builder, elapsedMs);
+    _TrackingSample.addTimeSource(builder, timeSource);
+    _TrackingSample.addState(builder, state);
+    return _TrackingSample.endTrackingSample(builder);
+  }
+  unpack() {
+    return new TrackingSampleT(this.frameIndex(), this.elapsedMs(), this.timeSource(), this.state());
+  }
+  unpackTo(_o) {
+    _o.frameIndex = this.frameIndex();
+    _o.elapsedMs = this.elapsedMs();
+    _o.timeSource = this.timeSource();
+    _o.state = this.state();
+  }
+};
+var TrackingSampleT = class {
+  constructor(frameIndex2 = BigInt("0"), elapsedMs = 0, timeSource = TrackingTimeSource.Unspecified, state = TrackObservationState.Unspecified) {
+    this.frameIndex = frameIndex2;
+    this.elapsedMs = elapsedMs;
+    this.timeSource = timeSource;
+    this.state = state;
+  }
+  pack(builder) {
+    return TrackingSample.createTrackingSample(builder, this.frameIndex, this.elapsedMs, this.timeSource, this.state);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js
 var ObjectTrack = class _ObjectTrack {
   constructor() {
@@ -5317,112 +6360,128 @@ var ObjectTrack = class _ObjectTrack {
   }
   sourceId() {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
   }
-  trackId() {
+  identity(obj) {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+    return offset ? (obj || new TrackIdentity()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
   box(obj) {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? (obj || new BoundingBox()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  confidence() {
+  sourceConfidence() {
     const offset = this.bb.__offset(this.bb_pos, 12);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   classId() {
     const offset = this.bb.__offset(this.bb_pos, 14);
-    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
   }
   text(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 16);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  diagnostic(optionalEncoding) {
+  association(obj) {
     const offset = this.bb.__offset(this.bb_pos, 18);
-    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+    return offset ? (obj || new TrackAssociation()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  predictedOnly() {
+  sample(obj) {
     const offset = this.bb.__offset(this.bb_pos, 20);
-    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+    return offset ? (obj || new TrackingSample()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  sourceFrameIndex() {
+    const offset = this.bb.__offset(this.bb_pos, 22);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
   }
   static startObjectTrack(builder) {
-    builder.startObject(9);
+    builder.startObject(10);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
   }
   static addSourceId(builder, sourceId) {
-    builder.addFieldInt64(1, sourceId, BigInt("0"));
+    builder.addFieldInt64(1, sourceId, null);
   }
-  static addTrackId(builder, trackId) {
-    builder.addFieldInt64(2, trackId, BigInt("0"));
+  static addIdentity(builder, identityOffset) {
+    builder.addFieldOffset(2, identityOffset, 0);
   }
   static addBox(builder, boxOffset) {
     builder.addFieldOffset(3, boxOffset, 0);
   }
-  static addConfidence(builder, confidence) {
-    builder.addFieldFloat32(4, confidence, 0);
+  static addSourceConfidence(builder, sourceConfidence) {
+    builder.addFieldFloat32(4, sourceConfidence, null);
   }
   static addClassId(builder, classId) {
-    builder.addFieldInt32(5, classId, -1);
+    builder.addFieldInt32(5, classId, null);
   }
   static addText(builder, textOffset) {
     builder.addFieldOffset(6, textOffset, 0);
   }
-  static addDiagnostic(builder, diagnosticOffset) {
-    builder.addFieldOffset(7, diagnosticOffset, 0);
+  static addAssociation(builder, associationOffset) {
+    builder.addFieldOffset(7, associationOffset, 0);
   }
-  static addPredictedOnly(builder, predictedOnly) {
-    builder.addFieldInt8(8, +predictedOnly, 0);
+  static addSample(builder, sampleOffset) {
+    builder.addFieldOffset(8, sampleOffset, 0);
+  }
+  static addSourceFrameIndex(builder, sourceFrameIndex) {
+    builder.addFieldInt64(9, sourceFrameIndex, null);
   }
   static endObjectTrack(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new ObjectTrackT(this.object() !== null ? this.object().unpack() : null, this.sourceId(), this.trackId(), this.box() !== null ? this.box().unpack() : null, this.confidence(), this.classId(), this.text(), this.diagnostic(), this.predictedOnly());
+    return new ObjectTrackT(this.object() !== null ? this.object().unpack() : null, this.sourceId(), this.identity() !== null ? this.identity().unpack() : null, this.box() !== null ? this.box().unpack() : null, this.sourceConfidence(), this.classId(), this.text(), this.association() !== null ? this.association().unpack() : null, this.sample() !== null ? this.sample().unpack() : null, this.sourceFrameIndex());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.sourceId = this.sourceId();
-    _o.trackId = this.trackId();
+    _o.identity = this.identity() !== null ? this.identity().unpack() : null;
     _o.box = this.box() !== null ? this.box().unpack() : null;
-    _o.confidence = this.confidence();
+    _o.sourceConfidence = this.sourceConfidence();
     _o.classId = this.classId();
     _o.text = this.text();
-    _o.diagnostic = this.diagnostic();
-    _o.predictedOnly = this.predictedOnly();
+    _o.association = this.association() !== null ? this.association().unpack() : null;
+    _o.sample = this.sample() !== null ? this.sample().unpack() : null;
+    _o.sourceFrameIndex = this.sourceFrameIndex();
   }
 };
 var ObjectTrackT = class {
-  constructor(object = null, sourceId = BigInt("0"), trackId = BigInt("0"), box = null, confidence = 0, classId = -1, text2 = null, diagnostic = null, predictedOnly = false) {
+  constructor(object = null, sourceId = null, identity = null, box = null, sourceConfidence = null, classId = null, text2 = null, association = null, sample = null, sourceFrameIndex = null) {
     this.object = object;
     this.sourceId = sourceId;
-    this.trackId = trackId;
+    this.identity = identity;
     this.box = box;
-    this.confidence = confidence;
+    this.sourceConfidence = sourceConfidence;
     this.classId = classId;
     this.text = text2;
-    this.diagnostic = diagnostic;
-    this.predictedOnly = predictedOnly;
+    this.association = association;
+    this.sample = sample;
+    this.sourceFrameIndex = sourceFrameIndex;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
+    const identity = this.identity !== null ? this.identity.pack(builder) : 0;
     const box = this.box !== null ? this.box.pack(builder) : 0;
     const text2 = this.text !== null ? builder.createString(this.text) : 0;
-    const diagnostic = this.diagnostic !== null ? builder.createString(this.diagnostic) : 0;
+    const association = this.association !== null ? this.association.pack(builder) : 0;
+    const sample = this.sample !== null ? this.sample.pack(builder) : 0;
     ObjectTrack.startObjectTrack(builder);
     ObjectTrack.addObject(builder, object);
-    ObjectTrack.addSourceId(builder, this.sourceId);
-    ObjectTrack.addTrackId(builder, this.trackId);
+    if (this.sourceId !== null)
+      ObjectTrack.addSourceId(builder, this.sourceId);
+    ObjectTrack.addIdentity(builder, identity);
     ObjectTrack.addBox(builder, box);
-    ObjectTrack.addConfidence(builder, this.confidence);
-    ObjectTrack.addClassId(builder, this.classId);
+    if (this.sourceConfidence !== null)
+      ObjectTrack.addSourceConfidence(builder, this.sourceConfidence);
+    if (this.classId !== null)
+      ObjectTrack.addClassId(builder, this.classId);
     ObjectTrack.addText(builder, text2);
-    ObjectTrack.addDiagnostic(builder, diagnostic);
-    ObjectTrack.addPredictedOnly(builder, this.predictedOnly);
+    ObjectTrack.addAssociation(builder, association);
+    ObjectTrack.addSample(builder, sample);
+    if (this.sourceFrameIndex !== null)
+      ObjectTrack.addSourceFrameIndex(builder, this.sourceFrameIndex);
     return ObjectTrack.endObjectTrack(builder);
   }
 };
@@ -5468,8 +6527,12 @@ var ObjectTracks = class _ObjectTracks {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
+  displayIdentity() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : true;
+  }
   static startObjectTracks(builder) {
-    builder.startObject(4);
+    builder.startObject(5);
   }
   static addSchemaMajor(builder, schemaMajor) {
     builder.addFieldInt16(0, schemaMajor, 1);
@@ -5493,6 +6556,9 @@ var ObjectTracks = class _ObjectTracks {
   static startTracksVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addDisplayIdentity(builder, displayIdentity) {
+    builder.addFieldInt8(4, +displayIdentity, 1);
+  }
   static endObjectTracks(builder) {
     const offset = builder.endObject();
     return offset;
@@ -5504,21 +6570,23 @@ var ObjectTracks = class _ObjectTracks {
     builder.finish(offset, "TRKS", true);
   }
   unpack() {
-    return new ObjectTracksT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.tracks.bind(this), this.tracksLength()));
+    return new ObjectTracksT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.tracks.bind(this), this.tracksLength()), this.displayIdentity());
   }
   unpackTo(_o) {
     _o.schemaMajor = this.schemaMajor();
     _o.schemaMinor = this.schemaMinor();
     _o.layer = this.layer() !== null ? this.layer().unpack() : null;
     _o.tracks = this.bb.createObjList(this.tracks.bind(this), this.tracksLength());
+    _o.displayIdentity = this.displayIdentity();
   }
 };
 var ObjectTracksT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, tracks = []) {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, tracks = [], displayIdentity = true) {
     this.schemaMajor = schemaMajor;
     this.schemaMinor = schemaMinor;
     this.layer = layer2;
     this.tracks = tracks;
+    this.displayIdentity = displayIdentity;
   }
   pack(builder) {
     const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
@@ -5528,12 +6596,13 @@ var ObjectTracksT = class {
     ObjectTracks.addSchemaMinor(builder, this.schemaMinor);
     ObjectTracks.addLayer(builder, layer2);
     ObjectTracks.addTracks(builder, tracks);
+    ObjectTracks.addDisplayIdentity(builder, this.displayIdentity);
     return ObjectTracks.endObjectTracks(builder);
   }
 };
 
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js
-var PerformanceOverlay = class _PerformanceOverlay {
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-rate.js
+var FrameRate = class _FrameRate {
   constructor() {
     this.bb = null;
     this.bb_pos = 0;
@@ -5543,15 +6612,156 @@ var PerformanceOverlay = class _PerformanceOverlay {
     this.bb = bb;
     return this;
   }
-  static getRootAsPerformanceOverlay(bb, obj) {
-    return (obj || new _PerformanceOverlay()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  static getRootAsFrameRate(bb, obj) {
+    return (obj || new _FrameRate()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
-  static getSizePrefixedRootAsPerformanceOverlay(bb, obj) {
+  static getSizePrefixedRootAsFrameRate(bb, obj) {
     bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _PerformanceOverlay()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+    return (obj || new _FrameRate()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  fps() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : null;
+  }
+  static startFrameRate(builder) {
+    builder.startObject(1);
+  }
+  static addFps(builder, fps) {
+    builder.addFieldFloat64(0, fps, null);
+  }
+  static endFrameRate(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createFrameRate(builder, fps) {
+    _FrameRate.startFrameRate(builder);
+    if (fps !== null)
+      _FrameRate.addFps(builder, fps);
+    return _FrameRate.endFrameRate(builder);
+  }
+  unpack() {
+    return new FrameRateT(this.fps());
+  }
+  unpackTo(_o) {
+    _o.fps = this.fps();
+  }
+};
+var FrameRateT = class {
+  constructor(fps = null) {
+    this.fps = fps;
+  }
+  pack(builder) {
+    return FrameRate.createFrameRate(builder, this.fps);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/scope-timing.js
+var ScopeTiming = class _ScopeTiming {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsScopeTiming(bb, obj) {
+    return (obj || new _ScopeTiming()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsScopeTiming(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _ScopeTiming()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  name(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  meanMs() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : null;
+  }
+  p95Ms() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : null;
+  }
+  scopeId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  static startScopeTiming(builder) {
+    builder.startObject(4);
+  }
+  static addName(builder, nameOffset) {
+    builder.addFieldOffset(0, nameOffset, 0);
+  }
+  static addMeanMs(builder, meanMs) {
+    builder.addFieldFloat64(1, meanMs, null);
+  }
+  static addP95Ms(builder, p95Ms) {
+    builder.addFieldFloat64(2, p95Ms, null);
+  }
+  static addScopeId(builder, scopeIdOffset) {
+    builder.addFieldOffset(3, scopeIdOffset, 0);
+  }
+  static endScopeTiming(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createScopeTiming(builder, nameOffset, meanMs, p95Ms, scopeIdOffset) {
+    _ScopeTiming.startScopeTiming(builder);
+    _ScopeTiming.addName(builder, nameOffset);
+    if (meanMs !== null)
+      _ScopeTiming.addMeanMs(builder, meanMs);
+    if (p95Ms !== null)
+      _ScopeTiming.addP95Ms(builder, p95Ms);
+    _ScopeTiming.addScopeId(builder, scopeIdOffset);
+    return _ScopeTiming.endScopeTiming(builder);
+  }
+  unpack() {
+    return new ScopeTimingT(this.name(), this.meanMs(), this.p95Ms(), this.scopeId());
+  }
+  unpackTo(_o) {
+    _o.name = this.name();
+    _o.meanMs = this.meanMs();
+    _o.p95Ms = this.p95Ms();
+    _o.scopeId = this.scopeId();
+  }
+};
+var ScopeTimingT = class {
+  constructor(name = null, meanMs = null, p95Ms = null, scopeId = null) {
+    this.name = name;
+    this.meanMs = meanMs;
+    this.p95Ms = p95Ms;
+    this.scopeId = scopeId;
+  }
+  pack(builder) {
+    const name = this.name !== null ? builder.createString(this.name) : 0;
+    const scopeId = this.scopeId !== null ? builder.createString(this.scopeId) : 0;
+    return ScopeTiming.createScopeTiming(builder, name, this.meanMs, this.p95Ms, scopeId);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js
+var PerformanceMeasurements = class _PerformanceMeasurements {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPerformanceMeasurements(bb, obj) {
+    return (obj || new _PerformanceMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPerformanceMeasurements(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PerformanceMeasurements()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static bufferHasIdentifier(bb) {
-    return bb.__has_identifier("PERF");
+    return bb.__has_identifier("PMET");
   }
   schemaMajor() {
     const offset = this.bb.__offset(this.bb_pos, 4);
@@ -5561,16 +6771,28 @@ var PerformanceOverlay = class _PerformanceOverlay {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
   }
-  lines(index, optionalEncoding) {
+  pixelFormat(optionalEncoding) {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.__string(this.bb.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
-  linesLength() {
-    const offset = this.bb.__offset(this.bb_pos, 8);
+  timings(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new ScopeTiming()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  timingsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
-  static startPerformanceOverlay(builder) {
-    builder.startObject(3);
+  frameRate(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? (obj || new FrameRate()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  producer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? (obj || new ProducerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startPerformanceMeasurements(builder) {
+    builder.startObject(6);
   }
   static addSchemaMajor(builder, schemaMajor) {
     builder.addFieldInt16(0, schemaMajor, 1);
@@ -5578,59 +6800,77 @@ var PerformanceOverlay = class _PerformanceOverlay {
   static addSchemaMinor(builder, schemaMinor) {
     builder.addFieldInt16(1, schemaMinor, 0);
   }
-  static addLines(builder, linesOffset) {
-    builder.addFieldOffset(2, linesOffset, 0);
+  static addPixelFormat(builder, pixelFormatOffset) {
+    builder.addFieldOffset(2, pixelFormatOffset, 0);
   }
-  static createLinesVector(builder, data) {
+  static addTimings(builder, timingsOffset) {
+    builder.addFieldOffset(3, timingsOffset, 0);
+  }
+  static createTimingsVector(builder, data) {
     builder.startVector(4, data.length, 4);
     for (let i = data.length - 1; i >= 0; i--) {
       builder.addOffset(data[i]);
     }
     return builder.endVector();
   }
-  static startLinesVector(builder, numElems) {
+  static startTimingsVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
-  static endPerformanceOverlay(builder) {
+  static addFrameRate(builder, frameRateOffset) {
+    builder.addFieldOffset(4, frameRateOffset, 0);
+  }
+  static addProducer(builder, producerOffset) {
+    builder.addFieldOffset(5, producerOffset, 0);
+  }
+  static endPerformanceMeasurements(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static finishPerformanceOverlayBuffer(builder, offset) {
-    builder.finish(offset, "PERF");
+  static finishPerformanceMeasurementsBuffer(builder, offset) {
+    builder.finish(offset, "PMET");
   }
-  static finishSizePrefixedPerformanceOverlayBuffer(builder, offset) {
-    builder.finish(offset, "PERF", true);
-  }
-  static createPerformanceOverlay(builder, schemaMajor, schemaMinor, linesOffset) {
-    _PerformanceOverlay.startPerformanceOverlay(builder);
-    _PerformanceOverlay.addSchemaMajor(builder, schemaMajor);
-    _PerformanceOverlay.addSchemaMinor(builder, schemaMinor);
-    _PerformanceOverlay.addLines(builder, linesOffset);
-    return _PerformanceOverlay.endPerformanceOverlay(builder);
+  static finishSizePrefixedPerformanceMeasurementsBuffer(builder, offset) {
+    builder.finish(offset, "PMET", true);
   }
   unpack() {
-    return new PerformanceOverlayT(this.schemaMajor(), this.schemaMinor(), this.bb.createScalarList(this.lines.bind(this), this.linesLength()));
+    return new PerformanceMeasurementsT(this.schemaMajor(), this.schemaMinor(), this.pixelFormat(), this.bb.createObjList(this.timings.bind(this), this.timingsLength()), this.frameRate() !== null ? this.frameRate().unpack() : null, this.producer() !== null ? this.producer().unpack() : null);
   }
   unpackTo(_o) {
     _o.schemaMajor = this.schemaMajor();
     _o.schemaMinor = this.schemaMinor();
-    _o.lines = this.bb.createScalarList(this.lines.bind(this), this.linesLength());
+    _o.pixelFormat = this.pixelFormat();
+    _o.timings = this.bb.createObjList(this.timings.bind(this), this.timingsLength());
+    _o.frameRate = this.frameRate() !== null ? this.frameRate().unpack() : null;
+    _o.producer = this.producer() !== null ? this.producer().unpack() : null;
   }
 };
-var PerformanceOverlayT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, lines = []) {
+var PerformanceMeasurementsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, pixelFormat = null, timings = [], frameRate = null, producer = null) {
     this.schemaMajor = schemaMajor;
     this.schemaMinor = schemaMinor;
-    this.lines = lines;
+    this.pixelFormat = pixelFormat;
+    this.timings = timings;
+    this.frameRate = frameRate;
+    this.producer = producer;
   }
   pack(builder) {
-    const lines = PerformanceOverlay.createLinesVector(builder, builder.createObjectOffsetList(this.lines));
-    return PerformanceOverlay.createPerformanceOverlay(builder, this.schemaMajor, this.schemaMinor, lines);
+    const pixelFormat = this.pixelFormat !== null ? builder.createString(this.pixelFormat) : 0;
+    const timings = PerformanceMeasurements.createTimingsVector(builder, builder.createObjectOffsetList(this.timings));
+    const frameRate = this.frameRate !== null ? this.frameRate.pack(builder) : 0;
+    const producer = this.producer !== null ? this.producer.pack(builder) : 0;
+    PerformanceMeasurements.startPerformanceMeasurements(builder);
+    PerformanceMeasurements.addSchemaMajor(builder, this.schemaMajor);
+    PerformanceMeasurements.addSchemaMinor(builder, this.schemaMinor);
+    PerformanceMeasurements.addPixelFormat(builder, pixelFormat);
+    PerformanceMeasurements.addTimings(builder, timings);
+    PerformanceMeasurements.addFrameRate(builder, frameRate);
+    PerformanceMeasurements.addProducer(builder, producer);
+    return PerformanceMeasurements.endPerformanceMeasurements(builder);
   }
 };
 
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js
-var PoseEstimation = class _PoseEstimation {
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence-result.js
+var PersonPresenceResult = class _PersonPresenceResult {
   constructor() {
     this.bb = null;
     this.bb_pos = 0;
@@ -5640,81 +6880,145 @@ var PoseEstimation = class _PoseEstimation {
     this.bb = bb;
     return this;
   }
-  static getRootAsPoseEstimation(bb, obj) {
-    return (obj || new _PoseEstimation()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  static getRootAsPersonPresenceResult(bb, obj) {
+    return (obj || new _PersonPresenceResult()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
-  static getSizePrefixedRootAsPoseEstimation(bb, obj) {
+  static getSizePrefixedRootAsPersonPresenceResult(bb, obj) {
     bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _PoseEstimation()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+    return (obj || new _PersonPresenceResult()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  personPresent() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  yesScore() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  noScore() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  static startPersonPresenceResult(builder) {
+    builder.startObject(3);
+  }
+  static addPersonPresent(builder, personPresent) {
+    builder.addFieldInt8(0, +personPresent, 0);
+  }
+  static addYesScore(builder, yesScore) {
+    builder.addFieldFloat32(1, yesScore, null);
+  }
+  static addNoScore(builder, noScore) {
+    builder.addFieldFloat32(2, noScore, null);
+  }
+  static endPersonPresenceResult(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createPersonPresenceResult(builder, personPresent, yesScore, noScore) {
+    _PersonPresenceResult.startPersonPresenceResult(builder);
+    _PersonPresenceResult.addPersonPresent(builder, personPresent);
+    if (yesScore !== null)
+      _PersonPresenceResult.addYesScore(builder, yesScore);
+    if (noScore !== null)
+      _PersonPresenceResult.addNoScore(builder, noScore);
+    return _PersonPresenceResult.endPersonPresenceResult(builder);
+  }
+  unpack() {
+    return new PersonPresenceResultT(this.personPresent(), this.yesScore(), this.noScore());
+  }
+  unpackTo(_o) {
+    _o.personPresent = this.personPresent();
+    _o.yesScore = this.yesScore();
+    _o.noScore = this.noScore();
+  }
+};
+var PersonPresenceResultT = class {
+  constructor(personPresent = false, yesScore = null, noScore = null) {
+    this.personPresent = personPresent;
+    this.yesScore = yesScore;
+    this.noScore = noScore;
+  }
+  pack(builder) {
+    return PersonPresenceResult.createPersonPresenceResult(builder, this.personPresent, this.yesScore, this.noScore);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.js
+var PersonPresence = class _PersonPresence {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPersonPresence(bb, obj) {
+    return (obj || new _PersonPresence()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPersonPresence(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PersonPresence()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   object(obj) {
     const offset = this.bb.__offset(this.bb_pos, 4);
     return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  confidence() {
+  result(obj) {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? (obj || new PersonPresenceResult()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  yaw() {
+  subjectId() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
   }
-  pitch() {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
-  }
-  static startPoseEstimation(builder) {
-    builder.startObject(4);
+  static startPersonPresence(builder) {
+    builder.startObject(3);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
   }
-  static addConfidence(builder, confidence) {
-    builder.addFieldFloat32(1, confidence, 0);
+  static addResult(builder, resultOffset) {
+    builder.addFieldOffset(1, resultOffset, 0);
   }
-  static addYaw(builder, yaw) {
-    builder.addFieldFloat32(2, yaw, 0);
+  static addSubjectId(builder, subjectId) {
+    builder.addFieldInt64(2, subjectId, null);
   }
-  static addPitch(builder, pitch) {
-    builder.addFieldFloat32(3, pitch, 0);
-  }
-  static endPoseEstimation(builder) {
+  static endPersonPresence(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createPoseEstimation(builder, objectOffset, confidence, yaw, pitch) {
-    _PoseEstimation.startPoseEstimation(builder);
-    _PoseEstimation.addObject(builder, objectOffset);
-    _PoseEstimation.addConfidence(builder, confidence);
-    _PoseEstimation.addYaw(builder, yaw);
-    _PoseEstimation.addPitch(builder, pitch);
-    return _PoseEstimation.endPoseEstimation(builder);
-  }
   unpack() {
-    return new PoseEstimationT(this.object() !== null ? this.object().unpack() : null, this.confidence(), this.yaw(), this.pitch());
+    return new PersonPresenceT(this.object() !== null ? this.object().unpack() : null, this.result() !== null ? this.result().unpack() : null, this.subjectId());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
-    _o.confidence = this.confidence();
-    _o.yaw = this.yaw();
-    _o.pitch = this.pitch();
+    _o.result = this.result() !== null ? this.result().unpack() : null;
+    _o.subjectId = this.subjectId();
   }
 };
-var PoseEstimationT = class {
-  constructor(object = null, confidence = 0, yaw = 0, pitch = 0) {
+var PersonPresenceT = class {
+  constructor(object = null, result = null, subjectId = null) {
     this.object = object;
-    this.confidence = confidence;
-    this.yaw = yaw;
-    this.pitch = pitch;
+    this.result = result;
+    this.subjectId = subjectId;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
-    return PoseEstimation.createPoseEstimation(builder, object, this.confidence, this.yaw, this.pitch);
+    const result = this.result !== null ? this.result.pack(builder) : 0;
+    PersonPresence.startPersonPresence(builder);
+    PersonPresence.addObject(builder, object);
+    PersonPresence.addResult(builder, result);
+    if (this.subjectId !== null)
+      PersonPresence.addSubjectId(builder, this.subjectId);
+    return PersonPresence.endPersonPresence(builder);
   }
 };
 
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js
-var PoseEstimations = class _PoseEstimations {
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presences.js
+var PersonPresences = class _PersonPresences {
   constructor() {
     this.bb = null;
     this.bb_pos = 0;
@@ -5724,15 +7028,15 @@ var PoseEstimations = class _PoseEstimations {
     this.bb = bb;
     return this;
   }
-  static getRootAsPoseEstimations(bb, obj) {
-    return (obj || new _PoseEstimations()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  static getRootAsPersonPresences(bb, obj) {
+    return (obj || new _PersonPresences()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
-  static getSizePrefixedRootAsPoseEstimations(bb, obj) {
+  static getSizePrefixedRootAsPersonPresences(bb, obj) {
     bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _PoseEstimations()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+    return (obj || new _PersonPresences()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static bufferHasIdentifier(bb) {
-    return bb.__has_identifier("POSE");
+    return bb.__has_identifier("PPRS");
   }
   schemaMajor() {
     const offset = this.bb.__offset(this.bb_pos, 4);
@@ -5746,15 +7050,15 @@ var PoseEstimations = class _PoseEstimations {
     const offset = this.bb.__offset(this.bb_pos, 8);
     return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  poses(index, obj) {
+  presences(index, obj) {
     const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? (obj || new PoseEstimation()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+    return offset ? (obj || new PersonPresence()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
   }
-  posesLength() {
+  presencesLength() {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
-  static startPoseEstimations(builder) {
+  static startPersonPresences(builder) {
     builder.startObject(4);
   }
   static addSchemaMajor(builder, schemaMajor) {
@@ -5766,57 +7070,65 @@ var PoseEstimations = class _PoseEstimations {
   static addLayer(builder, layerOffset) {
     builder.addFieldOffset(2, layerOffset, 0);
   }
-  static addPoses(builder, posesOffset) {
-    builder.addFieldOffset(3, posesOffset, 0);
+  static addPresences(builder, presencesOffset) {
+    builder.addFieldOffset(3, presencesOffset, 0);
   }
-  static createPosesVector(builder, data) {
+  static createPresencesVector(builder, data) {
     builder.startVector(4, data.length, 4);
     for (let i = data.length - 1; i >= 0; i--) {
       builder.addOffset(data[i]);
     }
     return builder.endVector();
   }
-  static startPosesVector(builder, numElems) {
+  static startPresencesVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
-  static endPoseEstimations(builder) {
+  static endPersonPresences(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static finishPoseEstimationsBuffer(builder, offset) {
-    builder.finish(offset, "POSE");
+  static finishPersonPresencesBuffer(builder, offset) {
+    builder.finish(offset, "PPRS");
   }
-  static finishSizePrefixedPoseEstimationsBuffer(builder, offset) {
-    builder.finish(offset, "POSE", true);
+  static finishSizePrefixedPersonPresencesBuffer(builder, offset) {
+    builder.finish(offset, "PPRS", true);
   }
   unpack() {
-    return new PoseEstimationsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.poses.bind(this), this.posesLength()));
+    return new PersonPresencesT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.presences.bind(this), this.presencesLength()));
   }
   unpackTo(_o) {
     _o.schemaMajor = this.schemaMajor();
     _o.schemaMinor = this.schemaMinor();
     _o.layer = this.layer() !== null ? this.layer().unpack() : null;
-    _o.poses = this.bb.createObjList(this.poses.bind(this), this.posesLength());
+    _o.presences = this.bb.createObjList(this.presences.bind(this), this.presencesLength());
   }
 };
-var PoseEstimationsT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, poses = []) {
+var PersonPresencesT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, presences = []) {
     this.schemaMajor = schemaMajor;
     this.schemaMinor = schemaMinor;
     this.layer = layer2;
-    this.poses = poses;
+    this.presences = presences;
   }
   pack(builder) {
     const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
-    const poses = PoseEstimations.createPosesVector(builder, builder.createObjectOffsetList(this.poses));
-    PoseEstimations.startPoseEstimations(builder);
-    PoseEstimations.addSchemaMajor(builder, this.schemaMajor);
-    PoseEstimations.addSchemaMinor(builder, this.schemaMinor);
-    PoseEstimations.addLayer(builder, layer2);
-    PoseEstimations.addPoses(builder, poses);
-    return PoseEstimations.endPoseEstimations(builder);
+    const presences = PersonPresences.createPresencesVector(builder, builder.createObjectOffsetList(this.presences));
+    PersonPresences.startPersonPresences(builder);
+    PersonPresences.addSchemaMajor(builder, this.schemaMajor);
+    PersonPresences.addSchemaMinor(builder, this.schemaMinor);
+    PersonPresences.addLayer(builder, layer2);
+    PersonPresences.addPresences(builder, presences);
+    return PersonPresences.endPersonPresences(builder);
   }
 };
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/opacity-meaning.js
+var OpacityMeaning;
+(function(OpacityMeaning2) {
+  OpacityMeaning2[OpacityMeaning2["Unspecified"] = 0] = "Unspecified";
+  OpacityMeaning2[OpacityMeaning2["BackgroundOpacity"] = 1] = "BackgroundOpacity";
+  OpacityMeaning2[OpacityMeaning2["RegionOpacity"] = 2] = "RegionOpacity";
+})(OpacityMeaning || (OpacityMeaning = {}));
 
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js
 var SegmentationMask = class _SegmentationMask {
@@ -5844,8 +7156,12 @@ var SegmentationMask = class _SegmentationMask {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? (obj || new BitmapData()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
+  meaning() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : OpacityMeaning.Unspecified;
+  }
   static startSegmentationMask(builder) {
-    builder.startObject(2);
+    builder.startObject(3);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -5853,22 +7169,27 @@ var SegmentationMask = class _SegmentationMask {
   static addBitmap(builder, bitmapOffset) {
     builder.addFieldOffset(1, bitmapOffset, 0);
   }
+  static addMeaning(builder, meaning) {
+    builder.addFieldInt8(2, meaning, OpacityMeaning.Unspecified);
+  }
   static endSegmentationMask(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new SegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null);
+    return new SegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.meaning());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.bitmap = this.bitmap() !== null ? this.bitmap().unpack() : null;
+    _o.meaning = this.meaning();
   }
 };
 var SegmentationMaskT = class {
-  constructor(object = null, bitmap = null) {
+  constructor(object = null, bitmap = null, meaning = OpacityMeaning.Unspecified) {
     this.object = object;
     this.bitmap = bitmap;
+    this.meaning = meaning;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
@@ -5876,6 +7197,7 @@ var SegmentationMaskT = class {
     SegmentationMask.startSegmentationMask(builder);
     SegmentationMask.addObject(builder, object);
     SegmentationMask.addBitmap(builder, bitmap);
+    SegmentationMask.addMeaning(builder, this.meaning);
     return SegmentationMask.endSegmentationMask(builder);
   }
 };
@@ -6011,8 +7333,16 @@ var SemanticSegmentationMask = class _SemanticSegmentationMask {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? (obj || new BitmapData()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
+  labelSet(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  voidValue() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
+  }
   static startSemanticSegmentationMask(builder) {
-    builder.startObject(2);
+    builder.startObject(4);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
@@ -6020,29 +7350,43 @@ var SemanticSegmentationMask = class _SemanticSegmentationMask {
   static addBitmap(builder, bitmapOffset) {
     builder.addFieldOffset(1, bitmapOffset, 0);
   }
+  static addLabelSet(builder, labelSetOffset) {
+    builder.addFieldOffset(2, labelSetOffset, 0);
+  }
+  static addVoidValue(builder, voidValue) {
+    builder.addFieldInt32(3, voidValue, null);
+  }
   static endSemanticSegmentationMask(builder) {
     const offset = builder.endObject();
     return offset;
   }
   unpack() {
-    return new SemanticSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null);
+    return new SemanticSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.labelSet(), this.voidValue());
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
     _o.bitmap = this.bitmap() !== null ? this.bitmap().unpack() : null;
+    _o.labelSet = this.labelSet();
+    _o.voidValue = this.voidValue();
   }
 };
 var SemanticSegmentationMaskT = class {
-  constructor(object = null, bitmap = null) {
+  constructor(object = null, bitmap = null, labelSet = null, voidValue = null) {
     this.object = object;
     this.bitmap = bitmap;
+    this.labelSet = labelSet;
+    this.voidValue = voidValue;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
     const bitmap = this.bitmap !== null ? this.bitmap.pack(builder) : 0;
+    const labelSet = this.labelSet !== null ? builder.createString(this.labelSet) : 0;
     SemanticSegmentationMask.startSemanticSegmentationMask(builder);
     SemanticSegmentationMask.addObject(builder, object);
     SemanticSegmentationMask.addBitmap(builder, bitmap);
+    SemanticSegmentationMask.addLabelSet(builder, labelSet);
+    if (this.voidValue !== null)
+      SemanticSegmentationMask.addVoidValue(builder, this.voidValue);
     return SemanticSegmentationMask.endSemanticSegmentationMask(builder);
   }
 };
@@ -6152,8 +7496,8 @@ var SemanticSegmentationMasksT = class {
   }
 };
 
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/point2f.js
-var Point2f = class _Point2f {
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace-point.js
+var TrackTracePoint = class _TrackTracePoint {
   constructor() {
     this.bb = null;
     this.bb_pos = 0;
@@ -6163,12 +7507,12 @@ var Point2f = class _Point2f {
     this.bb = bb;
     return this;
   }
-  static getRootAsPoint2f(bb, obj) {
-    return (obj || new _Point2f()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  static getRootAsTrackTracePoint(bb, obj) {
+    return (obj || new _TrackTracePoint()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
-  static getSizePrefixedRootAsPoint2f(bb, obj) {
+  static getSizePrefixedRootAsTrackTracePoint(bb, obj) {
     bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _Point2f()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+    return (obj || new _TrackTracePoint()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   x() {
     const offset = this.bb.__offset(this.bb_pos, 4);
@@ -6178,8 +7522,12 @@ var Point2f = class _Point2f {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
   }
-  static startPoint2f(builder) {
-    builder.startObject(2);
+  sample(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new TrackingSample()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startTrackTracePoint(builder) {
+    builder.startObject(3);
   }
   static addX(builder, x) {
     builder.addFieldFloat32(0, x, 0);
@@ -6187,31 +7535,35 @@ var Point2f = class _Point2f {
   static addY(builder, y) {
     builder.addFieldFloat32(1, y, 0);
   }
-  static endPoint2f(builder) {
+  static addSample(builder, sampleOffset) {
+    builder.addFieldOffset(2, sampleOffset, 0);
+  }
+  static endTrackTracePoint(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createPoint2f(builder, x, y) {
-    _Point2f.startPoint2f(builder);
-    _Point2f.addX(builder, x);
-    _Point2f.addY(builder, y);
-    return _Point2f.endPoint2f(builder);
-  }
   unpack() {
-    return new Point2fT(this.x(), this.y());
+    return new TrackTracePointT(this.x(), this.y(), this.sample() !== null ? this.sample().unpack() : null);
   }
   unpackTo(_o) {
     _o.x = this.x();
     _o.y = this.y();
+    _o.sample = this.sample() !== null ? this.sample().unpack() : null;
   }
 };
-var Point2fT = class {
-  constructor(x = 0, y = 0) {
+var TrackTracePointT = class {
+  constructor(x = 0, y = 0, sample = null) {
     this.x = x;
     this.y = y;
+    this.sample = sample;
   }
   pack(builder) {
-    return Point2f.createPoint2f(builder, this.x, this.y);
+    const sample = this.sample !== null ? this.sample.pack(builder) : 0;
+    TrackTracePoint.startTrackTracePoint(builder);
+    TrackTracePoint.addX(builder, this.x);
+    TrackTracePoint.addY(builder, this.y);
+    TrackTracePoint.addSample(builder, sample);
+    return TrackTracePoint.endTrackTracePoint(builder);
   }
 };
 
@@ -6237,26 +7589,30 @@ var TrackTrace = class _TrackTrace {
     const offset = this.bb.__offset(this.bb_pos, 4);
     return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
-  trackId() {
+  identity(obj) {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+    return offset ? (obj || new TrackIdentity()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
   }
   points(index, obj) {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? (obj || new Point2f()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+    return offset ? (obj || new TrackTracePoint()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
   }
   pointsLength() {
     const offset = this.bb.__offset(this.bb_pos, 8);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
+  space(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new ImageSpace()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
   static startTrackTrace(builder) {
-    builder.startObject(3);
+    builder.startObject(4);
   }
   static addObject(builder, objectOffset) {
     builder.addFieldOffset(0, objectOffset, 0);
   }
-  static addTrackId(builder, trackId) {
-    builder.addFieldInt64(1, trackId, BigInt("0"));
+  static addIdentity(builder, identityOffset) {
+    builder.addFieldOffset(1, identityOffset, 0);
   }
   static addPoints(builder, pointsOffset) {
     builder.addFieldOffset(2, pointsOffset, 0);
@@ -6271,36 +7627,41 @@ var TrackTrace = class _TrackTrace {
   static startPointsVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addSpace(builder, spaceOffset) {
+    builder.addFieldOffset(3, spaceOffset, 0);
+  }
   static endTrackTrace(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createTrackTrace(builder, objectOffset, trackId, pointsOffset) {
-    _TrackTrace.startTrackTrace(builder);
-    _TrackTrace.addObject(builder, objectOffset);
-    _TrackTrace.addTrackId(builder, trackId);
-    _TrackTrace.addPoints(builder, pointsOffset);
-    return _TrackTrace.endTrackTrace(builder);
-  }
   unpack() {
-    return new TrackTraceT(this.object() !== null ? this.object().unpack() : null, this.trackId(), this.bb.createObjList(this.points.bind(this), this.pointsLength()));
+    return new TrackTraceT(this.object() !== null ? this.object().unpack() : null, this.identity() !== null ? this.identity().unpack() : null, this.bb.createObjList(this.points.bind(this), this.pointsLength()), this.space() !== null ? this.space().unpack() : null);
   }
   unpackTo(_o) {
     _o.object = this.object() !== null ? this.object().unpack() : null;
-    _o.trackId = this.trackId();
+    _o.identity = this.identity() !== null ? this.identity().unpack() : null;
     _o.points = this.bb.createObjList(this.points.bind(this), this.pointsLength());
+    _o.space = this.space() !== null ? this.space().unpack() : null;
   }
 };
 var TrackTraceT = class {
-  constructor(object = null, trackId = BigInt("0"), points = []) {
+  constructor(object = null, identity = null, points = [], space = null) {
     this.object = object;
-    this.trackId = trackId;
+    this.identity = identity;
     this.points = points;
+    this.space = space;
   }
   pack(builder) {
     const object = this.object !== null ? this.object.pack(builder) : 0;
+    const identity = this.identity !== null ? this.identity.pack(builder) : 0;
     const points = TrackTrace.createPointsVector(builder, builder.createObjectOffsetList(this.points));
-    return TrackTrace.createTrackTrace(builder, object, this.trackId, points);
+    const space = this.space !== null ? this.space.pack(builder) : 0;
+    TrackTrace.startTrackTrace(builder);
+    TrackTrace.addObject(builder, object);
+    TrackTrace.addIdentity(builder, identity);
+    TrackTrace.addPoints(builder, points);
+    TrackTrace.addSpace(builder, space);
+    return TrackTrace.endTrackTrace(builder);
   }
 };
 
@@ -6433,11 +7794,11 @@ var TurnDetection = class _TurnDetection {
   }
   turnProbability() {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   turnComplete() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : null;
   }
   windowStartSample() {
     const offset = this.bb.__offset(this.bb_pos, 10);
@@ -6466,10 +7827,10 @@ var TurnDetection = class _TurnDetection {
     builder.addFieldOffset(0, objectOffset, 0);
   }
   static addTurnProbability(builder, turnProbability) {
-    builder.addFieldFloat32(1, turnProbability, 0);
+    builder.addFieldFloat32(1, turnProbability, null);
   }
   static addTurnComplete(builder, turnComplete) {
-    builder.addFieldInt8(2, +turnComplete, 0);
+    builder.addFieldInt8(2, +turnComplete, null);
   }
   static addWindowStartSample(builder, windowStartSample) {
     builder.addFieldInt64(3, windowStartSample, BigInt("0"));
@@ -6493,8 +7854,10 @@ var TurnDetection = class _TurnDetection {
   static createTurnDetection(builder, objectOffset, turnProbability, turnComplete, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
     _TurnDetection.startTurnDetection(builder);
     _TurnDetection.addObject(builder, objectOffset);
-    _TurnDetection.addTurnProbability(builder, turnProbability);
-    _TurnDetection.addTurnComplete(builder, turnComplete);
+    if (turnProbability !== null)
+      _TurnDetection.addTurnProbability(builder, turnProbability);
+    if (turnComplete !== null)
+      _TurnDetection.addTurnComplete(builder, turnComplete);
     _TurnDetection.addWindowStartSample(builder, windowStartSample);
     _TurnDetection.addWindowEndSample(builder, windowEndSample);
     if (windowStartTsNs !== null)
@@ -6519,7 +7882,7 @@ var TurnDetection = class _TurnDetection {
   }
 };
 var TurnDetectionT = class {
-  constructor(object = null, turnProbability = 0, turnComplete = false, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+  constructor(object = null, turnProbability = null, turnComplete = null, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
     this.object = object;
     this.turnProbability = turnProbability;
     this.turnComplete = turnComplete;
@@ -6664,11 +8027,11 @@ var VoiceActivityDetection = class _VoiceActivityDetection {
   }
   speechProbability() {
     const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
   }
   speechActive() {
     const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : null;
   }
   windowStartSample() {
     const offset = this.bb.__offset(this.bb_pos, 10);
@@ -6697,10 +8060,10 @@ var VoiceActivityDetection = class _VoiceActivityDetection {
     builder.addFieldOffset(0, objectOffset, 0);
   }
   static addSpeechProbability(builder, speechProbability) {
-    builder.addFieldFloat32(1, speechProbability, 0);
+    builder.addFieldFloat32(1, speechProbability, null);
   }
   static addSpeechActive(builder, speechActive) {
-    builder.addFieldInt8(2, +speechActive, 0);
+    builder.addFieldInt8(2, +speechActive, null);
   }
   static addWindowStartSample(builder, windowStartSample) {
     builder.addFieldInt64(3, windowStartSample, BigInt("0"));
@@ -6724,8 +8087,10 @@ var VoiceActivityDetection = class _VoiceActivityDetection {
   static createVoiceActivityDetection(builder, objectOffset, speechProbability, speechActive, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
     _VoiceActivityDetection.startVoiceActivityDetection(builder);
     _VoiceActivityDetection.addObject(builder, objectOffset);
-    _VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
-    _VoiceActivityDetection.addSpeechActive(builder, speechActive);
+    if (speechProbability !== null)
+      _VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
+    if (speechActive !== null)
+      _VoiceActivityDetection.addSpeechActive(builder, speechActive);
     _VoiceActivityDetection.addWindowStartSample(builder, windowStartSample);
     _VoiceActivityDetection.addWindowEndSample(builder, windowEndSample);
     if (windowStartTsNs !== null)
@@ -6750,7 +8115,7 @@ var VoiceActivityDetection = class _VoiceActivityDetection {
   }
 };
 var VoiceActivityDetectionT = class {
-  constructor(object = null, speechProbability = 0, speechActive = false, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+  constructor(object = null, speechProbability = null, speechActive = null, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
     this.object = object;
     this.speechProbability = speechProbability;
     this.speechActive = speechActive;
@@ -6872,152 +8237,174 @@ var VoiceActivityDetectionsT = class {
 };
 
 // generated/open_perception_kit/ts/dist/open_perception_kit/registry.js
-var decode_556103652012567315 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
-var verify_556103652012567315 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2852697023809600655 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
-var verify_2852697023809600655 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2065478860695108412 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
-var verify_2065478860695108412 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3149752457626985059 = (blob) => InstanceSegmentationMasks.getRootAsInstanceSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_3149752457626985059 = (blob) => InstanceSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_5972661533224817501 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
-var verify_5972661533224817501 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2960585987463094496 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
-var verify_2960585987463094496 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_7749401259036278028 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
-var verify_7749401259036278028 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_9114952555105892553 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
-var verify_9114952555105892553 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_1998909987238011535 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_1998909987238011535 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_1602571589628393389 = (blob) => SemanticSegmentationMasks.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_1602571589628393389 = (blob) => SemanticSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_238211229389337861 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
-var verify_238211229389337861 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3528578282400045446 = (blob) => TurnDetections.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
-var verify_3528578282400045446 = (blob) => TurnDetections.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_7328253118381503000 = (blob) => VoiceActivityDetections.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
-var verify_7328253118381503000 = (blob) => VoiceActivityDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3248104387212218840 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
+var verify_3248104387212218840 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7630654510173219138 = (blob) => CameraContacts.getRootAsCameraContacts(new ByteBuffer(blob)).unpack();
+var verify_7630654510173219138 = (blob) => CameraContacts.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3375056508603945320 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
+var verify_3375056508603945320 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_5246681475592864076 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
+var verify_5246681475592864076 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_2646100978796938776 = (blob) => GazeMeasurements.getRootAsGazeMeasurements(new ByteBuffer(blob)).unpack();
+var verify_2646100978796938776 = (blob) => GazeMeasurements.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7634499802271603959 = (blob) => InstanceSegmentationMasks.getRootAsInstanceSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_7634499802271603959 = (blob) => InstanceSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_6121378805478677067 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
+var verify_6121378805478677067 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_5316059591418463553 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
+var verify_5316059591418463553 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_2630163151625760217 = (blob) => PerformanceMeasurements.getRootAsPerformanceMeasurements(new ByteBuffer(blob)).unpack();
+var verify_2630163151625760217 = (blob) => PerformanceMeasurements.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7550522492754457054 = (blob) => PersonPresences.getRootAsPersonPresences(new ByteBuffer(blob)).unpack();
+var verify_7550522492754457054 = (blob) => PersonPresences.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3128408959875976772 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_3128408959875976772 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_133049182594848948 = (blob) => SemanticSegmentationMasks.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_133049182594848948 = (blob) => SemanticSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7618457940451616939 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
+var verify_7618457940451616939 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7194963704333257544 = (blob) => TurnDetections.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
+var verify_7194963704333257544 = (blob) => TurnDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_4750671262425495264 = (blob) => VoiceActivityDetections.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
+var verify_4750671262425495264 = (blob) => VoiceActivityDetections.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
-  [556103652012567315n, {
+  [3248104387212218840n, {
     name: "open_perception_kit::metadata::BoxDetections",
     root_type: "BoxDetections",
     qualified_root_type: "open_perception_kit.metadata.BoxDetections",
     file_identifier: "BDET",
-    decode: decode_556103652012567315,
-    verify: verify_556103652012567315
+    decode: decode_3248104387212218840,
+    verify: verify_3248104387212218840
   }],
-  [2852697023809600655n, {
+  [7630654510173219138n, {
+    name: "open_perception_kit::metadata::CameraContacts",
+    root_type: "CameraContacts",
+    qualified_root_type: "open_perception_kit.metadata.CameraContacts",
+    file_identifier: "CCON",
+    decode: decode_7630654510173219138,
+    verify: verify_7630654510173219138
+  }],
+  [3375056508603945320n, {
     name: "open_perception_kit::metadata::Classifications",
     root_type: "Classifications",
     qualified_root_type: "open_perception_kit.metadata.Classifications",
     file_identifier: "CLSF",
-    decode: decode_2852697023809600655,
-    verify: verify_2852697023809600655
+    decode: decode_3375056508603945320,
+    verify: verify_3375056508603945320
   }],
-  [2065478860695108412n, {
+  [5246681475592864076n, {
     name: "open_perception_kit::metadata::FrameContext",
     root_type: "FrameContext",
     qualified_root_type: "open_perception_kit.metadata.FrameContext",
     file_identifier: "FCTX",
-    decode: decode_2065478860695108412,
-    verify: verify_2065478860695108412
+    decode: decode_5246681475592864076,
+    verify: verify_5246681475592864076
   }],
-  [3149752457626985059n, {
+  [2646100978796938776n, {
+    name: "open_perception_kit::metadata::GazeMeasurements",
+    root_type: "GazeMeasurements",
+    qualified_root_type: "open_perception_kit.metadata.GazeMeasurements",
+    file_identifier: "GZMS",
+    decode: decode_2646100978796938776,
+    verify: verify_2646100978796938776
+  }],
+  [7634499802271603959n, {
     name: "open_perception_kit::metadata::InstanceSegmentationMasks",
     root_type: "InstanceSegmentationMasks",
     qualified_root_type: "open_perception_kit.metadata.InstanceSegmentationMasks",
     file_identifier: "ISGM",
-    decode: decode_3149752457626985059,
-    verify: verify_3149752457626985059
+    decode: decode_7634499802271603959,
+    verify: verify_7634499802271603959
   }],
-  [5972661533224817501n, {
+  [6121378805478677067n, {
     name: "open_perception_kit::metadata::ObjectEmbeddings",
     root_type: "ObjectEmbeddings",
     qualified_root_type: "open_perception_kit.metadata.ObjectEmbeddings",
     file_identifier: "EMBE",
-    decode: decode_5972661533224817501,
-    verify: verify_5972661533224817501
+    decode: decode_6121378805478677067,
+    verify: verify_6121378805478677067
   }],
-  [2960585987463094496n, {
+  [5316059591418463553n, {
     name: "open_perception_kit::metadata::ObjectTracks",
     root_type: "ObjectTracks",
     qualified_root_type: "open_perception_kit.metadata.ObjectTracks",
     file_identifier: "TRKS",
-    decode: decode_2960585987463094496,
-    verify: verify_2960585987463094496
+    decode: decode_5316059591418463553,
+    verify: verify_5316059591418463553
   }],
-  [7749401259036278028n, {
-    name: "open_perception_kit::metadata::PerformanceOverlay",
-    root_type: "PerformanceOverlay",
-    qualified_root_type: "open_perception_kit.metadata.PerformanceOverlay",
-    file_identifier: "PERF",
-    decode: decode_7749401259036278028,
-    verify: verify_7749401259036278028
+  [2630163151625760217n, {
+    name: "open_perception_kit::metadata::PerformanceMeasurements",
+    root_type: "PerformanceMeasurements",
+    qualified_root_type: "open_perception_kit.metadata.PerformanceMeasurements",
+    file_identifier: "PMET",
+    decode: decode_2630163151625760217,
+    verify: verify_2630163151625760217
   }],
-  [9114952555105892553n, {
-    name: "open_perception_kit::metadata::PoseEstimations",
-    root_type: "PoseEstimations",
-    qualified_root_type: "open_perception_kit.metadata.PoseEstimations",
-    file_identifier: "POSE",
-    decode: decode_9114952555105892553,
-    verify: verify_9114952555105892553
+  [7550522492754457054n, {
+    name: "open_perception_kit::metadata::PersonPresences",
+    root_type: "PersonPresences",
+    qualified_root_type: "open_perception_kit.metadata.PersonPresences",
+    file_identifier: "PPRS",
+    decode: decode_7550522492754457054,
+    verify: verify_7550522492754457054
   }],
-  [1998909987238011535n, {
+  [3128408959875976772n, {
     name: "open_perception_kit::metadata::SegmentationMasks",
     root_type: "SegmentationMasks",
     qualified_root_type: "open_perception_kit.metadata.SegmentationMasks",
     file_identifier: "SGMS",
-    decode: decode_1998909987238011535,
-    verify: verify_1998909987238011535
+    decode: decode_3128408959875976772,
+    verify: verify_3128408959875976772
   }],
-  [1602571589628393389n, {
+  [133049182594848948n, {
     name: "open_perception_kit::metadata::SemanticSegmentationMasks",
     root_type: "SemanticSegmentationMasks",
     qualified_root_type: "open_perception_kit.metadata.SemanticSegmentationMasks",
     file_identifier: "SSGM",
-    decode: decode_1602571589628393389,
-    verify: verify_1602571589628393389
+    decode: decode_133049182594848948,
+    verify: verify_133049182594848948
   }],
-  [238211229389337861n, {
+  [7618457940451616939n, {
     name: "open_perception_kit::metadata::TrackTraces",
     root_type: "TrackTraces",
     qualified_root_type: "open_perception_kit.metadata.TrackTraces",
     file_identifier: "TRCE",
-    decode: decode_238211229389337861,
-    verify: verify_238211229389337861
+    decode: decode_7618457940451616939,
+    verify: verify_7618457940451616939
   }],
-  [3528578282400045446n, {
+  [7194963704333257544n, {
     name: "open_perception_kit::metadata::TurnDetections",
     root_type: "TurnDetections",
     qualified_root_type: "open_perception_kit.metadata.TurnDetections",
     file_identifier: "TURN",
-    decode: decode_3528578282400045446,
-    verify: verify_3528578282400045446
+    decode: decode_7194963704333257544,
+    verify: verify_7194963704333257544
   }],
-  [7328253118381503000n, {
+  [4750671262425495264n, {
     name: "open_perception_kit::metadata::VoiceActivityDetections",
     root_type: "VoiceActivityDetections",
     qualified_root_type: "open_perception_kit.metadata.VoiceActivityDetections",
     file_identifier: "VACT",
-    decode: decode_7328253118381503000,
-    verify: verify_7328253118381503000
+    decode: decode_4750671262425495264,
+    verify: verify_4750671262425495264
   }]
 ]);
 var _CLASS_TO_ID = /* @__PURE__ */ new Map([
-  [BoxDetectionsT, 556103652012567315n],
-  [ClassificationsT, 2852697023809600655n],
-  [FrameContextT, 2065478860695108412n],
-  [InstanceSegmentationMasksT, 3149752457626985059n],
-  [ObjectEmbeddingsT, 5972661533224817501n],
-  [ObjectTracksT, 2960585987463094496n],
-  [PerformanceOverlayT, 7749401259036278028n],
-  [PoseEstimationsT, 9114952555105892553n],
-  [SegmentationMasksT, 1998909987238011535n],
-  [SemanticSegmentationMasksT, 1602571589628393389n],
-  [TrackTracesT, 238211229389337861n],
-  [TurnDetectionsT, 3528578282400045446n],
-  [VoiceActivityDetectionsT, 7328253118381503000n]
+  [BoxDetectionsT, 3248104387212218840n],
+  [CameraContactsT, 7630654510173219138n],
+  [ClassificationsT, 3375056508603945320n],
+  [FrameContextT, 5246681475592864076n],
+  [GazeMeasurementsT, 2646100978796938776n],
+  [InstanceSegmentationMasksT, 7634499802271603959n],
+  [ObjectEmbeddingsT, 6121378805478677067n],
+  [ObjectTracksT, 5316059591418463553n],
+  [PerformanceMeasurementsT, 2630163151625760217n],
+  [PersonPresencesT, 7550522492754457054n],
+  [SegmentationMasksT, 3128408959875976772n],
+  [SemanticSegmentationMasksT, 133049182594848948n],
+  [TrackTracesT, 7618457940451616939n],
+  [TurnDetectionsT, 7194963704333257544n],
+  [VoiceActivityDetectionsT, 4750671262425495264n]
 ]);
 
 // generated/open_perception_kit/ts/dist/open_perception_kit/envelope.js
@@ -7034,8 +8421,8 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 };
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
-var SDK_VERSION = "0.1.3";
-var SCHEMA_SET_SHA256 = "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
+var SDK_VERSION = "1.0.0";
+var SCHEMA_SET_SHA256 = "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -7043,17 +8430,13 @@ var EXTERNAL_HASH_PRIME = BigInt("1099511628211");
 var UINT64_MASK = BigInt("0xffffffffffffffff");
 var textEncoder = new TextEncoder();
 var externalKeyToken = /* @__PURE__ */ Symbol("external-key");
-var SDK_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 var SEMANTIC_VERSION_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
-var SHA256_PATTERN = /^[0-9a-f]{64}$/;
 var ProducerIdentityStatus;
 (function(ProducerIdentityStatus2) {
+  ProducerIdentityStatus2["NameMismatch"] = "name_mismatch";
   ProducerIdentityStatus2["ExactMatch"] = "exact_match";
-  ProducerIdentityStatus2["Missing"] = "missing";
-  ProducerIdentityStatus2["Malformed"] = "malformed";
-  ProducerIdentityStatus2["SdkNameMismatch"] = "sdk_name_mismatch";
-  ProducerIdentityStatus2["SdkVersionMismatch"] = "sdk_version_mismatch";
-  ProducerIdentityStatus2["SchemaSetMismatch"] = "schema_set_mismatch";
+  ProducerIdentityStatus2["CompatibleMatch"] = "compatible_match";
+  ProducerIdentityStatus2["VersionMismatch"] = "version_mismatch";
 })(ProducerIdentityStatus || (ProducerIdentityStatus = {}));
 function isExternalKeyValue(value) {
   return value >= EXTERNAL_KEY_MIN && value <= UINT64_MASK;
@@ -7184,6 +8567,7 @@ var Envelope = class {
       }
       this.validEnvelope = true;
     } catch (error) {
+      this.payloadEntries = [];
       this.errorMessage = `invalid ${SDK_NAME} envelope: ${String(error)}`;
     }
   }
@@ -7204,20 +8588,18 @@ var Envelope = class {
     return this.producerSchemaDigest;
   }
   producerIdentity() {
-    if (!this.producerName || !this.producerVersion || !this.producerSchemaDigest) {
-      return ProducerIdentityStatus.Missing;
-    }
-    if (!SDK_NAME_PATTERN.test(this.producerName) || !SEMANTIC_VERSION_PATTERN.test(this.producerVersion) || !SHA256_PATTERN.test(this.producerSchemaDigest)) {
-      return ProducerIdentityStatus.Malformed;
-    }
     if (this.producerName !== SDK_NAME)
-      return ProducerIdentityStatus.SdkNameMismatch;
-    if (this.producerVersion !== SDK_VERSION)
-      return ProducerIdentityStatus.SdkVersionMismatch;
-    if (this.producerSchemaDigest !== SCHEMA_SET_SHA256) {
-      return ProducerIdentityStatus.SchemaSetMismatch;
+      return ProducerIdentityStatus.NameMismatch;
+    const version = SEMANTIC_VERSION_PATTERN.exec(this.producerVersion);
+    if (!version || version[0] !== this.producerVersion) {
+      return ProducerIdentityStatus.VersionMismatch;
     }
-    return ProducerIdentityStatus.ExactMatch;
+    if (this.producerVersion === SDK_VERSION)
+      return ProducerIdentityStatus.ExactMatch;
+    if (version[1] === SDK_VERSION.split(".")[0]) {
+      return ProducerIdentityStatus.CompatibleMatch;
+    }
+    return ProducerIdentityStatus.VersionMismatch;
   }
   empty() {
     return this.size() === 0;
@@ -7307,6 +8689,8 @@ var Envelope = class {
       return;
     }
     const id = resolvePayloadClass(selector);
+    if (!this.validEnvelope)
+      return;
     for (const entry of this.payloadEntries) {
       if (entry.id !== id)
         continue;
@@ -7357,6 +8741,54 @@ var Envelope = class {
   }
 };
 
+// development/web/src/mask-data.js
+function validBitmap(data) {
+  const bytes = data?.encoding === BitmapEncoding.Uint8 ? 1 : data?.encoding === BitmapEncoding.Uint32LE ? 4 : 0;
+  return bytes > 0 && validImageSpace(data.space) && Number.isInteger(data.width) && data.width > 0 && data.width <= 4294967295 && Number.isInteger(data.height) && data.height > 0 && data.height <= 4294967295 && Number.isSafeInteger(data.width * data.height * bytes) && data.pixels instanceof Uint8Array && data.pixels.length === data.width * data.height * bytes;
+}
+function validMask(data, type) {
+  if (!validBitmap(data)) return false;
+  if (type === "SegmentationMask") return data.encoding === BitmapEncoding.Uint8 && [OpacityMeaning.BackgroundOpacity, OpacityMeaning.RegionOpacity].includes(data.meaning);
+  const identified = typeof data.labelSet === "string" && data.labelSet.length > 0;
+  if (type === "SemanticSegmentationMask") return identified && (data.voidValue == null || Number.isInteger(data.voidValue) && data.voidValue >= 0 && data.voidValue <= (data.encoding === BitmapEncoding.Uint8 ? 255 : 4294967295));
+  if (type !== "InstanceSegmentationMask" || data.encoding !== BitmapEncoding.Uint8) return false;
+  if (data.classId != null && (!identified || !Number.isInteger(data.classId) || data.classId < 0 || data.classId > 4294967295)) return false;
+  if (data.confidence != null && (!Number.isFinite(data.confidence) || data.confidence < 0 || data.confidence > 1)) return false;
+  if (data.box && (!imageBox(data.box) || String(data.box.space.frameId) !== String(data.space.frameId) || data.box.space.width !== data.space.width || data.box.space.height !== data.space.height)) return false;
+  return data.pixels.every((value) => value <= 1);
+}
+function maskData(item) {
+  const bitmap = item?.bitmap;
+  return {
+    width: bitmap?.width,
+    height: bitmap?.height,
+    encoding: bitmap?.encoding,
+    pixels: bitmap?.pixels != null ? Uint8Array.from(bitmap.pixels) : void 0,
+    space: bitmap?.space,
+    meaning: item?.meaning,
+    labelSet: item?.labelSet,
+    voidValue: item?.voidValue,
+    classId: item?.classId,
+    confidence: item?.confidence,
+    box: item?.box
+  };
+}
+
+// development/web/src/embedding-data.js
+function usableEmbedding({ space, values }) {
+  return typeof space?.id === "string" && space.id.length > 0 && space.metric === EmbeddingMetric.Cosine && Array.isArray(values) && space.dimensions === values.length && values.length > 0 && values.every(Number.isFinite) && values.some((value) => value !== 0);
+}
+
+// development/web/src/audio-data.js
+function validAudioResult(data, probability, decision) {
+  const score = data[probability];
+  if (typeof score !== "number" || !Number.isFinite(score) || score < 0 || score > 1 || typeof data[decision] !== "boolean") return false;
+  const unsigned = (value) => value != null && (typeof value !== "number" || Number.isSafeInteger(value)) && /^[0-9]{1,20}$/.test(String(value)) && BigInt(value) <= 0xffffffffffffffffn;
+  if (!unsigned(data.windowStartSample) || !unsigned(data.windowEndSample) || BigInt(data.windowEndSample) <= BigInt(data.windowStartSample)) return false;
+  const start = data.windowStartTsNs, end = data.windowEndTsNs;
+  return start == null && end == null || unsigned(start) && unsigned(end) && BigInt(start) < BigInt(end);
+}
+
 // development/web/src/frame-results.js
 var FRAME_RESULTS_ENCODING = "perception-frame-results+base64";
 var FrameResultsDecodeError = class extends Error {
@@ -7376,16 +8808,6 @@ function objectData(object) {
     creationTsNs: identifier(object?.creationTsNs)
   };
 }
-function audioData(item) {
-  return {
-    ...objectData(item.object),
-    windowStartSample: identifier(item.windowStartSample),
-    windowEndSample: identifier(item.windowEndSample),
-    windowStartTsNs: item.windowStartTsNs == null ? null : identifier(item.windowStartTsNs),
-    windowEndTsNs: item.windowEndTsNs == null ? null : identifier(item.windowEndTsNs),
-    discontinuity: Boolean(item.discontinuity)
-  };
-}
 function layerData(layer2) {
   const producer = layer2?.producer;
   return {
@@ -7394,7 +8816,6 @@ function layerData(layer2) {
     tags: text(layer2?.tags),
     inferElementId: text(layer2?.inferElementId),
     labelFamily: text(layer2?.labelFamily),
-    contentType: text(layer2?.contentType),
     compositingMode: text(layer2?.compositingMode),
     producer: producer ? {
       instanceId: text(producer.instanceId),
@@ -7409,35 +8830,90 @@ function layer(payload, payloadType, detections) {
     payloadType,
     payload,
     count: detections.length,
+    status: detections.length ? "available" : "empty",
     detections
   };
 }
 function boxData(item) {
+  const geometry = imageBox(item.box);
   return {
     ...objectData(item.object),
     x: Number(item.box?.x ?? 0),
     y: Number(item.box?.y ?? 0),
     width: Number(item.box?.width ?? 0),
     height: Number(item.box?.height ?? 0),
-    confidence: Number(item.confidence ?? 0),
-    classId: Number(item.classId ?? -1),
+    ...geometry,
+    spatialValid: geometry !== null,
+    confidence: item.confidence,
+    classId: item.classId,
     text: text(item.text)
   };
 }
 function candidateData(candidate) {
   return {
-    confidence: Number(candidate.confidence ?? 0),
-    classId: Number(candidate.classId ?? -1),
-    text: text(candidate.text),
-    x: Number(candidate.x || 0),
-    y: Number(candidate.y || 0),
-    w: Number(candidate.w || 0),
-    h: Number(candidate.h || 0)
+    confidence: candidate.confidence,
+    classId: candidate.classId,
+    text: text(candidate.text)
   };
 }
 function addPayloadLayers(envelope, payloadType, name, mapper, layers) {
   for (const payload of envelope.for_each(payloadType)) {
-    layers.push(layer(payload, name, mapper(payload)));
+    try {
+      layers.push(layer(payload, name, mapper(payload)));
+    } catch {
+      layers.push({ ...layer(payload, name, []), status: "invalid" });
+    }
+  }
+}
+var classificationMappers = /* @__PURE__ */ new Map([
+  ["Classifications", (payload) => payload.classifications.map((item) => ({ type: "Classification", data: {
+    ...objectData(item.object),
+    candidates: item.candidates.map(candidateData),
+    labelSet: text(item.labelSet),
+    kind: item.kind,
+    subjectUuid: item.subjectId == null ? null : identifier(item.subjectId)
+  } }))],
+  ["CameraContacts", (payload) => payload.contacts.map((item) => ({ type: "CameraContact", data: {
+    ...objectData(item.object),
+    subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+    result: item.result ? {
+      inContact: item.result.inContact,
+      modelClassIndex: item.result.modelClassIndex,
+      confidence: item.result.confidence
+    } : null
+  } }))],
+  ["PersonPresences", (payload) => payload.presences.map((item) => ({ type: "PersonClassification", data: {
+    ...objectData(item.object),
+    result: item.result ? {
+      personPresent: item.result.personPresent,
+      yesScore: item.result.yesScore,
+      noScore: item.result.noScore
+    } : null,
+    subjectUuid: item.subjectId == null ? null : identifier(item.subjectId)
+  } }))]
+]);
+function addClassificationLayers(packet, layers) {
+  const wire = WireEnvelope.getRootAsWireEnvelope(new ByteBuffer(packet));
+  for (let index = 0; index < wire.payloadsLength(); index++) {
+    const entry = wire.payloads(index);
+    const info = entry && _TYPE_REGISTRY.get(entry.id());
+    const mapper = classificationMappers.get(info?.root_type);
+    if (!mapper) continue;
+    const blob = entry.blobArray();
+    if (!blob) continue;
+    let payload;
+    try {
+      const copy = new Uint8Array(blob);
+      if (info.verify && !info.verify(copy)) continue;
+      payload = info.decode(copy);
+    } catch {
+      continue;
+    }
+    try {
+      layers.push(layer(payload, info.root_type, mapper(payload)));
+    } catch {
+      layers.push({ ...layer(payload, info.root_type, []), status: "invalid" });
+    }
   }
 }
 function decodeBase64(value) {
@@ -7463,20 +8939,21 @@ function decodeFrameResultsMessage(message) {
       `unsupported frame_results_encoding: ${String(message?.frame_results_encoding)}`
     );
   }
-  const envelope = new Envelope(decodeBase64(message.frame_results_packet_b64));
+  const packet = decodeBase64(message.frame_results_packet_b64);
+  const envelope = new Envelope(packet);
   if (!envelope.valid()) {
     throw new FrameResultsDecodeError(
       `invalid frame results packet: ${envelope.error() || "unknown error"}`
     );
   }
   const producerIdentity = envelope.producerIdentity();
-  if (producerIdentity !== ProducerIdentityStatus.ExactMatch) {
+  if (![ProducerIdentityStatus.ExactMatch, ProducerIdentityStatus.CompatibleMatch].includes(producerIdentity)) {
     throw new FrameResultsDecodeError(
       `incompatible frame results producer identity: ${producerIdentity}`
     );
   }
   const layers = [];
-  const perfdata = [];
+  const performance2 = [];
   addPayloadLayers(envelope, FrameContextT, "FrameContext", (payload) => {
     const detections = [];
     if (payload.video) {
@@ -7486,132 +8963,127 @@ function decodeFrameResultsMessage(message) {
           ...objectData(payload.video.object),
           originalWidth: Number(payload.video.originalWidth),
           originalHeight: Number(payload.video.originalHeight),
-          sourceCropLeft: Number(payload.video.sourceCropLeft),
-          sourceCropRight: Number(payload.video.sourceCropRight),
-          sourceCropTop: Number(payload.video.sourceCropTop),
-          sourceCropBottom: Number(payload.video.sourceCropBottom),
-          letterboxLeft: Number(payload.video.letterboxLeft),
-          letterboxRight: Number(payload.video.letterboxRight),
-          letterboxTop: Number(payload.video.letterboxTop),
-          letterboxBottom: Number(payload.video.letterboxBottom)
+          presentationTsNs: payload.video.presentationTsNs === null ? null : identifier(payload.video.presentationTsNs)
         }
       });
+    }
+    if (payload.audio) {
+      const audio = payload.audio;
+      detections.push({ type: "AudioFrame", data: {
+        ...objectData(audio.object),
+        originalChannels: identifier(audio.originalChannels),
+        originalFrequency: identifier(audio.originalFrequency),
+        originalSampleCount: identifier(audio.originalSampleCount),
+        cutLeftSampleCount: identifier(audio.cutLeftSampleCount),
+        cutRightSampleCount: identifier(audio.cutRightSampleCount),
+        presentationTsNs: audio.presentationTsNs == null ? null : identifier(audio.presentationTsNs)
+      } });
     }
     return detections;
   }, layers);
   addPayloadLayers(envelope, BoxDetectionsT, "BoxDetections", (payload) => payload.detections.map((item) => ({ type: "Rect", data: boxData(item) })), layers);
-  addPayloadLayers(envelope, ObjectTracksT, "ObjectTracks", (payload) => payload.tracks.map((item) => ({
-    type: "Rect",
-    data: {
-      ...boxData(item),
-      sourceId: identifier(item.sourceId),
-      trackId: identifier(item.trackId),
-      diagnostic: text(item.diagnostic),
-      predictedOnly: Boolean(item.predictedOnly)
-    }
-  })), layers);
-  addPayloadLayers(envelope, ClassificationsT, "Classifications", (payload) => [
-    ...payload.classifications.map((item) => ({
-      type: "Classification",
+  addPayloadLayers(envelope, ObjectTracksT, "ObjectTracks", (payload) => payload.tracks.map((item) => {
+    const trackingValid = validTrack(item);
+    return {
+      type: "Rect",
       data: {
-        ...objectData(item.object),
-        candidates: item.candidates.map(candidateData)
+        ...boxData(item),
+        sourceId: item.sourceId == null ? null : identifier(item.sourceId),
+        sourceFrameIndex: item.sourceFrameIndex == null ? null : identifier(item.sourceFrameIndex),
+        identity: identityData(item.identity),
+        sample: sampleData(item.sample),
+        association: item.association,
+        sourceConfidence: item.sourceConfidence,
+        confidence: item.sourceConfidence,
+        displayText: trackLabel(item, payload.displayIdentity),
+        trackingValid,
+        spatialValid: trackingValid
       }
-    })),
-    ...payload.personPresence.map((item) => ({
-      type: "PersonClassification",
-      data: {
-        ...objectData(item.object),
-        yesConfidence: Number(item.yesConfidence || 0),
-        noConfidence: Number(item.noConfidence || 0)
-      }
-    }))
-  ], layers);
-  addPayloadLayers(envelope, VoiceActivityDetectionsT, "VoiceActivityDetections", (payload) => payload.detections.map((item) => ({
-    type: "VoiceActivityDetection",
-    data: {
-      ...audioData(item),
-      speechProbability: Number(item.speechProbability),
-      speechActive: Boolean(item.speechActive)
-    }
-  })), layers);
-  addPayloadLayers(envelope, TurnDetectionsT, "TurnDetections", (payload) => payload.detections.map((item) => ({
-    type: "TurnDetection",
-    data: {
-      ...audioData(item),
-      turnProbability: Number(item.turnProbability),
-      turnComplete: Boolean(item.turnComplete)
-    }
-  })), layers);
-  addPayloadLayers(envelope, PoseEstimationsT, "PoseEstimations", (payload) => payload.poses.map((item) => ({
-    type: "YawPitch",
+    };
+  }), layers);
+  addClassificationLayers(packet, layers);
+  addPayloadLayers(envelope, GazeMeasurementsT, "GazeMeasurements", (payload) => payload.measurements.map((item) => ({
+    type: "GazeMeasurement",
     data: {
       ...objectData(item.object),
-      confidence: Number(item.confidence || 0),
-      yaw: Number(item.yaw || 0),
-      pitch: Number(item.pitch || 0)
+      subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+      confidence: item.confidence,
+      angles: item.angles ? {
+        yawDegrees: item.angles.yawDegrees,
+        pitchDegrees: item.angles.pitchDegrees
+      } : null
     }
   })), layers);
   addPayloadLayers(envelope, TrackTracesT, "TrackTraces", (payload) => payload.traces.map((item) => ({
     type: "TrackTrace",
     data: {
       ...objectData(item.object),
-      trackId: identifier(item.trackId),
-      points: item.points.map((point) => ({ x: Number(point.x), y: Number(point.y) }))
+      identity: identityData(item.identity),
+      trackingValid: validTrace(item),
+      spatialValid: validImageSpace(item.space),
+      frameWidth: item.space?.width,
+      frameHeight: item.space?.height,
+      points: validImageSpace(item.space) ? item.points.map((point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) ? { ...imagePoint(point.x, point.y, item.space), sample: sampleData(point.sample) } : null) : []
     }
   })), layers);
-  addPayloadLayers(envelope, SegmentationMasksT, "SegmentationMasks", (payload) => payload.masks.map((item) => ({
-    type: "SegmentationMask",
-    data: {
-      ...objectData(item.object),
-      width: Number(item.bitmap?.width || 0),
-      height: Number(item.bitmap?.height || 0),
-      valueType: text(item.bitmap?.valueType),
-      pixels: item.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0
-    }
-  })), layers);
-  addPayloadLayers(envelope, SemanticSegmentationMasksT, "SemanticSegmentationMasks", (payload) => payload.masks.map((item) => ({
-    type: "SemanticSegmentationMask",
-    data: {
+  for (const [root2, type] of [
+    [SegmentationMasksT, "SegmentationMask"],
+    [SemanticSegmentationMasksT, "SemanticSegmentationMask"],
+    [InstanceSegmentationMasksT, "InstanceSegmentationMask"]
+  ]) {
+    addPayloadLayers(envelope, root2, type + "s", (payload) => payload.masks.map((item) => ({
+      type,
+      data: { ...objectData(item?.object), ...maskData(item) }
+    })), layers);
+  }
+  addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => {
+    const data = {
       ...objectData(item?.object),
-      width: Number(item?.bitmap?.width || 0),
-      height: Number(item?.bitmap?.height || 0),
-      valueType: text(item?.bitmap?.valueType),
-      pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0
-    }
-  })), layers);
-  addPayloadLayers(envelope, InstanceSegmentationMasksT, "InstanceSegmentationMasks", (payload) => payload.masks.map((item) => ({
-    type: "InstanceSegmentationMask",
-    data: {
-      ...objectData(item?.object),
-      width: Number(item?.bitmap?.width || 0),
-      height: Number(item?.bitmap?.height || 0),
-      valueType: text(item?.bitmap?.valueType),
-      pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0,
-      classId: Number(item?.classId ?? -1),
-      confidence: Number(item?.confidence),
-      box: item?.box ? {
-        x: Number(item.box.x),
-        y: Number(item.box.y),
-        width: Number(item.box.width),
-        height: Number(item.box.height)
-      } : null
-    }
-  })), layers);
-  addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => ({
-    type: "ObjectEmbedding",
-    data: { ...objectData(item.object), values: [...item.values] }
-  })), layers);
-  for (const payload of envelope.for_each(PerformanceOverlayT)) {
-    perfdata.push(...payload.lines.map(text));
-    layers.push(layer(payload, "PerformanceOverlay", payload.lines.map((line) => ({
-      type: "PerformanceLine",
-      data: { text: text(line) }
-    }))));
+      values: [...item?.values || []],
+      space: item?.space ? { id: text(item.space.id), dimensions: item.space.dimensions, metric: item.space.metric } : null,
+      subjectUuid: item?.subjectId == null ? null : identifier(item.subjectId)
+    };
+    return { type: "ObjectEmbedding", data: { ...data, usable: usableEmbedding(data) } };
+  }), layers);
+  for (const [root2, name, probability, decision] of [
+    [VoiceActivityDetectionsT, "VoiceActivityDetection", "speechProbability", "speechActive"],
+    [TurnDetectionsT, "TurnDetection", "turnProbability", "turnComplete"]
+  ]) {
+    addPayloadLayers(envelope, root2, name + "s", (payload) => payload.detections.map((item) => {
+      const data = {
+        ...objectData(item.object),
+        [probability]: item[probability],
+        [decision]: item[decision],
+        windowStartSample: identifier(item.windowStartSample),
+        windowEndSample: identifier(item.windowEndSample),
+        windowStartTsNs: item.windowStartTsNs == null ? null : identifier(item.windowStartTsNs),
+        windowEndTsNs: item.windowEndTsNs == null ? null : identifier(item.windowEndTsNs),
+        discontinuity: item.discontinuity
+      };
+      return { type: name, data: { ...data, usable: validAudioResult(data, probability, decision) } };
+    }), layers);
+  }
+  for (const payload of envelope.for_each(PerformanceMeasurementsT)) {
+    const data = {
+      pixelFormat: text(payload.pixelFormat),
+      producer: layerData({ producer: payload.producer }).producer,
+      timings: payload.timings.filter(Boolean).map((timing) => ({
+        scopeId: text(timing.scopeId),
+        name: text(timing.name),
+        meanMs: timing.meanMs,
+        p95Ms: timing.p95Ms
+      })),
+      frameRate: payload.frameRate ? { fps: payload.frameRate.fps } : null
+    };
+    performance2.push(data);
+    layers.push({
+      ...layer(payload, "PerformanceMeasurements", [{ type: "PerformanceMeasurements", data }]),
+      producer: data.producer
+    });
   }
   return {
     frame_counter: Number.isInteger(message.frame_counter) ? message.frame_counter : void 0,
-    frame_results: { layers, perfdata }
+    frame_results: { layers, performance: performance2, unsupportedPayloadCount: envelope.size() - layers.length }
   };
 }
 
@@ -7631,9 +9103,11 @@ function metadataUrl() {
   const endpoint = config.metadataEndpoint || "/ws";
   return `${WS_PROTO2}://${WS_HOST2}:${port}${endpoint}`;
 }
-function normaliseInferenceOutput(frameResults) {
+function normaliseInferenceOutput(frameResults, decodeError) {
   const layers = Array.isArray(frameResults?.layers) ? frameResults.layers : [];
   return {
+    decodeError,
+    unsupportedPayloadCount: frameResults?.unsupportedPayloadCount || 0,
     layers: layers.map((layer2) => {
       const detections = Array.isArray(layer2?.detections) ? layer2.detections : [];
       return {
@@ -7645,7 +9119,7 @@ function normaliseInferenceOutput(frameResults) {
 }
 function normalisePerformance(frameResults) {
   return {
-    lines: Array.isArray(frameResults?.perfdata) ? frameResults.perfdata : []
+    measurements: Array.isArray(frameResults?.performance) ? frameResults.performance : []
   };
 }
 function publishMetadata(frameCounter, frameResults, decodeError = null) {
@@ -7653,7 +9127,7 @@ function publishMetadata(frameCounter, frameResults, decodeError = null) {
     detail: {
       frame_counter: Number.isInteger(frameCounter) ? frameCounter : void 0,
       frame_results: frameResults,
-      inference_output: normaliseInferenceOutput(frameResults),
+      inference_output: normaliseInferenceOutput(frameResults, decodeError),
       performance: normalisePerformance(frameResults),
       decode_error: decodeError
     }
@@ -7689,6 +9163,7 @@ window.addEventListener("video-frame-metadata", (event) => {
       frame = decodeFrameResultsMessage(event.detail).frame_results;
     } catch (error) {
       console.warn("Invalid video frame metadata", error);
+      window.dispatchEvent(new CustomEvent("video-frame-reset", { detail: null }));
     }
   }
   window.dispatchEvent(new CustomEvent("video-frame-results", { detail: frame }));
@@ -7732,10 +9207,10 @@ function createCoordinateMapper({ canvasWidth, canvasHeight, videoWidth, videoHe
     sourceWidth,
     sourceHeight,
     display,
-    point(x, y) {
+    point(x, y, basis) {
       return {
-        x: display.x + Number(x || 0) * scaleX,
-        y: display.y + Number(y || 0) * scaleY
+        x: display.x + Number(x || 0) * (positiveNumber(basis?.frameWidth) ? display.width / basis.frameWidth : scaleX),
+        y: display.y + Number(y || 0) * (positiveNumber(basis?.frameHeight) ? display.height / basis.frameHeight : scaleY)
       };
     },
     lengthX(value) {
@@ -7745,12 +9220,13 @@ function createCoordinateMapper({ canvasWidth, canvasHeight, videoWidth, videoHe
       return Number(value || 0) * scaleY;
     },
     rect(rect) {
-      const origin = this.point(rect.x, rect.y);
+      if (rect.spatialValid === false) return null;
+      const origin = this.point(rect.x, rect.y, rect);
       return {
         x: origin.x,
         y: origin.y,
-        width: this.lengthX(rect.width ?? rect.w),
-        height: this.lengthY(rect.height ?? rect.h)
+        width: positiveNumber(rect.frameWidth) ? rect.width * display.width / rect.frameWidth : this.lengthX(rect.width ?? rect.w),
+        height: positiveNumber(rect.frameHeight) ? rect.height * display.height / rect.frameHeight : this.lengthY(rect.height ?? rect.h)
       };
     }
   };
@@ -7782,14 +9258,14 @@ function findVideoFrame(perception) {
 }
 function drawObjectBox(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
-  if (box.width <= 0 || box.height <= 0) {
+  if (!box || box.width <= 0 || box.height <= 0) {
     return;
   }
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.strokeRect(box.x, box.y, box.width, box.height);
-  const label = rect.label || rect.text || confidenceLabel(rect.confidence);
+  const label = rect.displayText || rect.label || rect.text || confidenceLabel(rect.confidence);
   if (label) {
     drawTextChip(ctx, label, box.x, Math.max(2, box.y - 22), 13, color);
   }
@@ -7797,6 +9273,7 @@ function drawObjectBox(ctx, rect, mapper, color) {
 }
 function drawFace(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
+  if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const radius = Math.abs(box.width) / 2;
@@ -7830,7 +9307,9 @@ function drawClassification(ctx, classification, display, color, heading, alignR
     );
   }
   candidates.forEach((candidate, index) => {
-    const text2 = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
+    if (!validCandidate(classification, candidate)) return;
+    const score = candidate.confidence == null ? "" : ` (${(candidate.confidence * 100).toFixed(1)}%)`;
+    const text2 = `#${index + 1}: ${candidate.text || (candidate.classId ?? "")}${score}`;
     drawTextChip(
       ctx,
       text2,
@@ -7859,10 +9338,10 @@ function classificationPanelHeight(candidateCount, heading) {
   return candidateCount * lineHeight + (heading ? lineHeight : 0) + 2 * padding;
 }
 function drawPersonClassification(ctx, personClassification, display, now, color) {
-  if (now % 1e3 >= 800) {
+  const isPerson = presenceOutcome(personClassification);
+  if (now % 1e3 >= 800 || isPerson === null) {
     return;
   }
-  const isPerson = Number(personClassification?.yesConfidence || 0) > Number(personClassification?.noConfidence || 0);
   const label = isPerson ? "PERSON" : "NON-PERSON";
   const fontSize = Math.max(28, Math.min(64, display.width / 12));
   ctx.save();
@@ -7875,32 +9354,37 @@ function drawPersonClassification(ctx, personClassification, display, now, color
 }
 function drawTrackTrace(ctx, trace, mapper, color) {
   const points = Array.isArray(trace?.points) ? trace.points : [];
-  if (points.length < 2) {
+  if (trace.trackingValid !== true || trace.spatialValid === false || points.length < 2) {
     return;
   }
   const segments = points.length - 1;
   for (let i = 0; i < segments; i += 1) {
-    const from = mapper.point(points[i].x, points[i].y);
-    const to = mapper.point(points[i + 1].x, points[i + 1].y);
+    if (!points[i] || !points[i + 1]) continue;
+    const from = mapper.point(points[i].x, points[i].y, trace);
+    const to = mapper.point(points[i + 1].x, points[i + 1].y, trace);
     const alpha = 0.35 + 0.65 * ((i + 1) / segments);
     drawArrow(ctx, from, to, hexToRgba(color, alpha), 4, 0);
   }
 }
-function drawGazeVector(ctx, yp, parent, mapper, color) {
-  if (nearZero(yp.yaw) && nearZero(yp.pitch)) return;
+function drawGazeVector(ctx, gaze, parent, mapper, color) {
+  if (!validGaze(gaze)) return;
+  const yawDegrees = wrapDegrees(gaze.angles.yawDegrees);
+  const pitchDegrees = wrapDegrees(gaze.angles.pitchDegrees);
+  if (nearZero(yawDegrees) && nearZero(pitchDegrees)) return;
   const parentBox = mapper.rect(parent);
+  if (!parentBox) return;
   const start = { x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2 };
-  drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
+  drawArrow(ctx, start, gazeEndpoint(start, yawDegrees, pitchDegrees, 120), color, 3, 10);
 }
 function drawCameraContactMarker(ctx, classification, face, mapper, color) {
-  const candidate = classification?.candidates?.[0];
-  if (!candidate || !face) {
+  const hasContact = contactOutcome(classification);
+  if (hasContact === null || !face) {
     return;
   }
   const box = mapper.rect(face);
+  if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  const hasContact = candidate.classId === 1;
   const radiusBase = Math.min(Math.abs(box.width), Math.abs(box.height)) * 0.5;
   const radius = hasContact ? clamp2(radiusBase * 0.65, 18, 80) : clamp2(radiusBase * 1.15, 28, 140);
   ctx.save();
@@ -7954,8 +9438,8 @@ function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {
   ctx.restore();
 }
 function gazeEndpoint(start, yawDeg, pitchDeg, lengthPx) {
-  const yaw = deg2rad(yawDeg);
-  const pitch = deg2rad(pitchDeg);
+  const yaw = wrapDegrees(yawDeg) * Math.PI / 180;
+  const pitch = wrapDegrees(pitchDeg) * Math.PI / 180;
   return {
     x: start.x - Math.sin(yaw) * Math.cos(pitch) * lengthPx,
     y: start.y - Math.sin(pitch) * lengthPx
@@ -7969,9 +9453,6 @@ function positiveNumber(value) {
 }
 function nearZero(value) {
   return Number(value) < 0.1 && Number(value) > -0.1;
-}
-function deg2rad(value) {
-  return Number(value || 0) * Math.PI / 180;
 }
 function clamp2(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -8018,21 +9499,12 @@ var STYLE_CONTROLS = [
   { key: "color", label: "Color", type: "color", value: "#ffffff" },
   { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.01, value: 1 }
 ];
-var CONTENT_COLORS = {
-  humanFace: "#2600ff",
-  genericObject: "#ff3030",
-  eyeYawPitch: "#fafad2",
-  cameraContact: "#66ff00",
-  personClassification: "#66ff00",
-  trackTrace: "#ffff00"
-};
 function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: resolve5 = (result) => result, reason, ...definition }) {
   return {
     ...definition,
     controls,
     defaults(source) {
       const settings = Object.fromEntries(controls.map((control) => [control.key, control.value]));
-      if (Object.hasOwn(settings, "color")) settings.color = CONTENT_COLORS[source.contentType] || settings.color;
       return {
         ...settings,
         ...typeof defaults === "function" ? defaults(source) : defaults
@@ -8059,23 +9531,30 @@ function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: reso
       if (reason) return { state: "unsupported", message: reason };
       const output = index.outputs.get(sourceKey(selection.primary));
       if (!output) return { state: "waiting", message: "Waiting for source" };
+      if (output.layers.some((layer2) => layer2.status === "invalid"))
+        return { state: "unsupported", message: "Source contains invalid result data.", output, items: [] };
       return resolve5({ state: "ready", message: "", output, items: output.items }, index, settings);
     }
   };
 }
-function resolveFaceParents(result, index, type) {
+function resolveBoxSubjects(result, index, type, available2) {
   const items = result.items.filter((item) => item.type === type);
   const resolved = { ...result, items, attached: [] };
-  let missing = false;
-  let ambiguous = false;
+  let missing = false, ambiguous = false, unavailable = false;
   for (const item of items) {
-    const candidates = (index.objects.get(objectId(item.data.parentUuid)) || []).filter((candidate) => ["BoxDetections", "ObjectTracks"].includes(candidate.source.payloadType) && candidate.source.contentType === "humanFace" && candidate.type === "Rect");
+    if (!available2(item.data)) {
+      unavailable = true;
+      continue;
+    }
+    const candidates = (index.objects.get(objectId(item.data.subjectUuid)) || []).filter((subject) => ["BoxDetections", "ObjectTracks"].includes(subject.source.payloadType) && subject.type === "Rect");
     if (candidates.length > 1) ambiguous = true;
-    else if (candidates.length === 1) resolved.attached.push({ data: item.data, parent: candidates[0].data });
+    else if (candidates.length === 1 && candidates[0].data.spatialValid !== false)
+      resolved.attached.push({ data: item.data, parent: candidates[0].data });
     else missing = true;
   }
-  if (ambiguous) return { ...resolved, state: "ambiguous", message: "Multiple parent faces match; ambiguous markers are omitted." };
-  if (missing) return { ...resolved, state: "partial", message: "Waiting for parent face geometry." };
+  if (ambiguous) return { ...resolved, state: "ambiguous", message: "Multiple subjects match; ambiguous markers are omitted." };
+  if (missing) return { ...resolved, state: "partial", message: "Subject geometry is missing or invalid." };
+  if (unavailable) return { ...resolved, state: "partial", message: "Measurement unavailable." };
   return resolved;
 }
 
@@ -8083,7 +9562,8 @@ function resolveFaceParents(result, index, type) {
 var bounding_boxes_default = defineFeature({
   id: "bounding-boxes",
   label: "Bounding boxes",
-  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType) && source.contentType !== "humanFace",
+  defaults: { color: "#ff3030" },
+  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType),
   render({ ctx, mapper }, resolved, settings) {
     for (const { type, data } of resolved.items) {
       if (type === "Rect") drawObjectBox(ctx, data, mapper, settings.color);
@@ -8094,8 +9574,9 @@ var bounding_boxes_default = defineFeature({
 // development/web/src/features/face-circles.js
 var face_circles_default = defineFeature({
   id: "face-circles",
-  label: "Face circles",
-  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType) && source.contentType === "humanFace",
+  label: "Circular markers",
+  defaults: { color: "#2600ff" },
+  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType),
   render({ ctx, mapper }, resolved, settings) {
     for (const { type, data } of resolved.items) {
       if (type === "Rect") drawFace(ctx, data, mapper, settings.color);
@@ -8107,24 +9588,37 @@ var face_circles_default = defineFeature({
 var tracked_objects_default = defineFeature({
   id: "tracked-objects",
   label: "Tracked objects",
+  defaults: { color: "#ff3030" },
   accepts: (source) => source.payloadType === "ObjectTracks",
   controls: [
     { key: "boxes", label: "Boxes", type: "checkbox", value: true },
     { key: "trails", label: "Trails", type: "checkbox", value: true },
+    {
+      key: "shape",
+      label: "Marker shape",
+      type: "select",
+      value: "rectangle",
+      options: [{ value: "rectangle", label: "Rectangle" }, { value: "circle", label: "Circle" }]
+    },
     ...STYLE_CONTROLS
   ],
   resolve(result, index, settings) {
-    const items = result.items.filter((item) => item.type === "Rect");
+    const items = result.items.filter((item) => item.type === "Rect" && item.data.trackingValid === true && trackKey(item.data.identity));
     const resolved = { ...result, items, trails: [] };
+    if (!items.length && result.items.length) return { ...resolved, state: "partial", message: "Tracking identity or sample unavailable." };
     if (!settings.trails || !items.length) return resolved;
-    const source = result.output.source;
-    if (!producerKey(source)) return { ...resolved, state: "partial", message: "Trail producer identity is missing." };
     let missing = false;
     let ambiguous = false;
-    for (const id of new Set(items.map((item) => objectId(item.data.trackId)))) {
-      const candidates = (index.byTrack.get(trackKey(source, id)) || []).filter((item) => item.source.payloadType === "TrackTraces" && item.source.contentType === "trackTrace" && item.type === "TrackTrace");
+    for (const key of new Set(items.map((item) => trackKey(item.data.identity)))) {
+      const entries = index.byTrack.get(key) || [];
+      const tracks = entries.filter((item) => item.source.payloadType === "ObjectTracks");
+      const candidates = entries.filter((item) => item.source.payloadType === "TrackTraces" && item.type === "TrackTrace");
+      if (tracks.length > 1) {
+        ambiguous = true;
+        continue;
+      }
       if (candidates.length > 1) ambiguous = true;
-      else if (candidates.length === 1 && candidates[0].data.points?.length >= 2) resolved.trails.push(candidates[0].data);
+      else if (candidates.length === 1 && candidates[0].data.trackingValid === true && candidates[0].data.points?.length >= 2 && traceMatchesCurrentTrack(candidates[0].data, tracks)) resolved.trails.push(candidates[0].data);
       else missing = true;
     }
     if (ambiguous) return { ...resolved, state: "ambiguous", message: "Multiple trails match a track; ambiguous trails are omitted." };
@@ -8136,7 +9630,7 @@ var tracked_objects_default = defineFeature({
       for (const trace of resolved.trails) drawTrackTrace(ctx, trace, mapper, settings.color);
     }
     if (settings.boxes) {
-      const draw = resolved.output.source.contentType === "humanFace" ? drawFace : drawObjectBox;
+      const draw = settings.shape === "circle" ? drawFace : drawObjectBox;
       for (const { data } of resolved.items) draw(ctx, data, mapper, settings.color);
     }
   }
@@ -8146,7 +9640,15 @@ var tracked_objects_default = defineFeature({
 var movement_trails_default = defineFeature({
   id: "movement-trails",
   label: "Movement trails",
+  defaults: { color: "#ffff00" },
   accepts: (source) => source.payloadType === "TrackTraces",
+  resolve(result, index) {
+    const items = result.items.filter((item) => {
+      const entries = index.byTrack.get(trackKey(item.data.identity)) || [];
+      return item.type === "TrackTrace" && item.data.trackingValid === true && entries.filter((entry) => entry.type === "TrackTrace").length === 1 && traceMatchesCurrentTrack(item.data, entries.filter((entry) => entry.source.payloadType === "ObjectTracks"));
+    });
+    return items.length === result.items.length ? { ...result, items } : { ...result, items, state: "partial", message: "Invalid or ambiguous trace omitted." };
+  },
   render({ ctx, mapper }, resolved, settings) {
     for (const item of resolved.items) {
       if (item.type === "TrackTrace") drawTrackTrace(ctx, item.data, mapper, settings.color);
@@ -8158,7 +9660,7 @@ var movement_trails_default = defineFeature({
 var classifications_default = defineFeature({
   id: "classifications",
   label: "Classifications",
-  accepts: (source) => source.payloadType === "Classifications" && source.contentType !== "cameraContact",
+  accepts: (source) => ["Classifications", "PersonPresences"].includes(source.payloadType),
   render({ ctx, mapper, layout, now }, resolved, settings) {
     for (const { type, data, layer: layer2 } of resolved.items) {
       if (type === "PersonClassification") drawPersonClassification(ctx, data, mapper.display, now, settings.color);
@@ -8182,8 +9684,9 @@ var classifications_default = defineFeature({
 var gaze_default = defineFeature({
   id: "gaze",
   label: "Gaze",
-  accepts: (source) => source.payloadType === "PoseEstimations" && source.contentType === "eyeYawPitch",
-  resolve: (result, index) => resolveFaceParents(result, index, "YawPitch"),
+  defaults: { color: "#fafad2" },
+  accepts: (source) => source.payloadType === "GazeMeasurements",
+  resolve: (result, index) => resolveBoxSubjects(result, index, "GazeMeasurement", validGaze),
   render({ ctx, mapper }, resolved, settings) {
     for (const { data, parent } of resolved.attached) drawGazeVector(ctx, data, parent, mapper, settings.color);
   }
@@ -8193,8 +9696,9 @@ var gaze_default = defineFeature({
 var camera_contact_default = defineFeature({
   id: "camera-contact",
   label: "Camera contact",
-  accepts: (source) => source.payloadType === "Classifications" && source.contentType === "cameraContact",
-  resolve: (result, index) => resolveFaceParents(result, index, "Classification"),
+  defaults: { color: "#66ff00" },
+  accepts: (source) => source.payloadType === "CameraContacts",
+  resolve: (result, index) => resolveBoxSubjects(result, index, "CameraContact", (data) => contactOutcome(data) !== null),
   render({ ctx, mapper }, resolved, settings) {
     for (const { data, parent } of resolved.attached) drawCameraContactMarker(ctx, data, parent, mapper, settings.color);
   }
@@ -8204,34 +9708,28 @@ var camera_contact_default = defineFeature({
 var performance_default = defineFeature({
   id: "performance",
   label: "Performance text",
-  accepts: (source) => source.payloadType === "PerformanceOverlay",
+  accepts: (source) => source.payloadType === "PerformanceMeasurements",
   render({ ctx, layout }, resolved, settings) {
     for (const item of resolved.items) {
-      if (item.type !== "PerformanceLine") continue;
-      drawTextChip(ctx, item.data.text, 10, layout.performanceY, 16, settings.color);
-      layout.performanceY += 20;
+      if (item.type !== "PerformanceMeasurements") continue;
+      for (const line of formatPerformanceLines(item.data)) {
+        drawTextChip(ctx, line, 10, layout.performanceY, 16, settings.color);
+        layout.performanceY += 20;
+      }
     }
   }
 });
 
 // development/web/src/features/background-replacement.js
 var resources = /* @__PURE__ */ new WeakMap();
-function resolve(result, index) {
+function resolve(result) {
   const masks = result.items.filter((item) => item.type === "SegmentationMask");
-  if (result.output.layers.some((layer2) => layer2.compositingMode !== "backgroundReplacement")) {
-    return { ...result, state: "unsupported", message: "Requires a background-opacity mask." };
-  }
-  if (masks.length > 1) return { ...result, items: [], state: "ambiguous", message: "Expected one full-frame mask." };
+  if (masks.length > 1) return { ...result, items: [], state: "ambiguous", message: "Expected one opacity mask." };
   if (!masks.length) return { ...result, items: [] };
-  const { width, height, valueType, pixels, parentUuid } = masks[0].data;
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > 16777216 || valueType !== "Uint8" || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
-    return { ...result, items: [], state: "unsupported", message: "Invalid or oversized Uint8 mask." };
-  }
-  if (objectId(parentUuid)) {
-    const parents = index.frame.layers.flatMap((layer2) => layer2.detections || []).filter((item) => objectId(item.data?.uuid) === objectId(parentUuid));
-    if (parents.length !== 1 || parents[0].type !== "VideoFrame") {
-      return { ...result, items: [], state: "partial", message: "Waiting for unambiguous full-frame mask geometry." };
-    }
+  const data = masks[0].data;
+  const { width, height } = data;
+  if (!validMask(data, "SegmentationMask") || data.meaning !== OpacityMeaning.BackgroundOpacity || width > 8192 || height > 8192 || width * height > 16777216) {
+    return { ...result, items: [], state: "unsupported", message: "Requires a valid, bounded background-opacity mask with image space." };
   }
   return { ...result, items: masks };
 }
@@ -8243,7 +9741,7 @@ function render({ ctx, canvas: canvas2, mapper, overlay: overlay2 }, resolved, s
     cache = { mask: document.createElement("canvas"), composite: document.createElement("canvas") };
     resources.set(overlay2, cache);
   }
-  if (cache.pixels !== mask.pixels) {
+  if (cache.pixels !== mask.pixels || cache.mask.width !== mask.width || cache.mask.height !== mask.height) {
     cache.mask.width = mask.width;
     cache.mask.height = mask.height;
     const maskContext = cache.mask.getContext("2d");
@@ -8278,14 +9776,21 @@ function render({ ctx, canvas: canvas2, mapper, overlay: overlay2 }, resolved, s
     composite.drawImage(cache.image, (w - iw) / 2, (h - ih) / 2, iw, ih);
   }
   composite.globalCompositeOperation = "destination-in";
-  composite.drawImage(cache.mask, 0, 0, w, h);
+  const space = mask.space;
+  composite.drawImage(
+    cache.mask,
+    space.originX * w / space.width,
+    space.originY * h / space.height,
+    space.extentWidth * w / space.width,
+    space.extentHeight * h / space.height
+  );
   ctx.drawImage(cache.composite, x, y, width, height);
 }
 var background_replacement_default = defineFeature({
   id: "background-replacement",
   label: "Background replacement",
   renderOrder: -1,
-  accepts: (source) => source.payloadType === "SegmentationMasks" && source.contentType === "segmentation",
+  accepts: (source) => source.payloadType === "SegmentationMasks",
   controls: [
     { key: "background", label: "Background", type: "select", value: "color", options: [
       { value: "color", label: "Solid color" },
@@ -8301,9 +9806,12 @@ var background_replacement_default = defineFeature({
 
 // development/web/src/features/segmentation.js
 var MAX_MASK_PIXELS = 16777216;
+var MAX_CLASSES = 4096;
+var classKey = (id) => id ?? -1;
 var CLASS_CONTROLS = [{ key: "enabled", label: "Visible", type: "checkbox", switch: true, value: true }, ...STYLE_CONTROLS];
 var MASK_CONTROLS = [{ key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.01, value: 0.5 }];
 function classStyle(id, settings) {
+  id = classKey(id);
   const key = (id ^ id >>> 8 ^ id >>> 16 ^ id >>> 24) & 255;
   const rgb = [64 + (key & 7) * 24, 64 + (key >> 3 & 7) * 24, 64 + (key >> 6) * 48];
   const style = settings?.classes?.[id];
@@ -8312,7 +9820,7 @@ function classStyle(id, settings) {
     opacity: 1,
     color: "#" + rgb.map((value) => value.toString(16).padStart(2, "0")).join(""),
     ...style,
-    label: style?.label?.trim() || `Class ${id}`
+    label: style?.label?.trim() || (id === -1 ? "Unclassified" : `Class ${id}`)
   };
 }
 function classLegend(present, settings, message = "") {
@@ -8322,12 +9830,12 @@ function classLegend(present, settings, message = "") {
 function classRenderSignature(settings) {
   return JSON.stringify(Object.entries(settings.classes).map(([id, style]) => [id, style.enabled, style.color, style.opacity]));
 }
-function withClassSettings(feature2, minId = 0, maxId = 255) {
+function withClassSettings(feature2, minId = 0, maxId = 4294967295) {
   return { ...feature2, validateSettings(settings) {
     const result = feature2.validateSettings(settings);
     if (!result) return null;
     const classes = settings.classes === void 0 ? {} : settings.classes;
-    if (!classes || typeof classes !== "object" || Array.isArray(classes)) return null;
+    if (!classes || typeof classes !== "object" || Array.isArray(classes) || Object.keys(classes).length > MAX_CLASSES) return null;
     result.classes = {};
     for (const [id, style] of Object.entries(classes)) {
       const value = Number(id);
@@ -8338,64 +9846,73 @@ function withClassSettings(feature2, minId = 0, maxId = 255) {
     return result;
   } };
 }
-function maskGeometryError(mask, index) {
-  const { width, height, valueType, pixels, parentUuid } = mask;
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS || valueType !== "Uint8" || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
-    return { state: "unsupported", message: "Invalid or oversized Uint8 mask." };
-  }
-  const parentId = objectId(parentUuid);
-  const parents = parentId ? index.frame.layers.flatMap((layer2) => (layer2.detections || []).filter((item) => objectId(item.data?.uuid) === parentId).map((item) => ({ ...item, payloadType: layer2.payloadType }))) : [];
-  if (parents.length !== 1 || parents[0].payloadType !== "FrameContext" || parents[0].type !== "VideoFrame") {
-    return { state: "partial", message: "Waiting for an unambiguous VideoFrame parent." };
-  }
-  const video5 = parents[0].data;
-  if (video5.originalWidth !== width || video5.originalHeight !== height || ["sourceCropLeft", "sourceCropRight", "sourceCropTop", "sourceCropBottom"].some((key) => video5[key])) {
-    return { state: "unsupported", message: "Requires a source-sized mask for an uncropped video frame." };
+function maskGeometryError(mask, type) {
+  const { width, height } = mask;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS || !validMask(mask, type)) {
+    return { state: "unsupported", message: "Invalid or oversized mask, encoding, identity or image space." };
   }
   return null;
+}
+function maskValueReader(mask) {
+  if (mask.encoding === BitmapEncoding.Uint8) return (index) => mask.pixels[index];
+  const view = new DataView(mask.pixels.buffer, mask.pixels.byteOffset, mask.pixels.byteLength);
+  return (index) => view.getUint32(index * 4, true);
+}
+function maskPlacement(space, display) {
+  return [
+    display.x + space.originX * display.width / space.width,
+    display.y + space.originY * display.height / space.height,
+    space.extentWidth * display.width / space.width,
+    space.extentHeight * display.height / space.height
+  ];
 }
 
 // development/web/src/features/semantic-segmentation.js
 var presentClasses = /* @__PURE__ */ new WeakMap();
 var surfaces = /* @__PURE__ */ new WeakMap();
 function classesIn(mask) {
-  if (!mask) return new Uint8Array(256);
-  if (!presentClasses.has(mask.pixels)) {
-    const seen = new Uint8Array(256);
-    for (let i = 0; i < mask.pixels.length; i++) seen[mask.pixels[i]] = 1;
-    presentClasses.set(mask.pixels, seen);
+  if (!mask) return /* @__PURE__ */ new Set();
+  if (!presentClasses.has(mask)) {
+    const seen = /* @__PURE__ */ new Set();
+    const sample = maskValueReader(mask);
+    for (let i = 0; i < mask.width * mask.height; i++) {
+      const id = sample(i);
+      if (id !== mask.voidValue) seen.add(id);
+      if (seen.size > MAX_CLASSES) break;
+    }
+    presentClasses.set(mask, seen);
   }
-  return presentClasses.get(mask.pixels);
+  return presentClasses.get(mask);
 }
 function colorize(mask, settings) {
-  const colors = Array.from({ length: 256 }, (_, id) => {
+  const colors = new Map([...classesIn(mask)].map((id) => {
     const style = classStyle(id, settings);
     const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
-    return [...rgb, style.enabled ? Math.round(style.opacity * 255) : 0];
-  });
-  const rgba = new Uint8ClampedArray(mask.pixels.length * 4);
-  const seen = presentClasses.get(mask.pixels) || new Uint8Array(256);
-  for (let i = 0; i < mask.pixels.length; i++) {
-    const id = mask.pixels[i];
-    const color = colors[id];
+    return [id, [...rgb, style.enabled ? Math.round(style.opacity * 255) : 0]];
+  }));
+  const rgba = new Uint8ClampedArray(mask.width * mask.height * 4);
+  const sample = maskValueReader(mask);
+  for (let i = 0; i < mask.width * mask.height; i++) {
+    const id = sample(i);
+    if (id === mask.voidValue) continue;
+    const color = colors.get(id);
     const offset = i * 4;
     rgba[offset] = color[0];
     rgba[offset + 1] = color[1];
     rgba[offset + 2] = color[2];
     rgba[offset + 3] = color[3];
-    seen[id] = 1;
   }
-  presentClasses.set(mask.pixels, seen);
   return rgba;
 }
-function resolve2(result, index) {
+function resolve2(result) {
   const items = result.items.filter((item) => item.type === "SemanticSegmentationMask");
   const invalid = (state, message) => ({ ...result, items: [], state, message });
-  if (items.length > 1) return invalid("ambiguous", "Expected one full-frame class map for this source.");
-  if (!items.length) return invalid("partial", "No class map in the displayed frame.");
+  if (items.length > 1) return invalid("ambiguous", "Expected one class map for this source.");
+  if (!items.length) return { ...result, items: [] };
   const mask = items[0].data;
-  const error = maskGeometryError(mask, index);
+  const error = maskGeometryError(mask, "SemanticSegmentationMask");
   if (error) return invalid(error.state, error.message);
+  if (classesIn(mask).size > MAX_CLASSES) return invalid("unsupported", `Too many classes (maximum ${MAX_CLASSES}).`);
   return { ...result, items, mask };
 }
 function render2({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolved.settings) {
@@ -8407,22 +9924,21 @@ function render2({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolv
     surface = { canvas: document.createElement("canvas") };
     surfaces.set(overlay2, surface);
   }
-  if (surface.pixels !== mask.pixels || surface.signature !== signature || surface.canvas.width !== mask.width || surface.canvas.height !== mask.height) {
+  if (surface.mask !== mask || surface.signature !== signature || surface.canvas.width !== mask.width || surface.canvas.height !== mask.height) {
     if (surface.canvas.width !== mask.width) surface.canvas.width = mask.width;
     if (surface.canvas.height !== mask.height) surface.canvas.height = mask.height;
     surface.canvas.getContext("2d").putImageData(new ImageData(colorize(mask, settings), mask.width, mask.height), 0, 0);
-    surface.pixels = mask.pixels;
+    surface.mask = mask;
     surface.signature = signature;
   }
-  const { x, y, width, height } = mapper.display;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(surface.canvas, x, y, width, height);
+  ctx.drawImage(surface.canvas, ...maskPlacement(mask.space, mapper.display));
 }
 var semantic_segmentation_default = withClassSettings(defineFeature({
   id: "semantic-segmentation",
   label: "Semantic segmentation",
   renderOrder: -1,
-  accepts: (source) => source.payloadType === "SemanticSegmentationMasks" && source.contentType === "semanticSegmentation",
+  accepts: (source) => source.payloadType === "SemanticSegmentationMasks",
   controls: MASK_CONTROLS,
   defaults: () => ({ classes: {} }),
   classControls: CLASS_CONTROLS,
@@ -8430,9 +9946,7 @@ var semantic_segmentation_default = withClassSettings(defineFeature({
   render: render2,
   legend(resolved, settings = resolved.settings) {
     const present = /* @__PURE__ */ new Set();
-    classesIn(resolved.mask).forEach((seen, id) => {
-      if (seen) present.add(id);
-    });
+    classesIn(resolved.mask).forEach((id) => present.add(id));
     const message = !resolved.mask ? resolved.message || "No class map in the displayed frame." : "";
     return classLegend(present, settings, message);
   }
@@ -8442,7 +9956,7 @@ var semantic_segmentation_default = withClassSettings(defineFeature({
 var resolvedFrames = /* @__PURE__ */ new WeakMap();
 var surfaces2 = /* @__PURE__ */ new WeakMap();
 var MAX_TOTAL_MASK_PIXELS = 64 * 1024 * 1024;
-function resolve3(result, index) {
+function resolve3(result) {
   if (resolvedFrames.has(result.output)) return resolvedFrames.get(result.output);
   const finish = (value) => {
     resolvedFrames.set(result.output, value);
@@ -8454,17 +9968,18 @@ function resolve3(result, index) {
   const totalPixels = items.reduce((total, { data }) => total + (data.pixels instanceof Uint8Array ? data.pixels.length : 0), 0);
   if (totalPixels > MAX_TOTAL_MASK_PIXELS) return invalid("unsupported", `Instance masks exceed the total pixel budget (${MAX_TOTAL_MASK_PIXELS}).`);
   const validated = [];
-  let parent;
+  let frame, labelSet;
   for (const [position, item] of items.entries()) {
     const mask = item.data;
-    const error = maskGeometryError(mask, index);
+    const error = maskGeometryError(mask, "InstanceSegmentationMask");
     if (error) return invalid(error.state, error.message);
-    const parentId = objectId(mask.parentUuid);
-    if (parent && parent !== parentId) return invalid("ambiguous", "Instance masks must share one VideoFrame parent.");
-    parent = parentId;
-    const { box, classId, confidence, width, height } = mask;
-    if (!Number.isInteger(classId) || classId < -1 || classId > 2147483647 || !Number.isFinite(confidence) || confidence < 0 || confidence > 1 || !box || ![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0 || box.x >= width || box.y >= height || box.x + box.width > width + 1e-3 || box.y + box.height > height + 1e-3) {
-      return invalid("unsupported", "Invalid instance class, confidence, or source-image box.");
+    const { space, width, height } = mask;
+    if (frame && (String(frame.frameId) !== String(space.frameId) || frame.width !== space.width || frame.height !== space.height))
+      return invalid("ambiguous", "Instance masks must share one declared source frame.");
+    frame = space;
+    if (mask.classId != null) {
+      if (labelSet && labelSet !== mask.labelSet) return invalid("ambiguous", "Instance class namespaces differ.");
+      labelSet = mask.labelSet;
     }
     let left = width, right = -1, top = height, bottom = -1;
     for (let y = 0, pixelIndex = 0; y < height; y++) {
@@ -8480,54 +9995,81 @@ function resolve3(result, index) {
     }
     if (right >= 0) validated.push({ ...item, number: position + 1, bounds: { left, right, top, bottom } });
   }
-  return finish({ ...result, items: validated });
+  return finish({ ...result, items: validated, frame });
 }
-function colorize2(masks, settings) {
-  const { width, height } = masks[0].data;
+function colorize2({ data, bounds }, style) {
+  const { width, height } = data;
   const rgba = new Uint8ClampedArray(width * height * 4);
-  for (const { data, bounds } of masks) {
-    const style = classStyle(data.classId, settings);
-    if (!style.enabled || style.opacity <= 0) continue;
-    const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
-    const alpha = Math.round(style.opacity * 255);
-    const edge = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 >= 128 ? 0 : 255;
-    const fill = [...rgb, alpha];
-    const outline = [edge, edge, edge, alpha];
-    const pixels = data.pixels;
-    for (let y = bounds.top; y <= bounds.bottom; y++) {
-      const row = y * width;
-      for (let x = bounds.left; x <= bounds.right; x++) {
-        const i = row + x;
-        if (!pixels[i]) continue;
-        const boundary = x === 0 || x === width - 1 || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
-        const color = boundary ? outline : fill;
-        const offset = i * 4;
-        rgba[offset] = color[0];
-        rgba[offset + 1] = color[1];
-        rgba[offset + 2] = color[2];
-        rgba[offset + 3] = color[3];
-      }
+  const coverage = new Uint8ClampedArray(rgba.length);
+  const rgb = style.color.slice(1).match(/../g).map((hex) => parseInt(hex, 16));
+  const alpha = Math.round(style.opacity * 255);
+  const edge = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 >= 128 ? 0 : 255;
+  const fill = [...rgb, alpha];
+  const outline = [edge, edge, edge, alpha];
+  const pixels = data.pixels;
+  for (let y = bounds.top; y <= bounds.bottom; y++) {
+    const row = y * width;
+    for (let x = bounds.left; x <= bounds.right; x++) {
+      const i = row + x;
+      if (!pixels[i]) continue;
+      const boundary = x === 0 || x === width - 1 || !pixels[i - 1] || !pixels[i + 1] || !pixels[i - width] || !pixels[i + width];
+      const color = boundary ? outline : fill;
+      const offset = i * 4;
+      rgba[offset] = color[0];
+      rgba[offset + 1] = color[1];
+      rgba[offset + 2] = color[2];
+      rgba[offset + 3] = color[3];
+      coverage[offset + 3] = 255;
     }
   }
-  return rgba;
+  return { rgba, coverage };
 }
 function render3({ ctx, mapper, overlay: overlay2 }, resolved, settings = resolved.settings) {
   if (!resolved.items?.length) return;
-  const { width, height } = resolved.items[0].data;
+  const display = mapper.display;
+  const dpr = ctx.getTransform().a;
+  const pixelWidth = display.width * dpr, pixelHeight = display.height * dpr;
+  if (![pixelWidth, pixelHeight].every((value) => Number.isFinite(value) && value > 0)) return;
+  const requestedWidth = Math.max(1, Math.round(pixelWidth));
+  const requestedHeight = Math.max(1, Math.round(pixelHeight));
+  const scale = Math.min(
+    1,
+    8192 / requestedWidth,
+    8192 / requestedHeight,
+    Math.sqrt(MAX_MASK_PIXELS / requestedWidth / requestedHeight)
+  );
+  const width = Math.max(1, Math.floor(requestedWidth * scale));
+  const height = Math.max(1, Math.min(Math.floor(requestedHeight * scale), Math.floor(MAX_MASK_PIXELS / width)));
   const signature = classRenderSignature(settings);
   let surface = surfaces2.get(overlay2);
   if (!surface) {
-    surface = { canvas: document.createElement("canvas") };
+    surface = { canvas: document.createElement("canvas"), raster: document.createElement("canvas") };
     surfaces2.set(overlay2, surface);
   }
-  if (surface.output !== resolved.output || surface.signature !== signature) {
+  if (surface.output !== resolved.output || surface.signature !== signature || surface.canvas.width !== width || surface.canvas.height !== height) {
     if (surface.canvas.width !== width) surface.canvas.width = width;
     if (surface.canvas.height !== height) surface.canvas.height = height;
-    surface.canvas.getContext("2d").putImageData(new ImageData(colorize2(resolved.items, settings), width, height), 0, 0);
+    const composite = surface.canvas.getContext("2d");
+    composite.clearRect(0, 0, width, height);
+    composite.imageSmoothingEnabled = false;
+    for (const item of resolved.items) {
+      const style = classStyle(item.data.classId, settings);
+      if (!style.enabled || style.opacity <= 0) continue;
+      const pixels = colorize2(item, style);
+      surface.raster.width = item.data.width;
+      surface.raster.height = item.data.height;
+      const raster = surface.raster.getContext("2d");
+      const placement = maskPlacement(item.data.space, { x: 0, y: 0, width, height });
+      raster.putImageData(new ImageData(pixels.coverage, item.data.width, item.data.height), 0, 0);
+      composite.globalCompositeOperation = "destination-out";
+      composite.drawImage(surface.raster, ...placement);
+      raster.putImageData(new ImageData(pixels.rgba, item.data.width, item.data.height), 0, 0);
+      composite.globalCompositeOperation = "source-over";
+      composite.drawImage(surface.raster, ...placement);
+    }
     surface.output = resolved.output;
     surface.signature = signature;
   }
-  const display = mapper.display;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(surface.canvas, display.x, display.y, display.width, display.height);
 }
@@ -8536,13 +10078,21 @@ function renderAnnotations({ ctx, mapper }, resolved, settings = resolved.settin
     for (const { data, number: number2 } of resolved.items || []) {
       const style = classStyle(data.classId, settings);
       if (!style.enabled || style.opacity <= 0) continue;
+      const box = data.box && imageBox(data.box);
+      if (!box) continue;
+      const x = Math.max(0, box.x), y = Math.max(0, box.y);
+      const width = Math.min(box.frameWidth, box.x + box.width) - x;
+      const height = Math.min(box.frameHeight, box.y + box.height) - y;
+      if (width <= 0 || height <= 0) continue;
       ctx.save();
       ctx.globalAlpha *= style.opacity;
       drawObjectBox(ctx, {
-        ...data.box,
-        width: Math.min(data.box.width, data.width - data.box.x),
-        height: Math.min(data.box.height, data.height - data.box.y),
-        label: `#${number2} \xB7 ${style.label} \xB7 ${Math.round(data.confidence * 100)}%`
+        ...box,
+        x,
+        y,
+        width,
+        height,
+        label: `#${number2} \xB7 ${style.label}${data.confidence == null ? "" : ` \xB7 ${Math.round(data.confidence * 100)}%`}`
       }, mapper, "#ffffff");
       ctx.restore();
     }
@@ -8552,7 +10102,7 @@ var instance_segmentation_default = withClassSettings(defineFeature({
   id: "instance-segmentation",
   label: "Instance segmentation",
   renderOrder: -1,
-  accepts: (source) => source.payloadType === "InstanceSegmentationMasks" && source.contentType === "instanceSegmentation",
+  accepts: (source) => source.payloadType === "InstanceSegmentationMasks",
   controls: [...MASK_CONTROLS, { key: "boxes", label: "Boxes and labels", type: "checkbox", value: true }],
   defaults: () => ({ classes: {} }),
   classControls: CLASS_CONTROLS,
@@ -8560,10 +10110,10 @@ var instance_segmentation_default = withClassSettings(defineFeature({
   render: render3,
   renderAnnotations,
   legend(resolved, settings = resolved.settings) {
-    const present = new Set((resolved.items || []).map((item) => item.data.classId));
+    const present = new Set((resolved.items || []).map((item) => classKey(item.data.classId)));
     return classLegend(present, settings, resolved.message || (!present.size ? "No instances in the displayed frame." : ""));
   }
-}), -1, 2147483647);
+}), -1, 4294967295);
 
 // development/web/src/features/ocr.js
 var resolvedFrames2 = /* @__PURE__ */ new WeakMap();
@@ -8587,23 +10137,16 @@ function resolve4(result, index) {
   let missing = false;
   let ambiguous = false;
   let invalid = false;
-  const videos = index.frame.layers.filter((layer2) => layer2.payloadType === "FrameContext").flatMap((layer2) => layer2.detections || []).filter((item) => item.type === "VideoFrame");
   const geometry = (data) => {
-    const parentId = objectId(data.parentUuid);
-    const parents = parentId ? videos.filter((item) => objectId(item.data?.uuid) === parentId) : [];
-    if (parents.length !== 1) {
-      if (parents.length > 1) ambiguous = true;
-      else missing = true;
-      return null;
-    }
-    const frame = parents[0].data;
+    const frame = { originalWidth: data.frameWidth, originalHeight: data.frameHeight };
     const { x, y, width, height, confidence } = data;
-    if (!Number.isSafeInteger(frame.originalWidth) || !Number.isSafeInteger(frame.originalHeight) || frame.originalWidth <= 0 || frame.originalHeight <= 0 || ["sourceCropLeft", "sourceCropRight", "sourceCropTop", "sourceCropBottom"].some((key) => frame[key]) || ![x, y, width, height].every(Number.isFinite) || x < 0 || y < 0 || width <= 0 || height <= 0 || x >= frame.originalWidth || y >= frame.originalHeight || x + width > frame.originalWidth + 1e-3 || y + height > frame.originalHeight + 1e-3 || confidence !== void 0 && !validScore(confidence)) {
+    if (data.spatialValid !== true || !Number.isSafeInteger(frame.originalWidth) || !Number.isSafeInteger(frame.originalHeight) || frame.originalWidth <= 0 || frame.originalHeight <= 0 || ![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0 || x >= frame.originalWidth || y >= frame.originalHeight || x + width <= 0 || y + height <= 0 || confidence != null && !validScore(confidence)) {
       invalid = true;
       return null;
     }
+    const left = Math.max(0, x), top = Math.max(0, y);
     return {
-      box: { x, y, width: Math.min(width, frame.originalWidth - x), height: Math.min(height, frame.originalHeight - y) },
+      box: { x: left, y: top, width: Math.min(x + width, frame.originalWidth) - left, height: Math.min(y + height, frame.originalHeight) - top },
       frame,
       text: "",
       detectionScore: confidence,
@@ -8620,7 +10163,11 @@ function resolve4(result, index) {
   if (isRecognition) {
     const groups = /* @__PURE__ */ new Map();
     for (const item of items) {
-      const id = objectId(item.data.parentUuid);
+      if (item.data.kind !== ClassificationKind.RecognizedText || item.data.labelSet) {
+        invalid = true;
+        continue;
+      }
+      const id = objectId(item.data.subjectUuid);
       if (!id) {
         missing = true;
         continue;
@@ -8642,7 +10189,7 @@ function resolve4(result, index) {
       else if (!Array.isArray(candidates)) invalid = true;
       else if (candidates.length) {
         const candidate = candidates[0];
-        if (!candidate || typeof candidate.text !== "string" || candidate.confidence !== void 0 && !validScore(candidate.confidence)) invalid = true;
+        if (!validCandidate(records[0].data, candidate) || typeof candidate.text !== "string") invalid = true;
         else {
           region.text = displayText(candidate.text);
           region.recognitionScore = candidate.confidence;
@@ -8662,7 +10209,7 @@ function resolve4(result, index) {
   const resolved = { ...result, items: regions, regions };
   if (ambiguous) Object.assign(resolved, { state: "ambiguous", message: "Ambiguous OCR relationships or candidates; unambiguous regions only, conflicting text omitted." });
   else if (invalid) Object.assign(resolved, { state: regions.length ? "partial" : "unsupported", message: "Invalid OCR geometry, text, or confidence; affected content omitted." });
-  else if (missing) Object.assign(resolved, { state: "partial", message: "Waiting for parent boxes or uncropped VideoFrame geometry." });
+  else if (missing) Object.assign(resolved, { state: "partial", message: "Waiting for subject boxes with declared image geometry." });
   resolvedFrames2.set(result.output, resolved);
   return resolved;
 }
@@ -8841,33 +10388,8 @@ function renderOsd(canvas2, video5, index, overlays2 = [], { now = Date.now() } 
 }
 
 // development/web/src/overlays.js
-var OVERLAY_STORAGE_KEY = "opk-overlays:v2";
-var LEGACY_STORAGE_KEY = "opk-overlays:v1";
-function legacyFeature(source) {
-  if (source.payloadType === "Classifications" && source.contentType === "cameraContact") return "camera-contact";
-  return {
-    BoxDetections: "bounding-boxes",
-    ObjectTracks: "tracked-objects",
-    TrackTraces: "movement-trails",
-    Classifications: "classifications",
-    PoseEstimations: "gaze",
-    PerformanceOverlay: "performance"
-  }[source.payloadType] || "unsupported";
-}
-function validLegacy(overlay2) {
-  return validSource(overlay2?.source) && typeof overlay2.enabled === "boolean" && typeof overlay2.settings?.color === "string" && /^#[0-9a-f]{6}$/i.test(overlay2.settings.color) && Number.isFinite(overlay2.settings?.opacity) && overlay2.settings.opacity >= 0 && overlay2.settings.opacity <= 1;
-}
-function migrateLegacy(overlay2, saved) {
-  if (!validLegacy(overlay2)) return null;
-  const featureId = legacyFeature(overlay2.source);
-  const settings = { ...overlay2.settings };
-  if (featureId === "tracked-objects") {
-    const oldTraceKey = sourceKey({ ...overlay2.source, payloadType: "TrackTraces", contentType: "trackTrace" });
-    settings.boxes = true;
-    settings.trails = !saved.some((entry) => validLegacy(entry) && sourceKey(entry.source) === oldTraceKey);
-  }
-  return { featureId, selection: { primary: overlay2.source }, enabled: overlay2.enabled, settings };
-}
+var OVERLAY_STORAGE_KEY = "opk-overlays:v3";
+var PREVIOUS_STORAGE_KEY = "opk-overlays:v2";
 function normalizeOverlay(overlay2) {
   const primary = overlay2?.selection?.primary;
   if (!overlay2 || typeof overlay2.featureId !== "string" || !overlay2.featureId || typeof overlay2.enabled !== "boolean" || primary !== null && !validSource(primary)) return null;
@@ -8875,7 +10397,7 @@ function normalizeOverlay(overlay2) {
   if (!overlay2.settings || typeof overlay2.settings !== "object" || Array.isArray(overlay2.settings)) return null;
   const settings = feature2 ? feature2.validateSettings(overlay2.settings) : overlay2.settings;
   if (!settings) return null;
-  return { featureId: overlay2.featureId, selection: { primary: primary === null ? null : { ...primary } }, enabled: overlay2.enabled, settings };
+  return { featureId: overlay2.featureId, selection: { primary: primary === null ? null : copySource(primary) }, enabled: overlay2.enabled, settings };
 }
 function createOverlay(featureId, source = null) {
   return { featureId, selection: { primary: source }, enabled: true, settings: defaultSettings(featureId, source) };
@@ -8896,24 +10418,19 @@ function bindPendingOverlays(overlays2, catalog) {
 function loadOverlays(storage2) {
   try {
     const current = storage2.getItem(OVERLAY_STORAGE_KEY);
-    const raw = current ?? storage2.getItem(LEGACY_STORAGE_KEY);
+    const raw = current ?? storage2.getItem(PREVIOUS_STORAGE_KEY);
     if (raw === null) return { overlays: [], notice: "" };
     const saved = JSON.parse(raw);
     const migrating = current === null;
-    if (saved?.version !== (migrating ? 1 : 2) || !Array.isArray(saved.overlays)) throw new Error("Unsupported settings");
-    const candidates = migrating ? saved.overlays.map((entry) => migrateLegacy(entry, saved.overlays)) : saved.overlays;
+    if (saved?.version !== (migrating ? 2 : 3) || !Array.isArray(saved.overlays)) throw new Error("Unsupported settings");
+    const candidates = saved.overlays;
     const overlays2 = candidates.map(normalizeOverlay).filter(Boolean);
-    let relabelled = false;
-    for (const overlay2 of overlays2) {
-      const source = overlay2.selection.primary;
-      if (overlay2.featureId === "bounding-boxes" && source?.contentType === "humanFace" && ["BoxDetections", "ObjectTracks"].includes(source.payloadType)) {
-        overlay2.featureId = "face-circles";
-        relabelled = true;
-      }
-    }
     const notices = [];
     if (overlays2.length !== candidates.length) notices.push("Some invalid saved overlays were skipped.");
-    if (migrating || relabelled) notices.push(saveOverlays(storage2, overlays2));
+    if (migrating) {
+      notices.push("Saved selections migrated. Marker shape is now an explicit display setting.");
+      notices.push(saveOverlays(storage2, overlays2));
+    }
     return { overlays: overlays2, notice: notices.filter(Boolean).join(" ") };
   } catch {
     return { overlays: [], notice: "Saved overlays could not be loaded. You can still add overlays." };
@@ -8923,7 +10440,7 @@ function saveOverlays(storage2, overlays2) {
   try {
     const saved = overlays2.map(normalizeOverlay);
     if (saved.some((overlay2) => !overlay2)) throw new Error("Invalid overlay settings");
-    storage2.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({ version: 2, overlays: saved }));
+    storage2.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({ version: 3, overlays: saved }));
     return "";
   } catch {
     return "Overlay settings could not be saved. Changes apply only to this page session.";
@@ -8959,6 +10476,8 @@ var overlays = restored.overlays;
 notice.textContent = restored.notice;
 var frameIndex = indexFrame(null);
 var displayedFrameIndex = indexFrame(null);
+var OVERLAY_HOLD_MS = 100;
+var missingFrameSince = null;
 var knownOutputs = /* @__PURE__ */ new Map();
 var cardNodes = /* @__PURE__ */ new Map();
 var expandedOverlays = /* @__PURE__ */ new Set();
@@ -9304,12 +10823,12 @@ function updateLegends() {
             ...control,
             ariaLabel: `Class ${entry.id} (${entry.id}) ${control.label.toLowerCase()}`
           }));
-          const inputs = styleControls(overlay2.featureId, settings, () => {
+          const inputs2 = styleControls(overlay2.featureId, settings, () => {
             preview();
             persist();
           }, preview, controls);
-          inputs.className += " overlay-class-controls";
-          element.append(inputs);
+          inputs2.className += " overlay-class-controls";
+          element.append(inputs2);
         } else name.textContent = entry.label;
         const nextId = [...row.legendNodes.keys()].sort((a, b) => a - b).find((id) => id > entry.id);
         row.legendList.insertBefore(element, row.legendNodes.get(nextId)?.element || null);
@@ -9340,13 +10859,13 @@ function updateStatuses() {
     const resolved = resolveOverlay(frameIndex, overlay2);
     const state = overlayStatus(frameIndex, overlay2, knownOutputs, resolved);
     if (row.status.textContent !== state) row.status.textContent = state;
-    const available = !["waiting", "unsupported"].includes(resolved.state);
+    const available2 = !["waiting", "unsupported"].includes(resolved.state);
     const color = /^#[0-9a-f]{6}$/i.test(overlay2.settings.color) ? overlay2.settings.color : "transparent";
-    if (row.color !== color || row.available !== available) {
+    if (row.color !== color || row.available !== available2) {
       row.card.style.setProperty("--overlay-color", color);
-      row.card.setAttribute("data-unavailable", String(!available));
+      row.card.setAttribute("data-unavailable", String(!available2));
       row.color = color;
-      row.available = available;
+      row.available = available2;
     }
     const tooltip = `${row.title.textContent}
 ${state}`;
@@ -9492,11 +11011,24 @@ window.addEventListener("metadata-message", (event) => {
   updateMetadata(event.detail?.frame_results || null, event.detail?.decode_error);
 });
 window.addEventListener("video-frame-results", (event) => {
-  if (event.detail) updateMetadata(event.detail);
-  displayedFrameIndex = event.detail ? frameIndex : indexFrame(null);
-  renderOsd(canvas, video4, displayedFrameIndex, overlays);
+  if (event.detail) {
+    updateMetadata(event.detail);
+    displayedFrameIndex = frameIndex;
+    missingFrameSince = null;
+  } else if (displayedFrameIndex.frame && missingFrameSince === null) {
+    missingFrameSince = performance.now();
+  }
+  drawDisplayedFrame();
   updateLegends();
 });
+function clearDisplayedFrame() {
+  displayedFrameIndex = indexFrame(null);
+  missingFrameSince = null;
+  renderOsd(canvas, video4, displayedFrameIndex, overlays);
+  updateLegends();
+}
+video4.addEventListener("emptied", clearDisplayedFrame);
+window.addEventListener("video-frame-reset", clearDisplayedFrame);
 window.addEventListener("metadata-connection", (event) => {
   if (event.detail.connected) return;
   frameIndex = indexFrame(null);
@@ -9509,8 +11041,15 @@ window.addEventListener("metadata-connection", (event) => {
     refreshOutputs();
   }
 });
-function renderFrame() {
+function drawDisplayedFrame() {
+  if (missingFrameSince !== null && performance.now() - missingFrameSince >= OVERLAY_HOLD_MS) {
+    clearDisplayedFrame();
+    return;
+  }
   renderOsd(canvas, video4, displayedFrameIndex, overlays);
+}
+function renderFrame() {
+  drawDisplayedFrame();
   window.requestAnimationFrame(renderFrame);
 }
 renderList();

@@ -57,9 +57,9 @@ confidence():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
-classId():number {
+classId():number|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readInt32(this.bb_pos + offset) : -1;
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : null;
 }
 
 text():string|null
@@ -86,7 +86,7 @@ static addConfidence(builder:flatbuffers.Builder, confidence:number) {
 }
 
 static addClassId(builder:flatbuffers.Builder, classId:number) {
-  builder.addFieldInt32(3, classId, -1);
+  builder.addFieldInt32(3, classId, null);
 }
 
 static addText(builder:flatbuffers.Builder, textOffset:flatbuffers.Offset) {
@@ -124,7 +124,7 @@ constructor(
   public object: ObjectMetaT|null = null,
   public box: BoundingBoxT|null = null,
   public confidence: number = 0.0,
-  public classId: number = -1,
+  public classId: number|null = null,
   public text: string|Uint8Array|null = null
 ){}
 
@@ -138,7 +138,8 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   BoxDetection.addObject(builder, object);
   BoxDetection.addBox(builder, box);
   BoxDetection.addConfidence(builder, this.confidence);
-  BoxDetection.addClassId(builder, this.classId);
+  if (this.classId !== null)
+    BoxDetection.addClassId(builder, this.classId);
   BoxDetection.addText(builder, text);
 
   return BoxDetection.endBoxDetection(builder);

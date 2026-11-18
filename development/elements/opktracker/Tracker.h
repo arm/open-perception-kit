@@ -33,13 +33,13 @@ namespace opk::tracker {
 enum class AssociationMode { Hybrid, Iou, Embedding };
 
 namespace Defaults {
-inline constexpr const char *contentType = "genericObject";
 inline constexpr float iouThreshold = 0.3f;
 inline constexpr int maxMissedFrames = 5;
 inline constexpr int minHitsToConfirm = 5;
 inline constexpr bool appendIdentityIdToText = true;
-inline constexpr bool useEmbeddings = true;
-inline constexpr const char *embeddingContentType = "objectEmbedding";
+inline constexpr bool useEmbeddings = false;
+inline constexpr const char *embeddingSpaceId = "";
+inline constexpr const char *embeddingProducerId = "";
 inline constexpr float embeddingWeight = 0.5f;
 inline constexpr float minCosineSimilarity = 0.0f;
 inline constexpr float reidReassociateThreshold = 0.65f;
@@ -60,13 +60,14 @@ inline constexpr AssociationMode associationMode = AssociationMode::Hybrid;
 } // namespace Defaults
 
 struct Config {
-    std::string contentType = Defaults::contentType;
+    std::vector<std::string> inputProducers;
     float iouThreshold = Defaults::iouThreshold;
     int maxMissedFrames = Defaults::maxMissedFrames;
     int minHitsToConfirm = Defaults::minHitsToConfirm;
     bool appendIdentityIdToText = Defaults::appendIdentityIdToText;
     bool useEmbeddings = Defaults::useEmbeddings;
-    std::string embeddingContentType = Defaults::embeddingContentType;
+    std::string embeddingSpaceId = Defaults::embeddingSpaceId;
+    std::string embeddingProducerId = Defaults::embeddingProducerId;
     float embeddingWeight = Defaults::embeddingWeight;
     float minCosineSimilarity = Defaults::minCosineSimilarity;
     float reidReassociateThreshold = Defaults::reidReassociateThreshold;
@@ -95,6 +96,7 @@ class KalmanDeltaTimeTracking {
         elapsedTrackerTimeMs = 0.0;
         usingKalmanDtFallback = false;
         forcedKalmanDtFallback = false;
+        fallbackTimeDelta = true;
     }
 
     void update(std::optional<uint64_t> runningTimeMs, const Config &config) {
@@ -107,6 +109,7 @@ class KalmanDeltaTimeTracking {
                                 : static_cast<double>(config.kalmanDtFallback) * 1'000.0;
         // Lifecycle time follows valid media timing even when Kalman fallback is forced.
         elapsedTrackerTimeMs += runningTimeDeltaMs;
+        fallbackTimeDelta = !hasRunningTimeDelta;
 
         forcedKalmanDtFallback = config.kalmanDtForceFallback;
         usingKalmanDtFallback = forcedKalmanDtFallback || !hasRunningTimeDelta;
@@ -135,6 +138,9 @@ class KalmanDeltaTimeTracking {
     bool fallbackForced() const {
         return forcedKalmanDtFallback;
     }
+    bool lifecycleUsesFallback() const {
+        return fallbackTimeDelta;
+    }
 
   private:
     std::optional<uint64_t> lastFrameRunningTimeMs;
@@ -142,6 +148,7 @@ class KalmanDeltaTimeTracking {
     double elapsedTrackerTimeMs = 0.0;
     bool usingKalmanDtFallback = false;
     bool forcedKalmanDtFallback = false;
+    bool fallbackTimeDelta = true;
 };
 
 using TrackId = uint64_t;
@@ -151,18 +158,20 @@ using TrackIdList = std::vector<TrackId>;
 using ActiveTrackMap = std::map<TrackId, TrackState>;
 using DormantTrackMap = std::map<TrackId, DormantTrackState>;
 
-using EmbeddingBatch = std::map<uint64_t, const std::vector<float> *>;
+using EmbeddingBatch = std::map<uint64_t, const open_perception_kit::metadata::ObjectEmbeddingT *>;
 using DetectionBatch = std::vector<const open_perception_kit::metadata::BoxDetectionT *>;
 using TrackMatch = std::pair<DetectionIndex, TrackId>;
 
 struct AssociationResult {
     std::vector<TrackMatch> matches;
-    std::map<DetectionIndex, std::string> diagnosticsByDetection;
+    std::map<DetectionIndex, open_perception_kit::metadata::TrackAssociationT>
+        associationsByDetection;
     std::vector<DetectionIndex> unmatchedDetections;
 };
 
 class Tracker {
   public:
+    Tracker();
     /**
      * @brief Resets tracker runtime state.
      */
@@ -181,10 +190,13 @@ class Tracker {
                  std::optional<uint64_t> runningTimeMs);
 
   private:
+    // Keep Kalman state and trace history in one pixel basis until reset.
+    std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> imageSpace;
     ActiveTrackMap activeTracks;
     DormantTrackMap inactiveTracks;
     TrackId nextTrackId = 1;
     uint64_t currentFrameIndex = 0;
+    std::string sessionId;
     KalmanDeltaTimeTracking kalmanDeltaTime;
 };
 

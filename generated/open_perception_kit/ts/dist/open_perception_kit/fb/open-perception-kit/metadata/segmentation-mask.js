@@ -19,6 +19,7 @@
 import * as flatbuffers from 'flatbuffers';
 import { BitmapData } from '../../open-perception-kit/metadata/bitmap-data.js';
 import { ObjectMeta } from '../../open-perception-kit/metadata/object-meta.js';
+import { OpacityMeaning } from '../../open-perception-kit/metadata/opacity-meaning.js';
 export class SegmentationMask {
     constructor() {
         this.bb = null;
@@ -44,8 +45,12 @@ export class SegmentationMask {
         const offset = this.bb.__offset(this.bb_pos, 6);
         return offset ? (obj || new BitmapData()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
     }
+    meaning() {
+        const offset = this.bb.__offset(this.bb_pos, 8);
+        return offset ? this.bb.readUint8(this.bb_pos + offset) : OpacityMeaning.Unspecified;
+    }
     static startSegmentationMask(builder) {
-        builder.startObject(2);
+        builder.startObject(3);
     }
     static addObject(builder, objectOffset) {
         builder.addFieldOffset(0, objectOffset, 0);
@@ -53,22 +58,27 @@ export class SegmentationMask {
     static addBitmap(builder, bitmapOffset) {
         builder.addFieldOffset(1, bitmapOffset, 0);
     }
+    static addMeaning(builder, meaning) {
+        builder.addFieldInt8(2, meaning, OpacityMeaning.Unspecified);
+    }
     static endSegmentationMask(builder) {
         const offset = builder.endObject();
         return offset;
     }
     unpack() {
-        return new SegmentationMaskT((this.object() !== null ? this.object().unpack() : null), (this.bitmap() !== null ? this.bitmap().unpack() : null));
+        return new SegmentationMaskT((this.object() !== null ? this.object().unpack() : null), (this.bitmap() !== null ? this.bitmap().unpack() : null), this.meaning());
     }
     unpackTo(_o) {
         _o.object = (this.object() !== null ? this.object().unpack() : null);
         _o.bitmap = (this.bitmap() !== null ? this.bitmap().unpack() : null);
+        _o.meaning = this.meaning();
     }
 }
 export class SegmentationMaskT {
-    constructor(object = null, bitmap = null) {
+    constructor(object = null, bitmap = null, meaning = OpacityMeaning.Unspecified) {
         this.object = object;
         this.bitmap = bitmap;
+        this.meaning = meaning;
     }
     pack(builder) {
         const object = (this.object !== null ? this.object.pack(builder) : 0);
@@ -76,6 +86,7 @@ export class SegmentationMaskT {
         SegmentationMask.startSegmentationMask(builder);
         SegmentationMask.addObject(builder, object);
         SegmentationMask.addBitmap(builder, bitmap);
+        SegmentationMask.addMeaning(builder, this.meaning);
         return SegmentationMask.endSegmentationMask(builder);
     }
 }

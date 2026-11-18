@@ -22,6 +22,7 @@ import {resolveOverlay, overlayStatus} from '../../src/overlay-features.js';
 import {indexFrame, outputSource, sourceKey} from '../../src/overlay-sources.js';
 import {bindPendingOverlays, createOverlay, loadOverlays, saveOverlays} from '../../src/overlays.js';
 import {render, select} from '../overlay-test-utils.mjs';
+import {ClassificationKind} from '../../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-kind.js';
 
 const video = {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', data: {
     uuid: '42', originalWidth: 640, originalHeight: 480,
@@ -29,13 +30,13 @@ const video = {payloadType: 'FrameContext', detections: [{type: 'VideoFrame', da
 function fixture() {
     const detector = {payloadType: 'BoxDetections', model: 'regions', contentType: 'arbitrary',
         detections: [
-            {type: 'Rect', data: {uuid: '9007199254740993', parentUuid: '42', x: 80, y: 0, width: 160, height: 40, confidence: 0.8}},
-            {type: 'Rect', data: {uuid: '201', parentUuid: '42', x: 300, y: 200, width: 180, height: 32, confidence: 0.7}},
+            {type: 'Rect', data: {uuid: '9007199254740993', parentUuid: '42', x: 80, y: 0, width: 160, height: 40, confidence: 0.8, spatialValid: true, frameWidth: 640, frameHeight: 480}},
+            {type: 'Rect', data: {uuid: '201', parentUuid: '42', x: 300, y: 200, width: 180, height: 32, confidence: 0.7, spatialValid: true, frameWidth: 640, frameHeight: 480}},
         ]};
     const reader = {payloadType: 'Classifications', model: 'reader', contentType: '',
         producer: {instanceId: 'another-producer', component: 'parser'}, detections: [
-            {type: 'Classification', data: {uuid: '301', parentUuid: '201', candidates: [{text: '東京 AB', confidence: 0.9}]}},
-            {type: 'Classification', data: {uuid: '302', parentUuid: '9007199254740993', candidates: [{text: 'PLATE 1234', confidence: 0.95}]}},
+            {type: 'Classification', data: {uuid: '301', parentUuid: 'unrelated', subjectUuid: '201', kind: ClassificationKind.RecognizedText, candidates: [{text: '東京 AB', confidence: 0.9}]}},
+            {type: 'Classification', data: {uuid: '302', parentUuid: 'unrelated', subjectUuid: '9007199254740993', kind: ClassificationKind.RecognizedText, candidates: [{text: 'PLATE 1234', confidence: 0.95}]}},
         ]};
     return {detector, reader, frame: {layers: [video, detector, reader]}};
 }
@@ -67,7 +68,7 @@ test('OCR requires an explicit compatible source, without content-type or model-
     assert.equal(resolved({layers: [video, detector, {...reader, model: 'other'}]}, reader).state, 'waiting');
 });
 
-test('recognition joins full-frame parent boxes by ID, not by order or producer name', () => {
+test('recognition joins declared subjects, not derivation parents, order or producer names', () => {
     const {detector, reader, frame} = fixture();
     const other = {...reader, model: 'other reader', detections: [{...reader.detections[0], data: {
         ...reader.detections[0].data, candidates: [{text: 'WRONG', confidence: 1}],
@@ -88,6 +89,21 @@ test('recognition joins full-frame parent boxes by ID, not by order or producer 
     assert.deepEqual(resolved(frame, reader).items, []);
 });
 
+test('categorical labels and missing subjects cannot masquerade as recognized text', () => {
+    const {detector, reader, frame} = fixture();
+    reader.detections[0].data.kind = ClassificationKind.Categorical;
+    reader.detections[0].data.labelSet = 'categories';
+    reader.detections[0].data.candidates[0].classId = 0;
+    const categorical = resolved(frame, reader);
+    assert.equal(categorical.state, 'partial');
+    assert.deepEqual(categorical.regions.map(region => region.text), ['PLATE 1234']);
+    reader.detections = [reader.detections[1]];
+    reader.detections[0].data.parentUuid = detector.detections[0].data.uuid;
+    delete reader.detections[0].data.subjectUuid;
+    assert.equal(resolved(frame, reader).state, 'partial');
+    assert.deepEqual(resolved(frame, reader).regions, []);
+});
+
 test('missing, ambiguous and malformed OCR relationships do not invent text or geometry', () => {
     const {detector, reader, frame} = fixture();
     assert.equal(resolved({layers: [reader]}, reader).state, 'partial');
@@ -98,14 +114,15 @@ test('missing, ambiguous and malformed OCR relationships do not invent text or g
     assert.deepEqual(ambiguous.regions.map(region => region.text), ['東京 AB']);
     const repeated = {...reader, detections: [reader.detections[0], reader.detections[0]]};
     assert.equal(resolved({layers: [video, detector, repeated]}, repeated).regions[0].text, '');
-    const crop = {...video, detections: [{type: 'VideoFrame', data: {...video.detections[0].data, sourceCropTop: 1}}]};
-    assert.equal(resolved({layers: [crop, detector, reader]}, reader).state, 'unsupported');
-    assert.equal(resolved({layers: [video, video, detector, reader]}, reader).state, 'ambiguous');
-    for (const change of [{x: NaN}, {y: Infinity}, {width: -1}, {width: 1000}, {confidence: 1.5}]) {
+    assert.equal(resolved({layers: [detector, reader]}, reader).state, 'ready', 'declared geometry needs no derivation parent');
+    assert.equal(resolved({layers: [video, video, detector, reader]}, reader).state, 'ready');
+    for (const change of [{x: NaN}, {y: Infinity}, {width: -1}, {x: 1000}, {confidence: 1.5}, {spatialValid: false}, {frameWidth: undefined}]) {
         const bad = {...detector, detections: [{type: 'Rect', data: {...detector.detections[0].data, ...change}}]};
         assert.equal(resolved({layers: [video, bad]}, bad).state, 'unsupported');
         assert.deepEqual(resolved({layers: [video, bad]}, bad).regions, []);
     }
+    const clipped = {...detector, detections: [{type: 'Rect', data: {...detector.detections[0].data, x: -10, width: 1000}}]};
+    assert.deepEqual(resolved({layers: [clipped]}, clipped).regions[0].box, {x: 0, y: 0, width: 640, height: 40});
     reader.detections[0].data.candidates.push({text: 'alternative', confidence: 0.1});
     const alternatives = resolved(frame, reader);
     assert.equal(alternatives.state, 'ambiguous');
@@ -229,7 +246,7 @@ test('zero and absent text scores never fall back to region confidence; saved co
     assert.equal(migrated.opacity, 0.3);
     assert.equal(ocr.validateSettings({confidence: true, textConfidence: false}).textConfidence, false);
     assert.equal(ocr.validateSettings({confidence: 'yes'}), null);
-    const saved = {version: 2, overlays: [{...overlay, settings: {confidence: true, opacity: 0.3}}]};
+    const saved = {version: 3, overlays: [{...overlay, settings: {confidence: true, opacity: 0.3}}]};
     const restored = loadOverlays({getItem: () => JSON.stringify(saved)}).overlays[0];
     assert.equal(restored.settings.regionConfidence, true);
     assert.equal(restored.settings.textConfidence, true);

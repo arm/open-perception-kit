@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "2.0.0",
   "name": "smart-turn",
   "legal": "https://huggingface.co/soniqo/Smart-Turn-v3.2-ONNX",
   "modelFile": "smart-turn-v3.2-int8.onnx",
@@ -10,7 +10,6 @@
     "sha256": "00cd131551e8d1e9011f31345edb632a26116dd83e159782c4ddff610718ea31"
   },
   "dynamicOutput": false,
-  "contentType": "turnDetection",
   "inputTensors": [
     {
       "shape": [

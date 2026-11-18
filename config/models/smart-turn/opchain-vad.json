@@ -1,5 +1,5 @@
 {
-  "version": "1.4.1",
+  "version": "2.0.0",
   "name": "SileroVadSmartTurn",
   "displayName": "VAD + SmartTurn",
   "task": "Voice activity and turn detection",
@@ -23,6 +23,7 @@
     },
     {
       "id": "opk-std-ops/GenericPostprocess",
+      "instanceId": "opk-std-ops-GenericPostprocess-0",
       "attributes": {
         "parser": "VoiceActivityParser",
         "thresholdOn": 0.6,
@@ -40,8 +41,7 @@
         "hopSampleCount": 512,
         "silenceMs": 700,
         "retryMs": 500,
-        "maxAttempts": 3,
-        "vadModel": "silero-vad"
+        "maxAttempts": 3
       }
     },
     {
@@ -54,6 +54,7 @@
     },
     {
       "id": "opk-std-ops/GenericPostprocess",
+      "instanceId": "opk-std-ops-GenericPostprocess-1",
       "attributes": {
         "parser": "SmartTurnParser",
         "threshold": 0.5

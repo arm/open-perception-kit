@@ -19,6 +19,7 @@
 
 #include "opk/AttributeMap.h"
 #include "opk/FrameResults.h"
+#include "opk/OutputCapability.h"
 #include "opk/Result.h"
 #include "opk/TensorView.h"
 
@@ -59,9 +60,10 @@ struct TensorParser {
     virtual ~TensorParser() = default;
 
     /**
-     * @brief Returns the semantic content types this parser appends to FrameResults.
+     * @brief Returns typed outputs this parser appends on successful execution, including empty
+     * results.
      */
-    virtual std::vector<std::string_view> getProvidedContentTypes() const = 0;
+    virtual std::vector<opk::OutputCapability> getProvidedOutputs() const = 0;
 
     /**
      * @brief Parses tensors into frame results.

@@ -45,6 +45,8 @@ impl<'a> flatbuffers::Follow<'a> for ObjectEmbedding<'a> {
 impl<'a> ObjectEmbedding<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
     pub const VT_VALUES: flatbuffers::VOffsetT = 6;
+    pub const VT_SPACE: flatbuffers::VOffsetT = 8;
+    pub const VT_SUBJECT_ID: flatbuffers::VOffsetT = 10;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -56,6 +58,12 @@ impl<'a> ObjectEmbedding<'a> {
         args: &'args ObjectEmbeddingArgs<'args>,
     ) -> flatbuffers::WIPOffset<ObjectEmbedding<'bldr>> {
         let mut builder = ObjectEmbeddingBuilder::new(_fbb);
+        if let Some(x) = args.subject_id {
+            builder.add_subject_id(x);
+        }
+        if let Some(x) = args.space {
+            builder.add_space(x);
+        }
         if let Some(x) = args.values {
             builder.add_values(x);
         }
@@ -68,7 +76,14 @@ impl<'a> ObjectEmbedding<'a> {
     pub fn unpack(&self) -> ObjectEmbeddingT {
         let object = self.object().map(|x| Box::new(x.unpack()));
         let values = self.values().map(|x| x.into_iter().collect());
-        ObjectEmbeddingT { object, values }
+        let space = self.space().map(|x| Box::new(x.unpack()));
+        let subject_id = self.subject_id();
+        ObjectEmbeddingT {
+            object,
+            values,
+            space,
+            subject_id,
+        }
     }
 
     #[inline]
@@ -94,6 +109,26 @@ impl<'a> ObjectEmbedding<'a> {
                 )
         }
     }
+    #[inline]
+    pub fn space(&self) -> Option<EmbeddingSpace<'a>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<flatbuffers::ForwardsUOffset<EmbeddingSpace>>(
+                    ObjectEmbedding::VT_SPACE,
+                    None,
+                )
+        }
+    }
+    #[inline]
+    pub fn subject_id(&self) -> Option<u64> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe { self._tab.get::<u64>(ObjectEmbedding::VT_SUBJECT_ID, None) }
+    }
 }
 
 impl flatbuffers::Verifiable for ObjectEmbedding<'_> {
@@ -114,6 +149,12 @@ impl flatbuffers::Verifiable for ObjectEmbedding<'_> {
                 Self::VT_VALUES,
                 false,
             )?
+            .visit_field::<flatbuffers::ForwardsUOffset<EmbeddingSpace>>(
+                "space",
+                Self::VT_SPACE,
+                false,
+            )?
+            .visit_field::<u64>("subject_id", Self::VT_SUBJECT_ID, false)?
             .finish();
         Ok(())
     }
@@ -121,6 +162,8 @@ impl flatbuffers::Verifiable for ObjectEmbedding<'_> {
 pub struct ObjectEmbeddingArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
     pub values: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, f32>>>,
+    pub space: Option<flatbuffers::WIPOffset<EmbeddingSpace<'a>>>,
+    pub subject_id: Option<u64>,
 }
 impl<'a> Default for ObjectEmbeddingArgs<'a> {
     #[inline]
@@ -128,6 +171,8 @@ impl<'a> Default for ObjectEmbeddingArgs<'a> {
         ObjectEmbeddingArgs {
             object: None,
             values: None,
+            space: None,
+            subject_id: None,
         }
     }
 }
@@ -151,6 +196,19 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ObjectEmbeddingBuilder<'a, 'b, 
             .push_slot_always::<flatbuffers::WIPOffset<_>>(ObjectEmbedding::VT_VALUES, values);
     }
     #[inline]
+    pub fn add_space(&mut self, space: flatbuffers::WIPOffset<EmbeddingSpace<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<EmbeddingSpace>>(
+                ObjectEmbedding::VT_SPACE,
+                space,
+            );
+    }
+    #[inline]
+    pub fn add_subject_id(&mut self, subject_id: u64) {
+        self.fbb_
+            .push_slot_always::<u64>(ObjectEmbedding::VT_SUBJECT_ID, subject_id);
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> ObjectEmbeddingBuilder<'a, 'b, A> {
@@ -172,6 +230,8 @@ impl core::fmt::Debug for ObjectEmbedding<'_> {
         let mut ds = f.debug_struct("ObjectEmbedding");
         ds.field("object", &self.object());
         ds.field("values", &self.values());
+        ds.field("space", &self.space());
+        ds.field("subject_id", &self.subject_id());
         ds.finish()
     }
 }
@@ -180,12 +240,16 @@ impl core::fmt::Debug for ObjectEmbedding<'_> {
 pub struct ObjectEmbeddingT {
     pub object: Option<Box<ObjectMetaT>>,
     pub values: Option<Vec<f32>>,
+    pub space: Option<Box<EmbeddingSpaceT>>,
+    pub subject_id: Option<u64>,
 }
 impl Default for ObjectEmbeddingT {
     fn default() -> Self {
         Self {
             object: None,
             values: None,
+            space: None,
+            subject_id: None,
         }
     }
 }
@@ -196,6 +260,16 @@ impl ObjectEmbeddingT {
     ) -> flatbuffers::WIPOffset<ObjectEmbedding<'b>> {
         let object = self.object.as_ref().map(|x| x.pack(_fbb));
         let values = self.values.as_ref().map(|x| _fbb.create_vector(x));
-        ObjectEmbedding::create(_fbb, &ObjectEmbeddingArgs { object, values })
+        let space = self.space.as_ref().map(|x| x.pack(_fbb));
+        let subject_id = self.subject_id;
+        ObjectEmbedding::create(
+            _fbb,
+            &ObjectEmbeddingArgs {
+                object,
+                values,
+                space,
+                subject_id,
+            },
+        )
     }
 }

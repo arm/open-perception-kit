@@ -5,9 +5,9 @@ namespace open_perception_kit.metadata;
 // One model assessment, not a final conversation-controller decision or utterance.
 table TurnDetection {
   object:open_perception_kit.metadata.ObjectMeta;
-  turn_probability:float;
+  turn_probability:float = null;
   // True when turn_probability meets the configured model threshold.
-  turn_complete:bool;
+  turn_complete:bool = null;
   // Half-open range of real mono 16 kHz samples since the latest stream reset.
   // Synthetic front padding is excluded; this is model context, not utterance bounds.
   window_start_sample:ulong;

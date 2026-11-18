@@ -135,7 +135,6 @@ open_perception_kit::metadata::VoiceActivityDetectionsT makeResult(
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = VoiceActivityParser::k_content_type,
                                             .producer = &input.producerInfo});
     payload.detections.push_back(std::move(detection));
     return payload;

@@ -25,6 +25,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import venv
 import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import replace
@@ -387,6 +388,68 @@ class ArtifactCacheTests(unittest.TestCase):
 
 
 class GenerationReceiptTests(unittest.TestCase):
+    def test_rust_fixture_reuses_verified_image_wheel_and_keeps_isolation(self) -> None:
+        generator = release_package.perception_generate
+        content = b"locked fixture runtime"
+        original = release_package.perception_config.load_sdk_config()
+        config = replace(original, flatbuffers_wheel=replace(
+            original.flatbuffers_wheel, sha256=hashlib.sha256(content).hexdigest()))
+        for state in ("cached", "missing", "corrupt"):
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                cache = root / "image-artifacts"
+                cache.mkdir()
+                if state != "missing":
+                    (cache / config.flatbuffers_wheel.filename).write_bytes(content if state == "cached" else b"corrupt")
+                generated = root / "generated"
+                (generated / "rust").mkdir(parents=True)
+                (generated / "rust/Cargo.toml").write_text(
+                    f'[package]\nname = "{config.public_name}"\nversion = "{config.version}"\n', encoding="utf-8")
+
+                def download(url, destination):
+                    self.assertEqual(url, config.flatbuffers_wheel.url)
+                    Path(destination).write_bytes(content)
+
+                def write_fixture(command):
+                    self.assertEqual(command[:5], [sys.executable, "-I", "-S",
+                                     "-B", str(generator.RUST_FIXTURE_WRITER)])
+                    self.assertEqual(Path(command[-1]).read_bytes(), content)
+
+                with patch.object(generator, "CONTAINER_ARTIFACT_DIR", cache), \
+                        patch.object(release_artifacts.urllib.request, "urlretrieve", side_effect=download) as fetch, \
+                        patch.object(generator, "run", side_effect=write_fixture) as writer:
+                    if state == "corrupt":
+                        with self.assertRaisesRegex(RuntimeError, "checksum mismatch"):
+                            generator.prepare_rust_tests(config, generated, sys.executable)
+                        writer.assert_not_called()
+                    else:
+                        generator.prepare_rust_tests(config, generated, sys.executable)
+                        writer.assert_called_once()
+                    self.assertEqual(fetch.call_count, int(state == "missing"))
+
+    def test_rust_fixture_generation_without_installed_python_packages(self) -> None:
+        config = release_package.perception_config.load_sdk_config()
+        with tempfile.TemporaryDirectory() as tmp:
+            environment = Path(tmp) / "venv"
+            venv.create(environment, with_pip=False)
+            python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+            subprocess.run(
+                [str(python), "-c",
+                 "import importlib.util; assert importlib.util.find_spec('flatbuffers') is None"],
+                check=True,
+            )
+            generated = Path(tmp) / "generated"
+            shutil.copytree(config.generated_root / "python", generated / "python")
+            (generated / "rust").mkdir()
+            (generated / "rust/Cargo.toml").write_text(
+                f'[package]\nname = "{config.public_name}"\nversion = "{config.version}"\n',
+                encoding="utf-8",
+            )
+            release_package.perception_generate.prepare_rust_tests(config, generated, str(python))
+            fixture = Path("rust/tests/fixtures/opk-box-detections.hex")
+            self.assertEqual((generated / fixture).read_bytes(),
+                             (config.generated_root / fixture).read_bytes())
+
     def test_prerelease_package_versions_keep_the_sdk_version(self) -> None:
         config = replace(
             release_package.perception_config.load_sdk_config(),

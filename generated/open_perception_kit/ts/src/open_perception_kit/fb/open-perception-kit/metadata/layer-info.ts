@@ -76,27 +76,20 @@ labelFamily(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-contentType():string|null
-contentType(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-contentType(optionalEncoding?:any):string|Uint8Array|null {
+compositingMode():string|null
+compositingMode(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+compositingMode(optionalEncoding?:any):string|Uint8Array|null {
   const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-compositingMode():string|null
-compositingMode(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-compositingMode(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
-}
-
 producer(obj?:ProducerInfo):ProducerInfo|null {
-  const offset = this.bb!.__offset(this.bb_pos, 18);
+  const offset = this.bb!.__offset(this.bb_pos, 16);
   return offset ? (obj || new ProducerInfo()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
 static startLayerInfo(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(7);
 }
 
 static addEngine(builder:flatbuffers.Builder, engineOffset:flatbuffers.Offset) {
@@ -119,16 +112,12 @@ static addLabelFamily(builder:flatbuffers.Builder, labelFamilyOffset:flatbuffers
   builder.addFieldOffset(4, labelFamilyOffset, 0);
 }
 
-static addContentType(builder:flatbuffers.Builder, contentTypeOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(5, contentTypeOffset, 0);
-}
-
 static addCompositingMode(builder:flatbuffers.Builder, compositingModeOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(6, compositingModeOffset, 0);
+  builder.addFieldOffset(5, compositingModeOffset, 0);
 }
 
 static addProducer(builder:flatbuffers.Builder, producerOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(7, producerOffset, 0);
+  builder.addFieldOffset(6, producerOffset, 0);
 }
 
 static endLayerInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -144,7 +133,6 @@ unpack(): LayerInfoT {
     this.tags(),
     this.inferElementId(),
     this.labelFamily(),
-    this.contentType(),
     this.compositingMode(),
     (this.producer() !== null ? this.producer()!.unpack() : null)
   );
@@ -157,7 +145,6 @@ unpackTo(_o: LayerInfoT): void {
   _o.tags = this.tags();
   _o.inferElementId = this.inferElementId();
   _o.labelFamily = this.labelFamily();
-  _o.contentType = this.contentType();
   _o.compositingMode = this.compositingMode();
   _o.producer = (this.producer() !== null ? this.producer()!.unpack() : null);
 }
@@ -170,7 +157,6 @@ constructor(
   public tags: string|Uint8Array|null = null,
   public inferElementId: string|Uint8Array|null = null,
   public labelFamily: string|Uint8Array|null = null,
-  public contentType: string|Uint8Array|null = null,
   public compositingMode: string|Uint8Array|null = null,
   public producer: ProducerInfoT|null = null
 ){}
@@ -182,7 +168,6 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const tags = (this.tags !== null ? builder.createString(this.tags!) : 0);
   const inferElementId = (this.inferElementId !== null ? builder.createString(this.inferElementId!) : 0);
   const labelFamily = (this.labelFamily !== null ? builder.createString(this.labelFamily!) : 0);
-  const contentType = (this.contentType !== null ? builder.createString(this.contentType!) : 0);
   const compositingMode = (this.compositingMode !== null ? builder.createString(this.compositingMode!) : 0);
   const producer = (this.producer !== null ? this.producer!.pack(builder) : 0);
 
@@ -192,7 +177,6 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   LayerInfo.addTags(builder, tags);
   LayerInfo.addInferElementId(builder, inferElementId);
   LayerInfo.addLabelFamily(builder, labelFamily);
-  LayerInfo.addContentType(builder, contentType);
   LayerInfo.addCompositingMode(builder, compositingMode);
   LayerInfo.addProducer(builder, producer);
 

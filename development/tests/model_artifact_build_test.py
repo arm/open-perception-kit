@@ -36,7 +36,7 @@ DOCKER_UNAVAILABLE = "Docker CLI is not installed"
 MODELS_DIR = "config/models"
 MODEL_DESCRIPTOR = "model.json"
 SCHEMAS_DIR = Path("config/schemas")
-MODEL_SCHEMA = SCHEMAS_DIR / "v1/model.schema.json"
+MODEL_SCHEMA = SCHEMAS_DIR / "v2/model.schema.json"
 # Temporary EXPKITS-1084 quality gate while stale model artifacts may remain in build contexts.
 RETIRED_MODEL_SUFFIXES = {".hef"}
 
@@ -142,7 +142,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
         from jsonschema import Draft202012Validator
 
         for name in ("model", "opchain", "pipeline"):
-            schema = json.loads((REPO_ROOT / SCHEMAS_DIR / f"v1/{name}.schema.json").read_text())
+            major = "v1" if name == "pipeline" else "v2"
+            schema = json.loads((REPO_ROOT / SCHEMAS_DIR / major / f"{name}.schema.json").read_text())
             validator = Draft202012Validator(schema["properties"]["version"])
             for version in ("1.0.0", "1.0.37", "1.4.2", "0.9.0", "2.0.0"):
                 with self.subTest(name=name, version=version):
@@ -157,12 +158,12 @@ class ModelArtifactBuildTest(unittest.TestCase):
             (REPO_ROOT / "config/pipelines/yolo26n-320.json").read_text()
         )
         inference_steps = [
-            step for step in pipeline["pipeline"] if "opkinfer" in step
+            step for step in pipeline["pipeline"] if step.startswith("opkinfer ")
         ]
         self.assertEqual(
             inference_steps,
             [
-                'opkinfer opchain-path="${OPK_PROJECT_ROOT:-/work}/config/models/'
+                'opkinfer name=opkinfer0 opchain-path="${OPK_PROJECT_ROOT:-/work}/config/models/'
                 'yolo26n-320/opchain.json" active=true !'
             ],
         )
@@ -580,6 +581,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             digest = hashlib.sha256(archive.read_bytes()).hexdigest()
             shutil.copy2(REPO_ROOT / "scripts/release/smoke-opk-package.sh", context / "smoke.sh")
             shutil.copy2(REPO_ROOT / "scripts/release/ReleaseTool.py", context / "ReleaseTool.py")
+            shutil.copy2(REPO_ROOT / SCHEMAS_DIR / "v2/opchain.schema.json", context / "opchain.schema.json")
             operation = context / "development/tests/python_script_op/runtime_environment.py"
             operation.parent.mkdir(parents=True)
             operation.touch()
@@ -595,6 +597,8 @@ assert not [p for p in root.rglob('*') if p.suffix in ('.onnx', '.pte', '.bin')]
 for arg in sys.argv:
     if arg.startswith('opchain-path='):
         opchain = json.loads(Path(arg.removeprefix('opchain-path=')).read_text())
+        supported_version = json.loads(Path('/tmp/opchain.schema.json').read_text())['x-opk-supported-version']
+        assert opchain['version'] == supported_version
         assert [op['id'] for op in opchain['ops']] == ['opk-python-ops/PythonScript']
         script = Path(opchain['ops'][0]['attributes']['script'])
         assert script.is_absolute() and script.is_file()
@@ -610,6 +614,7 @@ for arg in sys.argv:
                 "COPY package.tar.gz /opt/opk-release-artifacts/opk-1.0.0-linux-x86_64.tar.gz\n"
                 "COPY smoke.sh /work/scripts/release/smoke-opk-package.sh\n"
                 "COPY ReleaseTool.py /work/scripts/release/ReleaseTool.py\n"
+                "COPY opchain.schema.json /tmp/opchain.schema.json\n"
                 "COPY gst-stub /usr/local/bin/gst-inspect-1.0\n"
                 "COPY gst-stub /usr/local/bin/gst-launch-1.0\n"
                 "RUN python3 -m venv /opt/opk-venvs/python-ops-runtime\n"
@@ -919,14 +924,14 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
 
             verified_descriptor = root / "config/models/second/model.json"
             mismatched_model = json.loads(verified_descriptor.read_text())
-            for version in (1, "0.9.0", "2.0.0", "1.0.0\n", "1.0.0\0", "1.0.0-rc1"):
+            for version in (1, "0.9.0", "1.0.0", "1.0.0\n", "1.0.0\0", "1.0.0-rc1"):
                 with self.subTest(version=version):
                     mismatched_model["version"] = version
                     verified_descriptor.write_text(json.dumps(mismatched_model))
                     (root / "captured-token").unlink(missing_ok=True)
                     version_result = run_download()
                     self.assertEqual(version_result.returncode, 1, version_result.stderr)
-                    if version in ("0.9.0", "2.0.0"):
+                    if version in ("0.9.0", "1.0.0"):
                         self.assertIn("/version", version_result.stderr)
                     else:
                         self.assertIn("Invalid model descriptor", version_result.stderr)
@@ -942,7 +947,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                     self.assertEqual(version_result.returncode, 0, version_result.stderr)
                     self.assertTrue((root / "captured-token").exists())
                     self.assertEqual("different minor" in version_result.stderr, version == different_minor)
-            mismatched_model["version"] = "1.0.0"
+            mismatched_model["version"] = "2.0.0"
             mismatched_model["hfDownload"]["sha256"] = "0" * 64
             verified_descriptor.write_text(json.dumps(mismatched_model))
             installed_model = root / "config/models/second/renamed.bin"

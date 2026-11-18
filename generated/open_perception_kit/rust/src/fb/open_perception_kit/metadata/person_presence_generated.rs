@@ -44,8 +44,8 @@ impl<'a> flatbuffers::Follow<'a> for PersonPresence<'a> {
 
 impl<'a> PersonPresence<'a> {
     pub const VT_OBJECT: flatbuffers::VOffsetT = 4;
-    pub const VT_YES_CONFIDENCE: flatbuffers::VOffsetT = 6;
-    pub const VT_NO_CONFIDENCE: flatbuffers::VOffsetT = 8;
+    pub const VT_RESULT: flatbuffers::VOffsetT = 6;
+    pub const VT_SUBJECT_ID: flatbuffers::VOffsetT = 8;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -57,8 +57,12 @@ impl<'a> PersonPresence<'a> {
         args: &'args PersonPresenceArgs<'args>,
     ) -> flatbuffers::WIPOffset<PersonPresence<'bldr>> {
         let mut builder = PersonPresenceBuilder::new(_fbb);
-        builder.add_no_confidence(args.no_confidence);
-        builder.add_yes_confidence(args.yes_confidence);
+        if let Some(x) = args.subject_id {
+            builder.add_subject_id(x);
+        }
+        if let Some(x) = args.result {
+            builder.add_result(x);
+        }
         if let Some(x) = args.object {
             builder.add_object(x);
         }
@@ -67,12 +71,12 @@ impl<'a> PersonPresence<'a> {
 
     pub fn unpack(&self) -> PersonPresenceT {
         let object = self.object().map(|x| Box::new(x.unpack()));
-        let yes_confidence = self.yes_confidence();
-        let no_confidence = self.no_confidence();
+        let result = self.result().map(|x| Box::new(x.unpack()));
+        let subject_id = self.subject_id();
         PersonPresenceT {
             object,
-            yes_confidence,
-            no_confidence,
+            result,
+            subject_id,
         }
     }
 
@@ -87,26 +91,24 @@ impl<'a> PersonPresence<'a> {
         }
     }
     #[inline]
-    pub fn yes_confidence(&self) -> f32 {
+    pub fn result(&self) -> Option<PersonPresenceResult<'a>> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
         unsafe {
             self._tab
-                .get::<f32>(PersonPresence::VT_YES_CONFIDENCE, Some(0.0))
-                .unwrap()
+                .get::<flatbuffers::ForwardsUOffset<PersonPresenceResult>>(
+                    PersonPresence::VT_RESULT,
+                    None,
+                )
         }
     }
     #[inline]
-    pub fn no_confidence(&self) -> f32 {
+    pub fn subject_id(&self) -> Option<u64> {
         // Safety:
         // Created from valid Table for this object
         // which contains a valid value in this slot
-        unsafe {
-            self._tab
-                .get::<f32>(PersonPresence::VT_NO_CONFIDENCE, Some(0.0))
-                .unwrap()
-        }
+        unsafe { self._tab.get::<u64>(PersonPresence::VT_SUBJECT_ID, None) }
     }
 }
 
@@ -123,24 +125,28 @@ impl flatbuffers::Verifiable for PersonPresence<'_> {
                 Self::VT_OBJECT,
                 false,
             )?
-            .visit_field::<f32>("yes_confidence", Self::VT_YES_CONFIDENCE, false)?
-            .visit_field::<f32>("no_confidence", Self::VT_NO_CONFIDENCE, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<PersonPresenceResult>>(
+                "result",
+                Self::VT_RESULT,
+                false,
+            )?
+            .visit_field::<u64>("subject_id", Self::VT_SUBJECT_ID, false)?
             .finish();
         Ok(())
     }
 }
 pub struct PersonPresenceArgs<'a> {
     pub object: Option<flatbuffers::WIPOffset<ObjectMeta<'a>>>,
-    pub yes_confidence: f32,
-    pub no_confidence: f32,
+    pub result: Option<flatbuffers::WIPOffset<PersonPresenceResult<'a>>>,
+    pub subject_id: Option<u64>,
 }
 impl<'a> Default for PersonPresenceArgs<'a> {
     #[inline]
     fn default() -> Self {
         PersonPresenceArgs {
             object: None,
-            yes_confidence: 0.0,
-            no_confidence: 0.0,
+            result: None,
+            subject_id: None,
         }
     }
 }
@@ -159,14 +165,17 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> PersonPresenceBuilder<'a, 'b, A
             );
     }
     #[inline]
-    pub fn add_yes_confidence(&mut self, yes_confidence: f32) {
+    pub fn add_result(&mut self, result: flatbuffers::WIPOffset<PersonPresenceResult<'b>>) {
         self.fbb_
-            .push_slot::<f32>(PersonPresence::VT_YES_CONFIDENCE, yes_confidence, 0.0);
+            .push_slot_always::<flatbuffers::WIPOffset<PersonPresenceResult>>(
+                PersonPresence::VT_RESULT,
+                result,
+            );
     }
     #[inline]
-    pub fn add_no_confidence(&mut self, no_confidence: f32) {
+    pub fn add_subject_id(&mut self, subject_id: u64) {
         self.fbb_
-            .push_slot::<f32>(PersonPresence::VT_NO_CONFIDENCE, no_confidence, 0.0);
+            .push_slot_always::<u64>(PersonPresence::VT_SUBJECT_ID, subject_id);
     }
     #[inline]
     pub fn new(
@@ -189,8 +198,8 @@ impl core::fmt::Debug for PersonPresence<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut ds = f.debug_struct("PersonPresence");
         ds.field("object", &self.object());
-        ds.field("yes_confidence", &self.yes_confidence());
-        ds.field("no_confidence", &self.no_confidence());
+        ds.field("result", &self.result());
+        ds.field("subject_id", &self.subject_id());
         ds.finish()
     }
 }
@@ -198,15 +207,15 @@ impl core::fmt::Debug for PersonPresence<'_> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PersonPresenceT {
     pub object: Option<Box<ObjectMetaT>>,
-    pub yes_confidence: f32,
-    pub no_confidence: f32,
+    pub result: Option<Box<PersonPresenceResultT>>,
+    pub subject_id: Option<u64>,
 }
 impl Default for PersonPresenceT {
     fn default() -> Self {
         Self {
             object: None,
-            yes_confidence: 0.0,
-            no_confidence: 0.0,
+            result: None,
+            subject_id: None,
         }
     }
 }
@@ -216,14 +225,14 @@ impl PersonPresenceT {
         _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
     ) -> flatbuffers::WIPOffset<PersonPresence<'b>> {
         let object = self.object.as_ref().map(|x| x.pack(_fbb));
-        let yes_confidence = self.yes_confidence;
-        let no_confidence = self.no_confidence;
+        let result = self.result.as_ref().map(|x| x.pack(_fbb));
+        let subject_id = self.subject_id;
         PersonPresence::create(
             _fbb,
             &PersonPresenceArgs {
                 object,
-                yes_confidence,
-                no_confidence,
+                result,
+                subject_id,
             },
         )
     }

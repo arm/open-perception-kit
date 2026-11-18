@@ -28,9 +28,10 @@ writes to those states. Read-only entries cannot be set.
 
 | Property | Purpose | Default | Accepted values / Example | Changeable in |
 | --- | --- | --- | --- | --- |
-| `content-type` | Result layer content type containing detections to track. | `genericObject` | String matching an input layer; e.g. `humanFace`. | NULL/READY |
-| `use-embeddings` | Enable ReID embedding-based association. | `true` | `true`, `false` | Live |
-| `embedding-content-type` | Result layer content type containing object embeddings. | `objectEmbedding` | String matching an input layer; e.g. `objectEmbedding`. | NULL/READY |
+| `input-producers` | Concrete `BoxDetections` producers to track. | `[]` | JSON array, e.g. `["detector/boxes"]`; empty is unconnected. | NULL/READY |
+| `use-embeddings` | Enable ReID embedding-based association. | `false` | `true`, `false`; also requires an embedding producer. | Live |
+| `embedding-space-id` | Select an explicitly declared embedding space. | `""` | Exact space ID; empty requires one unambiguous candidate per subject. | NULL/READY |
+| `embedding-producer-id` | Select one embedding producer instance. | `""` | Exact `ProducerInfo.instance_id`; empty is unconnected. | NULL/READY |
 | `embedding-weight` | Embedding contribution to hybrid matching cost. | `0.5` | Float, 0–1; e.g. `0.7`. `0` uses IoU cost only; `1` uses embedding cost when available. | Live |
 | `min-cosine-similarity` | Minimum similarity for an embedding contribution. | `0.0` | Float, −1–1; e.g. `0.4`. | Live |
 | `reid-reassociate-threshold` | Minimum similarity for restoring a dormant track; values ≤ 0 disable dormant reassociation. | `0.65` | Float, −1–1; e.g. `0.75`. | Live |
@@ -38,8 +39,8 @@ writes to those states. Read-only entries cannot be set.
 | `iou-threshold` | Minimum intersection-over-union for matching detections to tracks. | `0.3` | Float, 0–1; e.g. `0.4`. | Live |
 | `max-missed-frames` | Number of unmatched frames before expiring a track. | `5` | Integer, 0–2147483647; e.g. `10`. | Live |
 | `min-hits-to-confirm` | Hits required before showing a track. | `5` | Integer, 1–2147483647; e.g. `3`. | Live |
-| `append-track-id-to-text` | Append `[ID:n]` to detection text. | `true` | `true`, `false` | Live |
-| `trace-history-seconds` | Time window retained for track traces. | `5.0` | Float seconds, 0–G_MAXFLOAT; e.g. `2.0`. | Live |
+| `append-track-id-to-text` | Request ID/association suffixes on rendered track labels; stored labels remain original. | `true` | `true`, `false` | Live |
+| `trace-history-seconds` | Elapsed-time window retained for track traces, independent of forced Kalman timing. | `5.0` | Float seconds, 0–G_MAXFLOAT; e.g. `2.0`. | Live |
 | `kalman-dt-fallback` | Time step when timestamps are unavailable or fallback is forced. | `1/30` (about `0.0333333`) | Float seconds, 0.0001–G_MAXFLOAT; e.g. `0.04` for 25 fps. | Live |
 | `kalman-dt-force-fallback` | Use the fallback time step instead of buffer timestamps. | `false` | `true`, `false` | Live |
 | `kalman-initial-covariance-pos` | Initial position covariance for new tracks. | `100.0` | Float, 0–G_MAXFLOAT; e.g. `80.0`. | Live |
@@ -57,7 +58,7 @@ writes to those states. Read-only entries cannot be set.
 Float defaults above use their intended decimal values; introspection may display
 the nearest representable float.
 
-`content-type`, `embedding-content-type`, and `infer-id` require NULL or READY.
+`input-producers`, `embedding-space-id`, `embedding-producer-id`, and `infer-id` require NULL or READY.
 Their identity/source meaning must stay stable for a tracking history. Returning
 to READY clears that history before the next start. Other writable properties
 can change while playing: association thresholds and weights, confirmation/miss
@@ -73,3 +74,16 @@ default and description with `gst-inspect-1.0 opktracker`.
 
 See [Configure GStreamer elements](../../public/how-to/configure-elements.md)
 for discovery, readback, validation and the explicit restart procedure.
+
+Embedding selection uses `ObjectEmbeddings`, an explicit producer, subject IDs and declared
+spaces. Multiple eligible outputs
+for a subject are unavailable, even if only one vector is valid. Space ID,
+dimension and cosine metric must agree with the stored active/dormant embedding;
+invalid, zero or missing vectors cannot create a similarity score. Hybrid mode
+falls back to IoU when no usable comparison exists; embedding-only mode does not.
+See [embedding spaces and selection](../perception.md#embedding-spaces-and-selection).
+
+Each processing step publishes `ObjectTracks`, even when no tracks are confirmed
+or all tracks have expired. With `emit-trace=true`, `TrackTraces` is also present
+with an empty collection when no history is ready. Disabling trace output omits
+that root; an empty result is not the same as disabled or unavailable output.

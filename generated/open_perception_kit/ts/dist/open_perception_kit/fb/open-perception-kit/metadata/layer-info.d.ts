@@ -34,8 +34,6 @@ export declare class LayerInfo implements flatbuffers.IUnpackableObject<LayerInf
     inferElementId(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     labelFamily(): string | null;
     labelFamily(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
-    contentType(): string | null;
-    contentType(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     compositingMode(): string | null;
     compositingMode(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     producer(obj?: ProducerInfo): ProducerInfo | null;
@@ -45,7 +43,6 @@ export declare class LayerInfo implements flatbuffers.IUnpackableObject<LayerInf
     static addTags(builder: flatbuffers.Builder, tagsOffset: flatbuffers.Offset): void;
     static addInferElementId(builder: flatbuffers.Builder, inferElementIdOffset: flatbuffers.Offset): void;
     static addLabelFamily(builder: flatbuffers.Builder, labelFamilyOffset: flatbuffers.Offset): void;
-    static addContentType(builder: flatbuffers.Builder, contentTypeOffset: flatbuffers.Offset): void;
     static addCompositingMode(builder: flatbuffers.Builder, compositingModeOffset: flatbuffers.Offset): void;
     static addProducer(builder: flatbuffers.Builder, producerOffset: flatbuffers.Offset): void;
     static endLayerInfo(builder: flatbuffers.Builder): flatbuffers.Offset;
@@ -58,9 +55,8 @@ export declare class LayerInfoT implements flatbuffers.IGeneratedObject {
     tags: string | Uint8Array | null;
     inferElementId: string | Uint8Array | null;
     labelFamily: string | Uint8Array | null;
-    contentType: string | Uint8Array | null;
     compositingMode: string | Uint8Array | null;
     producer: ProducerInfoT | null;
-    constructor(engine?: string | Uint8Array | null, model?: string | Uint8Array | null, tags?: string | Uint8Array | null, inferElementId?: string | Uint8Array | null, labelFamily?: string | Uint8Array | null, contentType?: string | Uint8Array | null, compositingMode?: string | Uint8Array | null, producer?: ProducerInfoT | null);
+    constructor(engine?: string | Uint8Array | null, model?: string | Uint8Array | null, tags?: string | Uint8Array | null, inferElementId?: string | Uint8Array | null, labelFamily?: string | Uint8Array | null, compositingMode?: string | Uint8Array | null, producer?: ProducerInfoT | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

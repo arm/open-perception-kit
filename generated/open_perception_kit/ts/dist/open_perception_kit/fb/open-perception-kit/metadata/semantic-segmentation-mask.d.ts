@@ -27,9 +27,14 @@ export declare class SemanticSegmentationMask implements flatbuffers.IUnpackable
     static getSizePrefixedRootAsSemanticSegmentationMask(bb: flatbuffers.ByteBuffer, obj?: SemanticSegmentationMask): SemanticSegmentationMask;
     object(obj?: ObjectMeta): ObjectMeta | null;
     bitmap(obj?: BitmapData): BitmapData | null;
+    labelSet(): string | null;
+    labelSet(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
+    voidValue(): number | null;
     static startSemanticSegmentationMask(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
     static addBitmap(builder: flatbuffers.Builder, bitmapOffset: flatbuffers.Offset): void;
+    static addLabelSet(builder: flatbuffers.Builder, labelSetOffset: flatbuffers.Offset): void;
+    static addVoidValue(builder: flatbuffers.Builder, voidValue: number): void;
     static endSemanticSegmentationMask(builder: flatbuffers.Builder): flatbuffers.Offset;
     unpack(): SemanticSegmentationMaskT;
     unpackTo(_o: SemanticSegmentationMaskT): void;
@@ -37,6 +42,8 @@ export declare class SemanticSegmentationMask implements flatbuffers.IUnpackable
 export declare class SemanticSegmentationMaskT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
     bitmap: BitmapDataT | null;
-    constructor(object?: ObjectMetaT | null, bitmap?: BitmapDataT | null);
+    labelSet: string | Uint8Array | null;
+    voidValue: number | null;
+    constructor(object?: ObjectMetaT | null, bitmap?: BitmapDataT | null, labelSet?: string | Uint8Array | null, voidValue?: number | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

@@ -1,0 +1,41 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+// Persistent identity is the complete tuple, not the displayed integer alone.
+// session_id is an opaque unique token renewed on tracker reset/restart.
+table TrackIdentity {
+  tracker_id:string;
+  session_id:string;
+  track_id:ulong;
+}
+
+enum TrackObservationState:ubyte { Unspecified, Observed, Predicted }
+enum TrackingTimeSource:ubyte { Unspecified, MediaDelta, FallbackDelta }
+enum TrackAssociationKind:ubyte { Unspecified, New, IoUScore, CosineScore, Reacquired }
+
+table TrackAssociation {
+  // Reported association diagnostic, not the configured matching strategy.
+  // A cosine diagnostic may be available even when IoU/hybrid made the decision.
+  kind:TrackAssociationKind = Unspecified;
+  // IoU in [0,1], or cosine similarity in [-1,1]. New has no score.
+  score:float = null;
+}
+
+table TrackingSample {
+  // One-based processed-frame sequence within this tracker session.
+  frame_index:ulong;
+  // Monotonic tracker-local elapsed milliseconds, not UTC or a media timestamp.
+  // Positive media deltas advance it when available, otherwise the configured
+  // fallback interval does. The first increment uses fallback.
+  elapsed_ms:double;
+  time_source:TrackingTimeSource = Unspecified;
+  state:TrackObservationState = Unspecified;
+}
+
+table TrackTracePoint {
+  // Filtered/estimated box centre in space-local pixels, not a raw detection centre.
+  x:float;
+  y:float;
+  sample:TrackingSample;
+}

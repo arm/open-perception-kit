@@ -127,20 +127,36 @@ multiple related payloads, and one payload can support multiple features.
 
 | Feature | Inputs and presentation |
 | --- | --- |
-| Bounding boxes | Non-face `BoxDetections` or `ObjectTracks`: rectangular boxes and labels. |
-| Face circles | `BoxDetections` or `ObjectTracks` with `humanFace` semantics: circles around faces. |
+| Bounding boxes | `BoxDetections` or `ObjectTracks`: rectangular boxes and labels. |
+| Circular markers | `BoxDetections` or `ObjectTracks`: circles centered on the selected regions. |
 | Tracked objects | `ObjectTracks` plus optional related `TrackTraces`: independently controlled **Boxes** and **Trails**, both enabled by default. |
 | Movement trails | `TrackTraces`: trajectories without boxes. |
-| Classifications | `Classifications`: candidate text or PERSON/NON-PERSON status. |
-| Gaze | `PoseEstimations` with `eyeYawPitch` semantics plus parent face geometry. |
-| Camera contact | `Classifications` with `cameraContact` semantics plus parent face geometry. A dashed ring denotes no contact; a solid ring denotes contact. |
-| Performance text | `PerformanceOverlay`: combined pipeline text, since the schema has no source provenance to separate producers. |
-| Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
-| Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with current-frame presence indicators. |
-| Instance segmentation | `InstanceSegmentationMasks` with `instanceSegmentation` semantics: separate binary object masks, contrasting outlines, and optional numbered boxes/class/confidence labels. |
-| OCR | Explicitly selected `Classifications` with parent `BoxDetections`, or a `BoxDetections` source directly: region outlines and spatially attached text, without content-type routing. |
+| Classifications | `Classifications`: explicitly declared categorical or recognized-text results; `PersonPresences`: explicit PERSON/NON-PERSON decisions with optional raw-score diagnostics. |
+| Gaze | `GazeMeasurements` with finite degree-angle pairs and an explicit subject observation ID. Exactly one spatially valid `BoxDetection` or `ObjectTrack` supplies the arrow's center. |
+| Camera contact | `CameraContacts` plus the uniquely referenced box/track subject. Explicit outcomes determine style: dashed for no contact, solid for contact. Unavailable results have no marker. |
+| Performance text | `PerformanceMeasurements`: numeric timings and FPS formatted as combined pipeline text; producer and scope IDs keep metric histories independent of labels and order. |
+| Background replacement | `SegmentationMasks` declaring `BackgroundOpacity` and an explicit image region: graded background opacity over the original video. |
+| Semantic segmentation | `SemanticSegmentationMasks` with declared label namespace, encoding, image region and optional void value; per-class controls and displayed-mask presence. |
+| Instance segmentation | `InstanceSegmentationMasks` with binary membership and declared image regions; contrasting outlines and optional boxes/class/confidence labels. |
+| OCR | Explicitly selected recognized-text `Classifications` with `BoxDetections` subjects, or a `BoxDetections` source directly; explicit geometry and independent text/region controls. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
+
+Classification candidate order is explicit in the list; coordinate fields no
+longer encode rank. Label-set identity is retained separately from display text.
+Contact/presence use their explicit SDK payload roots.
+
+Gaze subjects use `subject_id`, independently of derivation parents and persistent
+track IDs. Duplicate subjects are ambiguous even if one has invalid geometry.
+Missing/invalid subjects and unavailable/non-finite angles produce no arrow;
+measured zero remains distinct from unavailable. The projection uses unmirrored
+image axes (positive yaw left, positive pitch up near forward gaze). Gaze selection
+and subject eligibility use the SDK root and explicit subject references.
+
+Box and trace geometry carries its own source-image basis. The decoder resolves
+crop-local/normalized coordinates before rendering; neither derivation parents
+nor the first frame record select a box's coordinate space. Unplaceable geometry
+is omitted from overlays and reported as unavailable in the output panel.
 
 Decoding requires the existing `perception-frame-results+base64` encoding and
 exact SDK producer identity. Invalid/incompatible matched packets clear current
@@ -150,20 +166,20 @@ a payload does not imply that a renderer is registered for it.
 
 ## Source identity and lifecycle
 
-Primary selections match payload family, semantic content, engine, model,
+Primary selections match payload family, engine, model,
 inference element, label family, and producer instance/component/implementation.
 They do not depend on payload order, detection count, or per-frame object IDs.
 Repeated payloads with identical provenance (for example, per-face crop iterations)
 form one selectable source. Missing identity fields are not inferred.
 
-Preferences are stored per browser origin under `opk-overlays:v2`:
+Preferences are stored per browser origin under `opk-overlays:v3`:
 
 ```json
 {
   "featureId": "tracked-objects",
   "selection": {"primary": {"...": "existing full source selector"}},
   "enabled": true,
-  "settings": {"boxes": true, "trails": true, "color": "#ff3030", "opacity": 1}
+  "settings": {"boxes": true, "trails": true, "shape": "rectangle", "color": "#ff3030", "opacity": 1}
 }
 ```
 
@@ -186,7 +202,7 @@ is unsupported still cannot be added as working overlays.
 - **Unsupported**: the feature or semantic interpretation is unsupported.
 - **Hidden**: the source is present, but the user unchecked the overlay.
 - **Waiting for source**: configuration remains, but no matching primary payload
-  exists in the current frame. Previous-frame detections are not drawn.
+  exists in the latest metadata frame. Drawing follows the [overlay timing](#overlay-timing) below.
 - **Choose a source**: an unbound overlay has multiple compatible observed sources
   and needs an explicit choice. Once selected, normal source matching applies.
 
@@ -200,33 +216,32 @@ Saved and draft sources remain selectable while editing, even if unavailable.
 Discovering more sources reveals **From** without changing the selection or draft
 styles. Presentation labels never change the full source key.
 
-### Migration from payload-based overlays
+### Migration to explicit presentation
 
-Previously saved **Bounding boxes** overlays bound to `humanFace` sources are
-automatically relabelled **Face circles**, preserving their source, color, opacity,
-visibility, and order. Unbound bounding-box overlays remain unchanged.
+The first load without a v3 record migrates `opk-overlays:v2`, retaining explicit
+renderers, producer selectors, order, visibility and settings while dropping
+retired selector fields. A notice explains the change; the previous record remains
+as a backup. Failed writes leave migrated overlays usable in memory. Unknown
+features remain visible as unsupported. Earlier payload roots are not relabelled
+through semantic tags.
 
-The first load without a v2 record migrates `opk-overlays:v1`, retaining primary
-selectors, order, visibility, color, and opacity. The old record remains as a
-backup; unsuccessful writes leave migrated overlays usable in memory. Unknown
-feature records remain visible as unsupported rather than being dropped.
-
-Old tracked-box overlays become **Tracked objects** with **Boxes** enabled. If a
-separate trail overlay previously overrode that source, migration initializes
-the tracked feature's **Trails** checkbox to false, preserving the prior drawing.
-Otherwise it starts true. This is a one-time conversion: afterward each feature
-owns its controls, with no cross-overlay override behavior.
+The existing circular-marker feature ID is retained for saved selections. Both
+circle and rectangle features accept typed boxes; tracked objects expose an
+explicit **Shape** choice, defaulting to rectangle. A semantic label never changes
+the renderer or shape.
 
 ## Relationships and geometry
 
 `indexFrame()` builds output, payload-family, producer, object-ID, and
-producer/track-ID indexes once per incoming frame. Entries retain all candidates,
+tracker/session/track-identity indexes once per incoming frame. Entries retain all candidates,
 including ambiguous identities. Discovery caches only descriptors; indexes are
 replaced on the next message and cleared on disconnect.
 
-- Tracked-object trails join by producer component/instance and `trackId`.
+- Tracked-object trails join by the explicit `(trackerId, sessionId, trackId)` identity,
+  independently of display/provenance fields. Duplicate identities remain ambiguous;
+  the trail's last sample must agree with the current track observation.
   Model names, engine labels, and label families are not relationship keys.
-  Missing producer identity or trail history gives a partial result. Multiple
+  Missing trail history gives a partial result; producer metadata is not required for this join. Multiple
   matching trails are ambiguous and omitted. No browser-side history is invented.
 - Gaze and camera contact join `parentId` to face object IDs in the full frame,
   independently of whether face geometry is visibly drawn. Missing or ambiguous
@@ -234,12 +249,24 @@ replaced on the next message and cleared on disconnect.
 - The persistent full selector still determines which primary output the user
   chose. It is intentionally separate from semantic relationship keys.
 
-Rendering uses WebRTC metadata matched to the displayed frame's RTP timestamp.
-Missing, expired or invalid matched metadata clears the overlay; there is no
-fallback to the independently arriving metadata stream. Browsers without
+### Overlay timing
+
+Rendering normally uses WebRTC metadata matched to the displayed frame's RTP timestamp.
+When frame metadata is missing, overlays retain their last matched results
+for up to 100 ms from the first missing frame; further misses do not extend this
+window. Fresh results replace them immediately, including valid empty detections.
+Invalid matched packets and video resets clear retained results. Editing an overlay
+preserves the shared frame and any existing hold deadline; its new source is
+resolved against that frame. Legends follow the retained overlays. During a hold,
+video continues advancing, so boxes, masks and other annotations can lag moving
+objects. The 100 ms limit starts at the first miss, not at the retained frame's
+timestamp; expiry occurs on the next drawing callback. This reduces flicker but
+does not guarantee alignment. There is no fallback to the independently arriving
+metadata stream. Browsers without
 `requestVideoFrameCallback` do not render overlays. The independent metadata
 channel still supplies discovery and inspection before video is connected.
-UI and image-loading redraws reuse only the displayed frame's matched results. Geometry
+UI and image-loading redraws reuse the same drawing state, including any active
+overlay hold. Geometry
 prefers `FrameContext` video dimensions, otherwise received video dimensions. The
 mapper scales source-image coordinates into the contained video rectangle; it
 does not apply a new crop/letterbox transform. Producers must supply coordinates
@@ -262,7 +289,7 @@ semantic resolution, rendering, and optional default overrides.
 | `validateSettings(settings)` | Return normalized settings, or `null` for invalid saved data. |
 | `discover(catalog)` | Return compatible primary descriptors from the observed-source Map. Match semantic requirements as well as family, and support empty payloads. Also used for unique, one-time binding of waiting overlays. |
 | `requiresExplicitSource` | Optional flag: always offer a source picker when candidates exist and never auto-bind a pending overlay. Used by OCR, whose payload types are shared with other tasks. |
-| `resolve(index, selection, settings)` | Resolve current-frame inputs and relationships. Return `state`, `message`, `items`, and feature-specific resolved data. |
+| `resolve(index, selection, settings)` | Resolve inputs and relationships within the supplied frame, which may be retained during a metadata gap. Return `state`, `message`, `items`, and feature-specific resolved data. |
 | `render(target, resolved, settings)` | Draw resolved data. Target supplies canvas/context, video, mapper, shared layout state, time, and the owning overlay for resource caching. |
 | `renderAnnotations(target, resolved, settings)` | Optional annotation pass for raster features, drawn at priority `0` after backgrounds. The resolved inputs and opacity are shared with `render`; stable overlay order applies within each priority. |
 | `legend(resolved, settings)` | Optional `{entries: [{id, label, color, present}], message}` for the expanded row. Uses displayed-frame results; controls retain their DOM nodes across frames. |
@@ -291,7 +318,7 @@ change the class IDs or incoming metadata. Spaces around a name are trimmed.
 **Reset labels** restores all names in that overlay to their numeric defaults,
 preserving colors, opacity, and visibility; the reset is saved immediately.
 Hover the name for its ID and **In frame** or **Not in frame** status. Presence
-follows matched metadata even when the overlay or class is hidden. **Unavailable**
+follows the displayed mask's metadata, including the [overlay hold](#overlay-timing), even when the overlay or class is hidden. **Unavailable**
 means there is no valid matched output, rather than asserting the class is absent. Controls
 retain class-specific accessible labels without visible field labels.
 Rows are ordered by ID. Observed rows stay available when temporarily absent,
@@ -306,28 +333,27 @@ immediately. Incoming frames update presence without rebuilding the controls or
 interrupting keyboard focus. Preferences are independent for each overlay.
 
 The renderer has no dataset-specific class names or palettes. Metadata contains
-class IDs and a label-family identifier, but no class-name dictionary or colors.
+class IDs and an explicit label-set namespace, but no class-name dictionary or colors.
 Default colors are generated deterministically from the numeric IDs; they convey
 neither class meaning nor confidence. `labelFamily` remains part of source
 identity but does not select a browser-side lookup table. Class names in ONNX
 model metadata are not currently carried in FrameResults. Previously saved
 per-class colors, visibility, and opacity still apply to their IDs.
 
-The payload defines no ignore/void sentinel: neither
-`0` nor `255` is implicitly transparent. This is a class map, not an RVM alpha mask.
+Only the payload's optional `voidValue` is transparent and excluded from observed
+classes. Neither `0` nor `255` is implicitly void. This is a class map, not an opacity mask.
 
-Rendering requires one tightly packed `Uint8` bitmap per selected source, with a
-nonzero parent ID resolving uniquely to a `FrameContext` video. Its dimensions
-must equal that uncropped video's original dimensions. Dimensions are bounded
-to 8192 per side and 16,777,216 pixels total. Missing parents, duplicate maps,
-unsupported types, invalid byte lengths, and oversized maps draw nothing and
-show a status. The native parser already removes model-input letterboxing;
-the browser scales with nearest-neighbor sampling into the contained video
-rectangle without applying that transform again.
+Rendering requires one tightly packed `Uint8` or little-endian `Uint32LE` class map
+per selected source and a valid `ImageSpace`. The grid spans the declared region;
+its resolution need not equal the source dimensions. No derivation parent selects
+placement. Grid dimensions are bounded to 8192 per side and 16,777,216 pixels,
+with at most 4096 distinct non-void classes/preferences. Invalid data and duplicate
+maps draw nothing and show a status. Nearest-neighbor placement respects crop
+origins and extents without reapplying model-input letterboxing.
 
-The mask and presence indicators use only metadata matched to the displayed video
-frame. Unmatched frames and empty semantic payloads clear the mask and mark class
-presence unavailable; independent live
+The mask and presence indicators share the [overlay timing](#overlay-timing):
+unmatched frames briefly retain both; expiry and resets clear them. Fresh empty
+payloads clear the mask and remain successful empty results. Independent live
 metadata only discovers sources. Colorized pixels are cached per overlay and
 invalidated when its mask or class styles change. Source, visibility, order,
 master opacity, and per-class names/visibility/color/opacity are saved; class maps and
@@ -341,16 +367,18 @@ Choose **Instance segmentation** to show separate objects from an
 `InstanceSegmentationMasks` source. It reuses the semantic feature's compact
 class switches, colors, opacity, editable names, and **Reset labels**. Preferences
 remain independent per overlay and source. No dataset-specific labels are built
-in; signed class IDs from `-1` (the schema's unspecified default) through
-`2147483647` are accepted, independently of the binary bitmap's Uint8 storage.
+in. Class IDs are optional unsigned values through `4294967295`. Absence displays
+as **Unclassified**, not class zero. The saved UI key `-1` retains unclassified
+style preferences; it is not written back as a metadata class ID.
 
-Each instance requires a source-sized `Uint8` bitmap containing only `0` and `1`:
+Each instance requires a `Uint8` bitmap containing only `0` and `1`:
 `0` is outside the object, and `1` is foreground at the configured class opacity.
 It is neither a per-pixel class ID nor an alpha byte. Empty all-zero masks do not
-draw or mark their class present. Each nonempty mask has a contrasting one-source-
+draw or mark their class present. Each nonempty mask has a contrasting one-grid-
 pixel outline, so touching objects of the same class are distinguishable.
 **Boxes and labels** (enabled by default) adds each object's white bounding box, class
-name, confidence, and frame-local number (`#1`, `#2`, ...). Numbers follow payload
+name, available confidence, and frame-local number (`#1`, `#2`, ...), when a box is
+provided. Missing boxes do not suppress masks. Numbers follow payload
 order and may change every frame; they are not tracking identities.
 
 The class's selected color fills its masks. Black or white outlines are chosen
@@ -360,42 +388,50 @@ per overlapping mask. Hiding a class reveals any visible instance underneath.
 The final raster is blended using the master opacity. Class opacity also applies
 to its boxes and labels, and label changes do not invalidate cached mask pixels.
 
-All masks for a source must refer unambiguously to the same uncropped VideoFrame
-and match its original dimensions. The bitmap is authoritative for placement;
-boxes are source-image annotations, not an instruction to stretch a mask into an
-ROI. Boxes must be finite, positive-sized, and within the source frame (subpixel
-Float32 rounding at the edge is tolerated and clipped for drawing); confidence
-must be finite and within `[0,1]`. The renderer rejects the selected source's
+All masks for a source must declare the same source-frame identity/dimensions and
+compatible class namespaces. Their grids and crop regions may differ. Bitmap
+`ImageSpace` is authoritative for placement; optional boxes are annotations with
+their own declared units/space, not mask placement transforms. Boxes are projected
+and clipped for drawing. Optional confidence must be finite and within `[0,1]`.
+The renderer rejects the selected source's
 entire mask set when an item is malformed, rather than displaying a misleading
 partial result. It supports at most 512 masks and 67,108,864 total mask pixels per
 source/frame, checked before scanning pixel values. This aggregate budget is
 separate from the unchanged per-bitmap limits (8192 per side, 16,777,216 pixels)
-and permits 32 full-HD or eight UHD full-frame masks. Binary validation and
+and applies the same per-image bound to the display-pixel composition surface. Binary validation and
 compositing remain bounded even when many large masks are supplied.
 The entire bitmap is validated; actual foreground bounds then limit compositing
 work, independently of the supplied annotation box.
 
-Drawing uses only displayed-frame-matched metadata and nearest-neighbor scaling
-inside the contained video rectangle. Missing/unmatched frames clear both raster
-and annotations. Mask validation is cached per indexed output, and one composite
-canvas is cached per overlay rather than allocating a canvas per object.
+Drawing uses nearest-neighbor scaling inside the contained video rectangle.
+Raster and annotations share the [overlay hold and clearing rules](#overlay-timing).
+Mask validation is cached per indexed output, and one composite
+canvas and reusable scratch raster are cached per overlay. Native canvas
+destination-out/source-over composition makes later membership replace earlier
+pixels without accumulating opacity, including for differently sized crop grids.
+Composition uses the displayed video dimensions and device-pixel ratio rather
+than source-image resolution, so fine crop grids are not prematurely downsampled.
+Resize and DPR changes invalidate the raster cache even on a paused frame.
+Displays exceeding 8192 pixels per side or 16,777,216 composition pixels use a
+proportionally reduced intermediate surface; pixel-exact rendering above that
+budget would require tiled composition. Source-frame dimensions describe a
+coordinate basis and do not determine the intermediate allocation.
 
 ## OCR
 
 Choose **OCR**, then explicitly select **From**:
 
-- A `Classifications` source supplies recognized text. Each classification's
-  `parent_id` must uniquely identify a current-frame `BoxDetections` object.
-  Geometry comes from that parent box, not candidate coordinates or array order.
+- A `Classifications` source supplies `RecognizedText` records with no categorical
+  namespace/ID. Each `subject_id` must uniquely identify a current-frame
+  `BoxDetections` object. Geometry comes from that subject's declared image space,
+  not derivation parents, candidate coordinates or array order.
   Only the selected recognition source contributes text.
 - A `BoxDetections` source supplies regions directly. Its optional `text` field
   is displayed when populated; otherwise the view is region-only. This mode
   does not borrow results from another classification source.
 
-The OCR feature routes on these schema payload types and object relationships,
-not `contentType`, model names, or parser names. Shared source identity still
-retains the existing provenance fields; this is not a repository-wide removal
-of the legacy content-type contract. Generic box/classification producers can
+The OCR feature uses these schema payload types and object relationships.
+Shared source identity retains provenance fields. Generic box/classification producers can
 also be selected intentionally. When a pending overlay discovers outputs, use
 **Change source…** to choose one rather than automatically binding to the first.
 
@@ -425,22 +461,24 @@ settings enable both controls, unless a new explicit choice is already saved.
 In EXPKITS-1443, the text score is the mean retained-character probability after
 CTC decoding, not a calibrated probability that the entire string is correct.
 
-The supported geometry is a finite, positive axis-aligned box in an uncropped
-parent `FrameContext` video's original coordinates. Model-input letterboxing has
-already been removed by the producer. The current OCR integration exports
+The supported geometry is a finite, positive axis-aligned box with explicit image
+space and units. Crop-local and normalized boxes are projected before rendering;
+no `FrameContext` parent lookup or dimension heuristic is used. The OCR parser exports
 axis-aligned envelopes, not its internal rotated quads; rotated/perspective
-regions and nested ROI transforms are not inferred. Missing or duplicate parent
+regions are not inferred from axis-aligned boxes. Missing or duplicate subject
 objects omit the affected regions. Multiple recognition records/candidates for
 one region retain an unlabelled outline and report ambiguity rather than choosing
 arbitrary text. Malformed geometry/text/scores are omitted with status feedback;
 outputs exceeding 4096 records are rejected.
 
-Only displayed-frame-matched metadata draws. Orphan recognition results never
-become floating labels, and absent/unmatched frames clear the overlay. Preferences
+OCR follows the shared [overlay hold and clearing rules](#overlay-timing).
+Orphan recognition results never become floating labels. Preferences
 persist per selected source/overlay; recognized strings and frame relationships
 are not saved. For detector regions that remain visible while recognition is
 disabled, add a separate detector-bound OCR overlay and disable **Regions** on
 the recognition overlay to avoid duplicate outlines.
+See [mask representation](../../docs/arch/perception.md#mask-representation) for
+the shared SDK contract used by the overlay validators.
 
 ## Background replacement
 
@@ -453,11 +491,13 @@ resized to a maximum side of 1920 pixels and encoded locally, capped at 2 MB of
 saved data. Nothing is uploaded. Browser storage quotas can still prevent saving;
 the normal save-failure notice then applies and the image works for this session.
 
-The renderer requires one tightly packed `Uint8` mask for the full source frame,
-without model-input letterboxing. A nonzero parent ID must resolve unambiguously
-to the current `VideoFrame`; cropped-object masks are not stretched across the
-frame. The mask is scaled into the contained video rectangle, leaving display
-letterboxing untouched. Missing, ambiguous, invalid or oversized masks draw nothing.
+The renderer requires one tightly packed `Uint8` mask explicitly declaring
+`BackgroundOpacity`, without model-input letterboxing. Its `ImageSpace` determines
+placement independently of parent IDs and compositing strings. Cropped masks
+cover only their declared region within the contained video rectangle, leaving
+the surrounding video and display letterboxing untouched. Missing, ambiguous,
+invalid or oversized masks draw nothing. The existing browser resource limit is
+8192 per dimension and 16,777,216 samples; it is not a wire-format limit.
 
 Mask bytes are **background opacity**: `0` keeps the video, `255` replaces it,
 and intermediate values blend continuously. `RvmParser` converts foreground alpha
@@ -467,13 +507,27 @@ The existing native `opkosd` replacement path still uses its binary mask thresho
 of 150. Omit that native replacement when testing browser backgrounds.
 
 The compositor uses the original video colors, not RVM's separate inferred
-foreground-color tensor. As with the other overlays, its mask comes from metadata
-matched to the displayed video frame. Hiding/removing the overlay,
-missing metadata and disconnects reveal the original video. Decoded images and
+foreground-color tensor. Its mask follows the shared [overlay timing](#overlay-timing),
+including retention during metadata gaps. Hiding/removing the overlay, expiry,
+fresh empty results and video resets reveal the original video. Decoded images and
 scratch canvases are cached per overlay and become collectible when it is removed;
 replacing/clearing an image drops its old decoded resource.
 
 ## Module responsibilities
+
+Model registration exposes `providedOutputs` and `availableInputs` as
+`{payloadType, producerId}` references. `requiredInputs` additionally names each
+`consumerId` and `inputId`. The input selector offers compatible observed upstream
+producers and sends `model_inputs` with the full binding array. An empty producer
+ID is unconnected; unavailable and ambiguous sources are not substituted.
+Declarations describe capability, not whether a producer ran on the current frame.
+
+Decoded layers distinguish available observations, successful empty collections
+and invalid data. Unsupported/malformed payload entries are reported separately;
+invalid outputs do not become valid zero measurements or empty successes. Audio
+source buffers, VAD windows and turn assessments are decoded by payload root,
+retaining nullable probabilities/decisions, zero PTS and discontinuity markers.
+VAD/turn windows remain mono 16 kHz regardless of the original buffer rate.
 
 - `src/frame-results.js`: generated SDK decoding, payload family/provenance, and
   item adaptation. Both detector and tracker outputs remain available.
@@ -486,7 +540,7 @@ replacing/clearing an image drops its old decoded resource.
 - `src/osd-renderer.js`: ordered dispatch and isolated canvas state; overlay opacity
   multiplies the renderer's alpha.
 - `src/overlays.js`: validated feature records, persistence, one-time source
-  binding, and v1 migration.
+  binding, and v2-to-v3 saved-selection migration.
 - `src/client-osd.js`: discovery, native dialog, overlay list, and control binding.
 
 ## Validation

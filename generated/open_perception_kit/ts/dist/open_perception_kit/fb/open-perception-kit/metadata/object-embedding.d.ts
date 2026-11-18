@@ -17,6 +17,7 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
+import { EmbeddingSpace, EmbeddingSpaceT } from '../../open-perception-kit/metadata/embedding-space.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
 export declare class ObjectEmbedding implements flatbuffers.IUnpackableObject<ObjectEmbeddingT> {
     bb: flatbuffers.ByteBuffer | null;
@@ -28,6 +29,8 @@ export declare class ObjectEmbedding implements flatbuffers.IUnpackableObject<Ob
     values(index: number): number | null;
     valuesLength(): number;
     valuesArray(): Float32Array | null;
+    space(obj?: EmbeddingSpace): EmbeddingSpace | null;
+    subjectId(): bigint | null;
     static startObjectEmbedding(builder: flatbuffers.Builder): void;
     static addObject(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset): void;
     static addValues(builder: flatbuffers.Builder, valuesOffset: flatbuffers.Offset): void;
@@ -37,14 +40,17 @@ export declare class ObjectEmbedding implements flatbuffers.IUnpackableObject<Ob
      */
     static createValuesVector(builder: flatbuffers.Builder, data: number[] | Uint8Array): flatbuffers.Offset;
     static startValuesVector(builder: flatbuffers.Builder, numElems: number): void;
+    static addSpace(builder: flatbuffers.Builder, spaceOffset: flatbuffers.Offset): void;
+    static addSubjectId(builder: flatbuffers.Builder, subjectId: bigint): void;
     static endObjectEmbedding(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createObjectEmbedding(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, valuesOffset: flatbuffers.Offset): flatbuffers.Offset;
     unpack(): ObjectEmbeddingT;
     unpackTo(_o: ObjectEmbeddingT): void;
 }
 export declare class ObjectEmbeddingT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
     values: (number)[];
-    constructor(object?: ObjectMetaT | null, values?: (number)[]);
+    space: EmbeddingSpaceT | null;
+    subjectId: bigint | null;
+    constructor(object?: ObjectMetaT | null, values?: (number)[], space?: EmbeddingSpaceT | null, subjectId?: bigint | null);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

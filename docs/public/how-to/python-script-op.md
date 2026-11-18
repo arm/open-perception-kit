@@ -79,6 +79,20 @@ changing a script.
 `instanceId` is optional, but assigning one gives payloads a stable producer
 identity even if the operation order changes.
 
+OpChain format `2.0.0` supports payload-only `providedOutputs` and named
+`requiredInputs`. An output declares `payloadType`, for example
+`open_perception_kit.metadata.BoxDetections`. An input also declares `inputId`
+and optionally `sourceOp` (an earlier Op's `instanceId`) or `producerId` (a concrete
+external producer). An omitted or empty external address is unconnected. Only declare outputs the
+script actually publishes. Declarations are never inferred from script or model names.
+
+The read-only `context.input_producers` mapping resolves each declared input ID
+to its producer ID for the current frame. Select payloads by their SDK type and
+`payload.layer.producer.instanceId == context.input_producers["input"]`.
+An empty address selects nothing. External bindings can change through the
+model UI or `opkinfer input-bindings`; local references remain authored connections.
+See [explicit inputs](../../arch/explicit-input-connections.md).
+
 Place the operation after inference to receive output tensors. It may also be
 used elsewhere in the chain, in which case `tensors` is empty when no inference
 outputs are available. A PythonScript operation may be the terminal
@@ -125,7 +139,6 @@ Python Op. Attach it to the `LayerInfoT` of payloads created by the script:
 ```python
 layer = LayerInfoT(
     model="example-model",
-    contentType="classification",
     producer=context.producer_info,
 )
 ```
@@ -154,6 +167,12 @@ making an explicit copy:
 ```python
 saved_output = tensors[0].array.copy()
 ```
+
+When constructing a new Python-owned box result, preserve its `space` and
+`units`. Copy nested bridge-backed values into generated object-API types such
+as `ImageSpaceT` before passing the result to `env.add`: scoped proxies do not
+implement the Python serializer's `Pack` method. The checked-in
+`development/tests/python_guest/scale_boxes.py` demonstrates this copy.
 
 Python cannot invalidate a retained NumPy view after the call. Such a view may
 observe memory reused by the next inference and eventually become unsafe.

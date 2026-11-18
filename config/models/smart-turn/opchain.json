@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "2.0.0",
   "name": "SmartTurn",
   "displayName": "SmartTurn PCM",
   "task": "Turn detection",
@@ -22,6 +22,7 @@
     },
     {
       "id": "opk-std-ops/GenericPostprocess",
+      "instanceId": "opk-std-ops-GenericPostprocess-0",
       "attributes": {
         "parser": "SmartTurnParser",
         "threshold": 0.5

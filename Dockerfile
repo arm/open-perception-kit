@@ -262,7 +262,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x lldb-17 \
-  nodejs npm pre-commit \
+  pre-commit \
   python3-gi python3-pip \
   shellcheck shfmt sudo \
   wget zip; \
@@ -270,6 +270,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   if [ "${OPK_MLWL}" = enabled ]; then \
     apt-get install -y --no-install-recommends mesa-vulkan-drivers vulkan-tools; \
   fi
+
+COPY --chmod=0755 scripts/private/install-node.sh /usr/local/bin/install-node
+RUN install-node /opt/opk-deps/requirements/build.json
 
 # SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
 # hadolint ignore=SC3043
@@ -557,13 +560,41 @@ USER dev
 # Documentation Image Lane
 # ==============================================================================
 
+FROM python:3.13-slim-trixie AS opk-docs-prepare
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Keep diagram output and the versioned JAR path used by gen-doc.sh, setup.sh and VS Code aligned.
+ARG PLANTUML_VERSION=1.2026.2
+
+# ignore version pinning
+# hadolint ignore=DL3008
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  ca-certificates curl default-jre-headless graphviz fonts-dejavu-core
+
+RUN set -eux; \
+  mkdir -p /opt/opk-deps; \
+  plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
+  plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/opt/opk-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
+
+WORKDIR /work
+
 FROM opk-dev-base AS opk-docs
 
 # Container account name, not an authentication credential.
 # hadolint ignore=DL3064
 ARG USERNAME=dev
-# Keep diagram output and the versioned JAR path used by gen-doc.sh, setup.sh and VS Code aligned.
-ARG PLANTUML_VERSION=1.2026.2
+ARG ARM_DOCS_VERSION=0.12.1
+ARG PNPM_VERSION=12.21.0
+ARG NPM_REGISTRY=https://registry.npmjs.org
+
+ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY} \
+  PNPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 
 USER 0
 
@@ -575,13 +606,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   doxygen graphviz \
-  default-jdk pandoc
+  default-jdk fonts-dejavu-core
 
+COPY --from=opk-docs-prepare /opt/opk-deps/ /opt/opk-deps/
+
+RUN npm install --global "pnpm@${PNPM_VERSION}"
 RUN set -eux; \
-  mkdir -p /opt/opk-deps; \
-  plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
-  plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
-  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/opt/opk-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo /tmp/arm-docs.deb \
+    "https://artifacts.tools.arm.com/tools-deb/pool/arm-docs-github-action_${ARM_DOCS_VERSION}_$(dpkg --print-architecture).deb"; \
+  dpkg --install /tmp/arm-docs.deb; \
+  rm /tmp/arm-docs.deb
 
 USER ${USERNAME}
 WORKDIR /work
@@ -874,6 +908,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
   LC_ALL=C.UTF-8 \
   GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
+  OPK_PLUGIN_PATH=/work/development/build/meson-out \
   LD_LIBRARY_PATH=/opt/opk-deps/onnxruntime/lib:/work/development/build/meson-out \
   OPK_PYTHON_RUNTIME_VENV=/opt/opk-venvs/python-ops-runtime \
   OPK_PIPELINE=${OPK_PIPELINE}
@@ -1028,6 +1063,8 @@ ARG TARGETARCH
 
 WORKDIR /work
 COPY --from=opk-release-sources /work/development development
+COPY --from=opk-release-sources /work/generated generated
+COPY --from=opk-release-sources /work/config/schemas config/schemas
 COPY --from=opk-release-sources /work/requirements/build.json requirements/build.json
 COPY --from=opk-release-sources /work/LICENSE /work/NOTICE ./
 COPY --from=opk-release-sources /work/docs/third-party-licenses.md docs/third-party-licenses.md

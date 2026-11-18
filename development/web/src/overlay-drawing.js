@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+import {contactOutcome, validCandidate, presenceOutcome} from './classification-results.js';
+import {validGaze, wrapDegrees} from './gaze-results.js';
+
 export function createCoordinateMapper({canvasWidth, canvasHeight, videoWidth, videoHeight, perception}) {
   const frame = findVideoFrame(perception);
   const sourceWidth = positiveNumber(frame?.originalWidth) || positiveNumber(videoWidth) || canvasWidth;
@@ -27,10 +30,10 @@ export function createCoordinateMapper({canvasWidth, canvasHeight, videoWidth, v
     sourceWidth,
     sourceHeight,
     display,
-    point(x, y) {
+    point(x, y, basis) {
       return {
-        x: display.x + Number(x || 0) * scaleX,
-        y: display.y + Number(y || 0) * scaleY,
+        x: display.x + Number(x || 0) * (positiveNumber(basis?.frameWidth) ? display.width / basis.frameWidth : scaleX),
+        y: display.y + Number(y || 0) * (positiveNumber(basis?.frameHeight) ? display.height / basis.frameHeight : scaleY),
       };
     },
     lengthX(value) {
@@ -40,12 +43,13 @@ export function createCoordinateMapper({canvasWidth, canvasHeight, videoWidth, v
       return Number(value || 0) * scaleY;
     },
     rect(rect) {
-      const origin = this.point(rect.x, rect.y);
+      if (rect.spatialValid === false) return null;
+      const origin = this.point(rect.x, rect.y, rect);
       return {
         x: origin.x,
         y: origin.y,
-        width: this.lengthX(rect.width ?? rect.w),
-        height: this.lengthY(rect.height ?? rect.h),
+        width: positiveNumber(rect.frameWidth) ? rect.width * display.width / rect.frameWidth : this.lengthX(rect.width ?? rect.w),
+        height: positiveNumber(rect.frameHeight) ? rect.height * display.height / rect.frameHeight : this.lengthY(rect.height ?? rect.h),
       };
     },
   };
@@ -82,7 +86,7 @@ export function findVideoFrame(perception) {
 
 export function drawObjectBox(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
-  if (box.width <= 0 || box.height <= 0) {
+  if (!box || box.width <= 0 || box.height <= 0) {
     return;
   }
 
@@ -91,7 +95,7 @@ export function drawObjectBox(ctx, rect, mapper, color) {
   ctx.lineWidth = 2;
   ctx.strokeRect(box.x, box.y, box.width, box.height);
 
-  const label = rect.label || rect.text || confidenceLabel(rect.confidence);
+  const label = rect.displayText || rect.label || rect.text || confidenceLabel(rect.confidence);
   if (label) {
     drawTextChip(ctx, label, box.x, Math.max(2, box.y - 22), 13, color);
   }
@@ -100,6 +104,7 @@ export function drawObjectBox(ctx, rect, mapper, color) {
 
 export function drawFace(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
+  if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const radius = Math.abs(box.width) / 2;
@@ -143,7 +148,9 @@ export function drawClassification(
     );
   }
   candidates.forEach((candidate, index) => {
-    const text = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
+    if (!validCandidate(classification, candidate)) return;
+    const score = candidate.confidence == null ? '' : ` (${(candidate.confidence * 100).toFixed(1)}%)`;
+    const text = `#${index + 1}: ${candidate.text || (candidate.classId ?? '')}${score}`;
     drawTextChip(
       ctx,
       text,
@@ -177,11 +184,11 @@ export function classificationPanelHeight(candidateCount, heading) {
 }
 
 export function drawPersonClassification(ctx, personClassification, display, now, color) {
-  if (now % 1000 >= 800) {
+  const isPerson = presenceOutcome(personClassification);
+  if (now % 1000 >= 800 || isPerson === null) {
     return;
   }
 
-  const isPerson = Number(personClassification?.yesConfidence || 0) > Number(personClassification?.noConfidence || 0);
   const label = isPerson ? "PERSON" : "NON-PERSON";
   const fontSize = Math.max(28, Math.min(64, display.width / 12));
 
@@ -196,36 +203,41 @@ export function drawPersonClassification(ctx, personClassification, display, now
 
 export function drawTrackTrace(ctx, trace, mapper, color) {
   const points = Array.isArray(trace?.points) ? trace.points : [];
-  if (points.length < 2) {
+  if (trace.trackingValid !== true || trace.spatialValid === false || points.length < 2) {
     return;
   }
 
   const segments = points.length - 1;
   for (let i = 0; i < segments; i += 1) {
-    const from = mapper.point(points[i].x, points[i].y);
-    const to = mapper.point(points[i + 1].x, points[i + 1].y);
+    if (!points[i] || !points[i + 1]) continue;
+    const from = mapper.point(points[i].x, points[i].y, trace);
+    const to = mapper.point(points[i + 1].x, points[i + 1].y, trace);
     const alpha = 0.35 + 0.65 * ((i + 1) / segments);
     drawArrow(ctx, from, to, hexToRgba(color, alpha), 4, 0);
   }
 }
 
-export function drawGazeVector(ctx, yp, parent, mapper, color) {
-  if (nearZero(yp.yaw) && nearZero(yp.pitch)) return;
+export function drawGazeVector(ctx, gaze, parent, mapper, color) {
+  if (!validGaze(gaze)) return;
+  const yawDegrees = wrapDegrees(gaze.angles.yawDegrees);
+  const pitchDegrees = wrapDegrees(gaze.angles.pitchDegrees);
+  if (nearZero(yawDegrees) && nearZero(pitchDegrees)) return;
   const parentBox = mapper.rect(parent);
+  if (!parentBox) return;
   const start = {x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2};
-  drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
+  drawArrow(ctx, start, gazeEndpoint(start, yawDegrees, pitchDegrees, 120), color, 3, 10);
 }
 
 export function drawCameraContactMarker(ctx, classification, face, mapper, color) {
-  const candidate = classification?.candidates?.[0];
-  if (!candidate || !face) {
+  const hasContact = contactOutcome(classification);
+  if (hasContact === null || !face) {
     return;
   }
 
   const box = mapper.rect(face);
+  if (!box) return;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  const hasContact = candidate.classId === 1;
   const radiusBase = Math.min(Math.abs(box.width), Math.abs(box.height)) * 0.5;
   const radius = hasContact ? clamp(radiusBase * 0.65, 18, 80) : clamp(radiusBase * 1.15, 28, 140);
 
@@ -292,8 +304,8 @@ function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {
 }
 
 export function gazeEndpoint(start, yawDeg, pitchDeg, lengthPx) {
-  const yaw = deg2rad(yawDeg);
-  const pitch = deg2rad(pitchDeg);
+  const yaw = wrapDegrees(yawDeg) * Math.PI / 180;
+  const pitch = wrapDegrees(pitchDeg) * Math.PI / 180;
   return {
     x: start.x - Math.sin(yaw) * Math.cos(pitch) * lengthPx,
     y: start.y - Math.sin(pitch) * lengthPx,
@@ -310,10 +322,6 @@ function positiveNumber(value) {
 
 function nearZero(value) {
   return Number(value) < 0.1 && Number(value) > -0.1;
-}
-
-function deg2rad(value) {
-  return Number(value || 0) * Math.PI / 180;
 }
 
 function clamp(value, min, max) {

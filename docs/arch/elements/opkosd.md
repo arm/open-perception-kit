@@ -47,27 +47,32 @@ unshared, linear CPU-mappable memory. Otherwise the pipeline fails and suggests
 
 ## Rendering Model
 
-Rendering is driven by generated payload types and `LayerInfoT::contentType`.
+Rendering is driven by generated payload types and explicit presentation settings.
 Supported paths include:
 
-- `genericObject`: bounding boxes and labels
-- `humanFace`: face-centered circular overlays
-- `classification`: top-k classification text
-- `personClassification`: centered person / non-person status text
-- `eyeYawPitch`: gaze direction vectors anchored to parent faces
-- `cameraContact`: face-centered contact status dot
-- `segmentation`: alpha-blended segmentation maps, or background replacement
-  when `LayerInfoT::compositingMode` requests it and `bg-image` is configured
-- `trackTrace`: tracker history lines
-- `perfdata`: performance text written by `opkperformance`
+- `BoxDetections` and `ObjectTracks`: rectangular boxes and labels, or circles
+  for producers explicitly listed in `circle-producers`. `box-producers=null`
+  displays other typed boxes; an explicit JSON list selects rectangle sources,
+  and `[]` hides rectangles. Both properties can change while playing.
+- `Classifications`: top-k text with an explicit categorical/recognized-text kind
+- `PersonPresences`: centered person / non-person status from the explicit decision
+- `GazeMeasurements`: finite degree-angle pairs projected from the center of an explicitly referenced, unique box or track observation; missing/ambiguous subjects and unavailable angles are omitted
+- `CameraContacts`: contact status dot from the explicit outcome and unique box/track subject
+- `SegmentationMasks`: explicit `RegionOpacity` masks use the existing tint;
+  `BackgroundOpacity` masks use the existing background-replacement threshold
+  and optional `bg-image`. Encoding, exact byte count and `ImageSpace` are validated.
+  Mask meaning and placement are not inferred from content/compositing strings or parents.
+- `TrackTraces`: tracker history lines
+- `PerformanceMeasurements`: numeric measurements from `opkperformance`, formatted for display
 
-UUID parent relationships are used when a rendered result depends on another
-object, such as gaze vectors anchored to face rectangles.
+Contact and gaze use explicit `subject_id` references to box/track observations.
+Derivation parents and persistent track IDs are not used as fallback subjects.
 
 ## Memory And Performance
 
 - Frames are modified in place.
-- No full-frame overlay canvas is allocated.
+- Full-frame opacity masks use their existing grid directly. Cropped opacity
+  masks use a temporary surface-sized byte plane with zero coverage outside the ROI.
 - Rendering is CPU-bound and assumes linear image memory.
 
 Treat `opkosd` as a debugging overlay rather than the long-term application UI

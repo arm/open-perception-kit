@@ -23,6 +23,60 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - Unreleased
+
+### Changed
+
+- Upgrade the FlowData generator to v0.7.1 and regenerate all OPK SDKs. Payload
+  identities now depend on their qualified root names rather than schema contents.
+- Adopt the four-state producer identity API. OPK consumers accept matching SDK
+  names and major versions; schema hashes remain diagnostic information.
+- Mark the SDK packages as development prereleases while the 1.0 refactor is in
+  progress; the packet identity remains `1.0.0`.
+- Make image coordinate spaces, optional category identity, classification kinds
+  and subjects, contact/presence outcomes, gaze angles, mask encodings and meanings,
+  embedding spaces, and track identity/history explicit in metadata.
+- Publish structured performance measurements with producer/scope identity and
+  independent measurement availability.
+- Connect model inputs to concrete producers, using SDK payload roots for compatibility.
+  Allow explicit live input selection and typed Python input/output declarations.
+- Preserve successful empty results separately from unavailable output. Expose audio
+  source buffers and typed VAD/turn assessments across shared inspection and comparison.
+- Integrate semantic/instance segmentation and OCR overlay controls with the 1.0
+  contracts: declared mask regions/encodings/void values, optional annotations,
+  explicit OCR subjects and recognized-text kinds.
+
+### Fixed
+
+- Correct category-zero handling, non-finite measurement handling, subject and
+  producer ambiguity, gaze angular wrap comparison, and embedding compatibility checks.
+- Preserve mask placement/opacity semantics, elapsed-time track history and valid
+  display labels while rejecting invalid or contradictory metadata.
+- Prevent unsupported or malformed payloads from silently producing successful
+  comparisons, and wait for asynchronous metadata publication in finite pipeline tests.
+- Supply PaddleOCR's source-image basis through detection and recognition preprocessing;
+  preserve successful empty classifier/detector/tracker results without phantom headings,
+  and compare self-contained audio windows independently of retained derivation parents.
+- Preserve fine instance-mask cells at display resolution and refresh composition
+  on resize/DPR changes. Match derived track subjects by identity as well as geometry
+  so coincident tracks cannot hide swapped outcomes in regression comparisons.
+
+### Breaking
+
+- SDK 1.0 uses new payload identities and requires producers and consumers to be
+  upgraded together. Earlier SDK packets are not supported. Payload shapes and
+  processing semantics have changed; retire old pose/performance payloads and
+  implicit string/parent-based interpretation rather than adding compatibility adapters.
+- Replace string-only capability interfaces and control messages with typed output
+  declarations. Custom Op libraries and WebUI clients must be upgraded together.
+- Remove `LayerInfo.content_type`, Model `contentType`, semantic capability roles
+  and subtype-based ROI/tracker/rendering selection. Model and OpChain formats move
+  to `2.0.0`; migrate sources explicitly and rebuild intermediate SDK 1.0 snapshots
+  together. See [explicit result inputs](docs/arch/explicit-input-connections.md).
+- Keep development package versions until stable release preparation is complete. See the
+  [SDK 1.0 verification record](docs/arch/sdk-1.0-verification.md) for scope and limits;
+  this entry does not authorize publication.
+
 ## [0.1.3]
 
 This release includes new functionality under the approved 0.1.3 version

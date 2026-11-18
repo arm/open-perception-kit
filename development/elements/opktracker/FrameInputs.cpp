@@ -17,7 +17,8 @@
 
 #include "FrameInputs.h"
 
-#include "Utils.h"
+#include "opk/Embedding.h"
+#include <algorithm>
 
 namespace opk::tracker::frameinputs {
 
@@ -25,43 +26,81 @@ EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameR
                                  const Config &config) {
     EmbeddingBatch embeddings;
 
-    if (!config.useEmbeddings) {
+    if (!config.useEmbeddings || config.embeddingProducerId.empty()) {
         return embeddings;
     }
 
     frameResults.for_each<open_perception_kit::metadata::ObjectEmbeddingsT>(
         [&embeddings, &config](const auto &payload) {
-            if (!payload.layer || payload.layer->content_type != config.embeddingContentType) {
+            if (!payload.layer || !payload.layer->producer ||
+                payload.layer->producer->instance_id != config.embeddingProducerId) {
                 return;
             }
 
             for (const auto &embedding : payload.embeddings) {
-                if (!embedding || !embedding->object) {
+                if (!embedding || !embedding->subject_id || *embedding->subject_id == 0) {
                     continue;
                 }
-                if (isValidEmbedding(embedding->values)) {
-                    embeddings.insert_or_assign(embedding->object->parent_id, &embedding->values);
-                }
+                if (!config.embeddingSpaceId.empty() &&
+                    (!embedding->space || embedding->space->id != config.embeddingSpaceId))
+                    continue;
+                // Count before vector validation: a duplicate invalid candidate is still ambiguous.
+                const auto [entry, inserted] =
+                    embeddings.emplace(*embedding->subject_id, embedding.get());
+                if (!inserted)
+                    entry->second = nullptr;
             }
         });
 
+    for (auto &[subject, embedding] : embeddings) {
+        const auto *box = open_perception_kit::findSubjectBox(frameResults, subject);
+        if (!embedding || !opk::embedding::valid(*embedding) || !box || !box->space ||
+            !open_perception_kit::projectBoundingBox(*box, box->space->width, box->space->height))
+            embedding = nullptr;
+    }
     return embeddings;
 }
 
-DetectionBatch collectDetections(const open_perception_kit::FrameResults &frameResults,
-                                 const Config &config) {
-    DetectionBatch detections;
+std::vector<open_perception_kit::metadata::BoxDetectionT>
+collectDetections(const open_perception_kit::FrameResults &frameResults,
+                  const Config &config,
+                  std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> &imageSpace) {
+    std::vector<open_perception_kit::metadata::BoxDetectionT> detections;
 
     frameResults.for_each<open_perception_kit::metadata::BoxDetectionsT>(
-        [&detections, &config](const auto &payload) {
-            if (!payload.layer || payload.layer->content_type != config.contentType) {
+        [&detections, &config, &imageSpace](const auto &payload) {
+            if (!payload.layer || !payload.layer->producer ||
+                std::ranges::find(config.inputProducers, payload.layer->producer->instance_id) ==
+                    config.inputProducers.end()) {
                 return;
             }
 
             for (const auto &detection : payload.detections) {
-                if (detection && detection->object && detection->box) {
-                    detections.push_back(detection.get());
+                if (!detection || !detection->object || !detection->box || !detection->box->space)
+                    continue;
+                const auto &space = *detection->box->space;
+                const auto projected = open_perception_kit::projectBoundingBox(
+                    *detection->box,
+                    imageSpace ? imageSpace->width : space.width,
+                    imageSpace ? imageSpace->height : space.height);
+                if (!projected)
+                    continue;
+                if (!imageSpace) {
+                    imageSpace =
+                        std::make_unique<open_perception_kit::metadata::ImageSpaceT>(space);
+                    imageSpace->origin_x = 0;
+                    imageSpace->origin_y = 0;
+                    imageSpace->extent_width = space.width;
+                    imageSpace->extent_height = space.height;
                 }
+                auto copy = *detection;
+                copy.box->x = static_cast<float>((*projected)[0]);
+                copy.box->y = static_cast<float>((*projected)[1]);
+                copy.box->width = static_cast<float>((*projected)[2]);
+                copy.box->height = static_cast<float>((*projected)[3]);
+                copy.box->units = open_perception_kit::metadata::CoordinateUnits::Pixels;
+                *copy.box->space = *imageSpace;
+                detections.push_back(std::move(copy));
             }
         });
 

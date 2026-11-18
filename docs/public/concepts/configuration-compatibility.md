@@ -25,8 +25,8 @@ limitations under the License.
 # Configuration compatibility
 
 Every pipeline preset, OpChain, and model descriptor must declare a string
-version in `MAJOR.MINOR.PATCH` form, initially
-`"version": "1.0.0"`. This configuration version is independent of the OPK
+version in `MAJOR.MINOR.PATCH` form. Current Model and OpChain contracts use
+major 2; pipeline presets use major 1. This configuration version is independent of the OPK
 product version, model artifact format, dependency package versions, and
 FrameResults payload format.
 
@@ -65,8 +65,8 @@ releases remain independently versioned in `development/meson.build`.
 | Contract or dependency | Authoritative source | Owner and compatibility boundary |
 | --- | --- | --- |
 | Pipeline JSON | `config/schemas/v1/pipeline.schema.json` | OPK launcher maintainers own the preset format and execution semantics. |
-| OpChain JSON | `config/schemas/v1/opchain.schema.json` and its referenced Op schemas | OPK Op maintainers own ordering, loops, and built-in attributes. Custom Op authors own their attributes. |
-| Model JSON | `config/schemas/v1/model.schema.json` | OPK model integration maintainers own tensor and preprocessing declarations. Model authors own the artifact and its export requirements. |
+| OpChain JSON | `config/schemas/v2/opchain.schema.json` and its referenced Op schemas | OPK Op maintainers own ordering, loops, and built-in attributes. Custom Op authors own their attributes. |
+| Model JSON | `config/schemas/v2/model.schema.json` | OPK model integration maintainers own tensor and preprocessing declarations. Model authors own the artifact and its export requirements. |
 | SDK descriptor JSON | `tools/perception/sdk.json` and `tools/perception/sdk_config.py` | SDK tooling maintainers own its dependency locks, generator inputs, and release fields. It has no configuration-format version. |
 | OPK runtime, native plugins, and SDK package version | `development/meson.build` | OPK maintainers version and distribute these together. Use components from the same release or source checkout. |
 | Inference frameworks | `Dockerfile` dependency versions and `development/ops-*/meson.build` build integration | Backend maintainers select the packaged framework. Exported models must be supported by that framework. |
@@ -105,7 +105,8 @@ That metadata describes the reader's supported format; file versions record
 that file's evolution. A differing minor still produces the warning described
 above, and the runtime must implement every attribute the file uses.
 
-Each file has its own patch counter. Start newly versioned files at `1.0.0`.
+Each file has its own patch counter. Start new pipeline presets at `1.0.0`,
+and new Model and OpChain descriptors at `2.0.0`.
 When editing a command, model path, tensor declaration, dependency lock, or even
 an inert annotation, increment that file's patch in the same change; do not
 bump unrelated files. A new major or minor contract starts at patch zero and
@@ -114,8 +115,9 @@ numbers track file revisions, not OPK releases or model accuracy. Readers do
 not compare patch history. For manually authored Pipeline, Model, and OpChain
 files, the author owns the bump when changing a versioned descriptor.
 
-The schema directory and resource IDs retain `v1` to identify the supported
-major. Rebuild native consumers after changing their supported contract or
+Schema directories and resource IDs identify each contract's supported major:
+`v1` for pipelines and `v2` for Model and OpChain descriptors.
+Rebuild native consumers after changing their supported contract or
 schemas. Contract families evolve independently.
 
 Model and OpChain schemas
@@ -213,6 +215,41 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+### Model and OpChain format 2.0.0
+
+The current Model and OpChain readers require major **2**. Pipeline presets remain
+major **1**. Rebuild custom Op libraries and upgrade the generated SDK and WebUI together.
+
+1. Remove Model `contentType` and set the Model version to `2.0.0`.
+2. Replace ROI `contentType` with `sourceOp` naming an earlier producer's explicit
+   `instanceId`, or `sourceProducer` naming an external producer. An empty external
+   address declares an unconnected input. Configure it with `opkinfer input-bindings`
+   or the model UI; it never means full-frame processing or a wildcard.
+3. Python `providedOutputs` entries contain only `payloadType`. Replace
+   `requiredOutputs` with `requiredInputs`: `inputId`, `payloadType`, and either
+   `sourceOp` or `producerId`. Remove semantic `role` fields. Callbacks use
+   `context.input_producers` to select the connected producer.
+4. Remove `TurnDetector.vadModel`; the immediately preceding compatible VAD
+   producer is its input. Set migrated OpChains to `2.0.0`.
+5. Replace tracker `content-type` with the `input-producers` JSON array. Embedding
+   matching requires `use-embeddings=true` and an explicit `embedding-producer-id`;
+   `embedding-space-id` remains a comparison-space constraint. Configure native
+   circular markers through `circle-producers`, or choose the browser renderer.
+6. Increment the patch of changed pipeline presets. Validate and run them with
+   their intended artifacts and inputs before replacing deployed configurations.
+7. Supply a nonempty `labelSet` for `KeywordClassificationParser` to identify its
+   ordered class vocabulary in categorical results.
+
+See [explicit result inputs](../../arch/explicit-input-connections.md) for addresses,
+live changes and saved overlay migration. There is no automatic field-semantic converter.
+
+### Earlier format-1 additions
+
+The following records describe the earlier format-1 evolution. Their features are
+included in format 2; the earlier version numbers below apply only to matching
+older readers. Migrate existing Model and OpChain files to `2.0.0` as above for
+the current runtime.
+
 Model reader schema `1.4.0` accepts Float32 `AudioLogMel` inputs.
 OpChain reader schema `1.11.0` adds `GenericAudioPreprocess.logMel`, which requires
 explicit FFT/window/hop/frequency/
@@ -232,7 +269,8 @@ VAD windows once; omission retains its previous hop-sized window behavior.
 
 OpChain reader schema `1.13.0` adds `KeywordClassificationParser`. It requires
 explicit output selection, activation,
-confidence threshold and labels. Configure ignored classes as null labels; see
+confidence threshold and labels. SDK 1.0 also requires a nonempty `labelSet` for
+categorical identity. Configure ignored classes as null labels; see
 the [keyword contract](../../arch/audio-log-mel.md#model-independent-output-parsers).
 
 `SileroVadParser`, shipped in OPK 0.1.3, remains supported for existing v1
@@ -260,6 +298,27 @@ patch version and rebuild the runtime. Both checked-in Silero chains use this
 configuration, preserving their PCM context, inference cadence and VAD policy.
 Migrated results retain the `voiceActivity` content type and model identity; their
 producer implementation is now `VoiceActivityParser`.
+
+OpChain reader schema `1.15.0` adds optional `providedOutputs` and `requiredOutputs`
+to PythonScript attributes. Each entry declares a fully qualified payload root
+and optional role. The runtime's capability interfaces and control messages now
+carry typed declarations; rebuild custom Op libraries and upgrade the WebUI
+together. Existing role-based ROI configuration remains valid. Files adopting
+the new optional declarations should advance their own minor and reset patch.
+
+OpChain reader schema `1.14.0` adds optional `embeddingSpaceId` to
+`ObjectEmbeddingParser`. This is an author-declared, versioned comparison-space
+identity, not a display name. Omitting it still permits transport, but matching
+consumers treat unidentified vectors as unavailable. Upgrade native readers before
+using the new attribute; older schemas reject unknown parser attributes. Existing
+descriptors adopting it should advance their own minor version and reset patch,
+following the per-file version policy. No checked-in embedding-model OpChain
+currently requires migration.
+
+SDK 1.0 replaces the tracker's `embedding-content-type` property with optional
+`embedding-space-id` and `embedding-producer-id` selectors. Do not copy the old
+content-type string as a space ID: declare the actual model/output comparison
+contract. See [embedding spaces](../../arch/perception.md#embedding-spaces-and-selection).
 
 Model reader schema `1.2.0` adds Float32 `ImageBgrChw` inputs with
 `[1,3,H,W]` shapes. Declare normalization `mean` and `std` in B, G, R
@@ -364,7 +423,7 @@ omitted `description`, add a string description as well:
 ```
 
 Existing model and OpChain files using `"version": 1` must also migrate to
-`"version": "1.0.0"`. The SDK descriptor is not part of this configuration
+`"version": "2.0.0"` with the field changes above. The SDK descriptor is not part of this configuration
 version contract and must keep its own unversioned format. For an unversioned
 external Model, OpChain, or pipeline descriptor, compare it with the corresponding
 schema and checked-in example before adding `version`; the number alone does
@@ -400,20 +459,19 @@ outputs retain their behavior. Chains adopting this option use version `1.9.0`.
 Rebuild the runtime and its embedded configuration schemas before using it;
 older readers reject the new attribute.
 
-## OpChain 1.14: audio event classification
+## OpChain 2.1: audio event classification
 
-OpChain reader schema `1.14.0` adds `AudioEventClassificationParser` and optional
+OpChain reader schema `2.1.0` adds `AudioEventClassificationParser` and optional
 log-mel `spectrum`, `centerPadding`, and `frameCount` attributes. Existing chains
-retain power spectra, no waveform padding, and all available frames. Chains using
-the new attributes must rebuild or upgrade native readers and runtime; older
-readers reject these attributes. The YAMNet chain uses the new contract with
-magnitude spectra, centered reflection, a leading frame prefix, and sigmoid
-postprocessing. This reuses `Classifications`; no payload schema changes are needed.
+retain power spectra, no waveform padding, and all available frames. Rebuild
+native readers and runtime before using the new attributes.
 
-## OpChain 1.15: audio event debug logging
+YAMNet uses magnitude spectra, centered reflection, a leading frame prefix, and
+sigmoid postprocessing. Its Model descriptor uses `2.0.0` without `contentType`;
+its OpChain uses `2.1.0`. The parser declares typed `Classifications` output and
+requires a nonempty `labelSet` identifying the class vocabulary. It emits
+categorical classifications with optional scores and class IDs using the existing
+SDK 1.0 schema. No additional payload schema change is required.
 
-OpChain reader schema `1.15.0` adds optional boolean `log` (default `false`) to
-`AudioEventClassificationParser`. When enabled, every accepted candidate is
-printed to stderr with its model, label, class ID and confidence, independently
-of the global log level. Rebuild
-native readers and runtime before using the attribute; older readers reject it.
+Optional boolean `log` (default `false`) prints every accepted candidate to stderr
+with its model, label, class ID and confidence, independently of the global log level.

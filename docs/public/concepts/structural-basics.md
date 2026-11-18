@@ -63,7 +63,7 @@ These contain the project documentation.
   of the release archives.
 - `docs/public/docs-config.json` defines the docs site label, navigation, and sidebar grouping.
 - `docs/public/assets/` contains images referenced by public Markdown pages.
-- `docs/public/static/` contains generated diagrams and assets served at site-root URLs.
+- `docs/public/static/` contains assets served at site-root URLs. Generated diagrams stay in build output.
 - `docs/arch/` contains developer-facing architecture notes.
 - `docs/plantuml/` contains shared PlantUML diagram sources.
 
@@ -72,7 +72,7 @@ This contains the main helper scripts you are expected to run.
 
 - `scripts/build.sh` builds the runtime.
 - `scripts/serve-docs.sh` and `scripts/serve-docs-plain.sh` serve the docs.
-- `scripts/gen-doc.sh` refreshes generated documentation.
+- `scripts/gen-doc.sh` generates the local documentation site; rerun it explicitly after edits.
 - `scripts/docker-nuke.sh` stops and removes Docker containers created by the project.
 - `scripts/private/` contains internal helper scripts. Most users do not need to call them directly.
 

@@ -165,10 +165,9 @@ class GeneratorBridgeTests(unittest.TestCase):
             bridge._split_top_level_semicolons('a:"x;([)]///*";b'),
             ['a:"x;([)]///*"', "b"],
         )
-        self.assertEqual(bridge._split_top_level_semicolons('a;"unfinished;b'), ["a", '"unfinished;b'])
+        self.assertEqual(bridge._split_top_level_semicolons('a;"unfinished;b'), ["a", '"unfinished', 'b'])
         self.assertEqual(bridge._split_top_level_semicolons(r'a:"\\";b'), [r'a:"\\"', "b"])
-        # The existing splitter counts every quote, including a backslash-escaped quote.
-        self.assertEqual(bridge._split_top_level_semicolons(r'a:"x\";b";c'), [r'a:"x\"', 'b";c'])
+        self.assertEqual(bridge._split_top_level_semicolons(r'a:"x\";b";c'), [r'a:"x\";b"', 'c'])
         self.assertEqual(bridge._split_top_level_semicolons('"tail' + "\\"), ['"tail' + "\\"])
 
     def test_field_names_and_defaults(self) -> None:
@@ -207,12 +206,10 @@ class GeneratorBridgeTests(unittest.TestCase):
                     char in string.ascii_letters + string.digits + "_",
                 )
 
-    def test_mangle_keeps_ascii_only_identifiers(self) -> None:
+    def test_mangle_preserves_distinct_qualified_names(self) -> None:
         for value, expected in (
-            ("", "_"), ("9a", "_9a"), ("Demo.Payload", "Demo_Payload"),
-            ("a-b/c:d", "a_b_c_d"), ("_valid9", "_valid9"),
-            ("caf\u00e9", "caf_"), ("\u0661\u212a\U0001f600", "___"),
-            ("e\u0301", "e_"), ("a\nb", "a_b"),
+            ("", "n"), ("9a", "n3961"), ("Demo.Payload", "n44656d6f2e5061796c6f6164"),
+            ("a.b", "n612e62"), ("a_b", "n615f62"), ("caf\u00e9", "n636166c3a9"),
         ):
             with self.subTest(value=value):
                 self.assertEqual(bridge._mangle(value), expected)
@@ -317,13 +314,13 @@ class GeneratorBridgeTests(unittest.TestCase):
     def test_namespace_resolution_across_schema_files(self) -> None:
         context = replace(self.context, schema_paths=[Path("one.fbs"), Path("two.fbs")])
         with patch.object(Path, "read_text", side_effect=[
-            "namespace A; table Payload {points:[B.Point]; state:State;}",
+            "namespace A; table Payload {points:[B.Point]; state:B.State;}",
             "namespace B; struct Point {x:float;} enum State:byte {ZERO}",
         ]):
             types = bridge._schema_types(context)
         fields = types["A.Payload"].fields
         self.assertEqual(fields[0].type_ref.element, bridge.BridgeTypeRef("struct", "B.Point", "B.Point"))
-        self.assertEqual(fields[1].type_ref, bridge.BridgeTypeRef("enum", "State", "B.State"))
+        self.assertEqual(fields[1].type_ref, bridge.BridgeTypeRef("enum", "B.State", "B.State"))
 
     def test_named_resolution_qualification_global_and_ambiguity(self) -> None:
         types = {item.qualified_name: item for item in self.parse(
@@ -331,16 +328,17 @@ class GeneratorBridgeTests(unittest.TestCase):
         )}
         for name, namespace, expected in (
             ("Global", "A", "Global"), ("Local", "A", "A.Local"),
-            ("Remote", "A", "B.Remote"), ("B.Remote", "A", "B.Remote"),
+            ("B.Remote", "A", "B.Remote"),
         ):
             with self.subTest(name=name):
                 self.assertEqual(bridge._resolve_named_type(name, namespace, types), expected)
         ambiguous = {item.qualified_name: item for item in self.parse(
             "table Item {} namespace A; table Item {} namespace B; table Item {}"
         )}
-        with self.assertRaises(SystemExit) as raised:
-            bridge._resolve_named_type("Item", "A", ambiguous)
-        self.assertIn("A.Item, Item, B.Item", str(raised.exception))
+        self.assertEqual(bridge._resolve_named_type("Item", "A", ambiguous), "A.Item")
+        self.assertEqual(bridge._resolve_named_type("Item", "A.Child", ambiguous), "A.Item")
+        with self.assertRaisesRegex(SystemExit, "cannot resolve.*Remote"):
+            bridge._resolve_named_type("Remote", "A", types)
         self.assertEqual(bridge._resolve_named_type("A.Item", "B", ambiguous), "A.Item")
         with self.assertRaisesRegex(SystemExit, "cannot resolve.*Missing.Item"):
             bridge._resolve_named_type("Missing.Item", "A", types)
@@ -402,13 +400,14 @@ class GeneratorBridgeTests(unittest.TestCase):
         child = types["Demo.Child"]
         self.assertEqual(bridge._field_access(point, point.fields[0]), "value->x()")
         self.assertEqual(bridge._field_access(child, child.fields[0]), "value->display_name")
-        self.assertEqual(bridge._field_getter_name(child, child.fields[0]), "get_Demo_Child_display_name")
+        self.assertEqual(bridge._field_getter_name(child, child.fields[0]),
+                         "get_n44656d6f2e4368696c64_n646973706c61795f6e616d65")
         self.assertEqual(bridge._python_fb_module("fixture", child), "fixture.fb.Demo.Child")
         global_type = self.parse("table Global {}")[0]
         self.assertEqual(bridge._python_fb_module("fixture", global_type), "fixture.fb.Global")
 
     def test_emitted_bridge_structures_without_writing_files(self) -> None:
-        context = replace(self.context, public_name="fixture_python")
+        context = replace(self.context, sdk_name="fixture_python")
         with patch.object(Path, "read_text", return_value=SCHEMA), patch.object(Path, "mkdir") as mkdir, patch.object(Path, "write_text") as write_text:
             paths = bridge.generate_python_bridge(context, [self.entry])
         directory = self.context.cpp_root / "python_bridge"
@@ -421,12 +420,12 @@ class GeneratorBridgeTests(unittest.TestCase):
         for snippet in (
             '#include "fixture_python.h"',
             "namespace fixture_python::python_bridge",
-            "[[nodiscard]] bool initialize_module();",
+            "void append_inittab();",
             "class scoped_envelope",
         ):
             self.assertIn(snippet, header)
         snippets = (
-            '#include "fixture_python_python_bridge.h"', "kind_Demo_Payload", '"fixture_python.fb.Demo.Payload", "PayloadT"',
+            '#include "fixture_python_python_bridge.h"', f"kind_{bridge._mangle('Demo.Payload')}", '"fixture_python.fb.Demo.Payload", "PayloadT"',
             'add_known_payload<Demo::PayloadT>(*live->envelope, value, "TEST")',
             "std::vector<std::unique_ptr<Demo::ChildT>>", "std::vector<Demo::Point>",
             "std::vector<Demo::State>", "std::vector<std::string>", "std::vector<std::int16_t>",
@@ -434,17 +433,17 @@ class GeneratorBridgeTests(unittest.TestCase):
             "return py_long_from_unsigned(value->unsigned_value);", "return py_long_from_enum(value->state);",
             "return PyFloat_FromDouble(static_cast<double>(value->score));", "if (value->enabled)",
             "const auto* nested = value->child.get();", "const auto* nested = value->point.get();",
-            "make_Demo_Child_proxy(item.get(),", "make_Demo_Point_proxy(std::addressof(item),",
+            f"make_{bridge._mangle('Demo.Child')}_proxy(item.get(),", f"make_{bridge._mangle('Demo.Point')}_proxy(std::addressof(item),",
             "proxy_anchor<Demo::PayloadT>(self)", "return py_string_from_std(value->label);",
-            "sequence.sq_item = item_Demo_Payload_points_vector;", 'type.tp_name = "fixture_python_bridge.Demo_Payload";',
+            f"sequence.sq_item = item_{bridge._mangle('Demo.Payload.points.vector')};",
+            f'type.tp_name = "fixture_python_bridge.{bridge._mangle("Demo.Payload")}";',
             "ensure_known_proxy_types()", "type.tp_new = nullptr;", "PyExc_IndexError",
-            'PyDict_GetItemString(modules, "fixture_python_bridge")',
-            'PyDict_SetItemString(modules, "fixture_python_bridge", module)',
+            'PyImport_AppendInittab("fixture_python_bridge", &PyInit_fixture_python_bridge)',
         )
         for snippet in snippets:
             with self.subTest(snippet=snippet):
                 self.assertIn(snippet, source)
-        self.assertNotIn("pytype_Demo_State()", source)
+        self.assertNotIn(f"pytype_{bridge._mangle('Demo.State')}()", source)
         for token in ("__SDK_NAME__", "__PYTHON_PACKAGE_NAME__", "__MODULE_NAME__", "__KNOWN_PROXY", "__KNOWN_PAYLOAD", "__BRIDGE_HEADER__"):
             self.assertNotIn(token, source)
 

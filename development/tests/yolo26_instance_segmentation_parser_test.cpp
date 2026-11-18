@@ -82,7 +82,10 @@ struct ParserFixture {
                                      .letterboxLeft = left,
                                      .letterboxRight = right,
                                      .letterboxTop = top,
-                                     .letterboxBottom = bottom};
+                                     .letterboxBottom = bottom,
+                                     .frameId = ParentId,
+                                     .frameWidth = static_cast<uint32_t>(width),
+                                     .frameHeight = static_cast<uint32_t>(height)};
         input.producerInfo.instance_id = "segmentation-postprocess";
         input.producerInfo.component = "GenericPostprocess";
         input.producerInfo.implementation = "Yolo26InstanceSegmentationParser";
@@ -251,7 +254,6 @@ TEST(Yolo26InstanceSegmentationParser, SerializesMaskPixelsAndMetadata) {
     }
     const auto &masks = payload->value();
     ASSERT_NE(masks.layer, nullptr);
-    EXPECT_EQ(masks.layer->content_type, "instanceSegmentation");
     EXPECT_EQ(masks.layer->label_family, "coco");
     EXPECT_EQ(masks.layer->model, fixture.input.inferenceInfo.modelName);
     EXPECT_EQ(masks.layer->infer_element_id, fixture.input.inferenceInfo.inferElementId);
@@ -277,7 +279,10 @@ TEST(Yolo26InstanceSegmentationParser, SerializesMaskPixelsAndMetadata) {
     EXPECT_EQ(parent->value().video->original_width, 4U);
     EXPECT_EQ(parent->value().video->original_height, 3U);
     EXPECT_EQ(mask.class_id, 2);
-    EXPECT_FLOAT_EQ(mask.confidence, 0.9F);
+    ASSERT_TRUE(mask.confidence);
+    EXPECT_FLOAT_EQ(mask.confidence.value_or(0.0F), 0.9F);
+    EXPECT_TRUE(open_perception_kit::validMask(mask));
+    EXPECT_EQ(mask.label_set, "opk:coco-80");
     ASSERT_NE(mask.box, nullptr);
     EXPECT_FLOAT_EQ(mask.box->x, 0.0F);
     EXPECT_FLOAT_EQ(mask.box->y, 0.0F);
@@ -286,7 +291,7 @@ TEST(Yolo26InstanceSegmentationParser, SerializesMaskPixelsAndMetadata) {
     ASSERT_NE(mask.bitmap, nullptr);
     EXPECT_EQ(mask.bitmap->width, 4U);
     EXPECT_EQ(mask.bitmap->height, 3U);
-    EXPECT_EQ(mask.bitmap->value_type, "Uint8");
+    EXPECT_EQ(mask.bitmap->encoding, open_perception_kit::metadata::BitmapEncoding::Uint8);
     EXPECT_EQ(mask.bitmap->pixels, std::vector<std::uint8_t>(12U, 1U));
 }
 

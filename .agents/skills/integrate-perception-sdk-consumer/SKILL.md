@@ -37,7 +37,7 @@ semantics.
    - raw serialized envelope bytes
    - an embedded Python guest bridge
    - an application-specific transport such as a Cairn service
-4. Identify which payload types and `LayerInfo.content_type` values the
+4. Identify which SDK payload types and concrete producer instances the
    application actually needs.
 5. Define whether the application is a strict typed consumer or a transparent
    relay that must preserve unknown payloads.
@@ -109,7 +109,7 @@ an internal convenience alias and is not the external SDK contract.
 
 Install the open-perception-kit and FlatBuffers npm-compatible tarballs from the release
 bundle. Import `Envelope` and generated payload classes from `open-perception-kit`,
-require a valid envelope and exact producer identity, then iterate typed payloads
+require a valid envelope and exact or compatible producer identity, then iterate typed payloads
 with `for_each(TypeT)`. Browser applications should bundle the SDK and runtime
 rather than serving unresolved npm imports directly.
 
@@ -117,9 +117,9 @@ rather than serving unresolved npm imports directly.
 
 Add the extracted `rust/` directory as a path dependency. Import `Envelope`,
 `payload`, and generated native payload types from `open_perception_kit`. Require
-successful `Envelope::decode(...)` and an exact `producer_identity()` match
+successful `Envelope::decode(...)` and an exact or compatible `producer_identity()` match
 before typed access. Reuse a typed selector with `count`, `contains`, `get`, and `for_each`; use
-`external_key` for external payloads. Unknown, changed, and malformed entries
+`external_key` for external payloads. Unknown and undecodable entries
 remain available through `entries()` and are preserved when reserialized.
 For offline builds, copy the bundled Cargo source-replacement configuration
 into the consumer workspace and point it at the extracted `rust/vendor`
@@ -130,15 +130,19 @@ workspace before building with `cargo build --offline --locked`.
 
 Use producer identity as the default typed-access gate:
 
-- `exact_match`: permit typed processing.
-- SDK name, version, or schema-set mismatch: fail with the received and expected
-  identities unless the application has explicit mixed-version fixture tests.
-- missing or malformed identity: reject typed processing.
+- `exact_match` or `compatible_match`: permit typed processing. Both require the
+  expected SDK name; compatible versions share a major (including zero).
+- `name_mismatch` or `version_mismatch`: reject typed processing, including
+  missing or malformed names/versions.
+- Schema hashes are diagnostic and do not participate in identity classification.
+  Same-major compatibility is a publisher promise, not a structural guarantee.
 
 An older SDK can retain unknown payload blobs while decoding and reserializing
 an envelope, but it cannot interpret those payloads through its generated typed
 API. A relay may preserve the original packet or reserialize the envelope; a
-semantic consumer must use a matching SDK.
+semantic consumer must use a supported SDK. Older C++ and Rust readers can lose
+unknown fields within recognized payloads when repacking them. SDK 1.0's new
+payload IDs require coordinated adoption; old generated SDKs are not supported.
 
 Do not infer compatibility from payload `schema_major` and `schema_minor`
 fields alone. Use the released SDK version, schema-set digest, generated payload
@@ -146,7 +150,7 @@ identities, and tested application semantics.
 
 ## Consume Payload Semantics Safely
 
-- Select payloads by generated type and fields such as `content_type`, not by
+- Select payloads by generated type and explicit producer references, not by
   array or envelope position.
 - Treat generated table pointers and optional nested objects as nullable.
 - Use `FrameContext` for coordinate-space and crop or letterbox interpretation.
@@ -178,7 +182,7 @@ Add focused tests for:
 - malformed Base64 and invalid FlatBuffers envelopes
 - every producer identity mismatch status
 - required payload missing and repeated-payload behavior
-- semantic routing by payload type and `content_type`
+- typed interpretation and explicit producer selection
 - unknown-payload preservation when the application acts as a relay
 - CMake or Meson configuration against the extracted C++ tree
 - Python installation from the bundle without network access

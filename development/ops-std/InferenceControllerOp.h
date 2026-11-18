@@ -32,14 +32,16 @@ namespace opk::stdop {
  * and acts as a sentinel for loop control.
  *
  * **Configuration Attributes:**
- * - `contentType`: Content type descriptor for the inferred data (e.g., "image", "video")
+ * - `sourceOp`: concrete earlier producer in this OpChain.
+ * - `sourceProducer`: external producer ID; empty declares an unbound input.
+ * Omitting both processes the full video frame.
  *
  * **Typical Usage:**
  * 1. The controller populates OpChainContext.inferenceImageCrops with regions to infer
  * 2. Preprocess, inference, and postprocess operations consume one crop per loop iteration
  * 3. GenericImagePreprocessOp returns OpSignal::BreakLoop when no crops remain
  */
-class InferenceControllerOp : public opk::op::Op, public opk::op::OpInterfaceContentConsumer {
+class InferenceControllerOp : public opk::op::Op, public opk::op::OpInterfaceResultConsumer {
   public:
     /**
      * @brief Constructs an inference controller operation.
@@ -51,9 +53,7 @@ class InferenceControllerOp : public opk::op::Op, public opk::op::OpInterfaceCon
     virtual ~InferenceControllerOp();
 
     /**
-     * @brief Configures the operation with content type metadata.
-     *
-     * Reads attributes: contentType for content-specific inference control.
+     * @brief Configures an explicit box input or full-frame inference.
      *
      * @param attributes Configuration map from OpChainDescriptor.
      * @return Result indicating success or configuration error.
@@ -77,10 +77,11 @@ class InferenceControllerOp : public opk::op::Op, public opk::op::OpInterfaceCon
      * @return Result indicating success or binding error.
      */
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
-    std::vector<std::string_view> getRequiredContentTypes() const override;
+    std::vector<opk::InputReference> getRequiredInputs() const override;
 
   private:
-    std::string contentType;
+    bool useBoxes = false;
+    opk::InputReference input;
 };
 
 } // namespace opk::stdop

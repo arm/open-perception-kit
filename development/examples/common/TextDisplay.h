@@ -25,6 +25,10 @@
 class TextDisplay {
   public:
     static void appendLines(std::vector<std::string> &lines,
+                            const open_perception_kit::metadata::VoiceActivityDetectionsT &payload);
+    static void appendLines(std::vector<std::string> &lines,
+                            const open_perception_kit::metadata::TurnDetectionsT &payload);
+    static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::FrameContextT &payload);
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::BoxDetectionsT &payload);
@@ -33,15 +37,25 @@ class TextDisplay {
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::ClassificationsT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const open_perception_kit::metadata::PoseEstimationsT &payload);
+                            const open_perception_kit::metadata::CameraContactsT &payload);
+    static void appendLines(std::vector<std::string> &lines,
+                            const open_perception_kit::metadata::PersonPresencesT &payload);
+    static void appendLines(std::vector<std::string> &lines,
+                            const open_perception_kit::metadata::GazeMeasurementsT &payload);
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::SegmentationMasksT &payload);
+    static void
+    appendLines(std::vector<std::string> &lines,
+                const open_perception_kit::metadata::SemanticSegmentationMasksT &payload);
+    static void
+    appendLines(std::vector<std::string> &lines,
+                const open_perception_kit::metadata::InstanceSegmentationMasksT &payload);
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::ObjectEmbeddingsT &payload);
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::TrackTracesT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const open_perception_kit::metadata::PerformanceOverlayT &payload);
+                            const open_perception_kit::metadata::PerformanceMeasurementsT &payload);
 
     template <typename Payload>
     static std::vector<std::string> formatLines(const Payload &payload) {

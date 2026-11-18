@@ -17,22 +17,30 @@
 
 import {Envelope, ProducerIdentityStatus} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
-import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js';
+import {ByteBuffer} from 'flatbuffers';
+import {WireEnvelope} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
+import {_TYPE_REGISTRY} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/registry.js';
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
 import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
-import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
-import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
+import {PerformanceMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-measurements.js';
+import {GazeMeasurementsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/gaze-measurements.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
-import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
-import {TurnDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.js';
+import {maskData} from './mask-data.js';
+import {usableEmbedding} from './embedding-data.js';
+import {validAudioResult} from './audio-data.js';
 import {VoiceActivityDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.js';
+import {TurnDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.js';
+import {identityData, sampleData, validTrack, validTrace, trackLabel} from './tracking-data.js';
+import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 
 export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
 
 export class FrameResultsDecodeError extends Error {}
+
+import {imageBox, imagePoint, validImageSpace} from './image-geometry.js';
 
 function text(value) {
     if (value === null || value === undefined) return '';
@@ -52,17 +60,6 @@ function objectData(object) {
     };
 }
 
-function audioData(item) {
-    return {
-        ...objectData(item.object),
-        windowStartSample: identifier(item.windowStartSample),
-        windowEndSample: identifier(item.windowEndSample),
-        windowStartTsNs: item.windowStartTsNs == null ? null : identifier(item.windowStartTsNs),
-        windowEndTsNs: item.windowEndTsNs == null ? null : identifier(item.windowEndTsNs),
-        discontinuity: Boolean(item.discontinuity),
-    };
-}
-
 function layerData(layer) {
     const producer = layer?.producer;
     return {
@@ -71,7 +68,6 @@ function layerData(layer) {
         tags: text(layer?.tags),
         inferElementId: text(layer?.inferElementId),
         labelFamily: text(layer?.labelFamily),
-        contentType: text(layer?.contentType),
         compositingMode: text(layer?.compositingMode),
         producer: producer ? {
             instanceId: text(producer.instanceId),
@@ -87,38 +83,87 @@ function layer(payload, payloadType, detections) {
         payloadType,
         payload,
         count: detections.length,
+        status: detections.length ? 'available' : 'empty',
         detections,
     };
 }
 
 function boxData(item) {
+    const geometry = imageBox(item.box);
     return {
         ...objectData(item.object),
         x: Number(item.box?.x ?? 0),
         y: Number(item.box?.y ?? 0),
         width: Number(item.box?.width ?? 0),
         height: Number(item.box?.height ?? 0),
-        confidence: Number(item.confidence ?? 0),
-        classId: Number(item.classId ?? -1),
+        ...geometry,
+        spatialValid: geometry !== null,
+        confidence: item.confidence,
+        classId: item.classId,
         text: text(item.text),
     };
 }
 
 function candidateData(candidate) {
     return {
-        confidence: Number(candidate.confidence ?? 0),
-        classId: Number(candidate.classId ?? -1),
+        confidence: candidate.confidence,
+        classId: candidate.classId,
         text: text(candidate.text),
-        x: Number(candidate.x || 0),
-        y: Number(candidate.y || 0),
-        w: Number(candidate.w || 0),
-        h: Number(candidate.h || 0),
     };
 }
 
 function addPayloadLayers(envelope, payloadType, name, mapper, layers) {
     for (const payload of envelope.for_each(payloadType)) {
-        layers.push(layer(payload, name, mapper(payload)));
+        try {
+            layers.push(layer(payload, name, mapper(payload)));
+        } catch {
+            layers.push({...layer(payload, name, []), status: 'invalid'});
+        }
+    }
+}
+
+const classificationMappers = new Map([
+    ['Classifications', payload => payload.classifications.map(item => ({type: 'Classification', data: {
+        ...objectData(item.object), candidates: item.candidates.map(candidateData), labelSet: text(item.labelSet),
+        kind: item.kind, subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+    }}))],
+    ['CameraContacts', payload => payload.contacts.map(item => ({type: 'CameraContact', data: {
+        ...objectData(item.object), subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+        result: item.result ? {inContact: item.result.inContact, modelClassIndex: item.result.modelClassIndex,
+            confidence: item.result.confidence} : null,
+    }}))],
+    ['PersonPresences', payload => payload.presences.map(item => ({type: 'PersonClassification', data: {
+        ...objectData(item.object),
+        result: item.result ? {personPresent: item.result.personPresent,
+            yesScore: item.result.yesScore, noScore: item.result.noScore} : null,
+        subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+    }}))],
+]);
+
+function addClassificationLayers(packet, layers) {
+    // These were one root before the split. Preserve their relative publication
+    // order using generated wire/registry APIs; do not sort by model or timestamp.
+    const wire = WireEnvelope.getRootAsWireEnvelope(new ByteBuffer(packet));
+    for (let index = 0; index < wire.payloadsLength(); index++) {
+        const entry = wire.payloads(index);
+        const info = entry && _TYPE_REGISTRY.get(entry.id());
+        const mapper = classificationMappers.get(info?.root_type);
+        if (!mapper) continue;
+        const blob = entry.blobArray();
+        if (!blob) continue;
+        let payload;
+        try {
+            const copy = new Uint8Array(blob);
+            if (info.verify && !info.verify(copy)) continue;
+            payload = info.decode(copy);
+        } catch {
+            continue; // Same malformed-known-payload policy as Envelope.for_each.
+        }
+        try {
+            layers.push(layer(payload, info.root_type, mapper(payload)));
+        } catch {
+            layers.push({...layer(payload, info.root_type, []), status: 'invalid'});
+        }
     }
 }
 
@@ -148,21 +193,22 @@ export function decodeFrameResultsMessage(message) {
         );
     }
 
-    const envelope = new Envelope(decodeBase64(message.frame_results_packet_b64));
+    const packet = decodeBase64(message.frame_results_packet_b64);
+    const envelope = new Envelope(packet);
     if (!envelope.valid()) {
         throw new FrameResultsDecodeError(
             `invalid frame results packet: ${envelope.error() || 'unknown error'}`,
         );
     }
     const producerIdentity = envelope.producerIdentity();
-    if (producerIdentity !== ProducerIdentityStatus.ExactMatch) {
+    if (![ProducerIdentityStatus.ExactMatch, ProducerIdentityStatus.CompatibleMatch].includes(producerIdentity)) {
         throw new FrameResultsDecodeError(
             `incompatible frame results producer identity: ${producerIdentity}`,
         );
     }
 
     const layers = [];
-    const perfdata = [];
+    const performance = [];
 
     addPayloadLayers(envelope, FrameContextT, 'FrameContext', (payload) => {
         const detections = [];
@@ -173,16 +219,17 @@ export function decodeFrameResultsMessage(message) {
                     ...objectData(payload.video.object),
                     originalWidth: Number(payload.video.originalWidth),
                     originalHeight: Number(payload.video.originalHeight),
-                    sourceCropLeft: Number(payload.video.sourceCropLeft),
-                    sourceCropRight: Number(payload.video.sourceCropRight),
-                    sourceCropTop: Number(payload.video.sourceCropTop),
-                    sourceCropBottom: Number(payload.video.sourceCropBottom),
-                    letterboxLeft: Number(payload.video.letterboxLeft),
-                    letterboxRight: Number(payload.video.letterboxRight),
-                    letterboxTop: Number(payload.video.letterboxTop),
-                    letterboxBottom: Number(payload.video.letterboxBottom),
+                    presentationTsNs: payload.video.presentationTsNs === null ? null : identifier(payload.video.presentationTsNs),
                 },
             });
+        }
+        if (payload.audio) {
+            const audio = payload.audio;
+            detections.push({type: 'AudioFrame', data: {...objectData(audio.object),
+                originalChannels: identifier(audio.originalChannels), originalFrequency: identifier(audio.originalFrequency),
+                originalSampleCount: identifier(audio.originalSampleCount), cutLeftSampleCount: identifier(audio.cutLeftSampleCount),
+                cutRightSampleCount: identifier(audio.cutRightSampleCount),
+                presentationTsNs: audio.presentationTsNs == null ? null : identifier(audio.presentationTsNs)}});
         }
         return detections;
     }, layers);
@@ -191,63 +238,35 @@ export function decodeFrameResultsMessage(message) {
         payload.detections.map((item) => ({type: 'Rect', data: boxData(item)})), layers);
 
     addPayloadLayers(envelope, ObjectTracksT, 'ObjectTracks', (payload) =>
-        payload.tracks.map((item) => ({
-            type: 'Rect',
-            data: {
-                ...boxData(item),
-                sourceId: identifier(item.sourceId),
-                trackId: identifier(item.trackId),
-                diagnostic: text(item.diagnostic),
-                predictedOnly: Boolean(item.predictedOnly),
-            },
-        })), layers);
+        payload.tracks.map((item) => {
+            const trackingValid = validTrack(item);
+            return {
+                type: 'Rect',
+                data: {
+                    ...boxData(item),
+                    sourceId: item.sourceId == null ? null : identifier(item.sourceId),
+                    sourceFrameIndex: item.sourceFrameIndex == null ? null : identifier(item.sourceFrameIndex),
+                    identity: identityData(item.identity),
+                    sample: sampleData(item.sample), association: item.association,
+                    sourceConfidence: item.sourceConfidence,
+                    confidence: item.sourceConfidence,
+                    displayText: trackLabel(item, payload.displayIdentity),
+                    trackingValid, spatialValid: trackingValid,
+                },
+            };
+        }), layers);
 
-    addPayloadLayers(envelope, ClassificationsT, 'Classifications', (payload) => [
-        ...payload.classifications.map((item) => ({
-            type: 'Classification',
+    addClassificationLayers(packet, layers);
+
+    addPayloadLayers(envelope, GazeMeasurementsT, 'GazeMeasurements', (payload) =>
+        payload.measurements.map((item) => ({
+            type: 'GazeMeasurement',
             data: {
                 ...objectData(item.object),
-                candidates: item.candidates.map(candidateData),
-            },
-        })),
-        ...payload.personPresence.map((item) => ({
-            type: 'PersonClassification',
-            data: {
-                ...objectData(item.object),
-                yesConfidence: Number(item.yesConfidence || 0),
-                noConfidence: Number(item.noConfidence || 0),
-            },
-        })),
-    ], layers);
-
-    addPayloadLayers(envelope, VoiceActivityDetectionsT, 'VoiceActivityDetections', (payload) =>
-        payload.detections.map((item) => ({
-            type: 'VoiceActivityDetection',
-            data: {
-                ...audioData(item),
-                speechProbability: Number(item.speechProbability),
-                speechActive: Boolean(item.speechActive),
-            },
-        })), layers);
-
-    addPayloadLayers(envelope, TurnDetectionsT, 'TurnDetections', (payload) =>
-        payload.detections.map((item) => ({
-            type: 'TurnDetection',
-            data: {
-                ...audioData(item),
-                turnProbability: Number(item.turnProbability),
-                turnComplete: Boolean(item.turnComplete),
-            },
-        })), layers);
-
-    addPayloadLayers(envelope, PoseEstimationsT, 'PoseEstimations', (payload) =>
-        payload.poses.map((item) => ({
-            type: 'YawPitch',
-            data: {
-                ...objectData(item.object),
-                confidence: Number(item.confidence || 0),
-                yaw: Number(item.yaw || 0),
-                pitch: Number(item.pitch || 0),
+                subjectUuid: item.subjectId == null ? null : identifier(item.subjectId),
+                confidence: item.confidence,
+                angles: item.angles ? {yawDegrees: item.angles.yawDegrees,
+                    pitchDegrees: item.angles.pitchDegrees} : null,
             },
         })), layers);
 
@@ -256,66 +275,61 @@ export function decodeFrameResultsMessage(message) {
             type: 'TrackTrace',
             data: {
                 ...objectData(item.object),
-                trackId: identifier(item.trackId),
-                points: item.points.map((point) => ({x: Number(point.x), y: Number(point.y)})),
+                identity: identityData(item.identity),
+                trackingValid: validTrace(item),
+                spatialValid: validImageSpace(item.space),
+                frameWidth: item.space?.width,
+                frameHeight: item.space?.height,
+                points: validImageSpace(item.space) ? item.points.map(point =>
+                    point && Number.isFinite(point.x) && Number.isFinite(point.y)
+                        ? {...imagePoint(point.x, point.y, item.space), sample: sampleData(point.sample)} : null) : [],
             },
         })), layers);
 
-    addPayloadLayers(envelope, SegmentationMasksT, 'SegmentationMasks', (payload) =>
-        payload.masks.map((item) => ({
-            type: 'SegmentationMask',
-            data: {
-                ...objectData(item.object),
-                width: Number(item.bitmap?.width || 0),
-                height: Number(item.bitmap?.height || 0),
-                valueType: text(item.bitmap?.valueType),
-                pixels: item.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
-            },
+    for (const [root, type] of [[SegmentationMasksT, 'SegmentationMask'],
+        [SemanticSegmentationMasksT, 'SemanticSegmentationMask'], [InstanceSegmentationMasksT, 'InstanceSegmentationMask']]) {
+        addPayloadLayers(envelope, root, type + 's', payload => payload.masks.map(item => ({
+            type, data: {...objectData(item?.object), ...maskData(item)},
         })), layers);
-
-    addPayloadLayers(envelope, SemanticSegmentationMasksT, 'SemanticSegmentationMasks', (payload) =>
-        payload.masks.map((item) => ({
-            type: 'SemanticSegmentationMask',
-            data: {
-                ...objectData(item?.object),
-                width: Number(item?.bitmap?.width || 0),
-                height: Number(item?.bitmap?.height || 0),
-                valueType: text(item?.bitmap?.valueType),
-                pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
-            },
-        })), layers);
-
-    addPayloadLayers(envelope, InstanceSegmentationMasksT, 'InstanceSegmentationMasks', (payload) =>
-        payload.masks.map((item) => ({
-            type: 'InstanceSegmentationMask',
-            data: {
-                ...objectData(item?.object),
-                width: Number(item?.bitmap?.width || 0),
-                height: Number(item?.bitmap?.height || 0),
-                valueType: text(item?.bitmap?.valueType),
-                pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
-                classId: Number(item?.classId ?? -1),
-                confidence: Number(item?.confidence),
-                box: item?.box ? {x: Number(item.box.x), y: Number(item.box.y),
-                    width: Number(item.box.width), height: Number(item.box.height)} : null,
-            },
-        })), layers);
+    }
 
     addPayloadLayers(envelope, ObjectEmbeddingsT, 'ObjectEmbeddings', (payload) =>
-        payload.embeddings.map((item) => ({
-            type: 'ObjectEmbedding',
-            data: {...objectData(item.object), values: [...item.values]},
-        })), layers);
+        payload.embeddings.map((item) => {
+            const data = {...objectData(item?.object), values: [...(item?.values || [])],
+                space: item?.space ? {id: text(item.space.id), dimensions: item.space.dimensions, metric: item.space.metric} : null,
+                subjectUuid: item?.subjectId == null ? null : identifier(item.subjectId)};
+            return {type: 'ObjectEmbedding', data: {...data, usable: usableEmbedding(data)}};
+        }), layers);
 
-    for (const payload of envelope.for_each(PerformanceOverlayT)) {
-        perfdata.push(...payload.lines.map(text));
-        layers.push(layer(payload, 'PerformanceOverlay', payload.lines.map((line) => ({
-            type: 'PerformanceLine', data: {text: text(line)},
-        }))));
+    for (const [root, name, probability, decision] of [
+        [VoiceActivityDetectionsT, 'VoiceActivityDetection', 'speechProbability', 'speechActive'],
+        [TurnDetectionsT, 'TurnDetection', 'turnProbability', 'turnComplete'],
+    ]) {
+        addPayloadLayers(envelope, root, name + 's', payload => payload.detections.map(item => {
+            const data = {...objectData(item.object), [probability]: item[probability], [decision]: item[decision],
+                windowStartSample: identifier(item.windowStartSample), windowEndSample: identifier(item.windowEndSample),
+                windowStartTsNs: item.windowStartTsNs == null ? null : identifier(item.windowStartTsNs),
+                windowEndTsNs: item.windowEndTsNs == null ? null : identifier(item.windowEndTsNs), discontinuity: item.discontinuity};
+            return {type: name, data: {...data, usable: validAudioResult(data, probability, decision)}};
+        }), layers);
+    }
+
+    for (const payload of envelope.for_each(PerformanceMeasurementsT)) {
+        const data = {
+            pixelFormat: text(payload.pixelFormat),
+            producer: layerData({producer: payload.producer}).producer,
+            timings: payload.timings.filter(Boolean).map(timing => ({
+                scopeId: text(timing.scopeId), name: text(timing.name), meanMs: timing.meanMs, p95Ms: timing.p95Ms,
+            })),
+            frameRate: payload.frameRate ? {fps: payload.frameRate.fps} : null,
+        };
+        performance.push(data);
+        layers.push({...layer(payload, 'PerformanceMeasurements', [{type: 'PerformanceMeasurements', data}]),
+            producer: data.producer});
     }
 
     return {
         frame_counter: Number.isInteger(message.frame_counter) ? message.frame_counter : undefined,
-        frame_results: {layers, perfdata},
+        frame_results: {layers, performance, unsupportedPayloadCount: envelope.size() - layers.length},
     };
 }

@@ -118,7 +118,6 @@ struct Model {
     std::string engine;
 
     /// Optional semantic content type.
-    std::string contentType;
 
     /// Runtime input tensors.
     std::vector<ModelInput> inputs;

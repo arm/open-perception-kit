@@ -115,7 +115,14 @@ On `start()`, the element allocates internal state and loads the OpChain from
 JSON regardless of `active`. OpChain loading failure prevents the element from starting.
 After successful setup and whenever `active` changes, it emits a downstream
 `opk-model-register` event with model identity, active state, and the OpChain's
-declared required and provided content types.
+declared outputs and external inputs. `provided-outputs` structures carry
+`payload-type` and concrete `producer-id`; `required-inputs` also carry
+`consumer-id` and `input-id`. `available-inputs` advertises outputs observed
+upstream. The registry exposes `providedOutputs`, `requiredInputs`, and
+`availableInputs`, with camel-case field names. The `input-bindings` property is
+a JSON array of `{consumerId, inputId, payloadType, producerId}`; it is mutable
+while playing and snapshotted per frame. Invalid updates preserve the previous
+bindings. Dependencies activate only the addressed type-compatible producer.
 
 GPU device setup runs asynchronously. On the first inference frame of each stream,
 an upstream latency query identifies live input. Live inputs keep forwarding frames
@@ -183,18 +190,27 @@ filter tail. These are streaming control semantics, independent of any VAD model
 
 ## Automatic Upstream Activation
 
-By default, when an active `opkinfer` starts or changes from inactive to active,
-it sends an
-upstream requirement for each content type needed by its OpChain. Every upstream
-`opkinfer` whose OpChain provides a matching content type becomes active. A newly
+By default, when an active `opkinfer` starts or changes from inactive to active, it sends an
+`opk-result-required` upstream event for each externally required typed output.
+The addressed upstream `opkinfer` becomes active when its declared payload root matches. A newly
 activated provider sends its own requirements, so activation can propagate
 transitively through multiple dependent elements. Set
-`auto-activate-dependencies=false` on a consumer to select its providers manually;
+`auto-activate-model-dependencies=false` on a consumer to select its providers manually;
 that consumer then emits no upstream requirements.
 
 This propagation only enables elements. Setting a `opkinfer` to inactive affects
 that element alone and does not disable its upstream providers, because those
 providers may still be required by other active elements.
+Empty or unavailable input addresses select nothing. Malformed events and retired
+`opk-content-required` messages are not interpreted. `InferenceController` uses
+`sourceOp` or `sourceProducer` under the `BoxDetections` root. Duplicate observation
+IDs from the selected producer are ambiguous before geometry validation and do
+not create crops. Changing an input connection clears the previous frame's crops.
+
+Active audio processing publishes `FrameContext.audio` for each mapped original
+input buffer, including buffers too short to run a complete window. Its channel,
+rate, sample-count and optional PTS fields describe that buffer, not a normalized
+16 kHz model window. Audio results retain their separate half-open window bounds.
 
 ## Per-Frame Execution
 
@@ -321,7 +337,7 @@ writes to those states. Read-only entries cannot be set.
 | --- | --- | --- | --- | --- |
 | `opchain-path` | OpChain JSON descriptor to load. | Unset (`null`) | Path; e.g. `config/models/yolo26n-320/opchain.json`. Required for startup. | NULL/READY |
 | `active` | Enable per-frame OpChain execution. | `true` | `true`, `false` | Live |
-| `auto-activate-dependencies` | Activate upstream content providers when this model is enabled. Set `false` when the caller selects providers explicitly. | `true` | `true`, `false` | NULL/READY |
+| `auto-activate-model-dependencies` | Activate upstream content providers when this model is enabled. Set `false` when the caller selects providers explicitly. | `true` | `true`, `false` | NULL/READY |
 | `infer-id` | Producer identifier attached to result layers. | `""` → element name | String; e.g. `detector`. Empty uses the element name. | NULL/READY |
 | `qos-enabled` | Enable experimental inference skipping from QoS feedback. | `false` | `true`, `false` | Live |
 | `qos-accepted-events-debug` | Count of QoS events committed by the element. | `0` | Unsigned 64-bit counter, 0–18446744073709551615; e.g. observed `12`. | Read-only |
@@ -329,7 +345,7 @@ writes to those states. Read-only entries cannot be set.
 | `audio-hop-samples` | New mono 16 kHz samples between audio windows. | `0` | Unsigned integer, 0–4294967295; `0` uses the model PCM window size. A nonzero value must not exceed that window; e.g. `160` for a window of at least 160 samples. | NULL/READY |
 
 `opchain-path`, `infer-id`, `audio-hop-samples`, `copy-input`, and
-`auto-activate-dependencies` require NULL
+`auto-activate-model-dependencies` require NULL
 or READY. Stop to READY before changing them; the next start recreates the
 OpChain and renegotiates its inputs. A missing/invalid OpChain fails startup even
 with `active=false`. `active` and `qos-enabled` remain live controls.

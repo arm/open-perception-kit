@@ -22,6 +22,7 @@ import * as flatbuffers from 'flatbuffers';
 
 import { BitmapData, BitmapDataT } from '../../open-perception-kit/metadata/bitmap-data.js';
 import { ObjectMeta, ObjectMetaT } from '../../open-perception-kit/metadata/object-meta.js';
+import { OpacityMeaning } from '../../open-perception-kit/metadata/opacity-meaning.js';
 
 
 export class SegmentationMask implements flatbuffers.IUnpackableObject<SegmentationMaskT> {
@@ -52,8 +53,13 @@ bitmap(obj?:BitmapData):BitmapData|null {
   return offset ? (obj || new BitmapData()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
+meaning():OpacityMeaning {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : OpacityMeaning.Unspecified;
+}
+
 static startSegmentationMask(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(3);
 }
 
 static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
@@ -62,6 +68,10 @@ static addObject(builder:flatbuffers.Builder, objectOffset:flatbuffers.Offset) {
 
 static addBitmap(builder:flatbuffers.Builder, bitmapOffset:flatbuffers.Offset) {
   builder.addFieldOffset(1, bitmapOffset, 0);
+}
+
+static addMeaning(builder:flatbuffers.Builder, meaning:OpacityMeaning) {
+  builder.addFieldInt8(2, meaning, OpacityMeaning.Unspecified);
 }
 
 static endSegmentationMask(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -73,7 +83,8 @@ static endSegmentationMask(builder:flatbuffers.Builder):flatbuffers.Offset {
 unpack(): SegmentationMaskT {
   return new SegmentationMaskT(
     (this.object() !== null ? this.object()!.unpack() : null),
-    (this.bitmap() !== null ? this.bitmap()!.unpack() : null)
+    (this.bitmap() !== null ? this.bitmap()!.unpack() : null),
+    this.meaning()
   );
 }
 
@@ -81,13 +92,15 @@ unpack(): SegmentationMaskT {
 unpackTo(_o: SegmentationMaskT): void {
   _o.object = (this.object() !== null ? this.object()!.unpack() : null);
   _o.bitmap = (this.bitmap() !== null ? this.bitmap()!.unpack() : null);
+  _o.meaning = this.meaning();
 }
 }
 
 export class SegmentationMaskT implements flatbuffers.IGeneratedObject {
 constructor(
   public object: ObjectMetaT|null = null,
-  public bitmap: BitmapDataT|null = null
+  public bitmap: BitmapDataT|null = null,
+  public meaning: OpacityMeaning = OpacityMeaning.Unspecified
 ){}
 
 
@@ -98,6 +111,7 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   SegmentationMask.startSegmentationMask(builder);
   SegmentationMask.addObject(builder, object);
   SegmentationMask.addBitmap(builder, bitmap);
+  SegmentationMask.addMeaning(builder, this.meaning);
 
   return SegmentationMask.endSegmentationMask(builder);
 }

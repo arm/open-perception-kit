@@ -56,7 +56,9 @@ TEST(SmartTurnParser, PublishesEveryAssessmentWithoutPrintingOrReplacingVad) {
     ASSERT_TRUE(retry);
     ASSERT_TRUE(second);
     EXPECT_TRUE(output.empty());
-    EXPECT_EQ(f.parser.getProvidedContentTypes(), std::vector<std::string_view>{"turnDetection"});
+    EXPECT_EQ(f.parser.getProvidedOutputs(),
+              std::vector<opk::OutputCapability>{
+                  opk::outputCapability<open_perception_kit::metadata::TurnDetectionsT>()});
 
     const auto bytes = open_perception_kit::serialize(f.results);
     open_perception_kit::FrameResults decoded{std::span<const uint8_t>(bytes)};
@@ -65,7 +67,6 @@ TEST(SmartTurnParser, PublishesEveryAssessmentWithoutPrintingOrReplacingVad) {
         EXPECT_EQ(payload.schema_major, 1);
         EXPECT_EQ(payload.schema_minor, 0);
         ASSERT_TRUE(payload.layer);
-        EXPECT_EQ(payload.layer->content_type, "turnDetection");
         EXPECT_EQ(payload.layer->model, "smart-turn");
         EXPECT_EQ(payload.layer->infer_element_id, "audio0");
         ASSERT_TRUE(payload.layer->producer);
@@ -77,7 +78,7 @@ TEST(SmartTurnParser, PublishesEveryAssessmentWithoutPrintingOrReplacingVad) {
         const auto &detection = *payload.detections[0];
         ASSERT_TRUE(detection.object);
         EXPECT_EQ(detection.object->parent_id, 42u);
-        EXPECT_FLOAT_EQ(detection.turn_probability, 0.5f);
+        EXPECT_FLOAT_EQ(detection.turn_probability.value_or(-1), 0.5f);
         EXPECT_EQ(detection.turn_complete, count < 2); // Equality passes; no completion latch.
         EXPECT_EQ(detection.window_start_sample, 512u);
         EXPECT_EQ(detection.window_end_sample, 128512u);

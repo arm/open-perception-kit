@@ -17,7 +17,9 @@
 
 #include "InferenceControllerOp.h"
 
+#include <algorithm>
 #include <fmt/core.h>
+#include <map>
 #include <memory>
 #include <utility>
 
@@ -36,13 +38,26 @@ opk::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<op
 }
 
 opk::Result<void> InferenceControllerOp::configure(const opk::AttributeMap &attributes) {
-    contentType = attributes.getStringOrDefault("contentType", "");
+    for (const auto &[key, value] : attributes.raw())
+        if (key != "sourceOp" && key != "sourceProducer")
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                            "Unknown InferenceController attribute: " + key));
+    if (attributes.contains("sourceOp") && attributes.contains("sourceProducer"))
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                        "Choose sourceOp or sourceProducer, not both"));
+    useBoxes = attributes.contains("sourceOp") || attributes.contains("sourceProducer");
+    input = {"input",
+             opk::outputCapability<open_perception_kit::metadata::BoxDetectionsT>().payloadType,
+             attributes.getStringOrDefault("sourceProducer", ""),
+             attributes.getStringOrDefault("sourceOp", "")};
+    if (attributes.contains("sourceOp") && input.sourceOp.empty())
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "sourceOp must name a concrete operation"));
     return {};
 }
 
-std::vector<std::string_view> InferenceControllerOp::getRequiredContentTypes() const {
-    return contentType.empty() ? std::vector<std::string_view>{}
-                               : std::vector<std::string_view>{contentType};
+std::vector<opk::InputReference> InferenceControllerOp::getRequiredInputs() const {
+    return useBoxes ? std::vector<opk::InputReference>{input} : std::vector<opk::InputReference>{};
 }
 
 opk::Result<opk::op::OpSignal>
@@ -57,22 +72,13 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
     }
 
     opChainContext.inferenceInfo.modelName.clear();
+    opChainContext.inferenceImageCrops.clear();
+    opChainContext.inferenceImageCropIds.clear();
 
-    if (contentType.empty()) {
-        auto object = open_perception_kit::makeObjectMeta();
-        const uint64_t frameId = object->id;
-
-        open_perception_kit::metadata::FrameContextT frameContext;
+    if (!useBoxes) {
         const auto producer = producerInfo(
             opChainContext.inferenceInfo.inferElementId, opName, "opk-std-ops/InferenceController");
-        const auto rootLayerId = "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
-        frameContext.layer = open_perception_kit::makeLayerInfo(
-            {.inferElementId = rootLayerId, .contentType = "frameContext", .producer = &producer});
-        frameContext.video = std::make_unique<open_perception_kit::metadata::VideoFrameContextT>();
-        frameContext.video->object = std::move(object);
-        frameContext.video->original_width = pipelineVideoFrame->width();
-        frameContext.video->original_height = pipelineVideoFrame->height();
-        opChainContext.frameResults->add(std::move(frameContext));
+        const auto frameId = opChainContext.videoFrameId("pipelineVideoFrame", producer);
 
         opk::PixelRect rect;
         rect.x = 0;
@@ -83,17 +89,42 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
 
         opChainContext.inferenceImageCropIds.push_back(frameId);
     } else {
-        open_perception_kit::forEachBoxDetectionWithContentType(
-            *opChainContext.frameResults, contentType, [&opChainContext](const auto &r) {
-                if (!r.box || !r.object) {
+        const auto producerId = opChainContext.inputProducerId(instanceId, input);
+        std::map<uint64_t, size_t> identities;
+        open_perception_kit::forEachBoxDetectionFromProducer(
+            *opChainContext.frameResults, producerId, [&](const auto &item) {
+                if (item.object && item.object->id != 0)
+                    ++identities[item.object->id];
+            });
+        open_perception_kit::forEachBoxDetectionFromProducer(
+            *opChainContext.frameResults,
+            producerId,
+            [&opChainContext, pipelineVideoFrame, &identities](const auto &r) {
+                if (!r.box || !r.object || r.object->id == 0 || identities[r.object->id] != 1) {
                     return;
                 }
 
-                opk::PixelRect rect;
-                rect.x = static_cast<size_t>(r.box->x);
-                rect.y = static_cast<size_t>(r.box->y);
-                rect.width = static_cast<size_t>(r.box->width);
-                rect.height = static_cast<size_t>(r.box->height);
+                const auto projected = open_perception_kit::projectBoundingBox(
+                    *r.box, pipelineVideoFrame->width(), pipelineVideoFrame->height());
+                if (!projected)
+                    return;
+                const auto left = std::clamp(
+                    (*projected)[0], 0.0, static_cast<double>(pipelineVideoFrame->width()));
+                const auto top = std::clamp(
+                    (*projected)[1], 0.0, static_cast<double>(pipelineVideoFrame->height()));
+                const auto right = std::clamp((*projected)[0] + (*projected)[2],
+                                              left,
+                                              static_cast<double>(pipelineVideoFrame->width()));
+                const auto bottom = std::clamp((*projected)[1] + (*projected)[3],
+                                               top,
+                                               static_cast<double>(pipelineVideoFrame->height()));
+                // Preserve existing truncation for valid, unclipped pixel crops.
+                const opk::PixelRect rect{static_cast<size_t>(left),
+                                          static_cast<size_t>(top),
+                                          static_cast<size_t>(right - left),
+                                          static_cast<size_t>(bottom - top)};
+                if (rect.isEmpty())
+                    return;
 
                 opChainContext.inferenceImageCrops.push_back(rect);
                 opChainContext.inferenceImageCropIds.push_back(r.object->id);

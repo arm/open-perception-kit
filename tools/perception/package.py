@@ -364,7 +364,7 @@ cargo build --offline --locked
 
 Import `Envelope`, `payload`, and generated native payload types from the
 `{config.public_name}` crate. Require successful `Envelope::decode(...)` and an exact
-producer identity match before typed payload access.
+or same-major compatible producer identity match before typed payload access.
 
 ## TypeScript
 
@@ -374,7 +374,7 @@ npm install ./typescript/flatbuffers-{config.typescript_runtime.version}.tgz \\
 ```
 
 Import `Envelope` and generated payload classes from `{config.public_name.replace('_', '-')}`. Require an
-exact producer identity match before typed payload access.
+exact or same-major compatible producer identity match before typed payload access.
 
 ## Licensing
 

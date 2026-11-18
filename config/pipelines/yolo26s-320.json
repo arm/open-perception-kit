@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "YOLO26s-320 INT8 object detection on bundled video.",
   "sourceInfo": "bundled video file",
   "loop": true,
@@ -8,8 +8,8 @@
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-320/opchain.json\" active=true !",
-    "opktracker content-type=genericObject !",
+    "opkinfer name=opkinfer0 opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-320/opchain.json\" active=true !",
+    "opktracker input-producers=\"[\\\"opkinfer0/opk-std-ops-GenericPostprocess-0\\\"]\" !",
     "opkperformance show-all-metrics=true update-interval=1 !",
     "opkcomm method=websocket endpoint=/ws !",
     "videorate drop-only=true ! videoscale !",

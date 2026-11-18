@@ -123,20 +123,32 @@ void printTypedPayloadText(const open_perception_kit::container::envelope &frame
     // runs once for every payload of that type in this frame. The display helper
     // formats that one decoded payload into terminal-friendly text.
     printPayloadBranch<open_perception_kit::metadata::FrameContextT>(frameResults, printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::VoiceActivityDetectionsT>(frameResults,
+                                                                                printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::TurnDetectionsT>(frameResults,
+                                                                       printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::BoxDetectionsT>(frameResults,
                                                                       printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::ObjectTracksT>(frameResults, printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::ClassificationsT>(frameResults,
                                                                         printedPayloads);
-    printPayloadBranch<open_perception_kit::metadata::PoseEstimationsT>(frameResults,
+    printPayloadBranch<open_perception_kit::metadata::CameraContactsT>(frameResults,
+                                                                       printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::PersonPresencesT>(frameResults,
                                                                         printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::GazeMeasurementsT>(frameResults,
+                                                                         printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::SegmentationMasksT>(frameResults,
                                                                           printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::SemanticSegmentationMasksT>(frameResults,
+                                                                                  printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::InstanceSegmentationMasksT>(frameResults,
+                                                                                  printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::ObjectEmbeddingsT>(frameResults,
                                                                          printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::TrackTracesT>(frameResults, printedPayloads);
-    printPayloadBranch<open_perception_kit::metadata::PerformanceOverlayT>(frameResults,
-                                                                           printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::PerformanceMeasurementsT>(frameResults,
+                                                                                printedPayloads);
 
     const auto totalPayloads = frameResults.size();
     if (printedPayloads == 0 && totalPayloads == 0) {

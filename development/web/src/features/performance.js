@@ -17,15 +17,18 @@
 
 import {defineFeature} from '../overlay-feature.js';
 import {drawTextChip} from '../overlay-drawing.js';
+import {formatPerformanceLines} from '../performance-data.js';
 
 export default defineFeature({
     id: 'performance', label: 'Performance text',
-    accepts: (source) => source.payloadType === 'PerformanceOverlay',
+    accepts: (source) => source.payloadType === 'PerformanceMeasurements',
     render({ctx, layout}, resolved, settings) {
         for (const item of resolved.items) {
-            if (item.type !== 'PerformanceLine') continue;
-            drawTextChip(ctx, item.data.text, 10, layout.performanceY, 16, settings.color);
-            layout.performanceY += 20;
+            if (item.type !== 'PerformanceMeasurements') continue;
+            for (const line of formatPerformanceLines(item.data)) {
+                drawTextChip(ctx, line, 10, layout.performanceY, 16, settings.color);
+                layout.performanceY += 20;
+            }
         }
     },
 });

@@ -41,11 +41,11 @@ export class TurnDetection {
     }
     turnProbability() {
         const offset = this.bb.__offset(this.bb_pos, 6);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
+        return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
     }
     turnComplete() {
         const offset = this.bb.__offset(this.bb_pos, 8);
-        return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+        return offset ? !!this.bb.readInt8(this.bb_pos + offset) : null;
     }
     windowStartSample() {
         const offset = this.bb.__offset(this.bb_pos, 10);
@@ -74,10 +74,10 @@ export class TurnDetection {
         builder.addFieldOffset(0, objectOffset, 0);
     }
     static addTurnProbability(builder, turnProbability) {
-        builder.addFieldFloat32(1, turnProbability, 0.0);
+        builder.addFieldFloat32(1, turnProbability, null);
     }
     static addTurnComplete(builder, turnComplete) {
-        builder.addFieldInt8(2, +turnComplete, +false);
+        builder.addFieldInt8(2, +turnComplete, null);
     }
     static addWindowStartSample(builder, windowStartSample) {
         builder.addFieldInt64(3, windowStartSample, BigInt('0'));
@@ -101,8 +101,10 @@ export class TurnDetection {
     static createTurnDetection(builder, objectOffset, turnProbability, turnComplete, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
         TurnDetection.startTurnDetection(builder);
         TurnDetection.addObject(builder, objectOffset);
-        TurnDetection.addTurnProbability(builder, turnProbability);
-        TurnDetection.addTurnComplete(builder, turnComplete);
+        if (turnProbability !== null)
+            TurnDetection.addTurnProbability(builder, turnProbability);
+        if (turnComplete !== null)
+            TurnDetection.addTurnComplete(builder, turnComplete);
         TurnDetection.addWindowStartSample(builder, windowStartSample);
         TurnDetection.addWindowEndSample(builder, windowEndSample);
         if (windowStartTsNs !== null)
@@ -127,7 +129,7 @@ export class TurnDetection {
     }
 }
 export class TurnDetectionT {
-    constructor(object = null, turnProbability = 0.0, turnComplete = false, windowStartSample = BigInt('0'), windowEndSample = BigInt('0'), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+    constructor(object = null, turnProbability = null, turnComplete = null, windowStartSample = BigInt('0'), windowEndSample = BigInt('0'), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
         this.object = object;
         this.turnProbability = turnProbability;
         this.turnComplete = turnComplete;

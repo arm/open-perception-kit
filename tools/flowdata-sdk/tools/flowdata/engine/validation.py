@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .discovery import _strip_comments
+from .discovery import _mask_strings, _strip_comments
 from .errors import fail
 from .types import RESERVED_PAYLOAD_ID_MIN, SchemaEntry
 
@@ -41,7 +41,7 @@ def validate_schema_namespaces(schema_paths: list[Path], sdk_name: str) -> None:
     reserved_internal = f"{sdk_name}.internalfb"
 
     for schema_path in schema_paths:
-        text = _strip_comments(schema_path.read_text(encoding="utf-8"))
+        text = _mask_strings(_strip_comments(schema_path.read_text(encoding="utf-8")))
         for match in _NAMESPACE_DECL_RE.finditer(text):
             namespace = _canonical_namespace(match.group("value"))
             if namespace == reserved_internal or namespace.startswith(f"{reserved_internal}."):
@@ -61,24 +61,13 @@ def validate_schema_namespaces(schema_paths: list[Path], sdk_name: str) -> None:
                 )
 
 
-def _validate_entry_namespace(entry: SchemaEntry, sdk_name: str) -> None:
-    reserved_internal_cpp = f"{sdk_name}::internalfb"
-    if entry.namespace == reserved_internal_cpp or entry.namespace.startswith(
-        f"{reserved_internal_cpp}::"
-    ):
-        fail(
-            f"{entry.schema_path}: namespace '{entry.namespace.replace('::', '.')}' is "
-            f"reserved for the generated {sdk_name} envelope internals\n"
-            f"Fix: use a user schema namespace outside '{sdk_name}.internalfb'."
-        )
-
-
 def validate_entries(entries: list[SchemaEntry], sdk_name: str) -> None:
     seen_numeric_ids: dict[int, Path] = {}
     seen_file_ids: dict[str, Path] = {}
     seen_native_types: dict[str, Path] = {}
     seen_table_types: dict[str, Path] = {}
     seen_roots: dict[str, Path] = {}
+    reserved_internal_cpp = f"{sdk_name}::internalfb"
 
     for entry in entries:
         if entry.numeric_id >= RESERVED_PAYLOAD_ID_MIN:
@@ -89,14 +78,21 @@ def validate_entries(entries: list[SchemaEntry], sdk_name: str) -> None:
                 f"{RESERVED_PAYLOAD_ID_MIN}."
             )
 
-        _validate_entry_namespace(entry, sdk_name)
+        if entry.namespace == reserved_internal_cpp or entry.namespace.startswith(
+            f"{reserved_internal_cpp}::"
+        ):
+            fail(
+                f"{entry.schema_path}: namespace '{entry.namespace.replace('::', '.')}' is "
+                f"reserved for the generated {sdk_name} envelope internals\n"
+                f"Fix: use a user schema namespace outside '{sdk_name}.internalfb'."
+            )
 
         other = seen_numeric_ids.get(entry.numeric_id)
         if other is not None:
             fail(
                 f"generated payload id collision {entry.numeric_id}: {other} and {entry.schema_path}\n"
                 "Fix: report this collision; known payload ids are generated from each "
-                "payload root type and its schema dependency contents."
+                "fully qualified payload root name."
             )
         seen_numeric_ids[entry.numeric_id] = entry.schema_path
 

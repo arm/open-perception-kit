@@ -36,96 +36,58 @@ export class ClassificationCandidate {
     }
     confidence() {
         const offset = this.bb.__offset(this.bb_pos, 4);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
+        return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
     }
     classId() {
         const offset = this.bb.__offset(this.bb_pos, 6);
-        return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+        return offset ? this.bb.readUint32(this.bb_pos + offset) : null;
     }
     text(optionalEncoding) {
         const offset = this.bb.__offset(this.bb_pos, 8);
         return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
     }
-    x() {
-        const offset = this.bb.__offset(this.bb_pos, 10);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
-    }
-    y() {
-        const offset = this.bb.__offset(this.bb_pos, 12);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
-    }
-    w() {
-        const offset = this.bb.__offset(this.bb_pos, 14);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
-    }
-    h() {
-        const offset = this.bb.__offset(this.bb_pos, 16);
-        return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0.0;
-    }
     static startClassificationCandidate(builder) {
-        builder.startObject(7);
+        builder.startObject(3);
     }
     static addConfidence(builder, confidence) {
-        builder.addFieldFloat32(0, confidence, 0.0);
+        builder.addFieldFloat32(0, confidence, null);
     }
     static addClassId(builder, classId) {
-        builder.addFieldInt32(1, classId, -1);
+        builder.addFieldInt32(1, classId, null);
     }
     static addText(builder, textOffset) {
         builder.addFieldOffset(2, textOffset, 0);
-    }
-    static addX(builder, x) {
-        builder.addFieldFloat32(3, x, 0.0);
-    }
-    static addY(builder, y) {
-        builder.addFieldFloat32(4, y, 0.0);
-    }
-    static addW(builder, w) {
-        builder.addFieldFloat32(5, w, 0.0);
-    }
-    static addH(builder, h) {
-        builder.addFieldFloat32(6, h, 0.0);
     }
     static endClassificationCandidate(builder) {
         const offset = builder.endObject();
         return offset;
     }
-    static createClassificationCandidate(builder, confidence, classId, textOffset, x, y, w, h) {
+    static createClassificationCandidate(builder, confidence, classId, textOffset) {
         ClassificationCandidate.startClassificationCandidate(builder);
-        ClassificationCandidate.addConfidence(builder, confidence);
-        ClassificationCandidate.addClassId(builder, classId);
+        if (confidence !== null)
+            ClassificationCandidate.addConfidence(builder, confidence);
+        if (classId !== null)
+            ClassificationCandidate.addClassId(builder, classId);
         ClassificationCandidate.addText(builder, textOffset);
-        ClassificationCandidate.addX(builder, x);
-        ClassificationCandidate.addY(builder, y);
-        ClassificationCandidate.addW(builder, w);
-        ClassificationCandidate.addH(builder, h);
         return ClassificationCandidate.endClassificationCandidate(builder);
     }
     unpack() {
-        return new ClassificationCandidateT(this.confidence(), this.classId(), this.text(), this.x(), this.y(), this.w(), this.h());
+        return new ClassificationCandidateT(this.confidence(), this.classId(), this.text());
     }
     unpackTo(_o) {
         _o.confidence = this.confidence();
         _o.classId = this.classId();
         _o.text = this.text();
-        _o.x = this.x();
-        _o.y = this.y();
-        _o.w = this.w();
-        _o.h = this.h();
     }
 }
 export class ClassificationCandidateT {
-    constructor(confidence = 0.0, classId = -1, text = null, x = 0.0, y = 0.0, w = 0.0, h = 0.0) {
+    constructor(confidence = null, classId = null, text = null) {
         this.confidence = confidence;
         this.classId = classId;
         this.text = text;
-        this.x = x;
-        this.y = y;
-        this.w = w;
-        this.h = h;
     }
     pack(builder) {
         const text = (this.text !== null ? builder.createString(this.text) : 0);
-        return ClassificationCandidate.createClassificationCandidate(builder, this.confidence, this.classId, text, this.x, this.y, this.w, this.h);
+        return ClassificationCandidate.createClassificationCandidate(builder, this.confidence, this.classId, text);
     }
 }

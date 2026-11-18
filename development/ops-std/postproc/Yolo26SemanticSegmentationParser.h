@@ -28,10 +28,9 @@ namespace opk::stdop::postproc {
  * Produces one source-sized class-ID bitmap after removing recorded letterboxing.
  */
 struct Yolo26SemanticSegmentationParser : public opk::TensorParser {
-    static constexpr std::string_view k_content_type = "semanticSegmentation";
 
-    std::vector<std::string_view> getProvidedContentTypes() const override {
-        return {k_content_type};
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
+        return {opk::outputCapability<open_perception_kit::metadata::SemanticSegmentationMasksT>()};
     }
 
     opk::Result<void> parse(const Input &input,

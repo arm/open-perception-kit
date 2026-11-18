@@ -17,83 +17,14 @@
 
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
 import {createPerformanceLowPass} from './performance-low-pass.js';
+import {formatMetricValue, performanceRows} from './performance-data.js';
 
 const body = document.getElementById('performanceMetricsBody');
 const copyButton = document.getElementById('copyPerformanceMetricsBtn');
 
-const MAX_METRIC_LINE_LENGTH = 240;
 let currentRows = [];
 const filterMetrics = createPerformanceLowPass();
 
-function decimalText(value) {
-    const parts = String(value || '').split('.');
-    if (parts.length > 2 || parts.some((part) => part.length === 0)) {
-        return false;
-    }
-
-    return parts.every((part) => [...part].every((char) => char >= '0' && char <= '9'));
-}
-
-function parseMillisToken(token) {
-    if (!token.endsWith('ms')) {
-        return '';
-    }
-
-    const value = token.slice(0, -2);
-    return decimalText(value) ? `${value}ms` : '';
-}
-
-function parsePipelineFps(text) {
-    if (!text.startsWith('Pipeline')) {
-        return null;
-    }
-
-    const rest = text.slice('Pipeline'.length).trim();
-    const valueText = (rest.startsWith(':') ? rest.slice(1) : rest).trim();
-    if (!valueText.endsWith(' FPS')) {
-        return null;
-    }
-
-    const fps = valueText.slice(0, -' FPS'.length).trim();
-    return decimalText(fps) ? { stage: 'Pipeline', current: `${fps} FPS`, p95: '' } : null;
-}
-
-function parseP95Text(text) {
-    if (!text) {
-        return '';
-    }
-    if (!text.startsWith('(p95:') || !text.endsWith(')')) {
-        return '';
-    }
-
-    return parseMillisToken(text.slice(5, -1).trim());
-}
-
-function parseTimedMetric(text) {
-    const separator = text.indexOf(':');
-    if (separator <= 0) {
-        return null;
-    }
-
-    const stage = text.slice(0, separator).trim();
-    const rest = text.slice(separator + 1).trim();
-    const firstSpace = rest.indexOf(' ');
-    const currentToken = firstSpace < 0 ? rest : rest.slice(0, firstSpace);
-    const current = parseMillisToken(currentToken);
-    if (!stage || !current) {
-        return null;
-    }
-
-    const p95Text = firstSpace < 0 ? '' : rest.slice(firstSpace + 1).trim();
-    return { stage, current, p95: parseP95Text(p95Text) };
-}
-
-function parseMetricLine(line) {
-    const text = String(line || '').slice(0, MAX_METRIC_LINE_LENGTH).replaceAll('═', '').trim();
-    if (!text) return null;
-
-    return parsePipelineFps(text) || parseTimedMetric(text);
-}
 function createCell(text, className) {
     const cell = document.createElement("td");
     if (className) {
@@ -114,8 +45,8 @@ function renderEmptyRow() {
 function renderMetricRow(metric) {
     const row = document.createElement("tr");
     row.appendChild(createCell(metric.stage));
-    row.appendChild(createCell(metric.current));
-    row.appendChild(createCell(metric.p95));
+    row.appendChild(createCell(formatMetricValue(metric.current, metric.unit)));
+    row.appendChild(createCell(formatMetricValue(metric.p95, metric.unit)));
     return row;
 }
 
@@ -129,8 +60,8 @@ function renderRows(rows) {
 }
 
 export function renderPerformanceMetrics(performance) {
-    const lines = Array.isArray(performance?.lines) ? performance.lines : [];
-    const rows = filterMetrics(lines.map(parseMetricLine).filter(Boolean));
+    const measurements = Array.isArray(performance?.measurements) ? performance.measurements : [];
+    const rows = filterMetrics(performanceRows(measurements));
     if (rows !== null) renderRows(rows);
 }
 
@@ -143,7 +74,7 @@ function getMetricsText() {
 
     return [
         'Stage\tCurrent\tP95',
-        ...currentRows.map((row) => `${row.stage}\t${row.current}\t${row.p95}`),
+        ...currentRows.map((row) => `${row.stage}\t${formatMetricValue(row.current, row.unit)}\t${formatMetricValue(row.p95, row.unit)}`),
     ].join('\n');
 }
 

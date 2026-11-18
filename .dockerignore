@@ -107,6 +107,8 @@ development/examples/byom-blazeface/.blazeface-detections.part.mp4
 __pycache__/
 **/__pycache__/
 .cache/
+docs/html/
+docs/prepared-public/
 *.log
 *.tmp
 .DS_Store

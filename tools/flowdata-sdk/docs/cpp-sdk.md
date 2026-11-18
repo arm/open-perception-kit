@@ -35,8 +35,8 @@ derived from `--name`. The FlatBuffers assertion below assumes generation with
 `flatc` 25.9.23:
 
 ```cpp
-static_assert(metapoc::METAPOC_VERSION == "1.2.3");
-static_assert(metapoc::METAPOC_FLATBUFFERS_VERSION_REQUIREMENT == "==25.9.23");
+constexpr auto sdk_version = metapoc::METAPOC_VERSION;
+constexpr auto flatbuffers_requirement = metapoc::METAPOC_FLATBUFFERS_VERSION_REQUIREMENT;
 ```
 
 The generated CMake module exposes the same value as `METAPOC_VERSION`; the
@@ -114,7 +114,8 @@ add_executable(my_host src/main.cpp)
 metapoc_enable_python_bridge(my_host)
 ```
 
-For a Meson consumer, include the generated integration directory and link
+For a Meson consumer with the SDK under `generated/cpp`, include its integration
+without moving it away from the SDK headers, and link
 `metapoc_dep`:
 
 ```meson
@@ -245,7 +246,10 @@ bool consume_packet(const std::vector<std::uint8_t>& bytes) {
         return false;
     }
 
-    if (envelope.count<demo::perception::PerceptionT>() != 2) {
+    // This application accepts the publisher's same-major wire contract.
+    using status = metapoc::container::producer_identity_status;
+    const auto match = envelope.producer_identity();
+    if (match != status::exact_match && match != status::compatible_match) {
         return false;
     }
 
@@ -275,6 +279,11 @@ packet, the first successful typed access decodes and caches that payload inside
 the envelope; later reads of the same entry return handles to the cached native
 object instead of unpacking the FlatBuffers bytes again.
 
+Indexes count successfully decoded entries of the requested type; undecodable
+entries are skipped. The returned root is const, but nested generated owning
+pointers do not add deep constness. Treat all data reached through a stored
+payload reference as immutable.
+
 ## Thread Safety And Lifetime
 
 The C++ envelope synchronizes payload storage with an internal mutex. Concurrent
@@ -289,8 +298,10 @@ of an already acquired payload entry. Caller code must still guarantee that the
 envelope object outlives every thread or async task calling methods on it. Do
 not destroy an envelope, move-construct from it, or copy/move assign over an
 envelope while another thread may still be calling methods on the affected
-object. Move construction and move assignment are `noexcept`; moved-from
-envelopes remain valid but have unspecified contents.
+object. Move construction and move assignment are `noexcept`. A moved-from
+object can be destroyed or assigned again; do not rely on its payload contents,
+producer metadata, or `valid()` result. Moving an invalid envelope does not
+make its data valid.
 
 ## Iterate Matching Payloads
 
@@ -331,7 +342,12 @@ envelope for live access. The guest-script API is documented in
 Building the bridge requires CPython 3.10 or newer development headers and
 embedding library.
 
-Host-side shape:
+The documented guest API requires the generated Python SDK and its `flatbuffers`
+dependency to be importable, including for read-only callbacks.
+
+Host-side shape for a single interpreter run and callback (the checked-in host
+also handles script loading and import paths). Register/initialize once for the
+interpreter lifetime; create a new scoped wrapper for each callback:
 
 ```cpp
 #include <Python.h>
@@ -343,24 +359,21 @@ int run_python(metapoc::container::envelope& envelope) {
     metapoc::python_bridge::append_inittab();
     Py_Initialize();
 
+    int result = -1;
     {
         metapoc::python_bridge::scoped_envelope live(envelope);
         PyObject* main = PyImport_AddModule("__main__");
-        PyObject* globals = PyModule_GetDict(main);
-        PyDict_SetItemString(globals, "env", live.py_object());
-        PyRun_SimpleString("assert env.valid()");
+        PyObject* globals = main ? PyModule_GetDict(main) : nullptr;
+        if (globals && PyDict_SetItemString(globals, "env", live.py_object()) == 0) {
+            result = PyRun_SimpleString("print(env.producer_sdk_version)");
+        }
+        if (result != 0) PyErr_Print();
     } // live wrapper is invalidated here
 
     Py_Finalize();
-    return 0;
+    return result;
 }
 ```
-
-If the interpreter is already running, hold the GIL and call
-`metapoc::python_bridge::initialize_module()` instead of `append_inittab()` and
-`Py_Initialize()`. This creates the bridge dynamically and registers it in
-`sys.modules` without taking interpreter ownership. The generated Python SDK
-and its FlatBuffers dependency must be importable before this call.
 
 The host must hold the Python GIL when constructing `scoped_envelope` and when
 exposing or using its Python object.
@@ -370,7 +383,7 @@ Python callback code uses Python-style methods:
 ```python
 from metapoc.fb.demo.perception.Perception import PerceptionT
 
-assert env.count(PerceptionT) >= 0
+print("Perception payloads:", env.count(PerceptionT))
 payload = env.get(PerceptionT)
 if payload is not None:
     print(payload.sensorId)
@@ -378,7 +391,7 @@ if payload is not None:
 for payload in env.for_each(PerceptionT):
     print(payload.frameId)
 
-from metapoc import external_key
+from metapoc.guest import external_key
 
 payload = PerceptionT()
 payload.sensorId = "python"
@@ -401,9 +414,9 @@ with generated `ExternalKey` handles; bare strings and integers are rejected.
 The C++ host owns lifetime. The envelope must outlive the live wrapper, and the
 host should invalidate the wrapper by ending the `scoped_envelope` before
 returning from the callback boundary. Proxies already returned from `get()` can
-outlive wrapper invalidation because they hold payload references. On the
-invalidated live wrapper, `valid()` returns `False`; other envelope operations
-raise `RuntimeError`.
+outlive wrapper invalidation because they hold payload references. An invalidated
+wrapper returns `False` from `valid()`; payload operations and producer-metadata
+access raise `RuntimeError`.
 
 The repository includes a checked-in bridge demo host and default Python script:
 
@@ -416,7 +429,7 @@ After generating both the C++ bridge and Python SDK, build the CMake demo and
 run the bridge client:
 
 ```bash
-python3 tools/flowdata/gen.py generate --name metapoc --version 1.2.3 --sdk cpp --cpp-python-bridge --cmake --schema-dir payloads
+python3 tools/flowdata/gen.py generate --name metapoc --version 1.2.3 --sdk cpp --cpp-python-bridge --cmake --meson --schema-dir payloads
 python3 tools/flowdata/gen.py generate --name metapoc --version 1.2.3 --sdk python --schema-dir payloads
 cmake -S demo/cpp/cmake -B demo/cpp/cmake/build -DMETAPOC_PYTHON_BRIDGE_EXTRA_PATH=/path/to/site-packages
 cmake --build demo/cpp/cmake/build
@@ -430,10 +443,13 @@ envelope:
 ./demo/cpp/cmake/build/python_bridge_client path/to/script.py
 ```
 
-The default script receives `env` in `__main__`, reads the C++ seed payload,
-appends a known `PerceptionT`, appends an external payload, and verifies that
-existing known payload proxies are read-only. If the active embedded Python
-environment already imports `flatbuffers`, the extra CMake path is not needed.
+The host creates the sample envelope in memory; no packet file is required. The
+default script receives `env` in `__main__`, reads the seed payload, appends a
+known `PerceptionT` and an external payload, and prints the results. Read-only
+proxy assertions belong to the separate regression suite. If the active embedded
+Python environment already imports `flatbuffers`, the extra CMake path is not
+needed. For complete manual steps, see
+[Run the bridge demo](cpp-python-bridge.md#run-the-bridge-demo).
 
 ## External And Unknown Payloads
 
@@ -456,10 +472,15 @@ std::array<std::uint8_t, 2> borrowed{4, 5};
 envelope.add(tracks_key, std::span<const std::uint8_t>(borrowed));
 ```
 
-Unknown, changed, or malformed same-id known-domain entries are kept as private
+Unknown or undecodable known-domain entries are kept as private
 preserve-only entries and serialized again if the envelope is forwarded. Typed
 `count<T>()`, `contains<T>()`, `get<T>()`, and `for_each<T>()` only include
 entries that successfully verify and decode as `T`.
+
+For a known payload that an older C++ SDK can decode, typed access replaces the
+original bytes with its native representation. Reserializing can therefore lose
+newer fields unknown to that reader. This also applies through the live bridge;
+see [Known Limitations](../KNOWN_LIMITATIONS.md#runtime-behavior).
 
 ## Envelope API Reference
 
@@ -478,10 +499,18 @@ State:
 - `producer_schema_set_sha256() -> std::string`: schema-set digest recorded by
   the serializer.
 - `producer_identity() -> producer_identity_status`: compare recorded producer
-  metadata with the current generated SDK. Parsing is permissive for mismatches.
+  name/version with the current SDK; the schema hash is excluded. Returns
+  `name_mismatch`, `exact_match`, `compatible_match`, or `version_mismatch`.
+  Different versions with the same major are classified as compatible, including
+  major zero. Parsing is permissive for mismatches.
 - `empty() -> bool`: true when there are no payload entries.
 - `size() -> std::size_t`: number of payload entries.
 - `reserve(payload_count)`: preallocate the internal payload entry list.
+
+Classification is advisory: publishers own compatibility promises, and callers
+apply acceptance before typed reads. An exact match means identical SDK
+name/version, not identical schemas. Compare the schema digest separately for
+exact-build checks. See the [compatibility model](integration-guide.md#compatibility-model).
 
 Writing:
 
@@ -521,5 +550,7 @@ serialize calls throw `std::logic_error`.
 ## Full Demo
 
 In a full repository checkout, see `demo/cpp/client.cpp` for a complete threaded
-producer/consumer example. It exercises every public envelope method and checks
-typed payload access. Demos are not included in the generator source package.
+producer/consumer usage example. It validates the envelope, applies an
+application compatibility policy, and reads typed and external payloads.
+Regression checks live in `tests/cpp/sdk_test.cpp`; see `tests/README.md` to run
+them independently. Demos and tests are not included in the generator source package.

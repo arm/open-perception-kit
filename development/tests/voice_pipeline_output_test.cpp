@@ -38,12 +38,16 @@ TEST(VoicePipelineOutput, QuotesLabelsAndEscapesTerminalControlsAfterSerializati
         open_perception_kit::metadata::ClassificationsT payload;
         payload.layer = std::make_unique<open_perception_kit::metadata::LayerInfoT>();
         payload.layer->infer_element_id = "keywords";
-        payload.layer->content_type = "keyword";
+        payload.layer->producer = std::make_unique<open_perception_kit::metadata::ProducerInfoT>();
+        payload.layer->producer->instance_id = "keywords/opk-std-ops-GenericPostprocess-0";
         auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+        classification->kind = open_perception_kit::metadata::ClassificationKind::Categorical;
+        classification->label_set = "test:keywords-v1";
         classification->object = std::make_unique<open_perception_kit::metadata::ObjectMetaT>();
         auto candidate =
             std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
         candidate->text = label;
+        candidate->class_id = 0;
         candidate->confidence = 0.75f;
         classification->candidates.push_back(std::move(candidate));
         payload.classifications.push_back(std::move(classification));

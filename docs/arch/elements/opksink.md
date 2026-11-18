@@ -84,12 +84,14 @@ It also handles unregister events if an upstream component emits them.
 The browser receives serialized FrameResults records on the metadata WebSocket.
 Its committed `opk-web.js` bundle contains the generated TypeScript Open Perception Kit
 SDK and FlatBuffers runtime. The client requires the
-`perception-frame-results+base64` encoding marker, validates exact producer
-identity, and maps typed payloads into the existing OSD, inference-output, and
+`perception-frame-results+base64` encoding marker, accepts exact or same-major
+compatible producer identity, and maps typed payloads into the existing OSD, inference-output, and
 performance views. Browser overlays use per-frame metadata from the signaling
-WebSocket, matched to `requestVideoFrameCallback`'s RTP timestamp. Missing metadata
-leaves that frame without overlays. Late metadata applies only while its matching
-frame is still displayed; older metadata is never reused.
+WebSocket, matched to `requestVideoFrameCallback`'s RTP timestamp. During brief
+metadata gaps, overlays may retain the last matched results; see
+[overlay timing](../../../development/web/README.md#overlay-timing) for expiry,
+clearing and alignment tradeoffs. Late metadata applies only while its matching
+frame is still displayed.
 Browsers without this callback or its RTP timestamp display video without overlays.
 
 Authored modules live under `development/web/src`; deployable files live under

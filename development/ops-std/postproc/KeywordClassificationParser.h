@@ -23,8 +23,8 @@ namespace opk::stdop::postproc {
 
 /// Publishes the highest-scoring configured keyword, with null labels suppressing classes.
 struct KeywordClassificationParser : public opk::TensorParser {
-    std::vector<std::string_view> getProvidedContentTypes() const override {
-        return {"keyword"};
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
+        return {opk::outputCapability<open_perception_kit::metadata::ClassificationsT>()};
     }
     opk::Result<void> parse(const opk::TensorParser::Input &input,
                             open_perception_kit::FrameResults &results) override;

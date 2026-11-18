@@ -16,30 +16,36 @@
  */
 
 import {defineFeature, STYLE_CONTROLS} from '../overlay-feature.js';
-import {objectId, producerKey, trackKey} from '../overlay-sources.js';
+import {trackKey} from '../overlay-sources.js';
+import {traceMatchesCurrentTrack} from '../tracking-data.js';
 import {drawFace, drawObjectBox, drawTrackTrace} from '../overlay-drawing.js';
 
 export default defineFeature({
     id: 'tracked-objects', label: 'Tracked objects',
+    defaults: {color: '#ff3030'},
     accepts: (source) => source.payloadType === 'ObjectTracks',
     controls: [
         {key: 'boxes', label: 'Boxes', type: 'checkbox', value: true},
         {key: 'trails', label: 'Trails', type: 'checkbox', value: true},
+        {key: 'shape', label: 'Marker shape', type: 'select', value: 'rectangle',
+            options: [{value: 'rectangle', label: 'Rectangle'}, {value: 'circle', label: 'Circle'}]},
         ...STYLE_CONTROLS,
     ],
     resolve(result, index, settings) {
-        const items = result.items.filter((item) => item.type === 'Rect');
+        const items = result.items.filter((item) => item.type === 'Rect' && item.data.trackingValid === true && trackKey(item.data.identity));
         const resolved = {...result, items, trails: []};
+        if (!items.length && result.items.length) return {...resolved, state: 'partial', message: 'Tracking identity or sample unavailable.'};
         if (!settings.trails || !items.length) return resolved;
-        const source = result.output.source;
-        if (!producerKey(source)) return {...resolved, state: 'partial', message: 'Trail producer identity is missing.'};
         let missing = false;
         let ambiguous = false;
-        for (const id of new Set(items.map((item) => objectId(item.data.trackId)))) {
-            const candidates = (index.byTrack.get(trackKey(source, id)) || []).filter((item) =>
-                item.source.payloadType === 'TrackTraces' && item.source.contentType === 'trackTrace' && item.type === 'TrackTrace');
+        for (const key of new Set(items.map((item) => trackKey(item.data.identity)))) {
+            const entries = index.byTrack.get(key) || [];
+            const tracks = entries.filter(item => item.source.payloadType === 'ObjectTracks');
+            const candidates = entries.filter((item) => item.source.payloadType === 'TrackTraces' && item.type === 'TrackTrace');
+            if (tracks.length > 1) { ambiguous = true; continue; }
             if (candidates.length > 1) ambiguous = true;
-            else if (candidates.length === 1 && candidates[0].data.points?.length >= 2) resolved.trails.push(candidates[0].data);
+            else if (candidates.length === 1 && candidates[0].data.trackingValid === true && candidates[0].data.points?.length >= 2
+                && traceMatchesCurrentTrack(candidates[0].data, tracks)) resolved.trails.push(candidates[0].data);
             else missing = true;
         }
         if (ambiguous) return {...resolved, state: 'ambiguous', message: 'Multiple trails match a track; ambiguous trails are omitted.'};
@@ -51,7 +57,7 @@ export default defineFeature({
             for (const trace of resolved.trails) drawTrackTrace(ctx, trace, mapper, settings.color);
         }
         if (settings.boxes) {
-            const draw = resolved.output.source.contentType === 'humanFace' ? drawFace : drawObjectBox;
+            const draw = settings.shape === 'circle' ? drawFace : drawObjectBox;
             for (const {data} of resolved.items) draw(ctx, data, mapper, settings.color);
         }
     },

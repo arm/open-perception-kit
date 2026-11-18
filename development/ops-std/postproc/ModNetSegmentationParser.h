@@ -29,10 +29,8 @@ namespace opk::stdop::postproc {
  */
 class ModNetSegmentationParser : public TensorParser {
   public:
-    static constexpr std::string_view k_content_type = "segmentation";
-
-    std::vector<std::string_view> getProvidedContentTypes() const override {
-        return {k_content_type};
+    std::vector<opk::OutputCapability> getProvidedOutputs() const override {
+        return {opk::outputCapability<open_perception_kit::metadata::SegmentationMasksT>()};
     }
     opk::Result<void> parse(const Input &input,
                             open_perception_kit::FrameResults &results) override;

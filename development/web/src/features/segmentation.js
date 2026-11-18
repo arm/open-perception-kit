@@ -16,19 +16,23 @@
  */
 
 import {STYLE_CONTROLS} from '../overlay-feature.js';
-import {objectId} from '../overlay-sources.js';
+import {validMask, BitmapEncoding} from '../mask-data.js';
 
 export const MAX_MASK_PIXELS = 16_777_216;
+export const MAX_CLASSES = 4096;
+// -1 is a saved UI style key only; absent SDK class IDs remain null.
+export const classKey = id => id ?? -1;
 export const CLASS_CONTROLS = [{key: 'enabled', label: 'Visible', type: 'checkbox', switch: true, value: true}, ...STYLE_CONTROLS];
 export const MASK_CONTROLS = [{key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01, value: 0.5}];
 
 export function classStyle(id, settings) {
+    id = classKey(id);
     // Preserve Uint8 colors while folding wider instance class IDs into the same palette.
     const key = (id ^ (id >>> 8) ^ (id >>> 16) ^ (id >>> 24)) & 255;
     const rgb = [64 + (key & 7) * 24, 64 + ((key >> 3) & 7) * 24, 64 + (key >> 6) * 48];
     const style = settings?.classes?.[id];
     return {enabled: true, opacity: 1, color: '#' + rgb.map(value => value.toString(16).padStart(2, '0')).join(''),
-        ...style, label: style?.label?.trim() || `Class ${id}`};
+        ...style, label: style?.label?.trim() || (id === -1 ? 'Unclassified' : `Class ${id}`)};
 }
 
 export function classLegend(present, settings, message = '') {
@@ -41,12 +45,12 @@ export function classRenderSignature(settings) {
         .map(([id, style]) => [id, style.enabled, style.color, style.opacity]));
 }
 
-export function withClassSettings(feature, minId = 0, maxId = 255) {
+export function withClassSettings(feature, minId = 0, maxId = 0xffffffff) {
     return {...feature, validateSettings(settings) {
         const result = feature.validateSettings(settings);
         if (!result) return null;
         const classes = settings.classes === undefined ? {} : settings.classes;
-        if (!classes || typeof classes !== 'object' || Array.isArray(classes)) return null;
+        if (!classes || typeof classes !== 'object' || Array.isArray(classes) || Object.keys(classes).length > MAX_CLASSES) return null;
         result.classes = {};
         for (const [id, style] of Object.entries(classes)) {
             const value = Number(id);
@@ -62,24 +66,24 @@ export function withClassSettings(feature, minId = 0, maxId = 255) {
     }};
 }
 
-export function maskGeometryError(mask, index) {
-    const {width, height, valueType, pixels, parentUuid} = mask;
+export function maskGeometryError(mask, type) {
+    const {width, height} = mask;
     if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
         || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS
-        || valueType !== 'Uint8' || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
-        return {state: 'unsupported', message: 'Invalid or oversized Uint8 mask.'};
-    }
-    const parentId = objectId(parentUuid);
-    const parents = parentId ? index.frame.layers.flatMap(layer => (layer.detections || [])
-        .filter(item => objectId(item.data?.uuid) === parentId)
-        .map(item => ({...item, payloadType: layer.payloadType}))) : [];
-    if (parents.length !== 1 || parents[0].payloadType !== 'FrameContext' || parents[0].type !== 'VideoFrame') {
-        return {state: 'partial', message: 'Waiting for an unambiguous VideoFrame parent.'};
-    }
-    const video = parents[0].data;
-    if (video.originalWidth !== width || video.originalHeight !== height
-        || ['sourceCropLeft', 'sourceCropRight', 'sourceCropTop', 'sourceCropBottom'].some(key => video[key])) {
-        return {state: 'unsupported', message: 'Requires a source-sized mask for an uncropped video frame.'};
+        || !validMask(mask, type)) {
+        return {state: 'unsupported', message: 'Invalid or oversized mask, encoding, identity or image space.'};
     }
     return null;
+}
+
+export function maskValueReader(mask) {
+    if (mask.encoding === BitmapEncoding.Uint8) return index => mask.pixels[index];
+    const view = new DataView(mask.pixels.buffer, mask.pixels.byteOffset, mask.pixels.byteLength);
+    return index => view.getUint32(index * 4, true);
+}
+
+export function maskPlacement(space, display) {
+    return [display.x + space.originX * display.width / space.width,
+        display.y + space.originY * display.height / space.height,
+        space.extentWidth * display.width / space.width, space.extentHeight * display.height / space.height];
 }

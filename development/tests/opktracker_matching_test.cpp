@@ -20,16 +20,21 @@
 #include "Matching.h"
 #include "TrackLifecycle.h"
 #include "opk/FrameResults.h"
+#include "tracking_test_helpers.h"
 
+#include <limits>
 #include <vector>
 
 namespace {
 
-open_perception_kit::metadata::BoxDetectionT
-makeDetection(uint64_t id, float x, float y, float width, float height) {
+open_perception_kit::metadata::BoxDetectionT makeDetection(const uint64_t objectId,
+                                                           const float xCoordinate,
+                                                           const float yCoordinate,
+                                                           const float width,
+                                                           const float height) {
     open_perception_kit::metadata::BoxDetectionT detection;
-    detection.object = open_perception_kit::makeObjectMeta(id);
-    detection.box = open_perception_kit::makeBoundingBox(x, y, width, height);
+    detection.object = open_perception_kit::makeObjectMeta(objectId);
+    detection.box = open_perception_kit::makeBoundingBox(xCoordinate, yCoordinate, width, height);
     detection.confidence = 1.0f;
     return detection;
 }
@@ -37,13 +42,22 @@ makeDetection(uint64_t id, float x, float y, float width, float height) {
 opk::tracker::TrackState
 makeTrack(opk::tracker::TrackId trackId,
           const open_perception_kit::metadata::BoxDetectionT &lastDetection,
-          const std::vector<float> &embedding) {
+          const open_perception_kit::metadata::ObjectEmbeddingT &embedding) {
     opk::tracker::TrackState track;
     track.trackId = trackId;
     track.lastDetection = lastDetection;
     track.lastEmbedding = embedding;
-    track.hasEmbedding = true;
     return track;
+}
+
+open_perception_kit::metadata::ObjectEmbeddingT makeEmbedding() {
+    open_perception_kit::metadata::ObjectEmbeddingT result;
+    result.values = {1, 0};
+    result.space = std::make_unique<open_perception_kit::metadata::EmbeddingSpaceT>();
+    result.space->id = "test:matching:v1";
+    result.space->dimensions = 2;
+    result.space->metric = open_perception_kit::metadata::EmbeddingMetric::Cosine;
+    return result;
 }
 
 opk::tracker::Config matchingConfig(opk::tracker::AssociationMode mode) {
@@ -57,8 +71,22 @@ opk::tracker::Config matchingConfig(opk::tracker::AssociationMode mode) {
 
 } // namespace
 
+TEST(OpkTrackerTiming, LargeTraceDurationRetainsPointsAndShrinkingTrimsThem) {
+    opk::tracker::TrackState track;
+    opk::tracker::Config config;
+    config.traceHistorySeconds = std::numeric_limits<float>::max();
+    const opk::tracker::Point2f point;
+    opk::tracker::trackstate::appendTracePoint(track, point, *testTrackingSample(1), config);
+    opk::tracker::trackstate::appendTracePoint(track, point, *testTrackingSample(2), config);
+    EXPECT_EQ(track.traceHistoryPoints.size(), 2U);
+
+    config.traceHistorySeconds = 0.0f;
+    opk::tracker::trackstate::appendTracePoint(track, point, *testTrackingSample(3), config);
+    EXPECT_EQ(track.traceHistoryPoints.size(), 1U);
+}
+
 TEST(OpkTrackerMatching, HybridRejectsNonOverlappingEmbeddingOnlyAssignment) {
-    const std::vector<float> embedding{1.0f, 0.0f};
+    const auto embedding = makeEmbedding();
     const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
     const auto detectionRect = makeDetection(2, 100.0f, 100.0f, 10.0f, 10.0f);
 
@@ -81,7 +109,7 @@ TEST(OpkTrackerMatching, HybridRejectsNonOverlappingEmbeddingOnlyAssignment) {
 }
 
 TEST(OpkTrackerMatching, HybridAcceptsAssignmentWhenIoUPassesThreshold) {
-    const std::vector<float> embedding{1.0f, 0.0f};
+    const auto embedding = makeEmbedding();
     const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
     const auto detectionRect = makeDetection(2, 1.0f, 1.0f, 10.0f, 10.0f);
 
@@ -105,7 +133,7 @@ TEST(OpkTrackerMatching, HybridAcceptsAssignmentWhenIoUPassesThreshold) {
 }
 
 TEST(OpkTrackerMatching, EmbeddingModeAcceptsNonOverlappingEmbeddingAssignment) {
-    const std::vector<float> embedding{1.0f, 0.0f};
+    const auto embedding = makeEmbedding();
     const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
     const auto detectionRect = makeDetection(2, 100.0f, 100.0f, 10.0f, 10.0f);
 
@@ -126,6 +154,25 @@ TEST(OpkTrackerMatching, EmbeddingModeAcceptsNonOverlappingEmbeddingAssignment) 
     EXPECT_EQ(result.matches[0].first, 0U);
     EXPECT_EQ(result.matches[0].second, 42U);
     EXPECT_TRUE(result.unmatchedDetections.empty());
+}
+
+TEST(OpkTrackerMatching, DiagnosticKindDoesNotClaimTheConfiguredMatchingStrategy) {
+    const auto embedding = makeEmbedding();
+    const auto before = makeDetection(1, 0, 0, 10, 10);
+    const auto after = makeDetection(2, 1, 1, 10, 10);
+    opk::tracker::ActiveTrackMap tracks;
+    tracks.emplace(42, makeTrack(42, before, embedding));
+    const opk::tracker::DetectionBatch detections{&after};
+    const opk::tracker::EmbeddingBatch embeddings{{2, &embedding}};
+    const auto result = opk::tracker::matching::associateDetectionsToActiveTracks(
+        detections,
+        embeddings,
+        tracks,
+        1.0f / 30.0f,
+        matchingConfig(opk::tracker::AssociationMode::Iou));
+    ASSERT_EQ(result.matches.size(), 1U);
+    EXPECT_EQ(result.associationsByDetection.at(0).kind,
+              open_perception_kit::metadata::TrackAssociationKind::CosineScore);
 }
 
 TEST(OpkTrackerTiming, KalmanDtUsesRunningTimeDeltaUnlessFallbackIsForced) {

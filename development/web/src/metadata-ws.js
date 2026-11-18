@@ -35,9 +35,11 @@ function metadataUrl() {
     return `${WS_PROTO}://${WS_HOST}:${port}${endpoint}`;
 }
 
-function normaliseInferenceOutput(frameResults) {
+function normaliseInferenceOutput(frameResults, decodeError) {
     const layers = Array.isArray(frameResults?.layers) ? frameResults.layers : [];
     return {
+        decodeError,
+        unsupportedPayloadCount: frameResults?.unsupportedPayloadCount || 0,
         layers: layers.map((layer) => {
             const detections = Array.isArray(layer?.detections) ? layer.detections : [];
             return {
@@ -50,7 +52,7 @@ function normaliseInferenceOutput(frameResults) {
 
 function normalisePerformance(frameResults) {
     return {
-        lines: Array.isArray(frameResults?.perfdata) ? frameResults.perfdata : [],
+        measurements: Array.isArray(frameResults?.performance) ? frameResults.performance : [],
     };
 }
 
@@ -59,7 +61,7 @@ function publishMetadata(frameCounter, frameResults, decodeError = null) {
         detail: {
             frame_counter: Number.isInteger(frameCounter) ? frameCounter : undefined,
             frame_results: frameResults,
-            inference_output: normaliseInferenceOutput(frameResults),
+            inference_output: normaliseInferenceOutput(frameResults, decodeError),
             performance: normalisePerformance(frameResults),
             decode_error: decodeError,
         },
@@ -102,6 +104,7 @@ window.addEventListener('video-frame-metadata', (event) => {
             frame = decodeFrameResultsMessage(event.detail).frame_results;
         } catch (error) {
             console.warn('Invalid video frame metadata', error);
+            window.dispatchEvent(new CustomEvent('video-frame-reset', {detail: null}));
         }
     }
     window.dispatchEvent(new CustomEvent('video-frame-results', {detail: frame}));

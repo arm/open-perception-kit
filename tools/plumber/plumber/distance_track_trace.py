@@ -14,6 +14,9 @@
 # limitations under the License.
 
 from . import auxiliary as aux
+import math
+from .tracking import valid_trace, same_sample
+from .distance_subject import same_track
 
 
 def distance_track_trace(gt_item: dict, out_item: dict, gt_parent_item: dict, out_parent_item: dict) -> float:
@@ -22,35 +25,37 @@ def distance_track_trace(gt_item: dict, out_item: dict, gt_parent_item: dict, ou
     Returns value in [0,1].
     """
 
-    del out_parent_item
-
     gt_points = gt_item.get("data", {}).get("points", [])
     out_points = out_item.get("data", {}).get("points", [])
 
-    if not gt_points or not out_points:
+    if (not valid_trace(gt_item["data"]) or not valid_trace(out_item["data"])
+            or not same_track(gt_item["data"], out_item["data"]) or len(gt_points) != len(out_points)):
         return 1.0
-
-    # Use minimum length (simple v1)
-    n = min(len(gt_points), len(out_points))
+    if not gt_points:
+        return 0.0
+    n = len(gt_points)
 
     total_dist = 0.0
 
     gt_frame_size = aux.frame_size_from_parent(gt_parent_item)
+    out_frame_size = aux.frame_size_from_parent(out_parent_item)
+    if not gt_frame_size or not out_frame_size or min(*gt_frame_size, *out_frame_size) <= 0:
+        return math.inf
+    fw, fh = gt_frame_size
+    ow, oh = out_frame_size
 
     for i in range(n):
+        if not same_sample(gt_points[i]["sample"], out_points[i]["sample"]):
+            return 1.0
         gx = gt_points[i]["x"]
         gy = gt_points[i]["y"]
         ox = out_points[i]["x"]
         oy = out_points[i]["y"]
 
-        # Normalize if frame_size available
-        if gt_frame_size:
-            fw, fh = gt_frame_size
-            if fw > 0 and fh > 0:
-                gx /= fw
-                gy /= fh
-                ox /= fw
-                oy /= fh
+        gx /= fw
+        gy /= fh
+        ox /= ow
+        oy /= oh
 
         dx = gx - ox
         dy = gy - oy

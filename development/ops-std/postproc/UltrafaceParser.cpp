@@ -299,10 +299,19 @@ opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
 
     const size_t frameWidth = input.inferenceInfo.image.width;
     const size_t frameHeight = input.inferenceInfo.image.height;
+    const auto &image = input.inferenceInfo.image;
     auto validated = validateParseInput(input);
     if (!validated) {
         return tl::unexpected(validated.error());
     }
+    const auto modelWidth = image.modelWidth;
+    const auto modelHeight = image.modelHeight;
+    if (image.letterboxLeft >= modelWidth ||
+        image.letterboxRight >= modelWidth - image.letterboxLeft ||
+        image.letterboxTop >= modelHeight ||
+        image.letterboxBottom >= modelHeight - image.letterboxTop)
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData, "UltrafaceParser: invalid letterbox padding"));
 
     const TensorView *scores = validated->scores;
     const TensorView *boxes = validated->boxes;
@@ -358,6 +367,19 @@ opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
         x_max = clamp01(x_max);
         y_max = clamp01(y_max);
 
+        if (image.letterboxLeft || image.letterboxRight) {
+            const auto active =
+                static_cast<float>(modelWidth - image.letterboxLeft - image.letterboxRight);
+            x_min = clamp01((x_min * modelWidth - image.letterboxLeft) / active);
+            x_max = clamp01((x_max * modelWidth - image.letterboxLeft) / active);
+        }
+        if (image.letterboxTop || image.letterboxBottom) {
+            const auto active =
+                static_cast<float>(modelHeight - image.letterboxTop - image.letterboxBottom);
+            y_min = clamp01((y_min * modelHeight - image.letterboxTop) / active);
+            y_max = clamp01((y_max * modelHeight - image.letterboxTop) / active);
+        }
+
         float x1 = x_min;
         float y1 = y_min;
         float x2 = x_max;
@@ -375,7 +397,8 @@ opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
 
         FaceDetection detection;
         detection.object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
-        detection.box = open_perception_kit::makeBoundingBox(x1, y1, x2 - x1, y2 - y1);
+        detection.box = open_perception_kit::makeImageBoundingBox(
+            input.inferenceInfo.image, x1, y1, x2 - x1, y2 - y1, normalizeOutputCoordinates);
         detection.class_id = 0;
         detection.confidence = face;
         detection.text = "";
@@ -388,14 +411,11 @@ opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = k_content_type,
                                             .producer = &input.producerInfo});
     for (auto &detection : detections) {
         payload.detections.push_back(std::make_unique<FaceDetection>(std::move(detection)));
     }
-    if (!payload.detections.empty()) {
-        results.add(std::move(payload));
-    }
+    results.add(std::move(payload));
 
     return {};
 }

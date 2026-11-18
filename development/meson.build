@@ -14,7 +14,7 @@
 # limitations under the License.
 
 project('opk_elements', ['c', 'cpp'],
-    version: '0.1.3',
+    version: '1.0.0',
   default_options: [
     'c_std=c11',
     'cpp_std=c++20',
@@ -52,7 +52,7 @@ gsta_dep     = dependency('gstreamer-audio-1.0',  required: true)
 gstfft_dep   = dependency('gstreamer-fft-1.0',    required: true)
 gstalloc_dep = dependency('gstreamer-allocators-1.0', required: true)
 
-glib_dep     = dependency('glib-2.0',             required: true)
+glib_dep     = dependency('glib-2.0', version: '>=2.70', required: true)
 gobject_dep  = dependency('gobject-2.0',          required: true)
 
 # -------- Web deps (Web output ALWAYS ON)
@@ -110,7 +110,7 @@ endif
 # -------- Shared build inputs
 fs = import('fs')
 
-if get_option('or_runtime') or get_option('tests')
+if get_option('or_runtime')
   or_interface_dir = 'third-party/optimized-runtimes/interfaces/or'
   if not fs.is_file(or_interface_dir / 'or_runtime.h')
     error('OR interface missing. Run git submodule update --init --recursive from the repository root.')

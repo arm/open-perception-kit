@@ -228,7 +228,7 @@ Prefer simple, self-contained app code unless there is already an established sh
 
 For browser apps that consume metadata:
 
-- route on `layer.contentType` and `detection.type`, not layer order
+- use SDK payload types for compatibility and explicit producer references for input selection, not layer order or semantic labels
 - define the coordinate-space policy explicitly before mapping detections into UI or gameplay
 - use `VideoFrame` dimensions when available and treat other dimension recovery as heuristic
 - treat left/right assignment and mirrored-camera behavior as app-level logic
@@ -255,7 +255,7 @@ size. Preserve numerical contracts, generated statistics, and dated measurements
 - Video-processing elements currently assume `BGRA` caps unless the task explicitly changes the contract.
 - Runtime result data is carried downstream as FrameResults through `FrameResultsMeta`.
 - OpChain loop execution is driven by `loopId`.
-- `opkperformance` appends `PerformanceOverlayT` FrameResults payloads; `opkosd` renders supported FrameResults overlays.
+- `opkperformance` appends `PerformanceMeasurementsT` FrameResults payloads; `opkosd` renders supported FrameResults overlays.
 - `opkcomm` publishes serialized FrameResults packets for file/stdout output.
 - `opksink` currently owns the WebRTC, HTTP, and control WebSocket stack.
 
@@ -285,7 +285,7 @@ size. Preserve numerical contracts, generated statistics, and dated measurements
 - `./scripts/build.sh clean`
 - `./scripts/build.sh debug true`
 - `meson test -C ./development/build-active --print-errorlogs`
-- `./scripts/gen-doc.sh` to refresh generated docs, Doxygen output, and PlantUML images
+- `./scripts/gen-doc.sh` to generate and validate docs and PlantUML images in build output; add `--with-api` for Doxygen
 - `./scripts/serve-docs-plain.sh`
 - `./scripts/serve-docs.sh`
 

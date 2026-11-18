@@ -21,11 +21,11 @@ import {featureFor} from '../../src/overlay-features.js';
 import {outputSource, sourceKey} from '../../src/overlay-sources.js';
 import {render, select, faceFixture} from '../overlay-test-utils.mjs';
 
-test('face circles selects only face regions and retains their circle geometry and styling', () => {
+test('circular presentation accepts typed boxes and tracks without semantic tags', () => {
     const face = faceFixture();
     const tracked = {...face, payloadType: 'ObjectTracks'};
     const nonFace = {...face, contentType: 'genericObject'};
-    const invalid = {...face, payloadType: 'PoseEstimations'};
+    const invalid = {...face, payloadType: 'GazeMeasurements'};
     const catalog = new Map([face, tracked, nonFace, invalid].map((layer) => [sourceKey(outputSource(layer)), outputSource(layer)]));
     const feature = featureFor('face-circles');
     assert.deepEqual(feature.discover(catalog), [outputSource(face), outputSource(tracked)]);
@@ -35,5 +35,5 @@ test('face circles selects only face regions and retains their circle geometry a
             {arc: [25, 40, 15, 0, Math.PI * 2]}, {stroke: '#123456', alpha: 0.4},
         ]);
     }
-    assert.equal(render({layers: [nonFace]}, [select(feature.id, nonFace)]).calls.length, 0);
+    assert.ok(render({layers: [nonFace]}, [select(feature.id, nonFace)]).calls.length > 0);
 });

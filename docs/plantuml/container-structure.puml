@@ -85,8 +85,11 @@ package "Dockerfile\ncore cross-lane stage graph" {
   }
 
   package "Documentation Image Lane" {
+    component "opk-docs-prepare\npublic Markdown and diagrams" as docs_prepare #bbf7d0
     component "opk-docs\ndocs-focused target" as docs_image #bbf7d0
 
+    py313 --> docs_prepare : FROM
+    docs_prepare ..> docs_image : COPY PlantUML JAR
     dev_base --> docs_image : FROM
   }
 

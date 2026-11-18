@@ -22,10 +22,6 @@ export const STYLE_CONTROLS = [
     {key: 'color', label: 'Color', type: 'color', value: '#ffffff'},
     {key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01, value: 1},
 ];
-const CONTENT_COLORS = {
-    humanFace: '#2600ff', genericObject: '#ff3030', eyeYawPitch: '#fafad2',
-    cameraContact: '#66ff00', personClassification: '#66ff00', trackTrace: '#ffff00',
-};
 
 // Shared source lookup, palette and validation. Plugins own their accepted
 // sources, optional default overrides, relationship resolver and drawing function.
@@ -35,7 +31,6 @@ export function defineFeature({controls = STYLE_CONTROLS, defaults = {}, resolve
         controls,
         defaults(source) {
             const settings = Object.fromEntries(controls.map((control) => [control.key, control.value]));
-            if (Object.hasOwn(settings, 'color')) settings.color = CONTENT_COLORS[source.contentType] || settings.color;
             return {...settings,
                 ...(typeof defaults === 'function' ? defaults(source) : defaults)};
         },
@@ -62,25 +57,28 @@ export function defineFeature({controls = STYLE_CONTROLS, defaults = {}, resolve
             if (reason) return {state: 'unsupported', message: reason};
             const output = index.outputs.get(sourceKey(selection.primary));
             if (!output) return {state: 'waiting', message: 'Waiting for source'};
+            if (output.layers.some(layer => layer.status === 'invalid'))
+                return {state: 'unsupported', message: 'Source contains invalid result data.', output, items: []};
             return resolve({state: 'ready', message: '', output, items: output.items}, index, settings);
         },
     };
 }
 
-export function resolveFaceParents(result, index, type) {
-    const items = result.items.filter((item) => item.type === type);
+export function resolveBoxSubjects(result, index, type, available) {
+    const items = result.items.filter(item => item.type === type);
     const resolved = {...result, items, attached: []};
-    let missing = false;
-    let ambiguous = false;
+    let missing = false, ambiguous = false, unavailable = false;
     for (const item of items) {
-        const candidates = (index.objects.get(objectId(item.data.parentUuid)) || []).filter((candidate) =>
-            ['BoxDetections', 'ObjectTracks'].includes(candidate.source.payloadType)
-            && candidate.source.contentType === 'humanFace' && candidate.type === 'Rect');
+        if (!available(item.data)) { unavailable = true; continue; }
+        const candidates = (index.objects.get(objectId(item.data.subjectUuid)) || []).filter(subject =>
+            ['BoxDetections', 'ObjectTracks'].includes(subject.source.payloadType) && subject.type === 'Rect');
         if (candidates.length > 1) ambiguous = true;
-        else if (candidates.length === 1) resolved.attached.push({data: item.data, parent: candidates[0].data});
+        else if (candidates.length === 1 && candidates[0].data.spatialValid !== false)
+            resolved.attached.push({data: item.data, parent: candidates[0].data});
         else missing = true;
     }
-    if (ambiguous) return {...resolved, state: 'ambiguous', message: 'Multiple parent faces match; ambiguous markers are omitted.'};
-    if (missing) return {...resolved, state: 'partial', message: 'Waiting for parent face geometry.'};
+    if (ambiguous) return {...resolved, state: 'ambiguous', message: 'Multiple subjects match; ambiguous markers are omitted.'};
+    if (missing) return {...resolved, state: 'partial', message: 'Subject geometry is missing or invalid.'};
+    if (unavailable) return {...resolved, state: 'partial', message: 'Measurement unavailable.'};
     return resolved;
 }

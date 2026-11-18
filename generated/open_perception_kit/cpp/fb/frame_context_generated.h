@@ -50,14 +50,7 @@ struct VideoFrameContextT : public ::flatbuffers::NativeTable {
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
     uint64_t original_width = 0;
     uint64_t original_height = 0;
-    uint64_t source_crop_left = 0;
-    uint64_t source_crop_right = 0;
-    uint64_t source_crop_top = 0;
-    uint64_t source_crop_bottom = 0;
-    uint64_t letterbox_left = 0;
-    uint64_t letterbox_right = 0;
-    uint64_t letterbox_top = 0;
-    uint64_t letterbox_bottom = 0;
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns = ::flatbuffers::nullopt;
     VideoFrameContextT() = default;
     VideoFrameContextT(const VideoFrameContextT &o);
     VideoFrameContextT(VideoFrameContextT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -71,14 +64,7 @@ struct VideoFrameContext FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
         VT_OBJECT = 4,
         VT_ORIGINAL_WIDTH = 6,
         VT_ORIGINAL_HEIGHT = 8,
-        VT_SOURCE_CROP_LEFT = 10,
-        VT_SOURCE_CROP_RIGHT = 12,
-        VT_SOURCE_CROP_TOP = 14,
-        VT_SOURCE_CROP_BOTTOM = 16,
-        VT_LETTERBOX_LEFT = 18,
-        VT_LETTERBOX_RIGHT = 20,
-        VT_LETTERBOX_TOP = 22,
-        VT_LETTERBOX_BOTTOM = 24
+        VT_PRESENTATION_TS_NS = 10
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -89,43 +75,15 @@ struct VideoFrameContext FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
     uint64_t original_height() const {
         return GetField<uint64_t>(VT_ORIGINAL_HEIGHT, 0);
     }
-    uint64_t source_crop_left() const {
-        return GetField<uint64_t>(VT_SOURCE_CROP_LEFT, 0);
-    }
-    uint64_t source_crop_right() const {
-        return GetField<uint64_t>(VT_SOURCE_CROP_RIGHT, 0);
-    }
-    uint64_t source_crop_top() const {
-        return GetField<uint64_t>(VT_SOURCE_CROP_TOP, 0);
-    }
-    uint64_t source_crop_bottom() const {
-        return GetField<uint64_t>(VT_SOURCE_CROP_BOTTOM, 0);
-    }
-    uint64_t letterbox_left() const {
-        return GetField<uint64_t>(VT_LETTERBOX_LEFT, 0);
-    }
-    uint64_t letterbox_right() const {
-        return GetField<uint64_t>(VT_LETTERBOX_RIGHT, 0);
-    }
-    uint64_t letterbox_top() const {
-        return GetField<uint64_t>(VT_LETTERBOX_TOP, 0);
-    }
-    uint64_t letterbox_bottom() const {
-        return GetField<uint64_t>(VT_LETTERBOX_BOTTOM, 0);
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns() const {
+        return GetOptional<uint64_t, uint64_t>(VT_PRESENTATION_TS_NS);
     }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) &&
                VerifyField<uint64_t>(verifier, VT_ORIGINAL_WIDTH, 8) &&
                VerifyField<uint64_t>(verifier, VT_ORIGINAL_HEIGHT, 8) &&
-               VerifyField<uint64_t>(verifier, VT_SOURCE_CROP_LEFT, 8) &&
-               VerifyField<uint64_t>(verifier, VT_SOURCE_CROP_RIGHT, 8) &&
-               VerifyField<uint64_t>(verifier, VT_SOURCE_CROP_TOP, 8) &&
-               VerifyField<uint64_t>(verifier, VT_SOURCE_CROP_BOTTOM, 8) &&
-               VerifyField<uint64_t>(verifier, VT_LETTERBOX_LEFT, 8) &&
-               VerifyField<uint64_t>(verifier, VT_LETTERBOX_RIGHT, 8) &&
-               VerifyField<uint64_t>(verifier, VT_LETTERBOX_TOP, 8) &&
-               VerifyField<uint64_t>(verifier, VT_LETTERBOX_BOTTOM, 8) && verifier.EndTable();
+               VerifyField<uint64_t>(verifier, VT_PRESENTATION_TS_NS, 8) && verifier.EndTable();
     }
     VideoFrameContextT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(VideoFrameContextT *_o,
@@ -149,29 +107,8 @@ struct VideoFrameContextBuilder {
     void add_original_height(uint64_t original_height) {
         fbb_.AddElement<uint64_t>(VideoFrameContext::VT_ORIGINAL_HEIGHT, original_height, 0);
     }
-    void add_source_crop_left(uint64_t source_crop_left) {
-        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_SOURCE_CROP_LEFT, source_crop_left, 0);
-    }
-    void add_source_crop_right(uint64_t source_crop_right) {
-        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_SOURCE_CROP_RIGHT, source_crop_right, 0);
-    }
-    void add_source_crop_top(uint64_t source_crop_top) {
-        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_SOURCE_CROP_TOP, source_crop_top, 0);
-    }
-    void add_source_crop_bottom(uint64_t source_crop_bottom) {
-        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_SOURCE_CROP_BOTTOM, source_crop_bottom, 0);
-    }
-    void add_letterbox_left(uint64_t letterbox_left) {
-        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_LETTERBOX_LEFT, letterbox_left, 0);
-    }
-    void add_letterbox_right(uint64_t letterbox_right) {
-        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_LETTERBOX_RIGHT, letterbox_right, 0);
-    }
-    void add_letterbox_top(uint64_t letterbox_top) {
-        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_LETTERBOX_TOP, letterbox_top, 0);
-    }
-    void add_letterbox_bottom(uint64_t letterbox_bottom) {
-        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_LETTERBOX_BOTTOM, letterbox_bottom, 0);
+    void add_presentation_ts_ns(uint64_t presentation_ts_ns) {
+        fbb_.AddElement<uint64_t>(VideoFrameContext::VT_PRESENTATION_TS_NS, presentation_ts_ns);
     }
     explicit VideoFrameContextBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
@@ -183,28 +120,16 @@ struct VideoFrameContextBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<VideoFrameContext>
-CreateVideoFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
-                        ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                        uint64_t original_width = 0,
-                        uint64_t original_height = 0,
-                        uint64_t source_crop_left = 0,
-                        uint64_t source_crop_right = 0,
-                        uint64_t source_crop_top = 0,
-                        uint64_t source_crop_bottom = 0,
-                        uint64_t letterbox_left = 0,
-                        uint64_t letterbox_right = 0,
-                        uint64_t letterbox_top = 0,
-                        uint64_t letterbox_bottom = 0) {
+inline ::flatbuffers::Offset<VideoFrameContext> CreateVideoFrameContext(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    uint64_t original_width = 0,
+    uint64_t original_height = 0,
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns = ::flatbuffers::nullopt) {
     VideoFrameContextBuilder builder_(_fbb);
-    builder_.add_letterbox_bottom(letterbox_bottom);
-    builder_.add_letterbox_top(letterbox_top);
-    builder_.add_letterbox_right(letterbox_right);
-    builder_.add_letterbox_left(letterbox_left);
-    builder_.add_source_crop_bottom(source_crop_bottom);
-    builder_.add_source_crop_top(source_crop_top);
-    builder_.add_source_crop_right(source_crop_right);
-    builder_.add_source_crop_left(source_crop_left);
+    if (presentation_ts_ns) {
+        builder_.add_presentation_ts_ns(*presentation_ts_ns);
+    }
     builder_.add_original_height(original_height);
     builder_.add_original_width(original_width);
     builder_.add_object(object);
@@ -224,6 +149,7 @@ struct AudioFrameContextT : public ::flatbuffers::NativeTable {
     uint64_t original_sample_count = 0;
     uint64_t cut_left_sample_count = 0;
     uint64_t cut_right_sample_count = 0;
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns = ::flatbuffers::nullopt;
     AudioFrameContextT() = default;
     AudioFrameContextT(const AudioFrameContextT &o);
     AudioFrameContextT(AudioFrameContextT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -239,7 +165,8 @@ struct AudioFrameContext FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
         VT_ORIGINAL_FREQUENCY = 8,
         VT_ORIGINAL_SAMPLE_COUNT = 10,
         VT_CUT_LEFT_SAMPLE_COUNT = 12,
-        VT_CUT_RIGHT_SAMPLE_COUNT = 14
+        VT_CUT_RIGHT_SAMPLE_COUNT = 14,
+        VT_PRESENTATION_TS_NS = 16
     };
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
@@ -259,6 +186,9 @@ struct AudioFrameContext FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
     uint64_t cut_right_sample_count() const {
         return GetField<uint64_t>(VT_CUT_RIGHT_SAMPLE_COUNT, 0);
     }
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns() const {
+        return GetOptional<uint64_t, uint64_t>(VT_PRESENTATION_TS_NS);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_OBJECT) &&
                verifier.VerifyTable(object()) &&
@@ -266,7 +196,8 @@ struct AudioFrameContext FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
                VerifyField<uint64_t>(verifier, VT_ORIGINAL_FREQUENCY, 8) &&
                VerifyField<uint64_t>(verifier, VT_ORIGINAL_SAMPLE_COUNT, 8) &&
                VerifyField<uint64_t>(verifier, VT_CUT_LEFT_SAMPLE_COUNT, 8) &&
-               VerifyField<uint64_t>(verifier, VT_CUT_RIGHT_SAMPLE_COUNT, 8) && verifier.EndTable();
+               VerifyField<uint64_t>(verifier, VT_CUT_RIGHT_SAMPLE_COUNT, 8) &&
+               VerifyField<uint64_t>(verifier, VT_PRESENTATION_TS_NS, 8) && verifier.EndTable();
     }
     AudioFrameContextT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(AudioFrameContextT *_o,
@@ -302,6 +233,9 @@ struct AudioFrameContextBuilder {
         fbb_.AddElement<uint64_t>(
             AudioFrameContext::VT_CUT_RIGHT_SAMPLE_COUNT, cut_right_sample_count, 0);
     }
+    void add_presentation_ts_ns(uint64_t presentation_ts_ns) {
+        fbb_.AddElement<uint64_t>(AudioFrameContext::VT_PRESENTATION_TS_NS, presentation_ts_ns);
+    }
     explicit AudioFrameContextBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -312,15 +246,19 @@ struct AudioFrameContextBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<AudioFrameContext>
-CreateAudioFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
-                        ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-                        uint64_t original_channels = 0,
-                        uint64_t original_frequency = 0,
-                        uint64_t original_sample_count = 0,
-                        uint64_t cut_left_sample_count = 0,
-                        uint64_t cut_right_sample_count = 0) {
+inline ::flatbuffers::Offset<AudioFrameContext> CreateAudioFrameContext(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
+    uint64_t original_channels = 0,
+    uint64_t original_frequency = 0,
+    uint64_t original_sample_count = 0,
+    uint64_t cut_left_sample_count = 0,
+    uint64_t cut_right_sample_count = 0,
+    ::flatbuffers::Optional<uint64_t> presentation_ts_ns = ::flatbuffers::nullopt) {
     AudioFrameContextBuilder builder_(_fbb);
+    if (presentation_ts_ns) {
+        builder_.add_presentation_ts_ns(*presentation_ts_ns);
+    }
     builder_.add_cut_right_sample_count(cut_right_sample_count);
     builder_.add_cut_left_sample_count(cut_left_sample_count);
     builder_.add_original_sample_count(original_sample_count);
@@ -443,24 +381,14 @@ CreateFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
 inline VideoFrameContextT::VideoFrameContextT(const VideoFrameContextT &o)
     : object((o.object) ? new open_perception_kit::metadata::ObjectMetaT(*o.object) : nullptr),
       original_width(o.original_width), original_height(o.original_height),
-      source_crop_left(o.source_crop_left), source_crop_right(o.source_crop_right),
-      source_crop_top(o.source_crop_top), source_crop_bottom(o.source_crop_bottom),
-      letterbox_left(o.letterbox_left), letterbox_right(o.letterbox_right),
-      letterbox_top(o.letterbox_top), letterbox_bottom(o.letterbox_bottom) {}
+      presentation_ts_ns(o.presentation_ts_ns) {}
 
 inline VideoFrameContextT &
 VideoFrameContextT::operator=(VideoFrameContextT o) FLATBUFFERS_NOEXCEPT {
     std::swap(object, o.object);
     std::swap(original_width, o.original_width);
     std::swap(original_height, o.original_height);
-    std::swap(source_crop_left, o.source_crop_left);
-    std::swap(source_crop_right, o.source_crop_right);
-    std::swap(source_crop_top, o.source_crop_top);
-    std::swap(source_crop_bottom, o.source_crop_bottom);
-    std::swap(letterbox_left, o.letterbox_left);
-    std::swap(letterbox_right, o.letterbox_right);
-    std::swap(letterbox_top, o.letterbox_top);
-    std::swap(letterbox_bottom, o.letterbox_bottom);
+    std::swap(presentation_ts_ns, o.presentation_ts_ns);
     return *this;
 }
 
@@ -497,36 +425,8 @@ inline void VideoFrameContext::UnPackTo(VideoFrameContextT *_o,
         _o->original_height = _e;
     }
     {
-        auto _e = source_crop_left();
-        _o->source_crop_left = _e;
-    }
-    {
-        auto _e = source_crop_right();
-        _o->source_crop_right = _e;
-    }
-    {
-        auto _e = source_crop_top();
-        _o->source_crop_top = _e;
-    }
-    {
-        auto _e = source_crop_bottom();
-        _o->source_crop_bottom = _e;
-    }
-    {
-        auto _e = letterbox_left();
-        _o->letterbox_left = _e;
-    }
-    {
-        auto _e = letterbox_right();
-        _o->letterbox_right = _e;
-    }
-    {
-        auto _e = letterbox_top();
-        _o->letterbox_top = _e;
-    }
-    {
-        auto _e = letterbox_bottom();
-        _o->letterbox_bottom = _e;
+        auto _e = presentation_ts_ns();
+        _o->presentation_ts_ns = _e;
     }
 }
 
@@ -552,26 +452,9 @@ CreateVideoFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _object = _o->object ? CreateObjectMeta(_fbb, _o->object.get(), _rehasher) : 0;
     auto _original_width = _o->original_width;
     auto _original_height = _o->original_height;
-    auto _source_crop_left = _o->source_crop_left;
-    auto _source_crop_right = _o->source_crop_right;
-    auto _source_crop_top = _o->source_crop_top;
-    auto _source_crop_bottom = _o->source_crop_bottom;
-    auto _letterbox_left = _o->letterbox_left;
-    auto _letterbox_right = _o->letterbox_right;
-    auto _letterbox_top = _o->letterbox_top;
-    auto _letterbox_bottom = _o->letterbox_bottom;
-    return open_perception_kit::metadata::CreateVideoFrameContext(_fbb,
-                                                                  _object,
-                                                                  _original_width,
-                                                                  _original_height,
-                                                                  _source_crop_left,
-                                                                  _source_crop_right,
-                                                                  _source_crop_top,
-                                                                  _source_crop_bottom,
-                                                                  _letterbox_left,
-                                                                  _letterbox_right,
-                                                                  _letterbox_top,
-                                                                  _letterbox_bottom);
+    auto _presentation_ts_ns = _o->presentation_ts_ns;
+    return open_perception_kit::metadata::CreateVideoFrameContext(
+        _fbb, _object, _original_width, _original_height, _presentation_ts_ns);
 }
 
 inline AudioFrameContextT::AudioFrameContextT(const AudioFrameContextT &o)
@@ -579,7 +462,7 @@ inline AudioFrameContextT::AudioFrameContextT(const AudioFrameContextT &o)
       original_channels(o.original_channels), original_frequency(o.original_frequency),
       original_sample_count(o.original_sample_count),
       cut_left_sample_count(o.cut_left_sample_count),
-      cut_right_sample_count(o.cut_right_sample_count) {}
+      cut_right_sample_count(o.cut_right_sample_count), presentation_ts_ns(o.presentation_ts_ns) {}
 
 inline AudioFrameContextT &
 AudioFrameContextT::operator=(AudioFrameContextT o) FLATBUFFERS_NOEXCEPT {
@@ -589,6 +472,7 @@ AudioFrameContextT::operator=(AudioFrameContextT o) FLATBUFFERS_NOEXCEPT {
     std::swap(original_sample_count, o.original_sample_count);
     std::swap(cut_left_sample_count, o.cut_left_sample_count);
     std::swap(cut_right_sample_count, o.cut_right_sample_count);
+    std::swap(presentation_ts_ns, o.presentation_ts_ns);
     return *this;
 }
 
@@ -636,6 +520,10 @@ inline void AudioFrameContext::UnPackTo(AudioFrameContextT *_o,
         auto _e = cut_right_sample_count();
         _o->cut_right_sample_count = _e;
     }
+    {
+        auto _e = presentation_ts_ns();
+        _o->presentation_ts_ns = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<AudioFrameContext>
@@ -663,13 +551,15 @@ CreateAudioFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _original_sample_count = _o->original_sample_count;
     auto _cut_left_sample_count = _o->cut_left_sample_count;
     auto _cut_right_sample_count = _o->cut_right_sample_count;
+    auto _presentation_ts_ns = _o->presentation_ts_ns;
     return open_perception_kit::metadata::CreateAudioFrameContext(_fbb,
                                                                   _object,
                                                                   _original_channels,
                                                                   _original_frequency,
                                                                   _original_sample_count,
                                                                   _cut_left_sample_count,
-                                                                  _cut_right_sample_count);
+                                                                  _cut_right_sample_count,
+                                                                  _presentation_ts_ns);
 }
 
 inline FrameContextT::FrameContextT(const FrameContextT &o)

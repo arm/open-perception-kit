@@ -16,10 +16,16 @@
  */
 
 #include "TextDisplay.h"
+#include "opk/AudioResults.h"
+#include "opk/ClassificationScores.h"
+#include "opk/Embedding.h"
+#include "opk/FrameResults.h"
+#include "opk/Tracking.h"
 
 #include <fmt/core.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -40,11 +46,11 @@ std::string textOr(std::string_view value, std::string_view fallback = "-") {
 
 std::string layerLabel(const LayerInfoT *layer) {
     if (!layer) {
-        return "content=- model=- infer=-";
+        return "producer=- model=- infer=-";
     }
 
-    return fmt::format("content={} model={} infer={}",
-                       textOr(layer->content_type),
+    return fmt::format("producer={} model={} infer={}",
+                       layer->producer ? textOr(layer->producer->instance_id) : "-",
                        textOr(layer->model),
                        textOr(layer->infer_element_id));
 }
@@ -58,12 +64,18 @@ std::string objectLabel(const ObjectMetaT *object) {
 }
 
 std::string boxLabel(const BoundingBoxT *box) {
-    if (!box) {
+    if (!box || !box->space) {
         return "box=-";
     }
-
-    return fmt::format(
-        "x={:.1f} y={:.1f} w={:.1f} h={:.1f}", box->x, box->y, box->width, box->height);
+    const auto pixels =
+        open_perception_kit::projectBoundingBox(*box, box->space->width, box->space->height);
+    if (!pixels)
+        return "box=unavailable";
+    return fmt::format("x={:.1f} y={:.1f} w={:.1f} h={:.1f}",
+                       (*pixels)[0],
+                       (*pixels)[1],
+                       (*pixels)[2],
+                       (*pixels)[3]);
 }
 
 std::string valueRangeUint8(const std::vector<std::uint8_t> &pixels) {
@@ -88,7 +100,8 @@ std::string valueRangeUint32(const std::vector<std::uint8_t> &pixels) {
     std::uint32_t maxValue = std::numeric_limits<std::uint32_t>::lowest();
     for (std::size_t offset = 0; offset < pixels.size(); offset += sizeof(std::uint32_t)) {
         std::uint32_t value = 0U;
-        std::memcpy(&value, pixels.data() + offset, sizeof(value));
+        for (std::size_t byte = 0; byte < 4; ++byte)
+            value |= static_cast<uint32_t>(pixels[offset + byte]) << (8 * byte);
         minValue = std::min(minValue, value);
         maxValue = std::max(maxValue, value);
     }
@@ -101,11 +114,33 @@ std::string bitmapRange(const BitmapDataT *bitmap) {
         return "bitmap=-";
     }
 
-    if (bitmap->value_type == "Uint32") {
+    if (!open_perception_kit::validBitmapData(bitmap))
+        return "values=invalid-bitmap";
+    if (bitmap->encoding == open_perception_kit::metadata::BitmapEncoding::Uint32LE) {
         return valueRangeUint32(bitmap->pixels);
     }
 
-    return valueRangeUint8(bitmap->pixels);
+    if (bitmap->encoding == open_perception_kit::metadata::BitmapEncoding::Uint8)
+        return valueRangeUint8(bitmap->pixels);
+    return "values=unsupported-encoding";
+}
+
+std::string bitmapLabel(const BitmapDataT *const bitmap) {
+    if (!bitmap)
+        return "bitmap=unavailable";
+    const auto *const space = bitmap->space.get();
+    return fmt::format(
+        "bitmap={}x{} encoding={} bytes={} frame={} origin=({},{}) extent=({},{}) {}",
+        bitmap->width,
+        bitmap->height,
+        open_perception_kit::metadata::EnumNameBitmapEncoding(bitmap->encoding),
+        bitmap->pixels.size(),
+        space ? space->frame_id : 0,
+        space ? space->origin_x : 0,
+        space ? space->origin_y : 0,
+        space ? space->extent_width : 0,
+        space ? space->extent_height : 0,
+        bitmapRange(bitmap));
 }
 
 } // namespace
@@ -114,26 +149,69 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
                               const open_perception_kit::metadata::FrameContextT &payload) {
     lines.push_back(fmt::format("FrameContext: {}", layerLabel(payload.layer.get())));
     if (payload.video) {
-        lines.push_back(fmt::format(
-            "  video: {} original={}x{} crop_lrtb={},{},{},{} letterbox_lrtb={},{},{},{}",
-            objectLabel(payload.video->object.get()),
-            payload.video->original_width,
-            payload.video->original_height,
-            payload.video->source_crop_left,
-            payload.video->source_crop_right,
-            payload.video->source_crop_top,
-            payload.video->source_crop_bottom,
-            payload.video->letterbox_left,
-            payload.video->letterbox_right,
-            payload.video->letterbox_top,
-            payload.video->letterbox_bottom));
+        lines.push_back(fmt::format("  video: {} original={}x{} pts_ns={}",
+                                    objectLabel(payload.video->object.get()),
+                                    payload.video->original_width,
+                                    payload.video->original_height,
+                                    payload.video->presentation_ts_ns
+                                        ? std::to_string(*payload.video->presentation_ts_ns)
+                                        : "unavailable"));
     }
     if (payload.audio) {
-        lines.push_back(fmt::format("  audio: {} channels={} frequency={} samples={}",
+        lines.push_back(fmt::format("  audio: {} channels={} frequency={} samples={} pts_ns={}",
                                     objectLabel(payload.audio->object.get()),
                                     payload.audio->original_channels,
                                     payload.audio->original_frequency,
-                                    payload.audio->original_sample_count));
+                                    payload.audio->original_sample_count,
+                                    payload.audio->presentation_ts_ns
+                                        ? std::to_string(*payload.audio->presentation_ts_ns)
+                                        : "unavailable"));
+    }
+}
+
+void TextDisplay::appendLines(
+    std::vector<std::string> &lines,
+    const open_perception_kit::metadata::VoiceActivityDetectionsT &payload) {
+    lines.push_back(fmt::format("VoiceActivityDetections: {} count={}",
+                                layerLabel(payload.layer.get()),
+                                payload.detections.size()));
+    for (const auto &value : payload.detections) {
+        if (!value || !value->speech_active || !value->speech_probability ||
+            !opk::audio_results::valid(*value)) {
+            lines.emplace_back("  VAD: unavailable");
+            continue;
+        }
+        lines.push_back(fmt::format(
+            "  VAD: active={} probability={:.3f} samples=[{},{}) pts=[{},{}) discontinuity={}",
+            *value->speech_active,
+            *value->speech_probability,
+            value->window_start_sample,
+            value->window_end_sample,
+            value->window_start_ts_ns ? std::to_string(*value->window_start_ts_ns) : "unavailable",
+            value->window_end_ts_ns ? std::to_string(*value->window_end_ts_ns) : "unavailable",
+            value->discontinuity));
+    }
+}
+
+void TextDisplay::appendLines(std::vector<std::string> &lines,
+                              const open_perception_kit::metadata::TurnDetectionsT &payload) {
+    lines.push_back(fmt::format(
+        "TurnDetections: {} count={}", layerLabel(payload.layer.get()), payload.detections.size()));
+    for (const auto &value : payload.detections) {
+        if (!value || !value->turn_complete || !value->turn_probability ||
+            !opk::audio_results::valid(*value)) {
+            lines.emplace_back("  Turn: unavailable");
+            continue;
+        }
+        lines.push_back(fmt::format(
+            "  Turn: complete={} probability={:.3f} samples=[{},{}) pts=[{},{}) discontinuity={}",
+            *value->turn_complete,
+            *value->turn_probability,
+            value->window_start_sample,
+            value->window_end_sample,
+            value->window_start_ts_ns ? std::to_string(*value->window_start_ts_ns) : "unavailable",
+            value->window_end_ts_ns ? std::to_string(*value->window_end_ts_ns) : "unavailable",
+            value->discontinuity));
     }
 }
 
@@ -149,13 +227,14 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  box #{}: {} label={} class={} conf={:.3f} {}",
-                                    index,
-                                    objectLabel(detection->object.get()),
-                                    textOr(detection->text),
-                                    detection->class_id,
-                                    detection->confidence,
-                                    boxLabel(detection->box.get())));
+        lines.push_back(
+            fmt::format("  box #{}: {} label={} class={} conf={:.3f} {}",
+                        index,
+                        objectLabel(detection->object.get()),
+                        textOr(detection->text),
+                        detection->class_id ? std::to_string(*detection->class_id) : "unspecified",
+                        detection->confidence,
+                        boxLabel(detection->box.get())));
     }
 }
 
@@ -171,27 +250,37 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  track #{}: {} source={} track={} label={} class={} "
-                                    "conf={:.3f} predicted={} {} diagnostic={}",
-                                    index,
-                                    objectLabel(track->object.get()),
-                                    track->source_id,
-                                    track->track_id,
-                                    textOr(track->text),
-                                    track->class_id,
-                                    track->confidence,
-                                    track->predicted_only ? "true" : "false",
-                                    boxLabel(track->box.get()),
-                                    textOr(track->diagnostic)));
+        lines.push_back(fmt::format(
+            "  track #{}: {} source={} source_frame={} tracker={} session={} track={} label={} "
+            "class={} "
+            "source_conf={} state={} frame={} elapsed_ms={} valid={} {} display={}",
+            index,
+            objectLabel(track->object.get()),
+            track->source_id ? std::to_string(*track->source_id) : "unavailable",
+            track->source_frame_index ? std::to_string(*track->source_frame_index) : "unavailable",
+            track->identity ? track->identity->tracker_id : "",
+            track->identity ? track->identity->session_id : "",
+            track->identity ? track->identity->track_id : 0,
+            textOr(track->text),
+            track->class_id ? std::to_string(*track->class_id) : "unspecified",
+            track->source_confidence ? fmt::format("{:.3f}", *track->source_confidence)
+                                     : "unavailable",
+            track->sample
+                ? open_perception_kit::metadata::EnumNameTrackObservationState(track->sample->state)
+                : "Unspecified",
+            track->sample ? track->sample->frame_index : 0,
+            track->sample ? track->sample->elapsed_ms : 0,
+            opk::tracking::validTrack(*track),
+            boxLabel(track->box.get()),
+            opk::tracking::label(*track, payload.display_identity)));
     }
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
                               const open_perception_kit::metadata::ClassificationsT &payload) {
-    lines.push_back(fmt::format("Classifications: {} classifications={} person_presence={}",
+    lines.push_back(fmt::format("Classifications: {} classifications={}",
                                 layerLabel(payload.layer.get()),
-                                payload.classifications.size(),
-                                payload.person_presence.size()));
+                                payload.classifications.size()));
     std::size_t index = 0U;
     for (const auto &classification : payload.classifications) {
         ++index;
@@ -200,65 +289,109 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  classification #{}: {} candidates={}",
-                                    index,
-                                    objectLabel(classification->object.get()),
-                                    classification->candidates.size()));
+        lines.push_back(fmt::format(
+            "  classification #{}: {} candidates={} label_set={} kind={} subject={}",
+            index,
+            objectLabel(classification->object.get()),
+            classification->candidates.size(),
+            textOr(classification->label_set),
+            open_perception_kit::metadata::EnumNameClassificationKind(classification->kind),
+            classification->subject_id ? std::to_string(*classification->subject_id)
+                                       : "unspecified"));
         std::size_t candidateIndex = 0U;
         for (const auto &candidate : classification->candidates) {
             ++candidateIndex;
-            if (!candidate) {
-                lines.push_back(fmt::format("    candidate #{}: <null>", candidateIndex));
+            if (!candidate || !opk::classification::validCandidate(*classification, *candidate)) {
+                lines.push_back(fmt::format("    candidate #{}: unavailable", candidateIndex));
                 continue;
             }
 
-            lines.push_back(fmt::format("    candidate #{}: label={} class={} conf={:.3f} "
-                                        "region={:.1f},{:.1f},{:.1f},{:.1f}",
-                                        candidateIndex,
-                                        textOr(candidate->text),
-                                        candidate->class_id,
-                                        candidate->confidence,
-                                        candidate->x,
-                                        candidate->y,
-                                        candidate->w,
-                                        candidate->h));
+            lines.push_back(fmt::format(
+                "    candidate #{}: label={} class={} conf={}",
+                candidateIndex,
+                textOr(candidate->text),
+                candidate->class_id ? std::to_string(*candidate->class_id) : "unspecified",
+                candidate->confidence ? fmt::format("{:.3f}", *candidate->confidence)
+                                      : "unavailable"));
         }
     }
+}
 
-    index = 0U;
-    for (const auto &presence : payload.person_presence) {
+void TextDisplay::appendLines(std::vector<std::string> &lines,
+                              const open_perception_kit::metadata::CameraContactsT &payload) {
+    lines.push_back(fmt::format(
+        "CameraContacts: {} count={}", layerLabel(payload.layer.get()), payload.contacts.size()));
+    for (const auto &contact : payload.contacts) {
+        if (!contact || !contact->result ||
+            (contact->result->confidence &&
+             !opk::classification::validProbability(*contact->result->confidence))) {
+            lines.emplace_back("  camera-contact: unavailable");
+            continue;
+        }
+        lines.push_back(fmt::format(
+            "  camera-contact: {} outcome={} subject={} model_class_index={} conf={}",
+            objectLabel(contact->object.get()),
+            contact->result->in_contact ? "contact" : "no contact",
+            contact->subject_id ? std::to_string(*contact->subject_id) : "unspecified",
+            contact->result->model_class_index ? std::to_string(*contact->result->model_class_index)
+                                               : "unspecified",
+            contact->result->confidence ? fmt::format("{:.3f}", *contact->result->confidence)
+                                        : "unavailable"));
+    }
+}
+
+void TextDisplay::appendLines(std::vector<std::string> &lines,
+                              const open_perception_kit::metadata::PersonPresencesT &payload) {
+    lines.push_back(fmt::format(
+        "PersonPresences: {} count={}", layerLabel(payload.layer.get()), payload.presences.size()));
+    std::size_t index = 0U;
+    for (const auto &presence : payload.presences) {
         ++index;
         if (!presence) {
             lines.push_back(fmt::format("  person-presence #{}: <null>", index));
             continue;
         }
 
-        lines.push_back(fmt::format("  person-presence #{}: {} yes={:.3f} no={:.3f}",
-                                    index,
-                                    objectLabel(presence->object.get()),
-                                    presence->yes_confidence,
-                                    presence->no_confidence));
+        if (!presence->result || !opk::classification::validPresenceResult(*presence->result)) {
+            lines.push_back(fmt::format("  person-presence #{}: {} unavailable",
+                                        index,
+                                        objectLabel(presence->object.get())));
+            continue;
+        }
+        const auto &result = *presence->result;
+        lines.push_back(
+            fmt::format("  person-presence #{}: {} outcome={} raw_yes={} raw_no={}",
+                        index,
+                        objectLabel(presence->object.get()),
+                        result.person_present ? "person" : "no person",
+                        result.yes_score ? fmt::format("{:.3f}", *result.yes_score) : "unavailable",
+                        result.no_score ? fmt::format("{:.3f}", *result.no_score) : "unavailable"));
     }
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const open_perception_kit::metadata::PoseEstimationsT &payload) {
-    lines.push_back(fmt::format(
-        "PoseEstimations: {} count={}", layerLabel(payload.layer.get()), payload.poses.size()));
+                              const open_perception_kit::metadata::GazeMeasurementsT &payload) {
+    lines.push_back(fmt::format("GazeMeasurements: {} count={}",
+                                layerLabel(payload.layer.get()),
+                                payload.measurements.size()));
     std::size_t index = 0U;
-    for (const auto &pose : payload.poses) {
+    for (const auto &gaze : payload.measurements) {
         ++index;
-        if (!pose) {
-            lines.push_back(fmt::format("  pose #{}: <null>", index));
+        if (!gaze || !gaze->angles || !std::isfinite(gaze->angles->yaw_degrees) ||
+            !std::isfinite(gaze->angles->pitch_degrees) ||
+            (gaze->confidence && !opk::classification::validProbability(*gaze->confidence))) {
+            lines.push_back(fmt::format("  gaze #{}: unavailable", index));
             continue;
         }
 
-        lines.push_back(fmt::format("  pose #{}: {} conf={:.3f} yaw={:.3f} pitch={:.3f}",
-                                    index,
-                                    objectLabel(pose->object.get()),
-                                    pose->confidence,
-                                    pose->yaw,
-                                    pose->pitch));
+        lines.push_back(
+            fmt::format("  gaze #{}: {} subject={} conf={} yaw_degrees={:.3f} pitch_degrees={:.3f}",
+                        index,
+                        objectLabel(gaze->object.get()),
+                        gaze->subject_id ? std::to_string(*gaze->subject_id) : "unspecified",
+                        gaze->confidence ? fmt::format("{:.3f}", *gaze->confidence) : "unavailable",
+                        gaze->angles->yaw_degrees,
+                        gaze->angles->pitch_degrees));
     }
 }
 
@@ -274,16 +407,56 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        const auto *bitmap = mask->bitmap.get();
-        lines.push_back(fmt::format("  segmentation #{}: {} bitmap={}x{} value_type={} "
-                                    "bytes={} {}",
-                                    index,
+        lines.push_back(
+            fmt::format("  segmentation #{}: {} meaning={} valid={} {}",
+                        index,
+                        objectLabel(mask->object.get()),
+                        open_perception_kit::metadata::EnumNameOpacityMeaning(mask->meaning),
+                        open_perception_kit::validMask(*mask),
+                        bitmapLabel(mask->bitmap.get())));
+    }
+}
+
+void TextDisplay::appendLines(
+    std::vector<std::string> &lines,
+    const open_perception_kit::metadata::SemanticSegmentationMasksT &payload) {
+    lines.push_back(fmt::format("SemanticSegmentationMasks: {} count={}",
+                                layerLabel(payload.layer.get()),
+                                payload.masks.size()));
+    for (const auto &mask : payload.masks) {
+        if (!mask) {
+            lines.emplace_back("  semantic: unavailable");
+            continue;
+        }
+        lines.push_back(fmt::format("  semantic: {} label_set={} void={} valid={} {}",
                                     objectLabel(mask->object.get()),
-                                    bitmap ? bitmap->width : 0U,
-                                    bitmap ? bitmap->height : 0U,
-                                    bitmap ? textOr(bitmap->value_type) : "-",
-                                    bitmap ? bitmap->pixels.size() : 0U,
-                                    bitmapRange(bitmap)));
+                                    mask->label_set,
+                                    mask->void_value ? std::to_string(*mask->void_value) : "none",
+                                    open_perception_kit::validMask(*mask),
+                                    bitmapLabel(mask->bitmap.get())));
+    }
+}
+
+void TextDisplay::appendLines(
+    std::vector<std::string> &lines,
+    const open_perception_kit::metadata::InstanceSegmentationMasksT &payload) {
+    lines.push_back(fmt::format("InstanceSegmentationMasks: {} count={}",
+                                layerLabel(payload.layer.get()),
+                                payload.masks.size()));
+    for (const auto &mask : payload.masks) {
+        if (!mask) {
+            lines.emplace_back("  instance: unavailable");
+            continue;
+        }
+        lines.push_back(
+            fmt::format("  instance: {} label_set={} class_id={} confidence={} valid={} {} {}",
+                        objectLabel(mask->object.get()),
+                        mask->label_set,
+                        mask->class_id ? std::to_string(*mask->class_id) : "unavailable",
+                        mask->confidence ? fmt::format("{:.3f}", *mask->confidence) : "unavailable",
+                        open_perception_kit::validMask(*mask),
+                        boxLabel(mask->box.get()),
+                        bitmapLabel(mask->bitmap.get())));
     }
 }
 
@@ -300,10 +473,18 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  embedding #{}: {} values={}",
-                                    index,
-                                    objectLabel(embedding->object.get()),
-                                    embedding->values.size()));
+        lines.push_back(fmt::format(
+            "  embedding #{}: {} subject={} space={} dimensions={} metric={} usable={} values={}",
+            index,
+            objectLabel(embedding->object.get()),
+            embedding->subject_id ? std::to_string(*embedding->subject_id) : "unspecified",
+            embedding->space ? embedding->space->id : "unspecified",
+            embedding->space ? embedding->space->dimensions : 0,
+            embedding->space
+                ? open_perception_kit::metadata::EnumNameEmbeddingMetric(embedding->space->metric)
+                : "Unspecified",
+            opk::embedding::valid(*embedding),
+            embedding->values.size()));
     }
 }
 
@@ -319,20 +500,27 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             continue;
         }
 
-        lines.push_back(fmt::format("  trace #{}: {} track={} points={}",
-                                    index,
-                                    objectLabel(trace->object.get()),
-                                    trace->track_id,
-                                    trace->points.size()));
+        lines.push_back(
+            fmt::format("  trace #{}: {} tracker={} session={} track={} points={} valid={}",
+                        index,
+                        objectLabel(trace->object.get()),
+                        trace->identity ? trace->identity->tracker_id : "",
+                        trace->identity ? trace->identity->session_id : "",
+                        trace->identity ? trace->identity->track_id : 0,
+                        trace->points.size(),
+                        opk::tracking::validTrace(*trace)));
     }
 }
 
-void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const open_perception_kit::metadata::PerformanceOverlayT &payload) {
-    lines.push_back(fmt::format("PerformanceOverlay: lines={}", payload.lines.size()));
+void TextDisplay::appendLines(
+    std::vector<std::string> &lines,
+    const open_perception_kit::metadata::PerformanceMeasurementsT &payload) {
+    const auto rows = open_perception_kit::formatPerformanceRows(payload);
+    // Keep the familiar diagnostic presentation while consuming typed data.
+    lines.push_back(fmt::format("PerformanceOverlay: lines={}", rows.size()));
     std::size_t index = 0U;
-    for (const auto &line : payload.lines) {
+    for (const auto &[name, value] : rows) {
         ++index;
-        lines.push_back(fmt::format("  perf #{}: {}", index, line));
+        lines.push_back(fmt::format("  perf #{}: {:<24}: {}", index, name, value));
     }
 }

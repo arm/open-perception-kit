@@ -44,8 +44,8 @@ struct VoiceActivityDetectionsT;
 struct VoiceActivityDetectionT : public ::flatbuffers::NativeTable {
     typedef VoiceActivityDetection TableType;
     std::unique_ptr<open_perception_kit::metadata::ObjectMetaT> object{};
-    float speech_probability = 0.0f;
-    bool speech_active = false;
+    ::flatbuffers::Optional<float> speech_probability = ::flatbuffers::nullopt;
+    ::flatbuffers::Optional<bool> speech_active = ::flatbuffers::nullopt;
     uint64_t window_start_sample = 0;
     uint64_t window_end_sample = 0;
     ::flatbuffers::Optional<uint64_t> window_start_ts_ns = ::flatbuffers::nullopt;
@@ -73,11 +73,11 @@ struct VoiceActivityDetection FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::T
     const open_perception_kit::metadata::ObjectMeta *object() const {
         return GetPointer<const open_perception_kit::metadata::ObjectMeta *>(VT_OBJECT);
     }
-    float speech_probability() const {
-        return GetField<float>(VT_SPEECH_PROBABILITY, 0.0f);
+    ::flatbuffers::Optional<float> speech_probability() const {
+        return GetOptional<float, float>(VT_SPEECH_PROBABILITY);
     }
-    bool speech_active() const {
-        return GetField<uint8_t>(VT_SPEECH_ACTIVE, 0) != 0;
+    ::flatbuffers::Optional<bool> speech_active() const {
+        return GetOptional<uint8_t, bool>(VT_SPEECH_ACTIVE);
     }
     uint64_t window_start_sample() const {
         return GetField<uint64_t>(VT_WINDOW_START_SAMPLE, 0);
@@ -123,12 +123,11 @@ struct VoiceActivityDetectionBuilder {
         fbb_.AddOffset(VoiceActivityDetection::VT_OBJECT, object);
     }
     void add_speech_probability(float speech_probability) {
-        fbb_.AddElement<float>(
-            VoiceActivityDetection::VT_SPEECH_PROBABILITY, speech_probability, 0.0f);
+        fbb_.AddElement<float>(VoiceActivityDetection::VT_SPEECH_PROBABILITY, speech_probability);
     }
     void add_speech_active(bool speech_active) {
-        fbb_.AddElement<uint8_t>(
-            VoiceActivityDetection::VT_SPEECH_ACTIVE, static_cast<uint8_t>(speech_active), 0);
+        fbb_.AddElement<uint8_t>(VoiceActivityDetection::VT_SPEECH_ACTIVE,
+                                 static_cast<uint8_t>(speech_active));
     }
     void add_window_start_sample(uint64_t window_start_sample) {
         fbb_.AddElement<uint64_t>(
@@ -162,8 +161,8 @@ struct VoiceActivityDetectionBuilder {
 inline ::flatbuffers::Offset<VoiceActivityDetection> CreateVoiceActivityDetection(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<open_perception_kit::metadata::ObjectMeta> object = 0,
-    float speech_probability = 0.0f,
-    bool speech_active = false,
+    ::flatbuffers::Optional<float> speech_probability = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<bool> speech_active = ::flatbuffers::nullopt,
     uint64_t window_start_sample = 0,
     uint64_t window_end_sample = 0,
     ::flatbuffers::Optional<uint64_t> window_start_ts_ns = ::flatbuffers::nullopt,
@@ -178,10 +177,14 @@ inline ::flatbuffers::Offset<VoiceActivityDetection> CreateVoiceActivityDetectio
     }
     builder_.add_window_end_sample(window_end_sample);
     builder_.add_window_start_sample(window_start_sample);
-    builder_.add_speech_probability(speech_probability);
+    if (speech_probability) {
+        builder_.add_speech_probability(*speech_probability);
+    }
     builder_.add_object(object);
     builder_.add_discontinuity(discontinuity);
-    builder_.add_speech_active(speech_active);
+    if (speech_active) {
+        builder_.add_speech_active(*speech_active);
+    }
     return builder_.Finish();
 }
 

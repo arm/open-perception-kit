@@ -18,11 +18,14 @@
 
 import base64
 import ctypes
+import json
 from pathlib import Path
 import sys
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline, write_test_opchain
 
@@ -36,6 +39,30 @@ POLL_INTERVAL_SECONDS = 0.01
 TCP_METHOD = 2
 # One red RGB pixel, encoded as PNG (the background loader supports PNG/JPEG).
 RED_PIXEL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC'
+
+
+def wait_for_element_error(bus, element, gst):
+    deadline = time.monotonic() + STATE_TIMEOUT_SECONDS
+    while True:
+        remaining = max(0, int((deadline - time.monotonic()) * gst.SECOND))
+        message = bus.timed_pop_filtered(remaining, gst.MessageType.ERROR)
+        if message is None or message.src == element:
+            return message
+        if time.monotonic() >= deadline:
+            return None
+
+
+class ErrorMessageOrderTest(unittest.TestCase):
+    def test_waits_for_the_requested_element_in_either_order(self):
+        element = object()
+        expected = SimpleNamespace(src=element)
+        other = SimpleNamespace(src=object())
+        gst = SimpleNamespace(SECOND=1_000_000_000, MessageType=SimpleNamespace(ERROR=1))
+        for messages in ([expected], [other, expected], [other, None], [None]):
+            with self.subTest(messages=messages):
+                bus = SimpleNamespace(timed_pop_filtered=Mock(side_effect=messages))
+                result = wait_for_element_error(bus, element, gst)
+                self.assertIs(result, expected if expected in messages else None)
 
 
 class ElementPropertiesTest(unittest.TestCase):
@@ -53,6 +80,21 @@ class ElementPropertiesTest(unittest.TestCase):
         self.image.write_bytes(base64.b64decode(RED_PIXEL_PNG))
         self.opchain = write_test_opchain(self.directory.name, "first", {})
 
+    def test_quick_start_fixture_connects_the_tracker_to_its_detector(self):
+        root = Path(__file__).resolve().parents[2]
+        fixture = json.loads((root / ".github/scripts/quick-start-smoke/pipeline.json").read_text())
+        command = " ".join(fixture["pipeline"]).replace("${OPK_PROJECT_ROOT:-/work}", str(root))
+        pipeline = self.Gst.parse_launch(command)
+        try:
+            detector = pipeline.get_by_name("opkinfer0")
+            self.assertIsNotNone(detector)
+            tracker = detector.get_static_pad("src").get_peer().get_parent_element()
+            self.assertEqual(tracker.get_factory().get_name(), "opktracker")
+            self.assertEqual(json.loads(tracker.get_property("input-producers")),
+                             [f"{detector.get_property('infer-id')}/opk-std-ops-GenericPostprocess-0"])
+        finally:
+            release_pipeline(pipeline, self.Gst)
+
     def own_properties(self, element):
         return [prop for prop in element.list_properties()
                 if prop.owner_type == element.__gtype__]
@@ -60,7 +102,10 @@ class ElementPropertiesTest(unittest.TestCase):
     def sample_value(self, prop):
         special = {"bg-image": str(self.image), "opchain-path": str(self.opchain),
                    "association-mode": "iou", "static-files": self.directory.name,
-                   "method": TCP_METHOD}
+                   "method": TCP_METHOD, "input-bindings": "[]",
+                   "input-producers": '["fixture/output"]',
+                   "circle-producers": '["fixture/output"]',
+                   "box-producers": '["fixture/output"]'}
         if prop.name in special:
             return special[prop.name]
         default = prop.default_value
@@ -102,6 +147,12 @@ class ElementPropertiesTest(unittest.TestCase):
                     element.set_property(prop.name, current)
             if factory == "opkinfer":
                 self.assertIsNone(element.find_property("format"))
+            if factory == "opktracker":
+                self.assertIsNone(element.find_property("embedding-content-type"))
+                for name in ("embedding-space-id", "embedding-producer-id"):
+                    self.assertTrue(element.find_property(name).flags & self.Gst.PARAM_MUTABLE_READY)
+                    element.set_property(name, None)
+                    self.assertEqual(element.get_property(name), "")
 
     def test_ready_only_properties_reject_during_processing_and_apply_after_stop(self):
         pipeline = self.Gst.parse_launch(
@@ -129,12 +180,15 @@ class ElementPropertiesTest(unittest.TestCase):
                     message = pipeline.get_bus().timed_pop_filtered(
                         self.Gst.SECOND, self.Gst.MessageType.WARNING)
                     self.assertIsNotNone(message)
-                    self.assertIn(prop.name, message.parse_warning()[0].message)
-                    changes.append((element, prop.name, candidate))
+                    warning = message.parse_warning()[0].message
+                    self.assertIn(prop.name, warning)
+                    self.assertIn("READY or a lower state", warning)
+                    changes.append((element, prop.name, current, candidate))
         pipeline.set_state(self.Gst.State.READY)
         self.assertEqual(pipeline.get_state(STATE_TIMEOUT_SECONDS * self.Gst.SECOND)[1],
                          self.Gst.State.READY)
-        for element, name, candidate in changes:
+        for element, name, current, candidate in changes:
+            self.assertEqual(element.get_property(name), current)
             element.set_property(name, candidate)
             self.assertEqual(element.get_property(name), candidate)
         self.assertNotEqual(pipeline.set_state(self.Gst.State.PLAYING),
@@ -189,10 +243,10 @@ class ElementPropertiesTest(unittest.TestCase):
                          self.Gst.State.PLAYING)
         comm = pipeline.get_by_name("comm")
         comm.set_property("file-name", str(invalid))
-        message = pipeline.get_bus().timed_pop_filtered(self.Gst.SECOND, self.Gst.MessageType.ERROR)
+        message = wait_for_element_error(pipeline.get_bus(), comm, self.Gst)
         self.assertIsNotNone(message)
-        self.assertEqual(message.src, comm)
         self.assertIn("file-name", message.parse_error()[1])
+        self.assertIn(str(invalid), message.parse_error()[1])
         self.assertEqual(comm.get_property("file-name"), str(invalid))
         # No saved working combination: the caller explicitly corrects the value.
         pipeline.set_state(self.Gst.State.NULL)

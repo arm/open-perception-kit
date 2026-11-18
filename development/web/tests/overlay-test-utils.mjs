@@ -24,10 +24,10 @@ import {defineFeature, STYLE_CONTROLS} from '../src/overlay-feature.js';
 // The historical IDs also exercise migration of existing browser preferences.
 export function fixtureFeatures() {
     return [
-        defineFeature({id: 'bounding-boxes', label: 'Bounding boxes', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType) && s.contentType !== 'humanFace', render() {}}),
-        defineFeature({id: 'face-circles', label: 'Face circles', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType) && s.contentType === 'humanFace', render() {}}),
-        defineFeature({id: 'gaze', label: 'Gaze', accepts: (s) => s.payloadType === 'PoseEstimations' && s.contentType === 'eyeYawPitch', render() {}}),
-        defineFeature({id: 'camera-contact', label: 'Camera contact', accepts: (s) => s.payloadType === 'Classifications', render() {}}),
+        defineFeature({id: 'bounding-boxes', label: 'Bounding boxes', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType), render() {}}),
+        defineFeature({id: 'face-circles', label: 'Circular markers', accepts: (s) => ['BoxDetections', 'ObjectTracks'].includes(s.payloadType), render() {}}),
+        defineFeature({id: 'gaze', label: 'Gaze', accepts: (s) => s.payloadType === 'GazeMeasurements', render() {}}),
+        defineFeature({id: 'camera-contact', label: 'Camera contact', accepts: (s) => s.payloadType === 'CameraContacts', render() {}}),
         defineFeature({id: 'test-unsupported', label: 'Unsupported fixture', accepts: (s) => s.payloadType === 'TestUnsupportedPayload', reason: 'Fixture rendering is not supported.'}),
         defineFeature({id: 'tracked-objects', label: 'Tracked objects', accepts: (s) => s.payloadType === 'ObjectTracks', render() {},
             controls: [{key: 'boxes', label: 'Boxes', type: 'checkbox', value: true}, {key: 'trails', label: 'Trails', type: 'checkbox', value: true}, ...STYLE_CONTROLS],
@@ -69,11 +69,14 @@ export function render(frame, overlays, width = 640, height = 480, videoWidth = 
 }
 
 export function trackerFixture() {
+    const identity = {trackerId: 'test/tracker', sessionId: 'session', trackId: '7'};
+    const sample = index => ({frameIndex: String(index), elapsedMs: index * 10, state: 1, timeSource: 1});
     const tracks = {payloadType: 'ObjectTracks', contentType: 'genericObject', model: 'Tracker', engine: 'std',
         inferElementId: 'opktracker0', producer: {instanceId: 'opktracker0/opktracker0', component: 'gstreamer/opktracker', implementation: 'Tracker'},
-        detections: [{type: 'Rect', data: {uuid: '10', trackId: '7', x: 20, y: 30, width: 40, height: 50}}]};
+        detections: [{type: 'Rect', data: {uuid: '10', identity, sample: sample(2), trackingValid: true, x: 20, y: 30, width: 40, height: 50}}]};
     const trails = {...tracks, payloadType: 'TrackTraces', contentType: 'trackTrace',
-        detections: [{type: 'TrackTrace', data: {trackId: '7', points: [{x: 1, y: 2}, {x: 40, y: 55}]}}]};
+        detections: [{type: 'TrackTrace', data: {identity, trackingValid: true,
+            points: [{x: 1, y: 2, sample: sample(1)}, {x: 40, y: 55, sample: sample(2)}]}}]};
     return {tracks, trails};
 }
 

@@ -69,7 +69,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
     // any production rendering feature is registered.
     const registered = [...OVERLAY_FEATURES];
     OVERLAY_FEATURES.splice(0, OVERLAY_FEATURES.length, ...fixtureFeatures());
-    const originals = Object.fromEntries(['document', 'window', 'Option']
+    const originals = Object.fromEntries(['document', 'window', 'Option', 'performance']
         .map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
     const html = await readFile(new URL('../content/index.html', import.meta.url), 'utf8');
     const elements = new Map([...html.matchAll(/<(\w+)\b[^>]*\bid="([^"]+)"[^>]*>/g)]
@@ -91,6 +91,8 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
     Object.assign(get('clientOsdCanvas'), {width: 640, height: 480, clientWidth: 640, clientHeight: 480, getContext: () => context});
     Object.assign(get('video'), {videoWidth: 640, videoHeight: 480, requestVideoFrameCallback() {}});
     globalThis.window = window;
+    let now = 1000;
+    globalThis.performance = {now: () => now};
     globalThis.document = Object.assign(new Element('document'), {getElementById: get, createElement: (tag) => new Element(tag)});
     globalThis.Option = class extends Element {
         constructor(text, value) { super('option'); this.textContent = text; this.value = value; }
@@ -246,7 +248,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
 
         const tracked = {...first, payloadType: 'ObjectTracks',
             producer: {instanceId: 'tracker/0', component: 'tracker'},
-            detections: [{type: 'Rect', data: {trackId: '7'}}]};
+            detections: [{type: 'Rect', data: {identity: {trackerId: 'tracker', sessionId: 'session', trackId: '7'}}}]};
         emit([first, tracked]);
         get('addOverlayBtn').fire('click');
         assert.ok(get('overlayFeature').options.some((option) => option.textContent === 'Tracked objects'));
@@ -276,7 +278,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         get('overlayForm').fire('submit');
         assert.equal(saved()[3].selection.primary, null);
         assert.equal(saved()[3].settings.opacity, 0.13);
-        const gazeA = {payloadType: 'PoseEstimations', contentType: 'eyeYawPitch', model: 'gaze A', detections: []};
+        const gazeA = {payloadType: 'GazeMeasurements', contentType: 'eyeYawPitch', model: 'gaze A', detections: []};
         const gazeB = {...gazeA, model: 'gaze B'};
         emit([gazeA, gazeB]);
         assert.equal(saved()[3].selection.primary, null);
@@ -326,7 +328,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         const contactCard = get('overlayList').children.at(-1);
         find(contactCard, (element) => element.tag === 'button' && element.textContent === 'Change source…').fire('click');
         setStyle('range', '0.27');
-        const contact = {payloadType: 'Classifications', contentType: 'cameraContact', model: 'contact', detections: []};
+        const contact = {payloadType: 'CameraContacts', contentType: 'cameraContact', model: 'contact', detections: []};
         emit([contact]);
         assert.equal(get('overlayList').children.at(-1), contactCard);
         assert.equal(styleInput('range').value, '0.27');
@@ -389,11 +391,117 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.ok(drawn.length > 0);
         assert.ok(drawn.every(id => id === 'matched'));
         drawn.length = 0;
+        // A valid paused/low-FPS frame must not expire between video callbacks.
+        now += 1000;
+        animationFrame();
+        assert.ok(drawn.length > 0);
+        drawn.length = 0;
         const beforeClear = clears;
         window.fire('video-frame-results', {detail: null});
         assert.equal(clears, beforeClear + 1);
+        assert.ok(drawn.length > 0);
+        assert.ok(drawn.every(id => id === 'matched'));
+        drawn.length = 0;
+        now += 99;
+        window.fire('video-frame-results', {detail: null});
+        assert.ok(drawn.length > 0);
+        drawn.length = 0;
+        now += 1;
+        animationFrame();
+        assert.deepEqual(drawn, [], 'repeated misses must not extend the 100 ms hold');
+        now += 100;
+        window.fire('video-frame-results', {detail: null});
         animationFrame();
         assert.deepEqual(drawn, []);
+
+        const next = {...matched, detections: [{type: 'Rect', data: {uuid: 'next'}}]};
+        window.fire('video-frame-results', {detail: {layers: [next]}});
+        assert.ok(drawn.length > 0);
+        assert.ok(drawn.every(id => id === 'next'));
+        drawn.length = 0;
+        window.fire('video-frame-results', {detail: null});
+        now += 50;
+        drawn.length = 0;
+        window.fire('video-frame-results', {detail: {layers: [second]}});
+        assert.deepEqual(drawn, [], 'a valid empty detection clears immediately');
+        animationFrame();
+        assert.deepEqual(drawn, []);
+
+        window.fire('video-frame-results', {detail: {layers: [matched]}});
+        window.fire('video-frame-results', {detail: null});
+        now += 50;
+        window.fire('video-frame-results', {detail: {layers: [next]}});
+        drawn.length = 0;
+        now += 100;
+        animationFrame();
+        assert.ok(drawn.length > 0, 'fresh metadata cancels the pending expiry');
+        assert.ok(drawn.every(id => id === 'next'));
+
+        drawn.length = 0;
+        get('video').fire('emptied');
+        assert.deepEqual(drawn, [], 'stream replacement/reconnect clears immediately');
+        animationFrame();
+        assert.deepEqual(drawn, []);
+        window.fire('video-frame-results', {detail: {layers: [matched]}});
+        drawn.length = 0;
+        window.fire('video-frame-reset');
+        assert.deepEqual(drawn, [], 'invalid matched metadata clears immediately');
+        animationFrame();
+        assert.deepEqual(drawn, []);
+
+        // All visual features share the same bounded hold.
+        let trackedDraws = 0;
+        OVERLAY_FEATURES.find(feature => feature.id === 'tracked-objects').render = () => { trackedDraws++; };
+        window.fire('video-frame-results', {detail: {layers: [matched, tracked]}});
+        assert.ok(trackedDraws > 0);
+        trackedDraws = 0;
+        drawn.length = 0;
+        window.fire('video-frame-results', {detail: null});
+        assert.ok(drawn.length > 0);
+        assert.ok(trackedDraws > 0);
+        now += 100;
+        drawn.length = 0;
+        trackedDraws = 0;
+        animationFrame();
+        assert.deepEqual(drawn, []);
+        assert.equal(trackedDraws, 0, 'other features expire with the same deadline');
+        const other = {...first, detections: [{type: 'Rect', data: {uuid: 'other'}}]};
+        window.fire('video-frame-results', {detail: {layers: [matched, other, tracked]}});
+        drawn.length = 0;
+        trackedDraws = 0;
+        animationFrame();
+        const unchangedDraws = [...drawn];
+        assert.equal(saved()[0].enabled, false);
+        cardButton('Change source…').fire('click');
+        get('overlayOutput').value = secondKey;
+        get('overlayOutput').fire('change');
+        drawn.length = 0;
+        trackedDraws = 0;
+        get('overlayForm').fire('submit');
+        animationFrame();
+        assert.deepEqual(drawn, unchangedDraws, 'editing a hidden overlay preserves the paused frame');
+        assert.equal(trackedDraws, 1, 'other overlay features keep drawing without a new frame');
+        const editedVisible = find(get('overlayList').children[0], element => element.role === 'switch');
+        editedVisible.checked = true;
+        editedVisible.fire('change');
+        drawn.length = 0;
+        animationFrame();
+        assert.deepEqual(drawn, ['matched', ...unchangedDraws], 'the new source resolves against the preserved frame');
+        window.fire('video-frame-results', {detail: null});
+        now += 50;
+        cardButton('Change source…').fire('click');
+        get('overlayOutput').value = firstKey;
+        get('overlayOutput').fire('change');
+        get('overlayForm').fire('submit');
+        drawn.length = 0;
+        animationFrame();
+        assert.deepEqual(drawn, ['other', ...unchangedDraws], 'editing during a hold preserves the shared frame');
+        now += 50;
+        drawn.length = 0;
+        trackedDraws = 0;
+        animationFrame();
+        assert.deepEqual(drawn, [], 'editing does not renew the hold deadline');
+        assert.equal(trackedDraws, 0);
         // Semantic legends follow matched frames and do not rebuild for reordered classes.
         OVERLAY_FEATURES.push({...semanticSegmentation, render() {}});
         get('addOverlayBtn').fire('click');
@@ -409,7 +517,8 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         }}]};
         const mask = {payloadType: 'SemanticSegmentationMasks', contentType: 'semanticSegmentation',
             model: 'semantic', labelFamily: 'example-classes', detections: [{type: 'SemanticSegmentationMask', data: {
-                parentUuid: '42', width: 3, height: 1, valueType: 'Uint8', pixels: new Uint8Array([0, 18, 0]),
+                parentUuid: 'unrelated', width: 3, height: 1, encoding: 1, pixels: new Uint8Array([0, 18, 0]), labelSet: 'test:classes',
+                space: {frameId: 42n, width: 3, height: 1, originX: 0, originY: 0, extentWidth: 3, extentHeight: 1},
             }}]};
         emit([parent, mask]);
         assert.match(legend.textContent, /Waiting for matching video metadata/);
@@ -450,14 +559,21 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         visible.fire('change');
         assert.ok(find(legend, element => element.placeholder === 'Class 1'));
         window.fire('video-frame-results', {detail: null});
+        assert.equal(class1Name['aria-description'], 'Not in frame', 'legends follow the retained overlay');
+        assert.equal(find(legendList.children[2], element => element.className === 'overlay-class-name')['aria-description'], 'In frame');
+        now += 100;
+        animationFrame();
         assert.match(legend.textContent, /Waiting for matching video metadata/);
         assert.equal(class1Name['aria-description'], 'Unavailable', 'missing metadata is not evidence of absence');
         window.fire('video-frame-results', {detail: {layers: [parent, {...mask, detections: []}]}});
         assert.match(legend.textContent, /No class map/);
-        assert.equal(class1Name['aria-description'], 'Unavailable', 'an empty semantic payload has no class map');
+        assert.equal(class1Name['aria-description'], 'Not in frame', 'an explicit empty result is distinct from missing metadata');
         match();
         assert.equal(class1Name['aria-description'], 'Not in frame', 'valid metadata restores known absence');
         assert.equal(find(legendList.children[2], element => element.className === 'overlay-class-name')['aria-description'], 'In frame');
+        get('video').fire('emptied');
+        assert.equal(class1Name['aria-description'], 'Unavailable', 'video reset clears legend presence immediately');
+        match();
         assert.deepEqual(saved().at(-1).settings, {opacity: 0.5, classes: {}});
         const beforeClassPreview = storageWrites;
         classColor.value = '#123456';

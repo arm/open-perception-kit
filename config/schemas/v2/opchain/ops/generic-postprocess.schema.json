@@ -1,0 +1,826 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:generic-postprocess-op:v2",
+  "title": "GenericPostprocess Op v2",
+  "$defs": {
+    "cameraContact": {
+      "title": "CameraContactParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "CameraContactParser"
+        },
+        "contactClassIndex": {
+          "enum": [
+            0,
+            1
+          ],
+          "default": 1
+        },
+        "noContactClassIndex": {
+          "enum": [
+            0,
+            1
+          ],
+          "default": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "contactClassIndex": {
+                "const": 0
+              }
+            },
+            "required": [
+              "contactClassIndex"
+            ]
+          },
+          "then": {
+            "properties": {
+              "noContactClassIndex": {
+                "const": 1
+              }
+            },
+            "required": [
+              "noContactClassIndex"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "noContactClassIndex": {
+                "const": 1
+              }
+            },
+            "required": [
+              "noContactClassIndex"
+            ]
+          },
+          "then": {
+            "properties": {
+              "contactClassIndex": {
+                "const": 0
+              }
+            },
+            "required": [
+              "contactClassIndex"
+            ]
+          }
+        }
+      ]
+    },
+    "dummy": {
+      "title": "DummyParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "DummyParser"
+        },
+        "log": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "gazeDetection": {
+      "title": "GazeDetectionParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "GazeDetectionParser"
+        },
+        "angleBinWidthDeg": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat"
+        }
+      }
+    },
+    "objectEmbedding": {
+      "title": "ObjectEmbeddingParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parser"],
+      "properties": {
+        "parser": {"const": "ObjectEmbeddingParser"},
+        "embeddingSpaceId": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString",
+          "description": "Versioned semantic embedding-space identity. Omission leaves vectors unidentified and unavailable for matching."
+        }
+      }
+    },
+    "noConfig": {
+      "title": "No-config GenericPostprocess parser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "enum": [
+            "PersonClassificationParser",
+            "RvmParser",
+            "Yolo26SemanticSegmentationParser"
+          ]
+        }
+      }
+    },
+    "imagenetClassification": {
+      "title": "ImageNetClassificationParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "ImageNetClassificationParser"
+        },
+        "topK": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
+          "default": 5
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.01
+        }
+      }
+    },
+    "yolo26InstanceSegmentation": {
+      "title": "Yolo26InstanceSegmentationParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "Yolo26InstanceSegmentationParser"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.25
+        }
+      }
+    },
+    "modnetSegmentation": {
+      "title": "ModNetSegmentationParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "ModNetSegmentationParser"
+        },
+        "thresholdLow": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.2
+        },
+        "thresholdHigh": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.8
+        }
+      }
+    },
+    "paddleOcrDbDetection": {
+      "title": "PaddleOcrDbDetectionParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "binaryThreshold",
+        "confidenceThreshold",
+        "unclipRatio",
+        "maxCandidates",
+        "minBoxSize",
+        "minExpandedBoxSize"
+      ],
+      "properties": {
+        "parser": {
+          "const": "PaddleOcrDbDetectionParser"
+        },
+        "binaryThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability"
+        },
+        "unclipRatio": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat"
+        },
+        "maxCandidates": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount"
+        },
+        "minBoxSize": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat"
+        },
+        "minExpandedBoxSize": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat"
+        }
+      }
+    },
+    "paddleOcrRecognition": {
+      "title": "PaddleOcrRecognitionParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "dictionaryFile"
+      ],
+      "properties": {
+        "parser": {
+          "const": "PaddleOcrRecognitionParser"
+        },
+        "dictionaryFile": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/localPath"
+        }
+      }
+    },
+    "paddleOcrDetection": {
+      "title": "PaddleOcrDetectionParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "PaddleOcrDetectionParser"
+        },
+        "thresholdLow": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.6
+        },
+        "thresholdHigh": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.8
+        },
+        "gamma": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveFiniteFloat",
+          "default": 0.5
+        }
+      }
+    },
+    "scrfd": {
+      "title": "ScrfdParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "ScrfdParser"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.5
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.4
+        },
+        "normalizeOutputCoordinates": {
+          "type": "boolean",
+          "default": false
+        },
+        "maxDetections": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
+          "default": 100
+        }
+      }
+    },
+    "ultraface": {
+      "title": "UltrafaceParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "UltrafaceParser"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.5
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.3
+        },
+        "normalizeOutputCoordinates": {
+          "type": "boolean",
+          "default": true
+        },
+        "scoresAreLogits": {
+          "type": "boolean",
+          "default": false,
+          "description": "Apply stable two-class softmax to raw UltraFace scores before filtering."
+        }
+      }
+    },
+    "yolo": {
+      "title": "YoloParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "YoloParser"
+        },
+        "outputFormat": {
+          "enum": [
+            "centerClassScores",
+            "cornerScoreClass",
+            "cornerClassScores"
+          ],
+          "default": "centerClassScores"
+        },
+        "maxDetections": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
+          "description": "Top class/anchor pairs retained by cornerClassScores before optional NMS.",
+          "default": 300
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.25
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.45
+        },
+        "coordinatesAreNormalized": {
+          "type": "boolean",
+          "default": false
+        },
+        "normalizeOutputCoordinates": {
+          "type": "boolean",
+          "default": true
+        },
+        "applyNms": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "maxDetections"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outputFormat": {
+                "const": "cornerClassScores"
+              }
+            },
+            "required": [
+              "outputFormat"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "applyNms": {
+                "const": false
+              }
+            },
+            "required": [
+              "applyNms"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "iouThreshold"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "yoloX": {
+      "title": "YoloXParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "YoloXParser"
+        },
+        "classCount": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
+          "default": 80
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.25
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.45
+        },
+        "maxDetections": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/positiveCount",
+          "default": 100
+        },
+        "applyNms": {
+          "type": "boolean",
+          "default": true
+        },
+        "decoded": {
+          "type": "boolean",
+          "default": false
+        },
+        "scoresAreLogits": {
+          "type": "boolean",
+          "default": false
+        },
+        "normalizeOutputCoordinates": {
+          "type": "boolean",
+          "default": true
+        },
+        "scoreMode": {
+          "enum": [
+            "objectnessClass",
+            "classOnly"
+          ],
+          "default": "objectnessClass"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "applyNms": {
+                "const": false
+              }
+            },
+            "required": [
+              "applyNms"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "iouThreshold"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "sileroVad": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "SileroVadParser"
+        },
+        "thresholdOn": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.6
+        },
+        "thresholdOff": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.45
+        },
+        "attackMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 50
+        },
+        "releaseMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 50
+        }
+      }
+    },
+    "voiceActivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "outputTensorIndex",
+        "scoreIndex",
+        "activation",
+        "thresholdOn",
+        "thresholdOff",
+        "attackMs",
+        "releaseMs"
+      ],
+      "properties": {
+        "parser": {
+          "const": "VoiceActivityParser"
+        },
+        "thresholdOn": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "thresholdOff": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "attackMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "releaseMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "scoreIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "activation": {
+          "enum": [
+            "sigmoid",
+            "none"
+          ]
+        }
+      }
+    },
+    "smartTurn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "SmartTurnParser"
+        },
+        "threshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.5
+        }
+      }
+    },
+    "retinaface": {
+      "title": "RetinaFaceParser attributes v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "RetinaFaceParser"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.6
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/probability",
+          "default": 0.4
+        }
+      }
+    },
+    "keywordClassification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "outputTensorIndex",
+        "activation",
+        "confidenceThreshold",
+        "labels",
+        "labelSet"
+      ],
+      "properties": {
+        "parser": {
+          "const": "KeywordClassificationParser"
+        },
+        "labelSet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "activation": {
+          "enum": [
+            "softmax",
+            "none"
+          ]
+        },
+        "confidenceThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "labels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contains": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "audioEventClassification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "outputTensorIndex",
+        "activation",
+        "confidenceThreshold",
+        "labels",
+        "topK",
+        "labelSet"
+      ],
+      "properties": {
+        "labelSet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parser": {
+          "const": "AudioEventClassificationParser"
+        },
+        "outputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "activation": {
+          "enum": [
+            "sigmoid",
+            "none"
+          ]
+        },
+        "confidenceThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "labels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contains": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "topK": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "log": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "id": {
+        "const": "opk-std-ops/GenericPostprocess"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "then": {
+    "required": [
+      "attributes"
+    ],
+    "properties": {
+      "attributes": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/cameraContact"
+          },
+          {
+            "$ref": "#/$defs/dummy"
+          },
+          {
+            "$ref": "#/$defs/gazeDetection"
+          },
+          {
+            "$ref": "#/$defs/noConfig"
+          },
+          {
+            "$ref": "#/$defs/objectEmbedding"
+          },
+          {
+            "$ref": "#/$defs/imagenetClassification"
+          },
+          {
+            "$ref": "#/$defs/modnetSegmentation"
+          },
+          {
+            "$ref": "#/$defs/paddleOcrDbDetection"
+          },
+          {
+            "$ref": "#/$defs/paddleOcrRecognition"
+          },
+          {
+            "$ref": "#/$defs/paddleOcrDetection"
+          },
+          {
+            "$ref": "#/$defs/scrfd"
+          },
+          {
+            "$ref": "#/$defs/ultraface"
+          },
+          {
+            "$ref": "#/$defs/yolo"
+          },
+          {
+            "$ref": "#/$defs/yolo26InstanceSegmentation"
+          },
+          {
+            "$ref": "#/$defs/yoloX"
+          },
+          {
+            "$ref": "#/$defs/sileroVad"
+          },
+          {
+            "$ref": "#/$defs/voiceActivity"
+          },
+          {
+            "$ref": "#/$defs/smartTurn"
+          },
+          {
+            "$ref": "#/$defs/retinaface"
+          },
+          {
+            "$ref": "#/$defs/keywordClassification"
+          },
+          {
+            "$ref": "#/$defs/audioEventClassification"
+          }
+        ]
+      }
+    }
+  }
+}

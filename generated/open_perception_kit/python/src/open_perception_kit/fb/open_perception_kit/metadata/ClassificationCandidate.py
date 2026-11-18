@@ -50,14 +50,14 @@ class ClassificationCandidate(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
+        return None
 
     # ClassificationCandidate
     def ClassId(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return -1
+            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+        return None
 
     # ClassificationCandidate
     def Text(self):
@@ -66,37 +66,9 @@ class ClassificationCandidate(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-    # ClassificationCandidate
-    def X(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
-
-    # ClassificationCandidate
-    def Y(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
-
-    # ClassificationCandidate
-    def W(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
-
-    # ClassificationCandidate
-    def H(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.0
-
 
 def ClassificationCandidateStart(builder):
-    builder.StartObject(7)
+    builder.StartObject(3)
 
 
 def Start(builder):
@@ -104,7 +76,7 @@ def Start(builder):
 
 
 def ClassificationCandidateAddConfidence(builder, confidence):
-    builder.PrependFloat32Slot(0, confidence, 0.0)
+    builder.PrependFloat32Slot(0, confidence, None)
 
 
 def AddConfidence(builder, confidence):
@@ -112,7 +84,7 @@ def AddConfidence(builder, confidence):
 
 
 def ClassificationCandidateAddClassId(builder, classId):
-    builder.PrependInt32Slot(1, classId, -1)
+    builder.PrependUint32Slot(1, classId, None)
 
 
 def AddClassId(builder, classId):
@@ -127,38 +99,6 @@ def AddText(builder, text):
     ClassificationCandidateAddText(builder, text)
 
 
-def ClassificationCandidateAddX(builder, x):
-    builder.PrependFloat32Slot(3, x, 0.0)
-
-
-def AddX(builder, x):
-    ClassificationCandidateAddX(builder, x)
-
-
-def ClassificationCandidateAddY(builder, y):
-    builder.PrependFloat32Slot(4, y, 0.0)
-
-
-def AddY(builder, y):
-    ClassificationCandidateAddY(builder, y)
-
-
-def ClassificationCandidateAddW(builder, w):
-    builder.PrependFloat32Slot(5, w, 0.0)
-
-
-def AddW(builder, w):
-    ClassificationCandidateAddW(builder, w)
-
-
-def ClassificationCandidateAddH(builder, h):
-    builder.PrependFloat32Slot(6, h, 0.0)
-
-
-def AddH(builder, h):
-    ClassificationCandidateAddH(builder, h)
-
-
 def ClassificationCandidateEnd(builder):
     return builder.EndObject()
 
@@ -167,26 +107,24 @@ def End(builder):
     return ClassificationCandidateEnd(builder)
 
 
+try:
+    from typing import Optional
+except:
+    pass
+
+
 class ClassificationCandidateT(object):
 
     # ClassificationCandidateT
     def __init__(
         self,
-        confidence=0.0,
-        classId=-1,
+        confidence=None,
+        classId=None,
         text=None,
-        x=0.0,
-        y=0.0,
-        w=0.0,
-        h=0.0,
     ):
-        self.confidence = confidence  # type: float
-        self.classId = classId  # type: int
+        self.confidence = confidence  # type: Optional[float]
+        self.classId = classId  # type: Optional[int]
         self.text = text  # type: Optional[str]
-        self.x = x  # type: float
-        self.y = y  # type: float
-        self.w = w  # type: float
-        self.h = h  # type: float
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -212,10 +150,6 @@ class ClassificationCandidateT(object):
         self.confidence = classificationCandidate.Confidence()
         self.classId = classificationCandidate.ClassId()
         self.text = classificationCandidate.Text()
-        self.x = classificationCandidate.X()
-        self.y = classificationCandidate.Y()
-        self.w = classificationCandidate.W()
-        self.h = classificationCandidate.H()
 
     # ClassificationCandidateT
     def Pack(self, builder):
@@ -226,9 +160,5 @@ class ClassificationCandidateT(object):
         ClassificationCandidateAddClassId(builder, self.classId)
         if self.text is not None:
             ClassificationCandidateAddText(builder, text)
-        ClassificationCandidateAddX(builder, self.x)
-        ClassificationCandidateAddY(builder, self.y)
-        ClassificationCandidateAddW(builder, self.w)
-        ClassificationCandidateAddH(builder, self.h)
         classificationCandidate = ClassificationCandidateEnd(builder)
         return classificationCandidate

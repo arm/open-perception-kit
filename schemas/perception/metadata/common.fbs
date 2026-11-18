@@ -1,8 +1,11 @@
 namespace open_perception_kit.metadata;
 
 table ObjectMeta {
+  // Observation identity. References are not coordinate transforms.
   id:ulong;
+  // Derivation/subject relationship, never an implicit spatial reference.
   parent_id:ulong;
+  // Producer creation time in Unix-epoch nanoseconds, not media PTS.
   creation_ts_ns:ulong;
 }
 
@@ -18,26 +21,46 @@ table LayerInfo {
   tags:string;
   infer_element_id:string;
   label_family:string;
-  content_type:string;
   compositing_mode:string;
   producer:ProducerInfo;
 }
 
+enum CoordinateUnits:ubyte { Pixels, Normalized }
+
+// Self-contained image basis. Origin and extent are source-frame pixels.
+// frame_id identifies the FrameContext that established the basis; cached
+// results can retain this description without retaining that observation.
+table ImageSpace {
+  frame_id:ulong;
+  width:uint;
+  height:uint;
+  origin_x:double;
+  origin_y:double;
+  extent_width:double;
+  extent_height:double;
+}
+
 table BoundingBox {
+  // Top-left and size in space-local pixels or fractions of its extent.
   x:float;
   y:float;
   width:float;
   height:float;
+  space:ImageSpace;
+  units:CoordinateUnits = Pixels;
 }
 
-table Point2f {
-  x:float;
-  y:float;
-}
+// Tightly packed, row-major unsigned samples; no stride, compression or color packing.
+// Unspecified/unknown encodings are not interpretable. Multi-byte samples are little-endian.
+enum BitmapEncoding:ubyte { Unspecified, Uint8, Uint32LE }
 
 table BitmapData {
   width:uint;
   height:uint;
-  value_type:string;
+  encoding:BitmapEncoding = Unspecified;
   pixels:[ubyte];
+  // The complete grid spans this source-image region, independently of parent_id.
+  // Sample (x,y) covers [x/width,(x+1)/width) x [y/height,(y+1)/height) of the extent.
+  // Both dimensions must be positive and pixels must contain exactly width*height*sample_size bytes.
+  space:ImageSpace;
 }

@@ -43,12 +43,28 @@ CtrlWebSocket::CtrlWebSocket(_GstOpkSink *self) : self_(self) {
     message_types = {
         {"play_pause", std::bind(&CtrlWebSocket::play_pause, this, _1)},
         {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
+        {"model_inputs", [this](const json &message) { model_inputs(message); }},
     };
+}
+
+static void toggleModel(gpointer element, gpointer) {
+    g_autoptr(GstElement) targetElement = GST_ELEMENT(element);
+    gboolean active = FALSE;
+    g_object_get(targetElement, "active", &active, nullptr);
+    g_object_set(targetElement, "active", !active, nullptr);
+    GST_INFO_OBJECT(targetElement, "Set active=%d", !active);
 }
 
 CtrlSockerError CtrlWebSocket::setup() {
     std::lock_guard<std::mutex> g(hdl_lock);
     ws = std::make_shared<ws_server>();
+    constexpr int modelToggleWorkerCount = 1;
+    auto *const toggleQueue = g_thread_pool_new_full(
+        toggleModel, nullptr, gst_object_unref, modelToggleWorkerCount, FALSE, nullptr);
+    model_toggle_queue.reset(toggleQueue, [](GThreadPool *const queue) {
+        // A callback may stop this server; discard queued work without joining it.
+        g_thread_pool_free(queue, TRUE, FALSE);
+    });
 
     ws->init_asio();
     ws->clear_access_channels(websocketpp::log::alevel::all);
@@ -104,6 +120,7 @@ CtrlSockerError CtrlWebSocket::stop() {
         ws->run(); // Startup may have failed before the worker was created.
     }
 
+    model_toggle_queue.reset();
     std::lock_guard<std::mutex> g(hdl_lock);
     hdls.clear();
     ws.reset();
@@ -306,16 +323,36 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
             return;
         }
 
-        gboolean active;
-        g_object_get(target_element, "active", &active, NULL);
-        active = !active;
-        g_object_set(target_element, "active", active, NULL);
-        gst_object_unref(target_element);
-
-        GST_INFO_OBJECT(
-            self_, "Set element %s active=%d", opk::log::escape(element_name).c_str(), active);
-
+        // Transfer the reference to the FIFO worker, outside the server thread.
+        g_thread_pool_push(model_toggle_queue.get(), target_element, nullptr);
     } catch (const json::exception &e) {
         opk::log::debug("Dropping invalid model toggle: {}", e.what());
+    }
+}
+
+void CtrlWebSocket::model_inputs(const json &jsn) {
+    try {
+        const auto name = jsn.at("name").get<std::string>();
+        const auto &bindings = jsn.at("bindings");
+        if (name.empty() || name.size() > 1024 || name.find('\0') != std::string::npos ||
+            !bindings.is_array() || bindings.size() > 128)
+            return;
+        const auto encoded = bindings.dump();
+        if (encoded.size() > 65536)
+            return;
+        GstElement *const pipeline = get_top_pipeline(GST_ELEMENT(self_));
+        if (!pipeline)
+            return;
+        GstElement *const target = get_element_by_name(pipeline, name);
+        gst_object_unref(pipeline);
+        if (!target)
+            return;
+        const auto *const property =
+            g_object_class_find_property(G_OBJECT_GET_CLASS(target), "input-bindings");
+        if (property && G_PARAM_SPEC_VALUE_TYPE(property) == G_TYPE_STRING)
+            g_object_set(target, "input-bindings", encoded.c_str(), nullptr);
+        gst_object_unref(target);
+    } catch (const json::exception &error) {
+        opk::log::debug("Dropping invalid model input connections: {}", error.what());
     }
 }

@@ -34,7 +34,7 @@
 
 class TcpError : public std::runtime_error {
   public:
-    explicit TcpError(const std::string &err) : std::runtime_error(err) {}
+    explicit TcpError(const std::string &message) : std::runtime_error(message) {}
 };
 
 enum class SendResult {
@@ -44,20 +44,21 @@ enum class SendResult {
     Error,
 };
 
-static SendResult send_all(int fd, const std::string &data, size_t &off) {
-    while (off < data.size()) {
-        ssize_t n = ::send(fd, data.data() + off, data.size() - off, MSG_NOSIGNAL);
-        if (n > 0) {
-            off += size_t(n);
+static SendResult send_all(int fileDescriptor, const std::string &data, size_t &offset) {
+    while (offset < data.size()) {
+        ssize_t bytesSent =
+            ::send(fileDescriptor, data.data() + offset, data.size() - offset, MSG_NOSIGNAL);
+        if (bytesSent > 0) {
+            offset += static_cast<size_t>(bytesSent);
             continue;
         }
-        if (n < 0 && errno == EINTR)
+        if (bytesSent < 0 && errno == EINTR)
             continue;
 
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        if (bytesSent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
             return SendResult::Backpressure;
 
-        if (n < 0 && (errno == EPIPE || errno == ECONNRESET || errno == ENOTCONN))
+        if (bytesSent < 0 && (errno == EPIPE || errno == ECONNRESET || errno == ENOTCONN))
             return SendResult::Disconnected;
 
         return SendResult::Error;
@@ -67,7 +68,7 @@ static SendResult send_all(int fd, const std::string &data, size_t &off) {
 }
 
 bool TcpWriter::io_open() {
-    std::lock_guard g(m_io_lock);
+    std::scoped_lock lock(m_io_lock);
 
     try {
         if (m_host.empty()) {
@@ -85,8 +86,9 @@ bool TcpWriter::io_open() {
         hints.ai_flags = AI_PASSIVE;
 
         const auto port_str = std::to_string(m_port);
-        struct addrinfo *result_raw = nullptr;
-        const int gai_rc = getaddrinfo(m_host.c_str(), port_str.c_str(), &hints, &result_raw);
+        struct addrinfo *rawAddressLookupInformation = nullptr;
+        const int gai_rc =
+            getaddrinfo(m_host.c_str(), port_str.c_str(), &hints, &rawAddressLookupInformation);
         if (gai_rc != 0) {
             GST_INFO_OBJECT(self(),
                             "Failed to resolve TCP bind address '%s:%u': %s",
@@ -96,24 +98,29 @@ bool TcpWriter::io_open() {
             throw TcpError("getaddrinfo failed");
         }
 
-        std::unique_ptr<struct addrinfo, decltype(&freeaddrinfo)> result(result_raw, freeaddrinfo);
+        // freeaddrinfo is a system C library function declared in <netdb.h>.
+        std::unique_ptr<struct addrinfo, decltype(&freeaddrinfo)> addressLookupInformation(
+            rawAddressLookupInformation, freeaddrinfo);
 
-        for (auto *rp = result.get(); rp != nullptr; rp = rp->ai_next) {
-            int fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-            if (fd < 0) {
+        for (auto *address = addressLookupInformation.get(); address != nullptr;
+             address = address->ai_next) {
+            const int fileDescriptor =
+                socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+            if (fileDescriptor < 0) {
                 continue;
             }
 
             int reuse = 1;
-            (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+            (void)setsockopt(fileDescriptor, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
-            if (bind(fd, rp->ai_addr, rp->ai_addrlen) == 0 && listen(fd, 1) == 0) {
-                int flags = fcntl(fd, F_GETFL, 0);
+            if (bind(fileDescriptor, address->ai_addr, address->ai_addrlen) == 0 &&
+                listen(fileDescriptor, 1) == 0) {
+                int flags = fcntl(fileDescriptor, F_GETFL, 0);
                 if (flags >= 0) {
-                    (void)fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+                    (void)fcntl(fileDescriptor, F_SETFL, flags | O_NONBLOCK);
                 }
 
-                m_listen_fd = fd;
+                m_listen_fd = fileDescriptor;
                 GST_INFO_OBJECT(self(),
                                 "Listening for TCP metadata clients on '%s:%u'",
                                 m_host.c_str(),
@@ -121,7 +128,7 @@ bool TcpWriter::io_open() {
                 return true;
             }
 
-            close(fd);
+            close(fileDescriptor);
         }
 
         GST_INFO_OBJECT(self(),
@@ -150,7 +157,7 @@ void TcpWriter::clear_pending() {
 }
 
 void TcpWriter::io_close() {
-    std::lock_guard g(m_io_lock);
+    std::scoped_lock lock(m_io_lock);
 
     close_client();
 
@@ -161,9 +168,9 @@ void TcpWriter::io_close() {
 }
 
 int TcpWriter::check_client() {
-    int fd = -1;
+    int fileDescriptor = -1;
 
-    std::lock_guard g(m_io_lock);
+    std::scoped_lock lock(m_io_lock);
 
     if (m_listen_fd < 0)
         io_open();
@@ -184,20 +191,20 @@ int TcpWriter::check_client() {
     }
 
     if (m_client_fd >= 0)
-        fd = dup(m_client_fd);
+        fileDescriptor = dup(m_client_fd);
 
-    return fd;
+    return fileDescriptor;
 }
 
 bool TcpWriter::publish(const std::string &json_str) {
-    bool ret = false;
+    bool success = false;
 
-    if (auto fd = check_client(); fd >= 0) {
+    if (auto fileDescriptor = check_client(); fileDescriptor >= 0) {
         SendResult send_result = SendResult::Sent;
         bool dropped_frame = false;
 
         if (!m_pending.empty()) {
-            send_result = send_all(fd, m_pending, m_pending_offset);
+            send_result = send_all(fileDescriptor, m_pending, m_pending_offset);
             if (send_result == SendResult::Sent) {
                 clear_pending();
             } else {
@@ -207,7 +214,7 @@ bool TcpWriter::publish(const std::string &json_str) {
 
         if (send_result == SendResult::Sent) {
             size_t offset = 0;
-            send_result = send_all(fd, json_str, offset);
+            send_result = send_all(fileDescriptor, json_str, offset);
             if (send_result == SendResult::Backpressure) {
                 m_pending = json_str;
                 m_pending_offset = offset;
@@ -215,10 +222,10 @@ bool TcpWriter::publish(const std::string &json_str) {
         }
 
         const int send_errno = errno;
-        close(fd);
+        close(fileDescriptor);
 
         if (send_result == SendResult::Sent) {
-            ret = true;
+            success = true;
         } else if (send_result == SendResult::Backpressure) {
             if (dropped_frame) {
                 GST_DEBUG_OBJECT(self(),
@@ -234,12 +241,12 @@ bool TcpWriter::publish(const std::string &json_str) {
         } else if (send_result == SendResult::Disconnected) {
             GST_INFO_OBJECT(
                 self(), "TCP metadata client on '%s:%u' disconnected", m_host.c_str(), m_port);
-            std::lock_guard g(m_io_lock);
+            std::scoped_lock lock(m_io_lock);
             close_client();
         } else {
             GST_DEBUG_OBJECT(self(), "TCP write error: %s", g_strerror(send_errno));
         }
     }
 
-    return ret;
+    return success;
 }

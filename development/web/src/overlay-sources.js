@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
+import {trackKey} from './tracking-data.js';
+export {trackKey};
+
 const SOURCE_FIELDS = [
-    'payloadType', 'contentType', 'engine', 'model', 'inferElementId', 'labelFamily',
+    'payloadType', 'engine', 'model', 'inferElementId', 'labelFamily',
     'producerInstanceId', 'producerComponent', 'producerImplementation',
 ];
 const SOURCE_FIELD_LABELS = {
-    payloadType: 'Payload type', contentType: 'Content type', engine: 'Engine', model: 'Model',
+    payloadType: 'Payload type', engine: 'Engine', model: 'Model',
     inferElementId: 'Inference element', labelFamily: 'Label family',
     producerInstanceId: 'Producer instance', producerComponent: 'Component', producerImplementation: 'Implementation',
 };
@@ -28,7 +31,6 @@ const SOURCE_FIELD_LABELS = {
 export function outputSource(layer) {
     return {
         payloadType: layer.payloadType || '',
-        contentType: layer.contentType || '',
         engine: layer.engine || '',
         model: layer.model || '',
         inferElementId: layer.inferElementId || '',
@@ -47,6 +49,10 @@ export function validSource(source) {
     return SOURCE_FIELDS.every((field) => typeof source?.[field] === 'string') && source.payloadType.length > 0;
 }
 
+export function copySource(source) {
+    return Object.fromEntries(SOURCE_FIELDS.map(field => [field, source[field]]));
+}
+
 // Relationship identity is deliberately independent of model, engine, label
 // family and the full selector used to persist a user's source choice.
 export function producerKey(source) {
@@ -58,13 +64,8 @@ export function objectId(value) {
     return value == null || String(value) === '0' ? '' : String(value);
 }
 
-export function trackKey(source, id) {
-    const producer = producerKey(source);
-    return producer && objectId(id) ? JSON.stringify([producer, objectId(id)]) : null;
-}
-
 export function sourceLabel(source) {
-    if (source.payloadType === 'PerformanceOverlay') return 'Pipeline performance';
+    if (source.payloadType === 'PerformanceMeasurements') return 'Pipeline performance';
     return source.model || source.producerImplementation || source.producerInstanceId
         || source.inferElementId || source.producerComponent || 'Unspecified source';
 }
@@ -142,7 +143,7 @@ export function indexFrame(frame) {
                 const entry = {...item, layer, source: output.source};
                 output.items.push(entry);
                 append(index.objects, objectId(item.data.uuid), entry);
-                append(index.byTrack, trackKey(output.source, item.data.trackId), entry);
+                append(index.byTrack, trackKey(item.data.identity), entry);
             }
         }
     }

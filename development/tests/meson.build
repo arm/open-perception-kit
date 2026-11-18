@@ -14,32 +14,34 @@
 # limitations under the License.
 
 
-# The runtime ABI conformance suite has no OPK runtime dependencies.
-or_host_conformance_tests = executable(
-  'or_host_conformance_tests',
-  [
-    '../third-party/optimized-runtimes/interfaces/or/conformance/host_conformance_test.cpp',
-    '../third-party/optimized-runtimes/interfaces/or/conformance/mock_runtime.cpp',
-  ],
-  dependencies : [gtest_main_dep, gtest_dep],
-)
-test('or_host_conformance_tests', or_host_conformance_tests, timeout : 60)
-test(
-  'or_host_conformance_rejects_wrong_output',
-  or_host_conformance_tests,
-  args : ['--gtest_filter=HostConformance.RepeatedHostExecution'],
-  env : ['OR_MOCK_FAULT=wrong-output'],
-  should_fail : true,
-  timeout : 60,
-)
-test(
-  'or_host_conformance_rejects_bootstrap_write',
-  or_host_conformance_tests,
-  args : ['--gtest_filter=HostConformance.BootstrapVersionMismatchPreservesTable'],
-  env : ['OR_MOCK_FAULT=clobber-bootstrap'],
-  should_fail : true,
-  timeout : 60,
-)
+if get_option('or_runtime')
+  # The runtime ABI conformance suite has no OPK runtime dependencies.
+  or_host_conformance_tests = executable(
+    'or_host_conformance_tests',
+    [
+      '../third-party/optimized-runtimes/interfaces/or/conformance/host_conformance_test.cpp',
+      '../third-party/optimized-runtimes/interfaces/or/conformance/mock_runtime.cpp',
+    ],
+    dependencies : [gtest_main_dep, gtest_dep],
+  )
+  test('or_host_conformance_tests', or_host_conformance_tests, timeout : 60)
+  test(
+    'or_host_conformance_rejects_wrong_output',
+    or_host_conformance_tests,
+    args : ['--gtest_filter=HostConformance.RepeatedHostExecution'],
+    env : ['OR_MOCK_FAULT=wrong-output'],
+    should_fail : true,
+    timeout : 60,
+  )
+  test(
+    'or_host_conformance_rejects_bootstrap_write',
+    or_host_conformance_tests,
+    args : ['--gtest_filter=HostConformance.BootstrapVersionMismatchPreservesTable'],
+    env : ['OR_MOCK_FAULT=clobber-bootstrap'],
+    should_fail : true,
+    timeout : 60,
+  )
+endif
 
 jsoncons_dep = dependency(
   'jsoncons',
@@ -67,8 +69,8 @@ config_schema_resources_tests = executable(
 config_validator_tests = executable(
   'config_validator_tests',
   [
-    'config_validator_model_v1_test.cpp',
-    'config_validator_opchain_v1_test.cpp',
+    'config_validator_model_v2_test.cpp',
+    'config_validator_opchain_v2_test.cpp',
     '../config-validator/RepositoryValidator.cpp',
     'config_validator_repository_test.cpp',
     'config_validator_report_test.cpp',
@@ -103,6 +105,22 @@ surface_painter_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
   link_with : [common],
 )
+
+metadata_text_display_tests = executable(
+  'metadata_text_display_tests',
+  ['metadata_text_display_test.cpp', '../examples/common/TextDisplay.cpp'],
+  include_directories : [common_include, include_directories('../examples/common')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('metadata_text_display_tests', metadata_text_display_tests)
+
+voice_conversation_tests = executable(
+  'voice_conversation_tests', ['voice_conversation_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, open_perception_kit_dep],
+)
+test('voice_conversation_tests', voice_conversation_tests)
 
 gst_meta_wrapper_tests = executable(
   'gst_meta_wrapper_tests',
@@ -145,9 +163,9 @@ opk_menu_discover_tests = executable(
   link_with : [common],
 )
 
-standard_content_type_tests = executable(
-  'standard_content_type_tests',
-  ['standard_content_type_test.cpp'],
+output_capability_tests = executable(
+  'output_capability_tests',
+  ['output_capability_test.cpp'],
   include_directories : [common_include],
   cpp_args : ['-DOPK_STDOPS_PATH="' + stdops.full_path() + '"'],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
@@ -200,6 +218,24 @@ if python_ops_enabled
   python_script_pipeline_test_env.prepend(
     'PYTHONPATH',
     meson.project_source_root() / '../generated/open_perception_kit/python/src',
+  )
+  test(
+    'image_geometry_pipeline_tests',
+    test_python,
+    args : [files('image_geometry_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+    env : python_script_pipeline_test_env,
+    depends : [gstopkinfer, gstopktracker, gstopkosd, opkcomm, onnxops, stdops, python_ops],
+    timeout : 90,
+    is_parallel : false,
+  )
+  test(
+    'gaze_pipeline_tests',
+    test_python,
+    args : [files('gaze_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+    env : python_script_pipeline_test_env,
+    depends : [gstopkinfer, gstopkosd, opkcomm, onnxops, stdops, python_ops],
+    timeout : 90,
+    is_parallel : false,
   )
   test(
     'python_script_pipeline_tests',
@@ -265,6 +301,27 @@ yolo_parser_tests = executable(
   link_with : [common],
 )
 
+image_geometry_tests = executable(
+  'image_geometry_tests',
+  ['image_geometry_test.cpp', '../ops-std/InferenceControllerOp.cpp',
+   '../ops-std/postproc/UltrafaceParser.cpp', '../ops-std/postproc/ScrfdParser.cpp',
+   '../elements/opktracker/FrameInputs.cpp'],
+  include_directories : [common_include, include_directories('../ops-std'), include_directories('../elements/opktracker')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('image_geometry_tests', image_geometry_tests)
+
+classification_results_tests = executable(
+  'classification_results_tests',
+  ['classification_results_test.cpp', '../ops-std/postproc/CameraContactParser.cpp',
+   '../ops-std/postproc/PersonClassificationParser.cpp', '../ops-std/postproc/ImageNetClassificationParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('classification_results_tests', classification_results_tests)
+
 yolo26_instance_segmentation_parser_tests = executable(
   'yolo26_instance_segmentation_parser_tests',
   [
@@ -319,6 +376,16 @@ bgr_image_preprocess_tests = executable(
 test('retinaface_parser_tests', retinaface_parser_tests)
 test('bgr_image_preprocess_tests', bgr_image_preprocess_tests)
 
+mask_metadata_tests = executable(
+  'mask_metadata_tests',
+  ['mask_metadata_test.cpp', '../ops-std/postproc/ModNetSegmentationParser.cpp', '../ops-std/postproc/PaddleocrParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args : ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('mask_metadata_tests', mask_metadata_tests)
+
 gaze_detection_parser_tests = executable(
   'gaze_detection_parser_tests',
   ['gaze_detection_parser_test.cpp', '../ops-std/postproc/GazeDetectionParser.cpp'],
@@ -371,11 +438,17 @@ performance_metrics_tests = executable(
 opktracker_matching_tests = executable(
   'opktracker_matching_tests',
   ['opktracker_matching_test.cpp',
+   'embedding_contract_test.cpp',
+   'tracking_contract_test.cpp',
+   '../ops-std/postproc/ObjectEmbeddingParser.cpp',
+   '../elements/opktracker/FrameInputs.cpp',
+   '../elements/opktracker/Tracker.cpp',
+   '../elements/opktracker/TrackingOutput.cpp',
    '../elements/opktracker/Matching.cpp',
    '../elements/opktracker/TrackLifecycle.cpp',
    '../elements/opktracker/TrackState.cpp',
-   '../elements/opktracker/Utils.cpp'],
-  include_directories : [common_include, include_directories('../elements/opktracker')],
+   ],
+  include_directories : [common_include, include_directories('../elements/opktracker'), include_directories('../ops-std')],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
   link_with : [common],
@@ -411,7 +484,8 @@ runtime_pipeline_tests = executable(
 
 paddle_ocr_preprocess_tests = executable(
   'paddle_ocr_preprocess_tests',
-  ['paddle_ocr_preprocess_test.cpp', '../ops-std/PaddleOcrPreprocessOp.cpp'],
+  ['paddle_ocr_preprocess_test.cpp', '../ops-std/PaddleOcrPreprocessOp.cpp',
+   '../ops-std/InferenceControllerOp.cpp', '../ops-std/postproc/PaddleOcrDbDetectionParser.cpp'],
   include_directories : [common_include, include_directories('../ops-std')],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
   link_with : [common],
@@ -476,7 +550,7 @@ test(
 )
 test('opchain_descriptor_tests', opchain_descriptor_tests)
 test('opk_menu_discover_tests', opk_menu_discover_tests)
-test('standard_content_type_tests', standard_content_type_tests, depends : stdops)
+test('output_capability_tests', output_capability_tests, depends : stdops)
 if python_ops_enabled
   test('python_script_op_tests', python_script_op_tests)
   test(
@@ -623,6 +697,32 @@ test(
   depends : logging_environment_probe,
 )
 test('performance_metrics_tests', performance_metrics_tests)
+test(
+  'mask_pipeline_tests',
+  python,
+  args : [files('mask_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+  env : python_guest_script_test_env,
+  depends : [gstopkinfer, gstopkosd, opkcomm, onnxops, stdops],
+  timeout : 180,
+  is_parallel : false,
+)
+test(
+  'classification_pipeline_tests',
+  python,
+  args : [files('classification_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+  env : python_guest_script_test_env,
+  depends : [gstopkinfer, opkcomm, onnxops, stdops],
+  timeout : 90,
+  is_parallel : false,
+)
+test(
+  'performance_pipeline_tests',
+  python,
+  args : [files('performance_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+  env : python_guest_script_test_env,
+  depends : [gstopkperformance, opkcomm],
+  timeout : 60,
+)
 test('opktracker_matching_tests', opktracker_matching_tests)
 test('opktracker_tracking_output_tests', opktracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
@@ -815,6 +915,15 @@ test(
   gst_python,
   args : [files('audio_window_pipeline_test.py'), audio_window_op.full_path(), gstopkinfer.full_path(), stdops.full_path()],
   depends : [gstopkinfer, audio_window_op, stdops],
+)
+
+test(
+  'audio_metadata_pipeline_tests',
+  python,
+  args : [files('audio_metadata_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
+  env : python_guest_script_test_env,
+  depends : [audio_window_op, gstopkinfer, opkcomm],
+  timeout : 60,
 )
 
 turn_detector_tests = executable(

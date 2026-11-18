@@ -91,7 +91,7 @@ class GstVideoBuffer : public testing::Test {
                                             testFrameHeight),
                   nullptr);
         results = std::make_shared<open_perception_kit::FrameResults>();
-        open_perception_kit::appendPerformanceOverlay(*results, {"test frame"});
+        results->add(open_perception_kit::metadata::PerformanceMeasurementsT{});
         ASSERT_NE(opk::FrameResultsMeta::add(inputBuffer, results), nullptr);
     }
 

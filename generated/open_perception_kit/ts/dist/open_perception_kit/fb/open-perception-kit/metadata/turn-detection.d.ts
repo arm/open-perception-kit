@@ -25,8 +25,8 @@ export declare class TurnDetection implements flatbuffers.IUnpackableObject<Turn
     static getRootAsTurnDetection(bb: flatbuffers.ByteBuffer, obj?: TurnDetection): TurnDetection;
     static getSizePrefixedRootAsTurnDetection(bb: flatbuffers.ByteBuffer, obj?: TurnDetection): TurnDetection;
     object(obj?: ObjectMeta): ObjectMeta | null;
-    turnProbability(): number;
-    turnComplete(): boolean;
+    turnProbability(): number | null;
+    turnComplete(): boolean | null;
     windowStartSample(): bigint;
     windowEndSample(): bigint;
     windowStartTsNs(): bigint | null;
@@ -42,19 +42,19 @@ export declare class TurnDetection implements flatbuffers.IUnpackableObject<Turn
     static addWindowEndTsNs(builder: flatbuffers.Builder, windowEndTsNs: bigint): void;
     static addDiscontinuity(builder: flatbuffers.Builder, discontinuity: boolean): void;
     static endTurnDetection(builder: flatbuffers.Builder): flatbuffers.Offset;
-    static createTurnDetection(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, turnProbability: number, turnComplete: boolean, windowStartSample: bigint, windowEndSample: bigint, windowStartTsNs: bigint | null, windowEndTsNs: bigint | null, discontinuity: boolean): flatbuffers.Offset;
+    static createTurnDetection(builder: flatbuffers.Builder, objectOffset: flatbuffers.Offset, turnProbability: number | null, turnComplete: boolean | null, windowStartSample: bigint, windowEndSample: bigint, windowStartTsNs: bigint | null, windowEndTsNs: bigint | null, discontinuity: boolean): flatbuffers.Offset;
     unpack(): TurnDetectionT;
     unpackTo(_o: TurnDetectionT): void;
 }
 export declare class TurnDetectionT implements flatbuffers.IGeneratedObject {
     object: ObjectMetaT | null;
-    turnProbability: number;
-    turnComplete: boolean;
+    turnProbability: number | null;
+    turnComplete: boolean | null;
     windowStartSample: bigint;
     windowEndSample: bigint;
     windowStartTsNs: bigint | null;
     windowEndTsNs: bigint | null;
     discontinuity: boolean;
-    constructor(object?: ObjectMetaT | null, turnProbability?: number, turnComplete?: boolean, windowStartSample?: bigint, windowEndSample?: bigint, windowStartTsNs?: bigint | null, windowEndTsNs?: bigint | null, discontinuity?: boolean);
+    constructor(object?: ObjectMetaT | null, turnProbability?: number | null, turnComplete?: boolean | null, windowStartSample?: bigint, windowEndSample?: bigint, windowStartTsNs?: bigint | null, windowEndTsNs?: bigint | null, discontinuity?: boolean);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

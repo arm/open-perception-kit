@@ -146,28 +146,106 @@ payload snapshots built from generated schema types such as:
 
 Plumber uses the owning endpoint API from `open_perception_kit.packet`; the mutually
 exclusive `open_perception_kit.guest` API is reserved for scripts attached to a live
-C++ envelope. It requires the packet producer SDK name, semantic version, and
-schema-set SHA-256 to exactly match the generated Open Perception Kit SDK used by
-Plumber. Legacy packets without producer metadata and packets produced by a
-different SDK revision are rejected before payload comparison.
+C++ envelope. It requires a matching producer SDK name and a compatible SDK
+major version. The schema digest is diagnostic, not an acceptance gate. Legacy
+packets without compatible producer metadata are rejected before comparison.
 
 ```text
 FrameContextT
 BoxDetectionsT
 ClassificationsT
-PoseEstimationsT
+CameraContactsT
+PersonPresencesT
+GazeMeasurementsT
 SegmentationMasksT
+SemanticSegmentationMasksT
+InstanceSegmentationMasksT
 ObjectEmbeddingsT
 ObjectTracksT
 TrackTracesT
 ```
 
-`PerformanceOverlayT` is ignored by comparison because it is diagnostic runtime
-text rather than stable model output.
+`PerformanceMeasurementsT` is ignored by comparison because it is diagnostic runtime
+measurements rather than stable model output.
 
-External opaque payloads, when present in the packet, are decoded by the generated SDK as
-external byte payloads. Plumber's current regression comparison intentionally normalizes
-only known generated schema payloads.
+Mask comparison is enabled for all mask families. It requires explicit encoding,
+exact byte length, image space and family-specific semantics; malformed masks
+fail even when both sides contain the same malformed data. Derivation parents
+and visualization settings do not determine meaning or placement. Opacity uses
+mean absolute error / 255, class maps use unequal-sample fraction, and instance
+membership uses IoU distance, each with tolerance 0.1. Regions and optional
+instance boxes must correspond at geometry tolerance 0.01; label sets, class IDs,
+opacity meanings and optional void values must agree. Nearest sampling supports
+different grid resolutions without interpolating category IDs. Multiple frame
+bases in a single mask source group fail as ambiguous.
+
+Categorical classifications compare top-1 `(labelSet, classId)` identity, not
+display wording. A class ID without a label set cannot establish a match.
+Class IDs are optional; zero is valid and absence is preserved as `None`.
+The declared classification kind selects category identity or literal recognized
+text; missing fields never select a different kind. Contact and presence compare
+their explicit semantic decisions, not raw model indices or uncalibrated scores.
+All three families resolve `subjectId` independently of derivation parents and
+compare the corresponding subject source and geometry. Missing, duplicate or
+invalid references fail comparison; swapping outcomes between subjects fails.
+Payload and subject grouping includes producer component and instance identity.
+Whole-frame results require one addressable video frame per source group;
+ambiguous multi-frame groups fail rather than guessing correspondence from local
+IDs, ordering, or dimensions.
+Unavailable results and invalid supplied confidence do not count as matches.
+
+Gaze comparisons use optional finite degree-angle pairs and explicit `subjectId`
+references to unique box/track observations with valid image space. They compare
+the associated subject geometry and the shortest per-axis angular differences
+modulo 360. The angular distance is `max(yaw_difference, pitch_difference) / 180`
+with the existing `0.01` tolerance. Thus -180 and 179 degrees are one degree apart;
+swapping angle results between subjects is not a match. Missing, ambiguous or
+invalid subjects and unavailable angles fail comparison rather than being
+replaced with derivation parents or zero measurements.
+
+Box and trace comparisons use their explicit image space, independently of
+`ObjectMeta.parent_id`. Normalized and pixel crop coordinates are projected into
+source-frame pixels and normalized by each result's own source dimensions.
+Missing or invalid spatial descriptions fail comparison rather than falling back
+to a parent rectangle. This intentionally corrects the former normalized/crop
+comparison behaviour in SDK 1.0.
+
+Embeddings require a non-empty declared space ID, matching dimension and cosine
+metric, finite nonzero vectors and corresponding explicit subjects. Producer/model
+names and vector length alone cannot establish comparability. Parent links are
+not subject fallbacks. The existing clipped cosine distance and 0.2 tolerance
+remain; zero/non-finite vectors and unknown spaces fail comparison even when
+present on both sides. All output observations are retained and compared, including
+multiple spaces or producers; no per-object last-writer selection is performed.
+
+Track comparisons validate persistent tracker/session/local identity, explicit
+observed/predicted state and sample timing. Current source observations must resolve;
+historical prediction sources may be absent. Independent runs have different UUID
+sessions: a single session per tracker in each packet supplies an unambiguous
+cross-run scope, while local track numbers and tracker IDs must match. Derived
+results with track subjects use that same identity rule as well as geometry:
+coincident boxes cannot make outcomes belonging to different tracks equivalent.
+Observation IDs and session UUIDs may change between runs without changing the
+tracked subject. Trace
+comparison requires equal lengths and matching ordered samples, not just a shared
+prefix. Missing/invalid timing, duplicate identities and contradictory track/trail
+associations fail comparison. Display text and diagnostic score formatting are not
+used as identity. See [tracking semantics](../../docs/arch/perception.md#tracking-observations-and-timed-history).
+
+Successful empty collections remain present payloads and differ from absent
+outputs. Explicit empty classification candidates can match for the same declared
+kind, namespace and subject; unavailable or invalid values cannot. Audio comparisons
+preserve absent probabilities/decisions and timestamps, including valid zero/false,
+and validate window bounds before applying the existing score tolerances.
+Audio windows are self-contained within their producer scope. Derivation parents
+may refer to earlier buffers; comparison does not require those parent objects
+to be present. Producer identity, window bounds, timestamps, decisions and valid
+probabilities still participate in matching.
+
+Plumber accounts for every payload entry. Unsupported external protocols and
+malformed known entries fail comparison rather than disappearing into a successful
+empty result. The generated SDK still preserves opaque bytes for caller-owned
+handling; Plumber needs an explicit comparator before claiming a match.
 
 ## Plumber Usage
 
@@ -292,7 +370,8 @@ Plumber does not compare raw FlatBuffers bytes directly. It:
 1. validates the NDJSON wrapper
 2. base64-decodes `frame_results_packet_b64`
 3. constructs a `FrameResults` object through the generated `open_perception_kit` SDK
-4. validates the exact producer SDK name, version, and schema-set SHA-256
+4. requires the expected producer SDK name and a matching major version;
+   schema-set SHA-256 is retained for diagnostics rather than used as a gate
 5. normalizes generated payload objects into payload snapshots
 6. matches payload snapshots by generated payload type and stable `LayerInfo`
    fields
@@ -300,6 +379,7 @@ Plumber does not compare raw FlatBuffers bytes directly. It:
 
 External opaque payloads are outside the current comparison model because their byte
 protocol is owned by the producer and not interpreted by the Open Perception Kit schema set.
+Their presence therefore produces an unsupported-payload comparison failure.
 
 The internal comparison vocabulary follows FrameResults terms:
 
@@ -312,7 +392,7 @@ The internal comparison vocabulary follows FrameResults terms:
 - object index
 
 Schema-specific names are kept when they are real generated concepts, such as
-`BoxDetectionT`, `ClassificationT`, `PoseEstimationT`, `ObjectTrackT`, and
+`BoxDetectionT`, `ClassificationT`, `GazeMeasurementT`, `ObjectTrackT`, and
 `TrackTraceT`.
 
 ## Notes

@@ -40,14 +40,14 @@ static getSizePrefixedRootAsClassificationCandidate(bb:flatbuffers.ByteBuffer, o
   return (obj || new ClassificationCandidate()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
 }
 
-confidence():number {
+confidence():number|null {
   const offset = this.bb!.__offset(this.bb_pos, 4);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : null;
 }
 
-classId():number {
+classId():number|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readInt32(this.bb_pos + offset) : -1;
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : null;
 }
 
 text():string|null
@@ -57,56 +57,20 @@ text(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-x():number {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
-}
-
-y():number {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
-}
-
-w():number {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
-}
-
-h():number {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
-}
-
 static startClassificationCandidate(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(3);
 }
 
 static addConfidence(builder:flatbuffers.Builder, confidence:number) {
-  builder.addFieldFloat32(0, confidence, 0.0);
+  builder.addFieldFloat32(0, confidence, null);
 }
 
 static addClassId(builder:flatbuffers.Builder, classId:number) {
-  builder.addFieldInt32(1, classId, -1);
+  builder.addFieldInt32(1, classId, null);
 }
 
 static addText(builder:flatbuffers.Builder, textOffset:flatbuffers.Offset) {
   builder.addFieldOffset(2, textOffset, 0);
-}
-
-static addX(builder:flatbuffers.Builder, x:number) {
-  builder.addFieldFloat32(3, x, 0.0);
-}
-
-static addY(builder:flatbuffers.Builder, y:number) {
-  builder.addFieldFloat32(4, y, 0.0);
-}
-
-static addW(builder:flatbuffers.Builder, w:number) {
-  builder.addFieldFloat32(5, w, 0.0);
-}
-
-static addH(builder:flatbuffers.Builder, h:number) {
-  builder.addFieldFloat32(6, h, 0.0);
 }
 
 static endClassificationCandidate(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -114,15 +78,13 @@ static endClassificationCandidate(builder:flatbuffers.Builder):flatbuffers.Offse
   return offset;
 }
 
-static createClassificationCandidate(builder:flatbuffers.Builder, confidence:number, classId:number, textOffset:flatbuffers.Offset, x:number, y:number, w:number, h:number):flatbuffers.Offset {
+static createClassificationCandidate(builder:flatbuffers.Builder, confidence:number|null, classId:number|null, textOffset:flatbuffers.Offset):flatbuffers.Offset {
   ClassificationCandidate.startClassificationCandidate(builder);
-  ClassificationCandidate.addConfidence(builder, confidence);
-  ClassificationCandidate.addClassId(builder, classId);
+  if (confidence !== null)
+    ClassificationCandidate.addConfidence(builder, confidence);
+  if (classId !== null)
+    ClassificationCandidate.addClassId(builder, classId);
   ClassificationCandidate.addText(builder, textOffset);
-  ClassificationCandidate.addX(builder, x);
-  ClassificationCandidate.addY(builder, y);
-  ClassificationCandidate.addW(builder, w);
-  ClassificationCandidate.addH(builder, h);
   return ClassificationCandidate.endClassificationCandidate(builder);
 }
 
@@ -130,11 +92,7 @@ unpack(): ClassificationCandidateT {
   return new ClassificationCandidateT(
     this.confidence(),
     this.classId(),
-    this.text(),
-    this.x(),
-    this.y(),
-    this.w(),
-    this.h()
+    this.text()
   );
 }
 
@@ -143,22 +101,14 @@ unpackTo(_o: ClassificationCandidateT): void {
   _o.confidence = this.confidence();
   _o.classId = this.classId();
   _o.text = this.text();
-  _o.x = this.x();
-  _o.y = this.y();
-  _o.w = this.w();
-  _o.h = this.h();
 }
 }
 
 export class ClassificationCandidateT implements flatbuffers.IGeneratedObject {
 constructor(
-  public confidence: number = 0.0,
-  public classId: number = -1,
-  public text: string|Uint8Array|null = null,
-  public x: number = 0.0,
-  public y: number = 0.0,
-  public w: number = 0.0,
-  public h: number = 0.0
+  public confidence: number|null = null,
+  public classId: number|null = null,
+  public text: string|Uint8Array|null = null
 ){}
 
 
@@ -168,11 +118,7 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   return ClassificationCandidate.createClassificationCandidate(builder,
     this.confidence,
     this.classId,
-    text,
-    this.x,
-    this.y,
-    this.w,
-    this.h
+    text
   );
 }
 }

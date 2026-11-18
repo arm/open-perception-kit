@@ -43,17 +43,62 @@ struct LayerInfo;
 struct LayerInfoBuilder;
 struct LayerInfoT;
 
+struct ImageSpace;
+struct ImageSpaceBuilder;
+struct ImageSpaceT;
+
 struct BoundingBox;
 struct BoundingBoxBuilder;
 struct BoundingBoxT;
 
-struct Point2f;
-struct Point2fBuilder;
-struct Point2fT;
-
 struct BitmapData;
 struct BitmapDataBuilder;
 struct BitmapDataT;
+
+enum class CoordinateUnits : uint8_t { Pixels = 0, Normalized = 1, MIN = Pixels, MAX = Normalized };
+
+inline const CoordinateUnits (&EnumValuesCoordinateUnits())[2] {
+    static const CoordinateUnits values[] = {CoordinateUnits::Pixels, CoordinateUnits::Normalized};
+    return values;
+}
+
+inline const char *const *EnumNamesCoordinateUnits() {
+    static const char *const names[3] = {"Pixels", "Normalized", nullptr};
+    return names;
+}
+
+inline const char *EnumNameCoordinateUnits(CoordinateUnits e) {
+    if (::flatbuffers::IsOutRange(e, CoordinateUnits::Pixels, CoordinateUnits::Normalized))
+        return "";
+    const size_t index = static_cast<size_t>(e);
+    return EnumNamesCoordinateUnits()[index];
+}
+
+enum class BitmapEncoding : uint8_t {
+    Unspecified = 0,
+    Uint8 = 1,
+    Uint32LE = 2,
+    MIN = Unspecified,
+    MAX = Uint32LE
+};
+
+inline const BitmapEncoding (&EnumValuesBitmapEncoding())[3] {
+    static const BitmapEncoding values[] = {
+        BitmapEncoding::Unspecified, BitmapEncoding::Uint8, BitmapEncoding::Uint32LE};
+    return values;
+}
+
+inline const char *const *EnumNamesBitmapEncoding() {
+    static const char *const names[4] = {"Unspecified", "Uint8", "Uint32LE", nullptr};
+    return names;
+}
+
+inline const char *EnumNameBitmapEncoding(BitmapEncoding e) {
+    if (::flatbuffers::IsOutRange(e, BitmapEncoding::Unspecified, BitmapEncoding::Uint32LE))
+        return "";
+    const size_t index = static_cast<size_t>(e);
+    return EnumNamesBitmapEncoding()[index];
+}
 
 struct ObjectMetaT : public ::flatbuffers::NativeTable {
     typedef ObjectMeta TableType;
@@ -230,7 +275,6 @@ struct LayerInfoT : public ::flatbuffers::NativeTable {
     std::string tags{};
     std::string infer_element_id{};
     std::string label_family{};
-    std::string content_type{};
     std::string compositing_mode{};
     std::unique_ptr<open_perception_kit::metadata::ProducerInfoT> producer{};
     LayerInfoT() = default;
@@ -248,9 +292,8 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         VT_TAGS = 8,
         VT_INFER_ELEMENT_ID = 10,
         VT_LABEL_FAMILY = 12,
-        VT_CONTENT_TYPE = 14,
-        VT_COMPOSITING_MODE = 16,
-        VT_PRODUCER = 18
+        VT_COMPOSITING_MODE = 14,
+        VT_PRODUCER = 16
     };
     const ::flatbuffers::String *engine() const {
         return GetPointer<const ::flatbuffers::String *>(VT_ENGINE);
@@ -267,9 +310,6 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     const ::flatbuffers::String *label_family() const {
         return GetPointer<const ::flatbuffers::String *>(VT_LABEL_FAMILY);
     }
-    const ::flatbuffers::String *content_type() const {
-        return GetPointer<const ::flatbuffers::String *>(VT_CONTENT_TYPE);
-    }
     const ::flatbuffers::String *compositing_mode() const {
         return GetPointer<const ::flatbuffers::String *>(VT_COMPOSITING_MODE);
     }
@@ -283,7 +323,6 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
                verifier.VerifyString(tags()) && VerifyOffset(verifier, VT_INFER_ELEMENT_ID) &&
                verifier.VerifyString(infer_element_id()) &&
                VerifyOffset(verifier, VT_LABEL_FAMILY) && verifier.VerifyString(label_family()) &&
-               VerifyOffset(verifier, VT_CONTENT_TYPE) && verifier.VerifyString(content_type()) &&
                VerifyOffset(verifier, VT_COMPOSITING_MODE) &&
                verifier.VerifyString(compositing_mode()) && VerifyOffset(verifier, VT_PRODUCER) &&
                verifier.VerifyTable(producer()) && verifier.EndTable();
@@ -316,9 +355,6 @@ struct LayerInfoBuilder {
     void add_label_family(::flatbuffers::Offset<::flatbuffers::String> label_family) {
         fbb_.AddOffset(LayerInfo::VT_LABEL_FAMILY, label_family);
     }
-    void add_content_type(::flatbuffers::Offset<::flatbuffers::String> content_type) {
-        fbb_.AddOffset(LayerInfo::VT_CONTENT_TYPE, content_type);
-    }
     void add_compositing_mode(::flatbuffers::Offset<::flatbuffers::String> compositing_mode) {
         fbb_.AddOffset(LayerInfo::VT_COMPOSITING_MODE, compositing_mode);
     }
@@ -342,13 +378,11 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                 ::flatbuffers::Offset<::flatbuffers::String> tags = 0,
                 ::flatbuffers::Offset<::flatbuffers::String> infer_element_id = 0,
                 ::flatbuffers::Offset<::flatbuffers::String> label_family = 0,
-                ::flatbuffers::Offset<::flatbuffers::String> content_type = 0,
                 ::flatbuffers::Offset<::flatbuffers::String> compositing_mode = 0,
                 ::flatbuffers::Offset<open_perception_kit::metadata::ProducerInfo> producer = 0) {
     LayerInfoBuilder builder_(_fbb);
     builder_.add_producer(producer);
     builder_.add_compositing_mode(compositing_mode);
-    builder_.add_content_type(content_type);
     builder_.add_label_family(label_family);
     builder_.add_infer_element_id(infer_element_id);
     builder_.add_tags(tags);
@@ -364,7 +398,6 @@ inline ::flatbuffers::Offset<LayerInfo> CreateLayerInfoDirect(
     const char *tags = nullptr,
     const char *infer_element_id = nullptr,
     const char *label_family = nullptr,
-    const char *content_type = nullptr,
     const char *compositing_mode = nullptr,
     ::flatbuffers::Offset<open_perception_kit::metadata::ProducerInfo> producer = 0) {
     auto engine__ = engine ? _fbb.CreateString(engine) : 0;
@@ -372,7 +405,6 @@ inline ::flatbuffers::Offset<LayerInfo> CreateLayerInfoDirect(
     auto tags__ = tags ? _fbb.CreateString(tags) : 0;
     auto infer_element_id__ = infer_element_id ? _fbb.CreateString(infer_element_id) : 0;
     auto label_family__ = label_family ? _fbb.CreateString(label_family) : 0;
-    auto content_type__ = content_type ? _fbb.CreateString(content_type) : 0;
     auto compositing_mode__ = compositing_mode ? _fbb.CreateString(compositing_mode) : 0;
     return open_perception_kit::metadata::CreateLayerInfo(_fbb,
                                                           engine__,
@@ -380,7 +412,6 @@ inline ::flatbuffers::Offset<LayerInfo> CreateLayerInfoDirect(
                                                           tags__,
                                                           infer_element_id__,
                                                           label_family__,
-                                                          content_type__,
                                                           compositing_mode__,
                                                           producer);
 }
@@ -390,12 +421,140 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                 const LayerInfoT *_o,
                 const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct ImageSpaceT : public ::flatbuffers::NativeTable {
+    typedef ImageSpace TableType;
+    uint64_t frame_id = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    double origin_x = 0.0;
+    double origin_y = 0.0;
+    double extent_width = 0.0;
+    double extent_height = 0.0;
+};
+
+struct ImageSpace FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+    typedef ImageSpaceT NativeTableType;
+    typedef ImageSpaceBuilder Builder;
+    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+        VT_FRAME_ID = 4,
+        VT_WIDTH = 6,
+        VT_HEIGHT = 8,
+        VT_ORIGIN_X = 10,
+        VT_ORIGIN_Y = 12,
+        VT_EXTENT_WIDTH = 14,
+        VT_EXTENT_HEIGHT = 16
+    };
+    uint64_t frame_id() const {
+        return GetField<uint64_t>(VT_FRAME_ID, 0);
+    }
+    uint32_t width() const {
+        return GetField<uint32_t>(VT_WIDTH, 0);
+    }
+    uint32_t height() const {
+        return GetField<uint32_t>(VT_HEIGHT, 0);
+    }
+    double origin_x() const {
+        return GetField<double>(VT_ORIGIN_X, 0.0);
+    }
+    double origin_y() const {
+        return GetField<double>(VT_ORIGIN_Y, 0.0);
+    }
+    double extent_width() const {
+        return GetField<double>(VT_EXTENT_WIDTH, 0.0);
+    }
+    double extent_height() const {
+        return GetField<double>(VT_EXTENT_HEIGHT, 0.0);
+    }
+    bool Verify(::flatbuffers::Verifier &verifier) const {
+        return VerifyTableStart(verifier) && VerifyField<uint64_t>(verifier, VT_FRAME_ID, 8) &&
+               VerifyField<uint32_t>(verifier, VT_WIDTH, 4) &&
+               VerifyField<uint32_t>(verifier, VT_HEIGHT, 4) &&
+               VerifyField<double>(verifier, VT_ORIGIN_X, 8) &&
+               VerifyField<double>(verifier, VT_ORIGIN_Y, 8) &&
+               VerifyField<double>(verifier, VT_EXTENT_WIDTH, 8) &&
+               VerifyField<double>(verifier, VT_EXTENT_HEIGHT, 8) && verifier.EndTable();
+    }
+    ImageSpaceT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    void UnPackTo(ImageSpaceT *_o,
+                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    static ::flatbuffers::Offset<ImageSpace>
+    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+         const ImageSpaceT *_o,
+         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct ImageSpaceBuilder {
+    typedef ImageSpace Table;
+    ::flatbuffers::FlatBufferBuilder &fbb_;
+    ::flatbuffers::uoffset_t start_;
+    void add_frame_id(uint64_t frame_id) {
+        fbb_.AddElement<uint64_t>(ImageSpace::VT_FRAME_ID, frame_id, 0);
+    }
+    void add_width(uint32_t width) {
+        fbb_.AddElement<uint32_t>(ImageSpace::VT_WIDTH, width, 0);
+    }
+    void add_height(uint32_t height) {
+        fbb_.AddElement<uint32_t>(ImageSpace::VT_HEIGHT, height, 0);
+    }
+    void add_origin_x(double origin_x) {
+        fbb_.AddElement<double>(ImageSpace::VT_ORIGIN_X, origin_x, 0.0);
+    }
+    void add_origin_y(double origin_y) {
+        fbb_.AddElement<double>(ImageSpace::VT_ORIGIN_Y, origin_y, 0.0);
+    }
+    void add_extent_width(double extent_width) {
+        fbb_.AddElement<double>(ImageSpace::VT_EXTENT_WIDTH, extent_width, 0.0);
+    }
+    void add_extent_height(double extent_height) {
+        fbb_.AddElement<double>(ImageSpace::VT_EXTENT_HEIGHT, extent_height, 0.0);
+    }
+    explicit ImageSpaceBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+        start_ = fbb_.StartTable();
+    }
+    ::flatbuffers::Offset<ImageSpace> Finish() {
+        const auto end = fbb_.EndTable(start_);
+        auto o = ::flatbuffers::Offset<ImageSpace>(end);
+        return o;
+    }
+};
+
+inline ::flatbuffers::Offset<ImageSpace> CreateImageSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                                                          uint64_t frame_id = 0,
+                                                          uint32_t width = 0,
+                                                          uint32_t height = 0,
+                                                          double origin_x = 0.0,
+                                                          double origin_y = 0.0,
+                                                          double extent_width = 0.0,
+                                                          double extent_height = 0.0) {
+    ImageSpaceBuilder builder_(_fbb);
+    builder_.add_extent_height(extent_height);
+    builder_.add_extent_width(extent_width);
+    builder_.add_origin_y(origin_y);
+    builder_.add_origin_x(origin_x);
+    builder_.add_frame_id(frame_id);
+    builder_.add_height(height);
+    builder_.add_width(width);
+    return builder_.Finish();
+}
+
+::flatbuffers::Offset<ImageSpace>
+CreateImageSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                 const ImageSpaceT *_o,
+                 const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct BoundingBoxT : public ::flatbuffers::NativeTable {
     typedef BoundingBox TableType;
     float x = 0.0f;
     float y = 0.0f;
     float width = 0.0f;
     float height = 0.0f;
+    std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> space{};
+    open_perception_kit::metadata::CoordinateUnits units =
+        open_perception_kit::metadata::CoordinateUnits::Pixels;
+    BoundingBoxT() = default;
+    BoundingBoxT(const BoundingBoxT &o);
+    BoundingBoxT(BoundingBoxT &&) FLATBUFFERS_NOEXCEPT = default;
+    BoundingBoxT &operator=(BoundingBoxT o) FLATBUFFERS_NOEXCEPT;
 };
 
 struct BoundingBox FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -405,7 +564,9 @@ struct BoundingBox FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         VT_X = 4,
         VT_Y = 6,
         VT_WIDTH = 8,
-        VT_HEIGHT = 10
+        VT_HEIGHT = 10,
+        VT_SPACE = 12,
+        VT_UNITS = 14
     };
     float x() const {
         return GetField<float>(VT_X, 0.0f);
@@ -419,10 +580,19 @@ struct BoundingBox FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     float height() const {
         return GetField<float>(VT_HEIGHT, 0.0f);
     }
+    const open_perception_kit::metadata::ImageSpace *space() const {
+        return GetPointer<const open_perception_kit::metadata::ImageSpace *>(VT_SPACE);
+    }
+    open_perception_kit::metadata::CoordinateUnits units() const {
+        return static_cast<open_perception_kit::metadata::CoordinateUnits>(
+            GetField<uint8_t>(VT_UNITS, 0));
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyField<float>(verifier, VT_X, 4) &&
                VerifyField<float>(verifier, VT_Y, 4) && VerifyField<float>(verifier, VT_WIDTH, 4) &&
-               VerifyField<float>(verifier, VT_HEIGHT, 4) && verifier.EndTable();
+               VerifyField<float>(verifier, VT_HEIGHT, 4) && VerifyOffset(verifier, VT_SPACE) &&
+               verifier.VerifyTable(space()) && VerifyField<uint8_t>(verifier, VT_UNITS, 1) &&
+               verifier.EndTable();
     }
     BoundingBoxT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(BoundingBoxT *_o,
@@ -449,6 +619,12 @@ struct BoundingBoxBuilder {
     void add_height(float height) {
         fbb_.AddElement<float>(BoundingBox::VT_HEIGHT, height, 0.0f);
     }
+    void add_space(::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space) {
+        fbb_.AddOffset(BoundingBox::VT_SPACE, space);
+    }
+    void add_units(open_perception_kit::metadata::CoordinateUnits units) {
+        fbb_.AddElement<uint8_t>(BoundingBox::VT_UNITS, static_cast<uint8_t>(units), 0);
+    }
     explicit BoundingBoxBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -459,16 +635,22 @@ struct BoundingBoxBuilder {
     }
 };
 
-inline ::flatbuffers::Offset<BoundingBox> CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
-                                                            float x = 0.0f,
-                                                            float y = 0.0f,
-                                                            float width = 0.0f,
-                                                            float height = 0.0f) {
+inline ::flatbuffers::Offset<BoundingBox>
+CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
+                  float x = 0.0f,
+                  float y = 0.0f,
+                  float width = 0.0f,
+                  float height = 0.0f,
+                  ::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space = 0,
+                  open_perception_kit::metadata::CoordinateUnits units =
+                      open_perception_kit::metadata::CoordinateUnits::Pixels) {
     BoundingBoxBuilder builder_(_fbb);
+    builder_.add_space(space);
     builder_.add_height(height);
     builder_.add_width(width);
     builder_.add_y(y);
     builder_.add_x(x);
+    builder_.add_units(units);
     return builder_.Finish();
 }
 
@@ -477,74 +659,18 @@ CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
                   const BoundingBoxT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
-struct Point2fT : public ::flatbuffers::NativeTable {
-    typedef Point2f TableType;
-    float x = 0.0f;
-    float y = 0.0f;
-};
-
-struct Point2f FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-    typedef Point2fT NativeTableType;
-    typedef Point2fBuilder Builder;
-    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE { VT_X = 4, VT_Y = 6 };
-    float x() const {
-        return GetField<float>(VT_X, 0.0f);
-    }
-    float y() const {
-        return GetField<float>(VT_Y, 0.0f);
-    }
-    bool Verify(::flatbuffers::Verifier &verifier) const {
-        return VerifyTableStart(verifier) && VerifyField<float>(verifier, VT_X, 4) &&
-               VerifyField<float>(verifier, VT_Y, 4) && verifier.EndTable();
-    }
-    Point2fT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
-    void UnPackTo(Point2fT *_o,
-                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
-    static ::flatbuffers::Offset<Point2f>
-    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
-         const Point2fT *_o,
-         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
-};
-
-struct Point2fBuilder {
-    typedef Point2f Table;
-    ::flatbuffers::FlatBufferBuilder &fbb_;
-    ::flatbuffers::uoffset_t start_;
-    void add_x(float x) {
-        fbb_.AddElement<float>(Point2f::VT_X, x, 0.0f);
-    }
-    void add_y(float y) {
-        fbb_.AddElement<float>(Point2f::VT_Y, y, 0.0f);
-    }
-    explicit Point2fBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
-        start_ = fbb_.StartTable();
-    }
-    ::flatbuffers::Offset<Point2f> Finish() {
-        const auto end = fbb_.EndTable(start_);
-        auto o = ::flatbuffers::Offset<Point2f>(end);
-        return o;
-    }
-};
-
-inline ::flatbuffers::Offset<Point2f>
-CreatePoint2f(::flatbuffers::FlatBufferBuilder &_fbb, float x = 0.0f, float y = 0.0f) {
-    Point2fBuilder builder_(_fbb);
-    builder_.add_y(y);
-    builder_.add_x(x);
-    return builder_.Finish();
-}
-
-::flatbuffers::Offset<Point2f>
-CreatePoint2f(::flatbuffers::FlatBufferBuilder &_fbb,
-              const Point2fT *_o,
-              const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
 struct BitmapDataT : public ::flatbuffers::NativeTable {
     typedef BitmapData TableType;
     uint32_t width = 0;
     uint32_t height = 0;
-    std::string value_type{};
+    open_perception_kit::metadata::BitmapEncoding encoding =
+        open_perception_kit::metadata::BitmapEncoding::Unspecified;
     std::vector<uint8_t> pixels{};
+    std::unique_ptr<open_perception_kit::metadata::ImageSpaceT> space{};
+    BitmapDataT() = default;
+    BitmapDataT(const BitmapDataT &o);
+    BitmapDataT(BitmapDataT &&) FLATBUFFERS_NOEXCEPT = default;
+    BitmapDataT &operator=(BitmapDataT o) FLATBUFFERS_NOEXCEPT;
 };
 
 struct BitmapData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -553,8 +679,9 @@ struct BitmapData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
         VT_WIDTH = 4,
         VT_HEIGHT = 6,
-        VT_VALUE_TYPE = 8,
-        VT_PIXELS = 10
+        VT_ENCODING = 8,
+        VT_PIXELS = 10,
+        VT_SPACE = 12
     };
     uint32_t width() const {
         return GetField<uint32_t>(VT_WIDTH, 0);
@@ -562,17 +689,22 @@ struct BitmapData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     uint32_t height() const {
         return GetField<uint32_t>(VT_HEIGHT, 0);
     }
-    const ::flatbuffers::String *value_type() const {
-        return GetPointer<const ::flatbuffers::String *>(VT_VALUE_TYPE);
+    open_perception_kit::metadata::BitmapEncoding encoding() const {
+        return static_cast<open_perception_kit::metadata::BitmapEncoding>(
+            GetField<uint8_t>(VT_ENCODING, 0));
     }
     const ::flatbuffers::Vector<uint8_t> *pixels() const {
         return GetPointer<const ::flatbuffers::Vector<uint8_t> *>(VT_PIXELS);
     }
+    const open_perception_kit::metadata::ImageSpace *space() const {
+        return GetPointer<const open_perception_kit::metadata::ImageSpace *>(VT_SPACE);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyField<uint32_t>(verifier, VT_WIDTH, 4) &&
                VerifyField<uint32_t>(verifier, VT_HEIGHT, 4) &&
-               VerifyOffset(verifier, VT_VALUE_TYPE) && verifier.VerifyString(value_type()) &&
+               VerifyField<uint8_t>(verifier, VT_ENCODING, 1) &&
                VerifyOffset(verifier, VT_PIXELS) && verifier.VerifyVector(pixels()) &&
+               VerifyOffset(verifier, VT_SPACE) && verifier.VerifyTable(space()) &&
                verifier.EndTable();
     }
     BitmapDataT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -594,11 +726,14 @@ struct BitmapDataBuilder {
     void add_height(uint32_t height) {
         fbb_.AddElement<uint32_t>(BitmapData::VT_HEIGHT, height, 0);
     }
-    void add_value_type(::flatbuffers::Offset<::flatbuffers::String> value_type) {
-        fbb_.AddOffset(BitmapData::VT_VALUE_TYPE, value_type);
+    void add_encoding(open_perception_kit::metadata::BitmapEncoding encoding) {
+        fbb_.AddElement<uint8_t>(BitmapData::VT_ENCODING, static_cast<uint8_t>(encoding), 0);
     }
     void add_pixels(::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> pixels) {
         fbb_.AddOffset(BitmapData::VT_PIXELS, pixels);
+    }
+    void add_space(::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space) {
+        fbb_.AddOffset(BitmapData::VT_SPACE, space);
     }
     explicit BitmapDataBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
@@ -614,13 +749,16 @@ inline ::flatbuffers::Offset<BitmapData>
 CreateBitmapData(::flatbuffers::FlatBufferBuilder &_fbb,
                  uint32_t width = 0,
                  uint32_t height = 0,
-                 ::flatbuffers::Offset<::flatbuffers::String> value_type = 0,
-                 ::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> pixels = 0) {
+                 open_perception_kit::metadata::BitmapEncoding encoding =
+                     open_perception_kit::metadata::BitmapEncoding::Unspecified,
+                 ::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> pixels = 0,
+                 ::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space = 0) {
     BitmapDataBuilder builder_(_fbb);
+    builder_.add_space(space);
     builder_.add_pixels(pixels);
-    builder_.add_value_type(value_type);
     builder_.add_height(height);
     builder_.add_width(width);
+    builder_.add_encoding(encoding);
     return builder_.Finish();
 }
 
@@ -628,12 +766,13 @@ inline ::flatbuffers::Offset<BitmapData>
 CreateBitmapDataDirect(::flatbuffers::FlatBufferBuilder &_fbb,
                        uint32_t width = 0,
                        uint32_t height = 0,
-                       const char *value_type = nullptr,
-                       const std::vector<uint8_t> *pixels = nullptr) {
-    auto value_type__ = value_type ? _fbb.CreateString(value_type) : 0;
+                       open_perception_kit::metadata::BitmapEncoding encoding =
+                           open_perception_kit::metadata::BitmapEncoding::Unspecified,
+                       const std::vector<uint8_t> *pixels = nullptr,
+                       ::flatbuffers::Offset<open_perception_kit::metadata::ImageSpace> space = 0) {
     auto pixels__ = pixels ? _fbb.CreateVector<uint8_t>(*pixels) : 0;
     return open_perception_kit::metadata::CreateBitmapData(
-        _fbb, width, height, value_type__, pixels__);
+        _fbb, width, height, encoding, pixels__, space);
 }
 
 ::flatbuffers::Offset<BitmapData>
@@ -746,8 +885,7 @@ CreateProducerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
 
 inline LayerInfoT::LayerInfoT(const LayerInfoT &o)
     : engine(o.engine), model(o.model), tags(o.tags), infer_element_id(o.infer_element_id),
-      label_family(o.label_family), content_type(o.content_type),
-      compositing_mode(o.compositing_mode),
+      label_family(o.label_family), compositing_mode(o.compositing_mode),
       producer((o.producer) ? new open_perception_kit::metadata::ProducerInfoT(*o.producer)
                             : nullptr) {}
 
@@ -757,7 +895,6 @@ inline LayerInfoT &LayerInfoT::operator=(LayerInfoT o) FLATBUFFERS_NOEXCEPT {
     std::swap(tags, o.tags);
     std::swap(infer_element_id, o.infer_element_id);
     std::swap(label_family, o.label_family);
-    std::swap(content_type, o.content_type);
     std::swap(compositing_mode, o.compositing_mode);
     std::swap(producer, o.producer);
     return *this;
@@ -797,11 +934,6 @@ inline void LayerInfo::UnPackTo(LayerInfoT *_o,
         auto _e = label_family();
         if (_e)
             _o->label_family = _e->str();
-    }
-    {
-        auto _e = content_type();
-        if (_e)
-            _o->content_type = _e->str();
     }
     {
         auto _e = compositing_mode();
@@ -848,7 +980,6 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _infer_element_id =
         _o->infer_element_id.empty() ? 0 : _fbb.CreateString(_o->infer_element_id);
     auto _label_family = _o->label_family.empty() ? 0 : _fbb.CreateString(_o->label_family);
-    auto _content_type = _o->content_type.empty() ? 0 : _fbb.CreateString(_o->content_type);
     auto _compositing_mode =
         _o->compositing_mode.empty() ? 0 : _fbb.CreateString(_o->compositing_mode);
     auto _producer = _o->producer ? CreateProducerInfo(_fbb, _o->producer.get(), _rehasher) : 0;
@@ -858,9 +989,93 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                                                           _tags,
                                                           _infer_element_id,
                                                           _label_family,
-                                                          _content_type,
                                                           _compositing_mode,
                                                           _producer);
+}
+
+inline ImageSpaceT *ImageSpace::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+    auto _o = std::unique_ptr<ImageSpaceT>(new ImageSpaceT());
+    UnPackTo(_o.get(), _resolver);
+    return _o.release();
+}
+
+inline void ImageSpace::UnPackTo(ImageSpaceT *_o,
+                                 const ::flatbuffers::resolver_function_t *_resolver) const {
+    (void)_o;
+    (void)_resolver;
+    {
+        auto _e = frame_id();
+        _o->frame_id = _e;
+    }
+    {
+        auto _e = width();
+        _o->width = _e;
+    }
+    {
+        auto _e = height();
+        _o->height = _e;
+    }
+    {
+        auto _e = origin_x();
+        _o->origin_x = _e;
+    }
+    {
+        auto _e = origin_y();
+        _o->origin_y = _e;
+    }
+    {
+        auto _e = extent_width();
+        _o->extent_width = _e;
+    }
+    {
+        auto _e = extent_height();
+        _o->extent_height = _e;
+    }
+}
+
+inline ::flatbuffers::Offset<ImageSpace>
+ImageSpace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+                 const ImageSpaceT *_o,
+                 const ::flatbuffers::rehasher_function_t *_rehasher) {
+    return CreateImageSpace(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<ImageSpace>
+CreateImageSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+                 const ImageSpaceT *_o,
+                 const ::flatbuffers::rehasher_function_t *_rehasher) {
+    (void)_rehasher;
+    (void)_o;
+    struct _VectorArgs {
+        ::flatbuffers::FlatBufferBuilder *__fbb;
+        const ImageSpaceT *__o;
+        const ::flatbuffers::rehasher_function_t *__rehasher;
+    } _va = {&_fbb, _o, _rehasher};
+    (void)_va;
+    auto _frame_id = _o->frame_id;
+    auto _width = _o->width;
+    auto _height = _o->height;
+    auto _origin_x = _o->origin_x;
+    auto _origin_y = _o->origin_y;
+    auto _extent_width = _o->extent_width;
+    auto _extent_height = _o->extent_height;
+    return open_perception_kit::metadata::CreateImageSpace(
+        _fbb, _frame_id, _width, _height, _origin_x, _origin_y, _extent_width, _extent_height);
+}
+
+inline BoundingBoxT::BoundingBoxT(const BoundingBoxT &o)
+    : x(o.x), y(o.y), width(o.width), height(o.height),
+      space((o.space) ? new open_perception_kit::metadata::ImageSpaceT(*o.space) : nullptr),
+      units(o.units) {}
+
+inline BoundingBoxT &BoundingBoxT::operator=(BoundingBoxT o) FLATBUFFERS_NOEXCEPT {
+    std::swap(x, o.x);
+    std::swap(y, o.y);
+    std::swap(width, o.width);
+    std::swap(height, o.height);
+    std::swap(space, o.space);
+    std::swap(units, o.units);
+    return *this;
 }
 
 inline BoundingBoxT *
@@ -890,6 +1105,23 @@ inline void BoundingBox::UnPackTo(BoundingBoxT *_o,
         auto _e = height();
         _o->height = _e;
     }
+    {
+        auto _e = space();
+        if (_e) {
+            if (_o->space) {
+                _e->UnPackTo(_o->space.get(), _resolver);
+            } else {
+                _o->space = std::unique_ptr<open_perception_kit::metadata::ImageSpaceT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->space) {
+            _o->space.reset();
+        }
+    }
+    {
+        auto _e = units();
+        _o->units = _e;
+    }
 }
 
 inline ::flatbuffers::Offset<BoundingBox>
@@ -915,51 +1147,23 @@ CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _y = _o->y;
     auto _width = _o->width;
     auto _height = _o->height;
-    return open_perception_kit::metadata::CreateBoundingBox(_fbb, _x, _y, _width, _height);
+    auto _space = _o->space ? CreateImageSpace(_fbb, _o->space.get(), _rehasher) : 0;
+    auto _units = _o->units;
+    return open_perception_kit::metadata::CreateBoundingBox(
+        _fbb, _x, _y, _width, _height, _space, _units);
 }
 
-inline Point2fT *Point2f::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
-    auto _o = std::unique_ptr<Point2fT>(new Point2fT());
-    UnPackTo(_o.get(), _resolver);
-    return _o.release();
-}
+inline BitmapDataT::BitmapDataT(const BitmapDataT &o)
+    : width(o.width), height(o.height), encoding(o.encoding), pixels(o.pixels),
+      space((o.space) ? new open_perception_kit::metadata::ImageSpaceT(*o.space) : nullptr) {}
 
-inline void Point2f::UnPackTo(Point2fT *_o,
-                              const ::flatbuffers::resolver_function_t *_resolver) const {
-    (void)_o;
-    (void)_resolver;
-    {
-        auto _e = x();
-        _o->x = _e;
-    }
-    {
-        auto _e = y();
-        _o->y = _e;
-    }
-}
-
-inline ::flatbuffers::Offset<Point2f>
-Point2f::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
-              const Point2fT *_o,
-              const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreatePoint2f(_fbb, _o, _rehasher);
-}
-
-inline ::flatbuffers::Offset<Point2f>
-CreatePoint2f(::flatbuffers::FlatBufferBuilder &_fbb,
-              const Point2fT *_o,
-              const ::flatbuffers::rehasher_function_t *_rehasher) {
-    (void)_rehasher;
-    (void)_o;
-    struct _VectorArgs {
-        ::flatbuffers::FlatBufferBuilder *__fbb;
-        const Point2fT *__o;
-        const ::flatbuffers::rehasher_function_t *__rehasher;
-    } _va = {&_fbb, _o, _rehasher};
-    (void)_va;
-    auto _x = _o->x;
-    auto _y = _o->y;
-    return open_perception_kit::metadata::CreatePoint2f(_fbb, _x, _y);
+inline BitmapDataT &BitmapDataT::operator=(BitmapDataT o) FLATBUFFERS_NOEXCEPT {
+    std::swap(width, o.width);
+    std::swap(height, o.height);
+    std::swap(encoding, o.encoding);
+    std::swap(pixels, o.pixels);
+    std::swap(space, o.space);
+    return *this;
 }
 
 inline BitmapDataT *BitmapData::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
@@ -981,15 +1185,27 @@ inline void BitmapData::UnPackTo(BitmapDataT *_o,
         _o->height = _e;
     }
     {
-        auto _e = value_type();
-        if (_e)
-            _o->value_type = _e->str();
+        auto _e = encoding();
+        _o->encoding = _e;
     }
     {
         auto _e = pixels();
         if (_e) {
             _o->pixels.resize(_e->size());
             std::copy(_e->begin(), _e->end(), _o->pixels.begin());
+        }
+    }
+    {
+        auto _e = space();
+        if (_e) {
+            if (_o->space) {
+                _e->UnPackTo(_o->space.get(), _resolver);
+            } else {
+                _o->space = std::unique_ptr<open_perception_kit::metadata::ImageSpaceT>(
+                    _e->UnPack(_resolver));
+            }
+        } else if (_o->space) {
+            _o->space.reset();
         }
     }
 }
@@ -1015,10 +1231,11 @@ CreateBitmapData(::flatbuffers::FlatBufferBuilder &_fbb,
     (void)_va;
     auto _width = _o->width;
     auto _height = _o->height;
-    auto _value_type = _o->value_type.empty() ? 0 : _fbb.CreateString(_o->value_type);
+    auto _encoding = _o->encoding;
     auto _pixels = _o->pixels.size() ? _fbb.CreateVector(_o->pixels) : 0;
+    auto _space = _o->space ? CreateImageSpace(_fbb, _o->space.get(), _rehasher) : 0;
     return open_perception_kit::metadata::CreateBitmapData(
-        _fbb, _width, _height, _value_type, _pixels);
+        _fbb, _width, _height, _encoding, _pixels, _space);
 }
 
 } // namespace metadata

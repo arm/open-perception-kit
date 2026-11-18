@@ -45,9 +45,11 @@ opk::Result<Configuration> readConfiguration(const opk::AttributeMap &attributes
         !attributes.contains("confidenceThreshold") ||
         (!attributes.at("confidenceThreshold").isInt() &&
          !attributes.at("confidenceThreshold").isDouble()) ||
-        !attributes.contains("labels") || !attributes.at("labels").isArray())
+        !attributes.contains("labels") || !attributes.at("labels").isArray() ||
+        !attributes.contains("labelSet") || !attributes.at("labelSet").isString() ||
+        attributes.getString("labelSet").empty())
         return invalidInput("KeywordClassificationParser requires outputTensorIndex, activation, "
-                            "confidenceThreshold and labels");
+                            "confidenceThreshold, labels and a nonempty labelSet");
     const auto tensorIndex = attributes.getInt("outputTensorIndex");
     if (tensorIndex < 0 || static_cast<uint64_t>(tensorIndex) >= opk::MaxTensorCount)
         return invalidInput(
@@ -120,10 +122,13 @@ open_perception_kit::metadata::ClassificationsT makeResult(const opk::TensorPars
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
-                                            .contentType = "keyword",
                                             .producer = &input.producerInfo});
     auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
     classification->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    classification->kind = open_perception_kit::metadata::ClassificationKind::Categorical;
+    classification->label_set = input.attributes.getString("labelSet");
+    if (input.inferenceInfo.parentId != 0)
+        classification->subject_id = input.inferenceInfo.parentId;
     auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
     candidate->class_id = static_cast<int>(decoded.index);
     candidate->confidence = decoded.probability;
