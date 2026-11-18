@@ -42,11 +42,21 @@ in the WebUI with:
 ./scripts/run.sh retinaface-gaze-onnx
 ```
 
-Use the Model selector to choose one face detector and one gaze model. Disable
-the previous detector or gaze model when changing that selection. The shared
-preset loads each detector resolution and gaze backbone once; gaze activation
-leaves the detector selection unchanged. Add Bounding boxes and Gaze in Overlays
-and select the active outputs when changing the detector size or gaze backbone.
+Use the Model selector to choose one face detector and one gaze model. When
+changing the detector, also set the selected gaze model's **Input source** selector
+to that detector's `BoxDetections` output. Both gaze models initially connect to
+the 1080×1080 detector (`opkinfer0/opk-std-ops-GenericPostprocess-0`); the 1920×1080
+detector publishes `opkinfer1/opk-std-ops-GenericPostprocess-0`. Check the input
+connection again when changing gaze backbones, since each gaze model has its own
+binding.
+
+Disable the previous detector or gaze model after changing the selection. The
+shared preset loads each detector resolution and gaze backbone once; gaze
+activation leaves the detector selection unchanged. Add Bounding boxes and Gaze
+in Overlays and select the active outputs. Overlay selection does not change the
+gaze model's input connection. To retain a connection across pipeline restarts,
+save its producer ID in the preset's `input-bindings`; see
+[explicit result inputs](../../../docs/arch/explicit-input-connections.md).
 
 To run a single combination:
 
