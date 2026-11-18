@@ -145,6 +145,54 @@ canonical Op or element type, and its implementation is the configured parser,
 script, or processing implementation. Consumers must use these values for
 provenance and diagnostics only, not for semantic payload routing.
 
+## Continuing Box Prompts
+
+`request.fbs` owns the reusable `RequestEnvelope`, `RequestDestination` and
+`RequestApplication` definitions. `box_prompt_inputs.fbs` adds the `BoxPromptInputs`
+input root (`BPRM`); `prompt_association.fbs` adds the `PromptAssociation` result
+root (`PRAS`). These are compatible additions and require an OPK MINOR release.
+The product-version change belongs to release preparation, so the compatibility
+evaluator reports that requirement until the release version is selected.
+Existing payload schemas and their content-derived IDs remain unchanged; the
+schema-set digest and generated SDK APIs include the added roots. Consumers need
+the regenerated SDK to access the new payloads through typed APIs.
+
+The envelope uses unsigned 64-bit request IDs and revisions. IDs are nonzero,
+unique for the controlling session's lifetime and never reused in that session;
+replacement revisions increase strictly from 1 without wrapping. A request's
+destination is stable. `UntilReplaced` is the only supported application policy.
+These are semantic validation rules, rather than FlatBuffers `required` fields.
+Readers must validate them before accepting present inputs.
+
+`BoxPromptInputs.payload` is optional. An empty input has neither a payload nor
+an invented request identity. A present payload requires a complete envelope
+and a box whose finite normalized continuous coordinates satisfy
+`0 <= left < right <= 1` and `0 <= top < bottom <= 1`, in the upright, unmirrored
+target image. FlatBuffers structural validity does not establish these rules.
+Absence selects the network's no-prompt policy; it is not a cancellation command.
+Prompt inputs are separate buffer metadata, not outgoing perception results.
+
+`PromptAssociation` records the envelope and controlling `session_id` actually
+used to produce the associated layer's results on `parent_id` media. The session
+identity must survive replacement, cancellation and controller handover so a
+late result cannot be mistaken for another session's reused numeric request ID.
+Emit it only for prompted results. Unprompted or skipped execution must not emit
+an old request identity. The application protocol defines session acquisition
+and termination; the input root does not own that transport lifecycle.
+
+Run the focused C++, Python, Rust and TypeScript round trips in the development
+container after generation:
+
+```bash
+OPK_SDK_ARTIFACT_DIR=/opt/opk-deps/perception-sdk-artifacts \
+  python3 tools/perception/tests/test_prompt_schema.py
+```
+
+The artifact directory is an optional cache for the descriptor's checksum-locked
+Rust dependencies. The test uses the existing SDK dependency preparation code
+and temporary consumer projects; it does not create a release bundle or modify
+generated sources.
+
 ## Add a New Payload
 
 1. Confirm that the result is persistent runtime data and belongs in the shared

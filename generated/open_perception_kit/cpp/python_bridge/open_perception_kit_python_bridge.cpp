@@ -172,6 +172,30 @@ PyObject *make_open_perception_kit_metadata_BoxDetections_proxy(
     const open_perception_kit::metadata::BoxDetectionsT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
+PyTypeObject &pytype_open_perception_kit_metadata_PromptBox() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_PromptBox_proxy(
+    const open_perception_kit::metadata::PromptBoxT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_BoxPromptPayload() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_BoxPromptPayload_proxy(
+    const open_perception_kit::metadata::BoxPromptPayloadT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_BoxPromptInputs() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_BoxPromptInputs_proxy(
+    const open_perception_kit::metadata::BoxPromptInputsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
 PyTypeObject &pytype_open_perception_kit_metadata_ClassificationCandidate() {
     static PyTypeObject type = make_py_type_object();
     return type;
@@ -346,6 +370,30 @@ PyTypeObject &pytype_open_perception_kit_metadata_PoseEstimations() {
 }
 PyObject *make_open_perception_kit_metadata_PoseEstimations_proxy(
     const open_perception_kit::metadata::PoseEstimationsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_PromptAssociation() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_PromptAssociation_proxy(
+    const open_perception_kit::metadata::PromptAssociationT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_RequestDestination() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_RequestDestination_proxy(
+    const open_perception_kit::metadata::RequestDestinationT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_RequestEnvelope() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_RequestEnvelope_proxy(
+    const open_perception_kit::metadata::RequestEnvelopeT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_open_perception_kit_metadata_SegmentationMask() {
@@ -785,6 +833,7 @@ PyObject *bytes_from_span(std::span<const std::uint8_t> bytes) {
 
 enum class known_payload_kind {
     kind_open_perception_kit_metadata_BoxDetections,
+    kind_open_perception_kit_metadata_BoxPromptInputs,
     kind_open_perception_kit_metadata_Classifications,
     kind_open_perception_kit_metadata_FrameContext,
     kind_open_perception_kit_metadata_InstanceSegmentationMasks,
@@ -792,6 +841,7 @@ enum class known_payload_kind {
     kind_open_perception_kit_metadata_ObjectTracks,
     kind_open_perception_kit_metadata_PerformanceOverlay,
     kind_open_perception_kit_metadata_PoseEstimations,
+    kind_open_perception_kit_metadata_PromptAssociation,
     kind_open_perception_kit_metadata_SegmentationMasks,
     kind_open_perception_kit_metadata_SemanticSegmentationMasks,
     kind_open_perception_kit_metadata_TrackTraces,
@@ -897,6 +947,11 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
         return known_payload_kind::kind_open_perception_kit_metadata_BoxDetections;
     }
     if (py_type_matches(type_object,
+                        "open_perception_kit.fb.open_perception_kit.metadata.BoxPromptInputs",
+                        "BoxPromptInputsT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_BoxPromptInputs;
+    }
+    if (py_type_matches(type_object,
                         "open_perception_kit.fb.open_perception_kit.metadata.Classifications",
                         "ClassificationsT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_Classifications;
@@ -931,6 +986,11 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
                         "open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations",
                         "PoseEstimationsT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_PoseEstimations;
+    }
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.open_perception_kit.metadata.PromptAssociation",
+                        "PromptAssociationT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_PromptAssociation;
     }
     if (py_type_matches(type_object,
                         "open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks",
@@ -974,6 +1034,12 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
     }
     if (py_object_type_matches(
             value,
+            "open_perception_kit.fb.open_perception_kit.metadata.BoxPromptInputs",
+            "BoxPromptInputsT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_BoxPromptInputs;
+    }
+    if (py_object_type_matches(
+            value,
             "open_perception_kit.fb.open_perception_kit.metadata.Classifications",
             "ClassificationsT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_Classifications;
@@ -1011,6 +1077,12 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
             "open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations",
             "PoseEstimationsT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_PoseEstimations;
+    }
+    if (py_object_type_matches(
+            value,
+            "open_perception_kit.fb.open_perception_kit.metadata.PromptAssociation",
+            "PromptAssociationT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_PromptAssociation;
     }
     if (py_object_type_matches(
             value,
@@ -1208,6 +1280,9 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_BoxDetections:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::BoxDetectionsT>());
+    case known_payload_kind::kind_open_perception_kit_metadata_BoxPromptInputs:
+        return PyLong_FromSize_t(
+            live->envelope->count<open_perception_kit::metadata::BoxPromptInputsT>());
     case known_payload_kind::kind_open_perception_kit_metadata_Classifications:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::ClassificationsT>());
@@ -1229,6 +1304,9 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_PoseEstimations:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::PoseEstimationsT>());
+    case known_payload_kind::kind_open_perception_kit_metadata_PromptAssociation:
+        return PyLong_FromSize_t(
+            live->envelope->count<open_perception_kit::metadata::PromptAssociationT>());
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::SegmentationMasksT>());
@@ -1282,6 +1360,11 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
+    case known_payload_kind::kind_open_perception_kit_metadata_BoxPromptInputs:
+        if (live->envelope->contains<open_perception_kit::metadata::BoxPromptInputsT>()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
     case known_payload_kind::kind_open_perception_kit_metadata_Classifications:
         if (live->envelope->contains<open_perception_kit::metadata::ClassificationsT>()) {
             Py_RETURN_TRUE;
@@ -1314,6 +1397,11 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
         Py_RETURN_FALSE;
     case known_payload_kind::kind_open_perception_kit_metadata_PoseEstimations:
         if (live->envelope->contains<open_perception_kit::metadata::PoseEstimationsT>()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
+    case known_payload_kind::kind_open_perception_kit_metadata_PromptAssociation:
+        if (live->envelope->contains<open_perception_kit::metadata::PromptAssociationT>()) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
@@ -1386,6 +1474,9 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
     case known_payload_kind::kind_open_perception_kit_metadata_BoxDetections:
         return get_known_payload<open_perception_kit::metadata::BoxDetectionsT>(
             *live->envelope, pytype_open_perception_kit_metadata_BoxDetections(), index);
+    case known_payload_kind::kind_open_perception_kit_metadata_BoxPromptInputs:
+        return get_known_payload<open_perception_kit::metadata::BoxPromptInputsT>(
+            *live->envelope, pytype_open_perception_kit_metadata_BoxPromptInputs(), index);
     case known_payload_kind::kind_open_perception_kit_metadata_Classifications:
         return get_known_payload<open_perception_kit::metadata::ClassificationsT>(
             *live->envelope, pytype_open_perception_kit_metadata_Classifications(), index);
@@ -1409,6 +1500,9 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
     case known_payload_kind::kind_open_perception_kit_metadata_PoseEstimations:
         return get_known_payload<open_perception_kit::metadata::PoseEstimationsT>(
             *live->envelope, pytype_open_perception_kit_metadata_PoseEstimations(), index);
+    case known_payload_kind::kind_open_perception_kit_metadata_PromptAssociation:
+        return get_known_payload<open_perception_kit::metadata::PromptAssociationT>(
+            *live->envelope, pytype_open_perception_kit_metadata_PromptAssociation(), index);
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         return get_known_payload<open_perception_kit::metadata::SegmentationMasksT>(
             *live->envelope, pytype_open_perception_kit_metadata_SegmentationMasks(), index);
@@ -1483,6 +1577,9 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_BoxDetections:
         return list_known_payloads<open_perception_kit::metadata::BoxDetectionsT>(
             *live->envelope, pytype_open_perception_kit_metadata_BoxDetections());
+    case known_payload_kind::kind_open_perception_kit_metadata_BoxPromptInputs:
+        return list_known_payloads<open_perception_kit::metadata::BoxPromptInputsT>(
+            *live->envelope, pytype_open_perception_kit_metadata_BoxPromptInputs());
     case known_payload_kind::kind_open_perception_kit_metadata_Classifications:
         return list_known_payloads<open_perception_kit::metadata::ClassificationsT>(
             *live->envelope, pytype_open_perception_kit_metadata_Classifications());
@@ -1504,6 +1601,9 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_PoseEstimations:
         return list_known_payloads<open_perception_kit::metadata::PoseEstimationsT>(
             *live->envelope, pytype_open_perception_kit_metadata_PoseEstimations());
+    case known_payload_kind::kind_open_perception_kit_metadata_PromptAssociation:
+        return list_known_payloads<open_perception_kit::metadata::PromptAssociationT>(
+            *live->envelope, pytype_open_perception_kit_metadata_PromptAssociation());
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         return list_known_payloads<open_perception_kit::metadata::SegmentationMasksT>(
             *live->envelope, pytype_open_perception_kit_metadata_SegmentationMasks());
@@ -1579,6 +1679,9 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_BoxDetections:
         return add_known_payload<open_perception_kit::metadata::BoxDetectionsT>(
             *live->envelope, value, "BDET");
+    case known_payload_kind::kind_open_perception_kit_metadata_BoxPromptInputs:
+        return add_known_payload<open_perception_kit::metadata::BoxPromptInputsT>(
+            *live->envelope, value, "BPRM");
     case known_payload_kind::kind_open_perception_kit_metadata_Classifications:
         return add_known_payload<open_perception_kit::metadata::ClassificationsT>(
             *live->envelope, value, "CLSF");
@@ -1600,6 +1703,9 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_PoseEstimations:
         return add_known_payload<open_perception_kit::metadata::PoseEstimationsT>(
             *live->envelope, value, "POSE");
+    case known_payload_kind::kind_open_perception_kit_metadata_PromptAssociation:
+        return add_known_payload<open_perception_kit::metadata::PromptAssociationT>(
+            *live->envelope, value, "PRAS");
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         return add_known_payload<open_perception_kit::metadata::SegmentationMasksT>(
             *live->envelope, value, "SGMS");
@@ -2867,6 +2973,273 @@ PyObject *make_open_perception_kit_metadata_BoxDetections_proxy(
     std::shared_ptr<const native_proxy_anchor> anchor) {
     return make_native_proxy<open_perception_kit::metadata::BoxDetectionsT>(
         pytype_open_perception_kit_metadata_BoxDetections(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_PromptBox_left(PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::PromptBoxT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->left));
+}
+
+PyObject *get_open_perception_kit_metadata_PromptBox_top(PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::PromptBoxT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->top));
+}
+
+PyObject *get_open_perception_kit_metadata_PromptBox_right(PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::PromptBoxT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->right));
+}
+
+PyObject *get_open_perception_kit_metadata_PromptBox_bottom(PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::PromptBoxT> *>(
+            self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->bottom));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_PromptBox() {
+    static PyGetSetDef definitions[] = {
+        {"left",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptBox_left),
+         nullptr,
+         "read-only left",
+         nullptr},
+        {"top",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptBox_top),
+         nullptr,
+         "read-only top",
+         nullptr},
+        {"right",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptBox_right),
+         nullptr,
+         "read-only right",
+         nullptr},
+        {"bottom",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptBox_bottom),
+         nullptr,
+         "read-only bottom",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_PromptBox_type() {
+    auto &type = pytype_open_perception_kit_metadata_PromptBox();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_PromptBox";
+        type.tp_basicsize = sizeof(native_proxy_object<open_perception_kit::metadata::PromptBoxT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::PromptBoxT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_PromptBox();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_PromptBox_proxy(
+    const open_perception_kit::metadata::PromptBoxT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::PromptBoxT>(
+        pytype_open_perception_kit_metadata_PromptBox(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_BoxPromptPayload_box(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::BoxPromptPayloadT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->box.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_PromptBox_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::BoxPromptPayloadT>(self));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_BoxPromptPayload() {
+    static PyGetSetDef definitions[] = {
+        {"box",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_BoxPromptPayload_box),
+         nullptr,
+         "read-only box",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_BoxPromptPayload_type() {
+    auto &type = pytype_open_perception_kit_metadata_BoxPromptPayload();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_BoxPromptPayload";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::BoxPromptPayloadT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::BoxPromptPayloadT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_BoxPromptPayload();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_BoxPromptPayload_proxy(
+    const open_perception_kit::metadata::BoxPromptPayloadT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::BoxPromptPayloadT>(
+        pytype_open_perception_kit_metadata_BoxPromptPayload(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_BoxPromptInputs_schema_major(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::BoxPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *get_open_perception_kit_metadata_BoxPromptInputs_schema_minor(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::BoxPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *get_open_perception_kit_metadata_BoxPromptInputs_request(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::BoxPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->request.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_RequestEnvelope_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::BoxPromptInputsT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_BoxPromptInputs_payload(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::BoxPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->payload.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_BoxPromptPayload_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::BoxPromptInputsT>(self));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_BoxPromptInputs() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_BoxPromptInputs_schema_major),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_BoxPromptInputs_schema_minor),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"request",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_BoxPromptInputs_request),
+         nullptr,
+         "read-only request",
+         nullptr},
+        {"payload",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_BoxPromptInputs_payload),
+         nullptr,
+         "read-only payload",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_BoxPromptInputs_type() {
+    auto &type = pytype_open_perception_kit_metadata_BoxPromptInputs();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_BoxPromptInputs";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::BoxPromptInputsT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::BoxPromptInputsT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_BoxPromptInputs();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_BoxPromptInputs_proxy(
+    const open_perception_kit::metadata::BoxPromptInputsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::BoxPromptInputsT>(
+        pytype_open_perception_kit_metadata_BoxPromptInputs(), value, std::move(anchor));
 }
 
 PyObject *get_open_perception_kit_metadata_ClassificationCandidate_confidence(PyObject *self,
@@ -5504,6 +5877,320 @@ PyObject *make_open_perception_kit_metadata_PoseEstimations_proxy(
         pytype_open_perception_kit_metadata_PoseEstimations(), value, std::move(anchor));
 }
 
+PyObject *get_open_perception_kit_metadata_PromptAssociation_schema_major(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptAssociationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *get_open_perception_kit_metadata_PromptAssociation_schema_minor(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptAssociationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *get_open_perception_kit_metadata_PromptAssociation_layer(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptAssociationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->layer.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_LayerInfo_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::PromptAssociationT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_PromptAssociation_request(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptAssociationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->request.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_RequestEnvelope_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::PromptAssociationT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_PromptAssociation_session_id(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptAssociationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->session_id);
+}
+
+PyObject *get_open_perception_kit_metadata_PromptAssociation_parent_id(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptAssociationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->parent_id);
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_PromptAssociation() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptAssociation_schema_major),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptAssociation_schema_minor),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"layer",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptAssociation_layer),
+         nullptr,
+         "read-only layer",
+         nullptr},
+        {"request",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptAssociation_request),
+         nullptr,
+         "read-only request",
+         nullptr},
+        {"sessionId",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptAssociation_session_id),
+         nullptr,
+         "read-only session_id",
+         nullptr},
+        {"parentId",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_PromptAssociation_parent_id),
+         nullptr,
+         "read-only parent_id",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_PromptAssociation_type() {
+    auto &type = pytype_open_perception_kit_metadata_PromptAssociation();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_PromptAssociation";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::PromptAssociationT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::PromptAssociationT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_PromptAssociation();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_PromptAssociation_proxy(
+    const open_perception_kit::metadata::PromptAssociationT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::PromptAssociationT>(
+        pytype_open_perception_kit_metadata_PromptAssociation(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_RequestDestination_inference_instance(PyObject *self,
+                                                                                 void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::RequestDestinationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->inference_instance);
+}
+
+PyObject *get_open_perception_kit_metadata_RequestDestination_source_name(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::RequestDestinationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->source_name);
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_RequestDestination() {
+    static PyGetSetDef definitions[] = {
+        {"inferenceInstance",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_RequestDestination_inference_instance),
+         nullptr,
+         "read-only inference_instance",
+         nullptr},
+        {"sourceName",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_RequestDestination_source_name),
+         nullptr,
+         "read-only source_name",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_RequestDestination_type() {
+    auto &type = pytype_open_perception_kit_metadata_RequestDestination();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_RequestDestination";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::RequestDestinationT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::RequestDestinationT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_RequestDestination();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_RequestDestination_proxy(
+    const open_perception_kit::metadata::RequestDestinationT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::RequestDestinationT>(
+        pytype_open_perception_kit_metadata_RequestDestination(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_RequestEnvelope_request_id(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::RequestEnvelopeT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->request_id);
+}
+
+PyObject *get_open_perception_kit_metadata_RequestEnvelope_revision(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::RequestEnvelopeT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->revision);
+}
+
+PyObject *get_open_perception_kit_metadata_RequestEnvelope_destination(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::RequestEnvelopeT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->destination.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_RequestDestination_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::RequestEnvelopeT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_RequestEnvelope_application(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::RequestEnvelopeT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_enum(value->application);
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_RequestEnvelope() {
+    static PyGetSetDef definitions[] = {
+        {"requestId",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_RequestEnvelope_request_id),
+         nullptr,
+         "read-only request_id",
+         nullptr},
+        {"revision",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_RequestEnvelope_revision),
+         nullptr,
+         "read-only revision",
+         nullptr},
+        {"destination",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_RequestEnvelope_destination),
+         nullptr,
+         "read-only destination",
+         nullptr},
+        {"application",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_RequestEnvelope_application),
+         nullptr,
+         "read-only application",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_RequestEnvelope_type() {
+    auto &type = pytype_open_perception_kit_metadata_RequestEnvelope();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_RequestEnvelope";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::RequestEnvelopeT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::RequestEnvelopeT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_RequestEnvelope();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_RequestEnvelope_proxy(
+    const open_perception_kit::metadata::RequestEnvelopeT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::RequestEnvelopeT>(
+        pytype_open_perception_kit_metadata_RequestEnvelope(), value, std::move(anchor));
+}
+
 PyObject *get_open_perception_kit_metadata_SegmentationMask_object(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<open_perception_kit::metadata::SegmentationMaskT> *>(self);
@@ -6719,6 +7406,9 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_VoiceActivityDetections_detections_vector_type() ||
         !ensure_open_perception_kit_metadata_BoxDetection_type() ||
         !ensure_open_perception_kit_metadata_BoxDetections_type() ||
+        !ensure_open_perception_kit_metadata_PromptBox_type() ||
+        !ensure_open_perception_kit_metadata_BoxPromptPayload_type() ||
+        !ensure_open_perception_kit_metadata_BoxPromptInputs_type() ||
         !ensure_open_perception_kit_metadata_ClassificationCandidate_type() ||
         !ensure_open_perception_kit_metadata_Classification_type() ||
         !ensure_open_perception_kit_metadata_PersonPresence_type() ||
@@ -6741,6 +7431,9 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_PerformanceOverlay_type() ||
         !ensure_open_perception_kit_metadata_PoseEstimation_type() ||
         !ensure_open_perception_kit_metadata_PoseEstimations_type() ||
+        !ensure_open_perception_kit_metadata_PromptAssociation_type() ||
+        !ensure_open_perception_kit_metadata_RequestDestination_type() ||
+        !ensure_open_perception_kit_metadata_RequestEnvelope_type() ||
         !ensure_open_perception_kit_metadata_SegmentationMask_type() ||
         !ensure_open_perception_kit_metadata_SegmentationMasks_type() ||
         !ensure_open_perception_kit_metadata_SemanticSegmentationMask_type() ||
@@ -6774,6 +7467,21 @@ bool add_known_proxy_types(PyObject *python_module) {
     if (!add_python_type(python_module,
                          pytype_open_perception_kit_metadata_BoxDetections(),
                          "open_perception_kit_metadata_BoxDetections")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_PromptBox(),
+                         "open_perception_kit_metadata_PromptBox")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_BoxPromptPayload(),
+                         "open_perception_kit_metadata_BoxPromptPayload")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_BoxPromptInputs(),
+                         "open_perception_kit_metadata_BoxPromptInputs")) {
         return false;
     }
     if (!add_python_type(python_module,
@@ -6884,6 +7592,21 @@ bool add_known_proxy_types(PyObject *python_module) {
     if (!add_python_type(python_module,
                          pytype_open_perception_kit_metadata_PoseEstimations(),
                          "open_perception_kit_metadata_PoseEstimations")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_PromptAssociation(),
+                         "open_perception_kit_metadata_PromptAssociation")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_RequestDestination(),
+                         "open_perception_kit_metadata_RequestDestination")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_RequestEnvelope(),
+                         "open_perception_kit_metadata_RequestEnvelope")) {
         return false;
     }
     if (!add_python_type(python_module,

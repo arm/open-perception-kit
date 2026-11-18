@@ -18,6 +18,7 @@
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import { ByteBuffer } from 'flatbuffers';
 import { BoxDetections as BoxDetections_556103652012567315, BoxDetectionsT as BoxDetectionsT_556103652012567315 } from './fb/open-perception-kit/metadata/box-detections.js';
+import { BoxPromptInputs as BoxPromptInputs_6089993818679981300, BoxPromptInputsT as BoxPromptInputsT_6089993818679981300 } from './fb/open-perception-kit/metadata/box-prompt-inputs.js';
 import { Classifications as Classifications_2852697023809600655, ClassificationsT as ClassificationsT_2852697023809600655 } from './fb/open-perception-kit/metadata/classifications.js';
 import { FrameContext as FrameContext_2065478860695108412, FrameContextT as FrameContextT_2065478860695108412 } from './fb/open-perception-kit/metadata/frame-context.js';
 import { InstanceSegmentationMasks as InstanceSegmentationMasks_3149752457626985059, InstanceSegmentationMasksT as InstanceSegmentationMasksT_3149752457626985059 } from './fb/open-perception-kit/metadata/instance-segmentation-masks.js';
@@ -25,6 +26,7 @@ import { ObjectEmbeddings as ObjectEmbeddings_5972661533224817501, ObjectEmbeddi
 import { ObjectTracks as ObjectTracks_2960585987463094496, ObjectTracksT as ObjectTracksT_2960585987463094496 } from './fb/open-perception-kit/metadata/object-tracks.js';
 import { PerformanceOverlay as PerformanceOverlay_7749401259036278028, PerformanceOverlayT as PerformanceOverlayT_7749401259036278028 } from './fb/open-perception-kit/metadata/performance-overlay.js';
 import { PoseEstimations as PoseEstimations_9114952555105892553, PoseEstimationsT as PoseEstimationsT_9114952555105892553 } from './fb/open-perception-kit/metadata/pose-estimations.js';
+import { PromptAssociation as PromptAssociation_5075096025103235225, PromptAssociationT as PromptAssociationT_5075096025103235225 } from './fb/open-perception-kit/metadata/prompt-association.js';
 import { SegmentationMasks as SegmentationMasks_1998909987238011535, SegmentationMasksT as SegmentationMasksT_1998909987238011535 } from './fb/open-perception-kit/metadata/segmentation-masks.js';
 import { SemanticSegmentationMasks as SemanticSegmentationMasks_1602571589628393389, SemanticSegmentationMasksT as SemanticSegmentationMasksT_1602571589628393389 } from './fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import { TrackTraces as TrackTraces_238211229389337861, TrackTracesT as TrackTracesT_238211229389337861 } from './fb/open-perception-kit/metadata/track-traces.js';
@@ -32,6 +34,8 @@ import { TurnDetections as TurnDetections_3528578282400045446, TurnDetectionsT a
 import { VoiceActivityDetections as VoiceActivityDetections_7328253118381503000, VoiceActivityDetectionsT as VoiceActivityDetectionsT_7328253118381503000 } from './fb/open-perception-kit/metadata/voice-activity-detections.js';
 const decode_556103652012567315 = (blob) => BoxDetections_556103652012567315.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
 const verify_556103652012567315 = (blob) => BoxDetections_556103652012567315.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_6089993818679981300 = (blob) => BoxPromptInputs_6089993818679981300.getRootAsBoxPromptInputs(new ByteBuffer(blob)).unpack();
+const verify_6089993818679981300 = (blob) => BoxPromptInputs_6089993818679981300.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_2852697023809600655 = (blob) => Classifications_2852697023809600655.getRootAsClassifications(new ByteBuffer(blob)).unpack();
 const verify_2852697023809600655 = (blob) => Classifications_2852697023809600655.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_2065478860695108412 = (blob) => FrameContext_2065478860695108412.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
@@ -46,6 +50,8 @@ const decode_7749401259036278028 = (blob) => PerformanceOverlay_7749401259036278
 const verify_7749401259036278028 = (blob) => PerformanceOverlay_7749401259036278028.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_9114952555105892553 = (blob) => PoseEstimations_9114952555105892553.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
 const verify_9114952555105892553 = (blob) => PoseEstimations_9114952555105892553.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_5075096025103235225 = (blob) => PromptAssociation_5075096025103235225.getRootAsPromptAssociation(new ByteBuffer(blob)).unpack();
+const verify_5075096025103235225 = (blob) => PromptAssociation_5075096025103235225.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_1998909987238011535 = (blob) => SegmentationMasks_1998909987238011535.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
 const verify_1998909987238011535 = (blob) => SegmentationMasks_1998909987238011535.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_1602571589628393389 = (blob) => SemanticSegmentationMasks_1602571589628393389.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
@@ -64,6 +70,14 @@ export const _TYPE_REGISTRY = new Map([
             file_identifier: 'BDET',
             decode: decode_556103652012567315,
             verify: verify_556103652012567315,
+        }],
+    [6089993818679981300n, {
+            name: 'open_perception_kit::metadata::BoxPromptInputs',
+            root_type: 'BoxPromptInputs',
+            qualified_root_type: 'open_perception_kit.metadata.BoxPromptInputs',
+            file_identifier: 'BPRM',
+            decode: decode_6089993818679981300,
+            verify: verify_6089993818679981300,
         }],
     [2852697023809600655n, {
             name: 'open_perception_kit::metadata::Classifications',
@@ -121,6 +135,14 @@ export const _TYPE_REGISTRY = new Map([
             decode: decode_9114952555105892553,
             verify: verify_9114952555105892553,
         }],
+    [5075096025103235225n, {
+            name: 'open_perception_kit::metadata::PromptAssociation',
+            root_type: 'PromptAssociation',
+            qualified_root_type: 'open_perception_kit.metadata.PromptAssociation',
+            file_identifier: 'PRAS',
+            decode: decode_5075096025103235225,
+            verify: verify_5075096025103235225,
+        }],
     [1998909987238011535n, {
             name: 'open_perception_kit::metadata::SegmentationMasks',
             root_type: 'SegmentationMasks',
@@ -164,6 +186,7 @@ export const _TYPE_REGISTRY = new Map([
 ]);
 export const _CLASS_TO_ID = new Map([
     [BoxDetectionsT_556103652012567315, 556103652012567315n],
+    [BoxPromptInputsT_6089993818679981300, 6089993818679981300n],
     [ClassificationsT_2852697023809600655, 2852697023809600655n],
     [FrameContextT_2065478860695108412, 2065478860695108412n],
     [InstanceSegmentationMasksT_3149752457626985059, 3149752457626985059n],
@@ -171,6 +194,7 @@ export const _CLASS_TO_ID = new Map([
     [ObjectTracksT_2960585987463094496, 2960585987463094496n],
     [PerformanceOverlayT_7749401259036278028, 7749401259036278028n],
     [PoseEstimationsT_9114952555105892553, 9114952555105892553n],
+    [PromptAssociationT_5075096025103235225, 5075096025103235225n],
     [SegmentationMasksT_1998909987238011535, 1998909987238011535n],
     [SemanticSegmentationMasksT_1602571589628393389, 1602571589628393389n],
     [TrackTracesT_238211229389337861, 238211229389337861n],

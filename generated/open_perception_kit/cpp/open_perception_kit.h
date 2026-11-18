@@ -36,6 +36,7 @@
 #include <vector>
 
 #include "fb/box_detections_generated.h"
+#include "fb/box_prompt_inputs_generated.h"
 #include "fb/classifications_generated.h"
 #include "fb/frame_context_generated.h"
 #include "fb/instance_segmentation_masks_generated.h"
@@ -44,6 +45,7 @@
 #include "fb/object_tracks_generated.h"
 #include "fb/performance_overlay_generated.h"
 #include "fb/pose_estimations_generated.h"
+#include "fb/prompt_association_generated.h"
 #include "fb/segmentation_masks_generated.h"
 #include "fb/semantic_segmentation_masks_generated.h"
 #include "fb/track_traces_generated.h"
@@ -56,7 +58,7 @@ namespace open_perception_kit {
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "0.1.3";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
+    "24ee72631508cb4f6b68f69a974c2972452dd2702e8393ecaf3020184ad2b6ce";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -79,6 +81,23 @@ template <> struct native_traits<open_perception_kit::metadata::BoxDetectionsT> 
 
     static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
         return open_perception_kit::metadata::CreateBoxDetections(builder, obj);
+    }
+};
+
+template <> struct native_traits<open_perception_kit::metadata::BoxPromptInputsT> {
+    using table_type = open_perception_kit::metadata::BoxPromptInputs;
+    using native_type = open_perception_kit::metadata::BoxPromptInputsT;
+
+    static constexpr id_t id = 6089993818679981300ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.BoxPromptInputs";
+
+    static constexpr const char *file_identifier() {
+        return "BPRM";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreateBoxPromptInputs(builder, obj);
     }
 };
 
@@ -201,6 +220,23 @@ template <> struct native_traits<open_perception_kit::metadata::PoseEstimationsT
     }
 };
 
+template <> struct native_traits<open_perception_kit::metadata::PromptAssociationT> {
+    using table_type = open_perception_kit::metadata::PromptAssociation;
+    using native_type = open_perception_kit::metadata::PromptAssociationT;
+
+    static constexpr id_t id = 5075096025103235225ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.PromptAssociation";
+
+    static constexpr const char *file_identifier() {
+        return "PRAS";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreatePromptAssociation(builder, obj);
+    }
+};
+
 template <> struct native_traits<open_perception_kit::metadata::SegmentationMasksT> {
     using table_type = open_perception_kit::metadata::SegmentationMasks;
     using native_type = open_perception_kit::metadata::SegmentationMasksT;
@@ -292,6 +328,7 @@ struct encoded_payload {
 
 using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::BoxDetectionsT,
+                                  open_perception_kit::metadata::BoxPromptInputsT,
                                   open_perception_kit::metadata::ClassificationsT,
                                   open_perception_kit::metadata::FrameContextT,
                                   open_perception_kit::metadata::InstanceSegmentationMasksT,
@@ -299,6 +336,7 @@ using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::ObjectTracksT,
                                   open_perception_kit::metadata::PerformanceOverlayT,
                                   open_perception_kit::metadata::PoseEstimationsT,
+                                  open_perception_kit::metadata::PromptAssociationT,
                                   open_perception_kit::metadata::SegmentationMasksT,
                                   open_perception_kit::metadata::SemanticSegmentationMasksT,
                                   open_perception_kit::metadata::TrackTracesT,
