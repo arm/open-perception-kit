@@ -274,6 +274,56 @@ test('media actions stay visible and distinguish capture from playback', async (
   await expect(page.locator('#muteUnmuteIcon')).toHaveAttribute('data-icon', 'volume-x');
 });
 
+test('model and overlay switches share compact geometry and accessible interaction', async ({page}) => {
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  const sent = [];
+  await page.routeWebSocket('**/ws', async ws => {
+    if (new URL(ws.url()).port !== String(await page.evaluate(() => window.OPK_CONFIG.ctrlPort))) return;
+    ws.onMessage(message => sent.push(JSON.parse(message)));
+    ws.send(JSON.stringify({pipeline_state: {audio: false, microphone: false, playing: true}, models: [
+      {name: 'Example', element_name: 'example', active: false},
+    ]}));
+  });
+  await page.goto('/', {waitUntil: 'domcontentloaded'});
+  await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+  await page.locator('#addOverlayBtn').click();
+  await page.locator('#overlayFeature').selectOption('background-replacement');
+  await page.locator('#saveOverlayBtn').click();
+  const model = page.locator('#models-container [role=switch]');
+  const overlay = page.locator('.overlay-visible [role=switch]');
+  const geometry = selector => page.locator(selector).evaluate(input => {
+    const track = input.nextElementSibling;
+    const thumb = track.firstElementChild.getBoundingClientRect();
+    const bounds = track.getBoundingClientRect();
+    const hit = input.getBoundingClientRect();
+    return {width: bounds.width, height: bounds.height, thumbWidth: thumb.width, thumbHeight: thumb.height,
+      offset: thumb.left - bounds.left, contained: thumb.left >= bounds.left && thumb.right <= bounds.right,
+      hitHeight: hit.height, color: getComputedStyle(track).backgroundColor};
+  });
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({colorScheme, reducedMotion: 'reduce'});
+    for (const checked of [false, true]) {
+      await model.setChecked(checked);
+      await overlay.setChecked(checked);
+      await page.mouse.move(0, 0);
+      const sidebar = await geometry('#models-container [role=switch]');
+      expect(sidebar).toEqual(await geometry('.overlay-visible [role=switch]'));
+      expect(sidebar.contained).toBe(true);
+      expect(sidebar.width).toBeGreaterThan(sidebar.height);
+      expect(sidebar.hitHeight).toBeGreaterThan(sidebar.height);
+    }
+  }
+  expect(sent.some(message => message.type === 'model_toggle' && message.name === 'example')).toBe(true);
+  await model.focus();
+  await page.keyboard.press('Space');
+  await expect(model).not.toBeChecked();
+  await expect(page.locator('#models-container .model-toggle-track')).toHaveCSS('outline-style', 'solid');
+  await model.evaluate(input => { input.disabled = true; });
+  await expect(model).toBeDisabled();
+  await page.keyboard.press('Space');
+  await expect(model).not.toBeChecked();
+});
+
 test('signaling diagnostics render as text', async ({ page }) => {
   const messages = ['camera ready', '<em>camera & light</em>'];
   await page.routeWebSocket('**/ws', async (ws) => {
@@ -306,6 +356,7 @@ test('Wafer controls work in both themes with keyboard and persisted overlays', 
   await page.locator('#overlayFeature').selectOption('background-replacement');
   await page.locator('#saveOverlayBtn').click();
   const toggle = page.getByRole('switch', { name: /^Show Background replacement/ });
+  await expect(page.locator('#addOverlayBtn')).toBeFocused();
   await toggle.focus();
   await page.keyboard.press('Space');
   await expect(toggle).not.toBeChecked();

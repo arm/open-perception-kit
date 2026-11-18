@@ -57,6 +57,10 @@ styles. UI icons are official Lucide SVG assets, rendered as CSS masks with
 their keyboard behavior. Small visibility switches and right-side disclosure
 arrows remain in the overlay list.
 
+Model, overlay and per-class switches share one compact Wafer-token track, thumb
+and travel distance. Their larger hit area remains keyboard- and pointer-operable,
+with the same focus, checked and disabled presentation in both themes.
+
 ### Design assets
 
 `npm run vendor` is the sole owner of the checked-in Wafer CSS/fonts and Lucide

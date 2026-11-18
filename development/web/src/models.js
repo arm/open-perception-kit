@@ -286,6 +286,7 @@ class ModelsManager {
         }
 
         const previousActive = model.active;
+        const hadFocus = document.activeElement === toggle;
 
         toggle.disabled = true;
         item.classList.add('model-pending');
@@ -303,6 +304,7 @@ class ModelsManager {
         } finally {
             toggle.disabled = false;
             item.classList.remove('model-pending');
+            if (hadFocus) toggle.focus();
         }
     }
 
