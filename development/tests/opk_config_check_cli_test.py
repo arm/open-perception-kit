@@ -128,6 +128,35 @@ class OpkConfigCheckCliTest(unittest.TestCase):
                                 self.assertEqual(result.stderr, "")
                 path.unlink()
 
+    def test_python_payload_names_are_checked_without_loading_a_script(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(self.repository_root / "config/schemas", root / "config/schemas")
+            for name in ("models", "opchains", "pipelines"):
+                (root / "config" / name).mkdir()
+            path = root / "config/opchains/opchain.json"
+            for field in ("providedOutputs", "requiredInputs"):
+                for payload, accepted in (
+                    ("open_perception_kit.metadata.BoxDetections", True),
+                    ("open_perception_kit.metadata.Classifications", True),
+                    ("open_perception_kit.metadata.NotAPayload", False),
+                    ("open_perception_kit.metadata.ImageSpace", False),
+                ):
+                    with self.subTest(field=field, payload=payload):
+                        entry = {"payloadType": payload}
+                        if field == "requiredInputs":
+                            entry["inputId"] = "input"
+                        path.write_text(json.dumps({"version": "2.0.0", "name": "payload-preflight",
+                                                    "description": "Validate payload names before loading Python",
+                                                    "ops": [{"id": "opk-python-ops/PythonScript", "attributes": {
+                                                        "script": str(root / "not-installed.py"), field: [entry]}}]}))
+                        result = self.run_cli("--root", str(root))
+                        self.assertEqual(result.returncode, 0 if accepted else 1, result.stderr)
+                        if not accepted:
+                            self.assertIn(f"/ops/0/attributes/{field}/0/payloadType", result.stderr)
+                            self.assertIn("opchain.v2.python-payload-type", result.stderr)
+                            self.assertIn(payload, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])
