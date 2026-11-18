@@ -24,8 +24,8 @@ limitations under the License.
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/assets/open-perception-kit-favicon.svg" />
     <link rel="stylesheet" href="/vendor/wafer/wafer.css" />
-    <link rel="stylesheet" href="/vendor/lucide/icons.css" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="/vendor/lucide/icons.css?v=embedded-edit-icons" />
+    <link rel="stylesheet" href="style.css?v=hide-edit-dependencies" />
 </head>
 
 <body class="wfr-txt-body">
@@ -81,37 +81,17 @@ limitations under the License.
                     </div>
                 </div>
 
-                <div class="sidebar-scroll-area">
-                    <div class="sidebar-section sidebar-section--grow sidebar-section--models" data-model-selector-section>
-                        <div class="model-selector-header">
-                            <h2 class="sidebar-section-title wfr-txt-h3">Model selector</h2>
-                            <button id="addModelBtn" class="control-button" type="button" aria-label="Add model"
-                                aria-describedby="modelEditHint" disabled><span aria-hidden="true">+</span> Add</button>
-                        </div>
-                        <div id="modelSelectorPanel" class="model-selector-panel">
-                            <p class="sidebar-section-description wfr-txt-body--sm">
-                                Models are shown in pipeline order. Switch models on or off while running.
-                            </p>
-                            <p id="modelEditHint" class="wfr-txt-body--sm" role="status">Connect to the pipeline to edit models.</p>
-                            <hr class="model-selector-divider">
-                            <div id="models-container" class="models-container">
-                                <div class="models-loading">
-                                    <div class="spinner"></div>
-                                    <span>Loading models…</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="sidebar-section pipeline-controls" aria-label="Pipeline playback">
                     <div class="controls-row">
                         <div class="controls-actions">
+                            <span id="playTooltipAnchor" class="disabled-control-tooltip">
                             <button id="playPauseBtn" class="control-button control-button--primary" type="button"
                                 aria-label="Play pipeline" disabled>
                                 <span id="playPauseIcon" class="icon" data-icon="play" aria-hidden="true"></span>
                                 <span class="video-control-text">Play</span>
                             </button>
+                            <span id="playDisabledTooltip" class="disabled-control-tooltip-text wfr-txt-caption" role="tooltip"></span>
+                            </span>
                             <button id="stopPipelineBtn" class="control-button" type="button"
                                 aria-label="Stop pipeline" title="Stop the pipeline to edit models" disabled>
                                 <svg class="pipeline-stop-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -123,6 +103,36 @@ limitations under the License.
                         <span id="pipelineStatus" role="status">Connecting</span>
                     </div>
                     <p id="pipelineError" class="pipeline-error wfr-txt-body--sm" role="alert" hidden></p>
+                </div>
+
+                <div class="sidebar-scroll-area">
+                    <div class="sidebar-section sidebar-section--grow sidebar-section--models" data-model-selector-section>
+                        <div class="model-selector-header">
+                            <h2 class="sidebar-section-title wfr-txt-h3">Model selector</h2>
+                            <div class="pipeline-edit-buttons">
+                            <span id="editTooltipAnchor" class="disabled-control-tooltip disabled-control-tooltip--right">
+                            <button id="editPipelineBtn" class="control-button" type="button" aria-label="Edit Pipeline" aria-pressed="false"
+                                aria-describedby="modelEditHint" disabled><span class="icon" data-icon="pencil" aria-hidden="true"></span> <span class="edit-pipeline-label">Edit Pipeline</span></button>
+                            <span id="editDisabledTooltip" class="disabled-control-tooltip-text wfr-txt-caption" role="tooltip"></span>
+                            </span>
+                            <button id="discardPipelineBtn" class="control-button" type="button" hidden>Discard</button>
+                            </div>
+                        </div>
+                        <div id="modelSelectorPanel" class="model-selector-panel">
+                            <p class="sidebar-section-description wfr-txt-body--sm">
+                                Models are shown in pipeline order.<br>
+                                You can switch models on, off or change their input-source model while running.
+                            </p>
+                            <p id="modelEditHint" class="wfr-txt-body--sm" role="status">Connect to the pipeline to edit models.</p>
+                            <hr class="model-selector-divider">
+                            <div id="models-container" class="models-container">
+                                <div class="models-loading">
+                                    <div class="spinner"></div>
+                                    <span>Loading models…</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="sidePanelResizeHandle" class="side-panel-resize-handle" aria-hidden="true"></div>
@@ -289,7 +299,7 @@ limitations under the License.
 
     <!-- Logic -->
     <script src="/opk-config.js"></script>
-    <script type="module" src="/opk-web.js"></script>
+    <script type="module" src="/opk-web.js?v=compact-model-editing"></script>
 </body>
 
 </html>

@@ -152,16 +152,24 @@ by the caller before retrying. OPK does not save or restore working combinations
 
 ## Edit models from the browser
 
-The left panel places **Play/Pause** and **Stop** below the model selector.
-WebRTC controls sit above the model selector. Pause preserves the loaded OpChains.
-Stop moves the whole pipeline to READY and keeps the HTTP and control services available.
-Wait for **Stopped**, then use **+ Add**, **Replace**, the trash button, or drag
-a model by its row. Focus the dotted drag handle and use the Up/Down arrow keys
-to reorder with the keyboard.
-The list follows pipeline order. Reordering stays within each model group;
-other elements and branch connections stay fixed. Editing controls remain visible
-but disabled while running, paused, disconnected or changing state, with a hint
-explaining when editing is available. On/off switches retain their live behavior.
+The left panel places **Play/Pause**, **Stop** and the pipeline state above the
+model selector, where they remain visible while the model list scrolls. Pause
+preserves the loaded OpChains. Stop moves the whole pipeline to READY and keeps
+the HTTP and control services available.
+Wait for **Stopped**, then choose **Edit Pipeline**. In edit mode, use the **+** buttons
+before, between or after models, **Replace**, the trash button, or the six-dot drag
+handle. Only the handle starts a drag; focus it and use Up/Down to reorder with the
+keyboard. Reordering stays within each model group; other elements and branch
+connections stay fixed. Editing controls are hidden outside edit mode.
+
+**Save** applies the draft model-list changes to the running server session;
+**Discard** cancels the draft without changing the server. Playback, model
+switches, input connections and dependency information are hidden while drafting. Outside edit mode,
+switches and input connections retain their live behavior. Edit Pipeline is disabled
+unless the pipeline is editable; while running, its hover text says “Stop pipeline to edit”.
+Changes from another client invalidate an unsaved draft. Save applies edits in order;
+if an edit fails, the UI shows the server list and explains that earlier edits may
+already have applied.
 
 Add and Replace offer only existing server OpChains whose referenced model files
 are installed. Removing a model keeps its files. Changes apply to the current

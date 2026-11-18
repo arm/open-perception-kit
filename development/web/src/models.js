@@ -36,13 +36,17 @@ function inputs(value) {
 }
 
 function dependencyProviderTasks(model, models) {
-    const required = inputs(model.requiredInputs);
-    return [...new Set(models
-        .filter((candidate) => candidate !== model &&
-            outputs(candidate.providedOutputs).some(output => required.some(input =>
-                output.payloadType === input.payloadType && input.producerId && output.producerId === input.producerId)))
-        .map((candidate) => readableText(candidate.task) || readableText(candidate.name))
-        .filter(Boolean))];
+    return [...new Set(inputs(model.requiredInputs).flatMap(input => {
+        if (!input.producerId) return ['No input connected'];
+        const providers = models.filter(candidate => candidate.element_name !== model.element_name &&
+            outputs(candidate.providedOutputs).some(output =>
+                output.payloadType === input.payloadType && output.producerId === input.producerId));
+        if (!providers.length) return ['Selected source unavailable'];
+        return providers.map(candidate => {
+            const label = readableText(candidate.task) || readableText(candidate.name) || 'Unknown model';
+            return candidate.active === false ? `${label} (off)` : label;
+        });
+    }))];
 }
 
 function resolveModelLabels(model) {
@@ -70,13 +74,24 @@ class ModelsManager {
         this.editor = null;
         this.pipelineState = null;
         this.editControls = [];
-        this.addButton = document.getElementById('addModelBtn');
+        this.editMode = false;
+        this.draftEdits = [];
+        this.draftCounter = 0;
+        this.insertionButtons = [];
+        this.insertionTargets = new Map();
+        this.addButton = document.getElementById('editPipelineBtn');
+        this.discardButton = document.getElementById('discardPipelineBtn');
+        this.discardButton?.addEventListener('click', () => this.discardEdits());
         this.editHint = document.getElementById('modelEditHint');
         this.dialog = document.getElementById('modelPicker');
         this.modelChoice = document.getElementById('modelChoice');
         this.modelGroupChoice = document.getElementById('modelGroup');
         this.saveButton = document.getElementById('saveModelBtn');
-        this.addButton?.addEventListener('click', () => this.openPicker());
+        this.addButton?.addEventListener('click', () => {
+            if (this.editDisabledReason()) return;
+            if (this.editMode) this.saveEdits();
+            else this.beginEditing();
+        });
         document.getElementById('cancelModelBtn')?.addEventListener('click', () => this.dialog.close());
         document.getElementById('modelPickerForm')?.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -86,19 +101,36 @@ class ModelsManager {
         this._lastModelsSignature = '';
     }
 
-    render(models, editor = null, pipelineState = null) {
+    render(models, editor = null, pipelineState = null, local = false) {
         if (!this.container) return;
+        if (!local) {
+            this.serverModels = models;
+            this.editor = editor;
+            this.pipelineState = pipelineState;
+            if (this.saving) {
+                this.acceptSaveReport(models, editor, pipelineState);
+            } else if (this.editMode && this.draftRevision !== undefined &&
+                (editor?.revision !== this.draftRevision || pipelineState?.state !== 'READY')) {
+                this.editMode = false;
+                this.draftEdits = [];
+                this.editNotice = 'The pipeline changed outside this editor. The unsaved draft was discarded.';
+            }
+            if (this.editMode) models = this.models;
+        }
         this.models = models;
         this.editor = editor;
         this.pipelineState = pipelineState;
         this.editPending = false;
+        if (pipelineState?.state !== 'READY' && !this.saving) this.editMode = false;
         this.updatePicker();
         this.updateEditorControls();
-        const nextSignature = JSON.stringify([models, this.editDisabledReason()]);
+        const nextSignature = JSON.stringify([models, editor?.modelGroups, this.editDisabledReason(), this.editMode]);
         if (nextSignature === this._lastModelsSignature) return;
         this._lastModelsSignature = nextSignature;
         this.container.innerHTML = '';
         this.editControls = [];
+        this.insertionButtons = [];
+        this.insertionTargets = new Map();
         if (models.length === 0) {
             this.container.innerHTML = '<div class="models-empty">No models in this pipeline.</div>';
         }
@@ -112,12 +144,141 @@ class ModelsManager {
                 this.container.appendChild(heading);
                 previousModelGroup = model.modelGroup;
             }
+            const modelGroupModels = models.filter(candidate => candidate.modelGroup === model.modelGroup);
+            const position = modelGroupModels.indexOf(model);
+            if (this.editMode && model.modelGroup && position === 0) {
+                this.appendInsertionButton(model.modelGroup, 0);
+            }
             this.container.appendChild(this.createModelItem(model, models));
+            if (this.editMode && model.modelGroup) this.appendInsertionButton(model.modelGroup, position + 1);
+        }
+        if (this.editMode) {
+            for (const modelGroup of editor.modelGroups) {
+                if (!models.some(model => model.modelGroup === modelGroup.id)) this.appendInsertionButton(modelGroup.id, 0);
+            }
         }
         this.updateEditorControls();
     }
 
+    beginEditing() {
+        if (this.editDisabledReason()) return;
+        this.editMode = true;
+        this.draftRevision = this.editor.revision;
+        this.draftEdits = [];
+        this.editNotice = '';
+        this.models = structuredClone(this.serverModels || this.models);
+        this.repaint();
+    }
+
+    repaint() {
+        this.render(this.models, this.editor, this.pipelineState, true);
+    }
+
+    discardEdits() {
+        if (this.saving) return;
+        this.editMode = false;
+        this.draftEdits = [];
+        this.models = this.serverModels || this.models;
+        this.repaint();
+    }
+
+    saveEdits() {
+        if (this.editDisabledReason() || !this.editMode) return;
+        if (!this.draftEdits.length) { this.discardEdits(); return; }
+        this.saving = true;
+        this.saveQueue = [...this.draftEdits];
+        this.savedNames = new Map();
+        this.sendNextEdit();
+    }
+
+    sendNextEdit() {
+        if (!this.saveQueue.length) {
+            this.saving = false;
+            this.discardEdits();
+            return;
+        }
+        const { draftName, revision, ...change } = this.saveQueue[0];
+        if (change.name) change.name = this.savedNames.get(change.name) || change.name;
+        this.pendingSave = { revision: this.editor.revision, names: new Set(this.serverModels.map(model => model.element_name)), draftName };
+        try {
+            ctrlSend({ type: 'model_edit', ...change, revision: this.editor.revision });
+            this.saveTimer = setTimeout(() => this.failSave('The server did not confirm the save. Reconnect and check the model list before retrying.'), 15000);
+        } catch (error) {
+            this.failSave(error.message);
+        }
+        this.updateEditorControls();
+    }
+
+    acceptSaveReport(models, editor, state) {
+        if (!this.pendingSave || state?.busy || state?.pending) return;
+        if (!state || state.state !== 'READY' || state.error) {
+            this.failSave(state?.error || 'The pipeline is no longer stopped.');
+            return;
+        }
+        if (editor.revision === this.pendingSave.revision) return;
+        if (editor.revision !== this.pendingSave.revision + 1) {
+            this.failSave('The pipeline changed in another client.');
+            return;
+        }
+        clearTimeout(this.saveTimer);
+        if (this.pendingSave.draftName) {
+            const added = models.find(model => !this.pendingSave.names.has(model.element_name));
+            if (!added) { this.failSave('The added model could not be identified.'); return; }
+            this.savedNames.set(this.pendingSave.draftName, added.element_name);
+        }
+        this.pendingSave = null;
+        this.saveQueue.shift();
+        this.sendNextEdit();
+    }
+
+    failSave(message) {
+        clearTimeout(this.saveTimer);
+        this.pendingSave = null;
+        this.saving = false;
+        this.editNotice = `Save stopped: ${message} Showing the server model list; earlier saved changes may have applied.`;
+        this.discardEdits();
+    }
+
+    appendInsertionButton(modelGroup, position) {
+        const row = document.createElement('div');
+        row.className = 'model-insertion';
+        this.insertionTargets.set(JSON.stringify([modelGroup, position]), row);
+        row.addEventListener('dragover', event => {
+            this.clearDropTarget();
+            if (this.dropDestination(modelGroup, position) === null) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            this.showDropTarget(modelGroup, position);
+        });
+        row.addEventListener('dragleave', event => {
+            if (!row.contains(event.relatedTarget) && this.dropTarget === row) this.clearDropTarget();
+        });
+        row.addEventListener('drop', event => {
+            event.preventDefault();
+            const destination = this.dropDestination(modelGroup, position);
+            this.clearDragPreview();
+            this.clearDropTarget();
+            if (destination !== null) this.submitEdit({ action: 'move', ...this.draggedModel, position: destination });
+            this.draggedModel = null;
+        });
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'control-button model-insert-button';
+        const icon = document.createElement('span');
+        icon.className = 'icon';
+        icon.setAttribute('data-icon', 'plus');
+        icon.setAttribute('aria-hidden', 'true');
+        button.appendChild(icon);
+        button.title = 'Add model';
+        button.setAttribute('aria-label', `Add model at position ${position + 1}`);
+        button.addEventListener('click', () => this.openPicker(null, { modelGroup, position }));
+        row.appendChild(button);
+        this.container.appendChild(row);
+        this.insertionButtons.push(button);
+    }
+
     editDisabledReason() {
+        if (this.saving) return 'Saving pipeline edits…';
         const state = this.pipelineState;
         if (!state) return 'Reconnect to the pipeline to edit models.';
         if (state.busy || state.pending || this.editPending) return 'Wait for the current pipeline change to finish.';
@@ -130,18 +291,43 @@ class ModelsManager {
         const reason = this.editDisabledReason();
         if (this.addButton) {
             this.addButton.disabled = Boolean(reason);
-            this.addButton.title = reason || 'Add an installed model';
+            const label = this.editMode ? 'Save' : 'Edit Pipeline';
+            this.addButton.title = !this.editMode && this.pipelineState && this.pipelineState.state !== 'READY'
+                ? 'Stop pipeline to edit' : reason || label;
+            this.addButton.setAttribute('aria-label', label);
+            this.addButton.querySelector('.edit-pipeline-label').textContent = label;
+            this.addButton.querySelector('.icon').setAttribute('data-icon', this.editMode ? 'check' : 'pencil');
+            this.addButton.setAttribute('aria-pressed', String(this.editMode));
         }
+        if (this.discardButton) {
+            this.discardButton.hidden = !this.editMode;
+            this.discardButton.disabled = Boolean(this.saving);
+        }
+        const playButton = document.getElementById('playPauseBtn');
+        if (playButton) {
+            playButton.disabled = this.editMode || !this.pipelineState || Boolean(this.pipelineState.busy || this.pipelineState.pending);
+            playButton.title = this.editMode
+                ? 'Save or discard changes to run the pipeline again'
+                : playButton.getAttribute('aria-label');
+        }
+        this.updateDisabledTooltip('editTooltipAnchor', 'editDisabledTooltip', this.addButton,
+            this.addButton?.disabled ? this.addButton.title : '');
+        this.updateDisabledTooltip('playTooltipAnchor', 'playDisabledTooltip', playButton,
+            this.editMode ? 'Save or discard changes to run the pipeline again' : '');
+        for (const button of this.insertionButtons) button.disabled = Boolean(reason);
         if (this.editHint) {
-            this.editHint.textContent = reason || 'Drag models to reorder within their group while the pipeline is stopped.';
+            this.editHint.textContent = reason || this.editNotice || '';
+            this.editHint.hidden = !this.editHint.textContent;
         }
-        for (const { button, limitation } of this.editControls) {
-            button.disabled = Boolean(reason || limitation);
+        for (const { button, limitation, item, toolbar, editableModelGroup } of this.editControls) {
+            const editable = this.editMode && editableModelGroup;
+            button.hidden = !editable;
+            toolbar.hidden = !editable;
+            item.classList.toggle('model-editable', editable);
+            button.disabled = Boolean(!this.editMode || reason || limitation);
             button.title = reason || limitation || button.getAttribute('aria-label');
             if (button.classList.contains('model-drag-handle')) {
-                const item = button.closest('.model-item');
-                item.draggable = !button.disabled;
-                item.title = button.title;
+                button.draggable = !button.disabled;
             }
         }
         if (this.saveButton) {
@@ -154,22 +340,51 @@ class ModelsManager {
         }
     }
 
-    submitEdit(change) {
-        if (this.editDisabledReason()) return;
-        try {
-            ctrlSend({ type: 'model_edit', revision: this.editor.revision, ...change });
-            this.editPending = true;
-            this.updateEditorControls();
-        } catch (error) {
-            this.editHint.textContent = error.message;
-        }
+    updateDisabledTooltip(anchorId, tooltipId, button, message) {
+        const anchor = document.getElementById(anchorId);
+        const tooltip = document.getElementById(tooltipId);
+        if (!anchor || !tooltip || !button) return;
+        tooltip.textContent = message;
+        anchor.classList.toggle('has-tooltip', Boolean(message));
+        anchor.tabIndex = message ? 0 : -1;
+        anchor.setAttribute('aria-label', button.getAttribute('aria-label'));
+        anchor.setAttribute('aria-describedby', tooltipId);
+        if (message) button.title = '';
     }
 
-    openPicker(model = null) {
-        if (this.editDisabledReason()) return;
+    submitEdit(change) {
+        if (!this.editMode || this.editDisabledReason()) return;
+        const modelGroupModels = this.models.filter(model => model.modelGroup === change.modelGroup);
+        const target = modelGroupModels.find(model => model.element_name === change.name);
+        const opChainEntry = this.editor.availableOpChains?.find(model => model.path === change.path);
+        if (change.action === 'add' || change.action === 'replace') {
+            if (!opChainEntry) return;
+            const replacement = { ...opChainEntry, opchainPath: change.path, modelGroup: change.modelGroup,
+                element_name: target?.element_name || `draft-model-${++this.draftCounter}`,
+                active: target?.active ?? true, connected: true, requiredInputs: [], providedOutputs: [] };
+            if (change.action === 'replace') modelGroupModels.splice(modelGroupModels.indexOf(target), 1, replacement);
+            else {
+                change = { ...change, draftName: replacement.element_name };
+                modelGroupModels.splice(change.position ?? modelGroupModels.length, 0, replacement);
+            }
+        } else if (change.action === 'remove') {
+            modelGroupModels.splice(modelGroupModels.indexOf(target), 1);
+        } else if (change.action === 'move') {
+            modelGroupModels.splice(modelGroupModels.indexOf(target), 1);
+            modelGroupModels.splice(change.position, 0, target);
+        }
+        const first = this.models.findIndex(model => model.modelGroup === change.modelGroup);
+        this.models = this.models.filter(model => model.modelGroup !== change.modelGroup);
+        this.models.splice(first < 0 ? this.models.length : first, 0, ...modelGroupModels);
+        this.draftEdits.push(change);
+        this.repaint();
+    }
+
+    openPicker(model = null, insertion = null) {
+        if (!this.editMode || this.editDisabledReason()) return;
         this.pickerRequest = {
             action: model ? 'replace' : 'add', name: model?.element_name,
-            modelGroup: model?.modelGroup, revision: this.editor.revision
+            modelGroup: model?.modelGroup, revision: this.editor.revision, ...insertion
         };
         document.getElementById('modelPickerTitle').textContent = model ? 'Replace model' : 'Add model';
         this.saveButton.textContent = model ? 'Replace' : 'Add';
@@ -180,9 +395,9 @@ class ModelsManager {
             option.textContent = `Model group ${index + 1}`;
             this.modelGroupChoice.appendChild(option);
         }
-        this.modelGroupChoice.value = model?.modelGroup || this.editor.modelGroups[0].id;
-        this.modelGroupChoice.disabled = Boolean(model);
-        document.getElementById('modelGroupLabel').hidden = Boolean(model) || this.editor.modelGroups.length === 1;
+        this.modelGroupChoice.value = model?.modelGroup || insertion?.modelGroup || this.editor.modelGroups[0].id;
+        this.modelGroupChoice.disabled = Boolean(model || insertion);
+        document.getElementById('modelGroupLabel').hidden = Boolean(model || insertion) || this.editor.modelGroups.length === 1;
         this.pickerPath = model?.opchainPath || '';
         this.availableOpChainsSignature = '';
         this.updatePicker();
@@ -213,13 +428,13 @@ class ModelsManager {
             empty.textContent = 'No installed models available';
             this.modelChoice.appendChild(empty);
         }
-        for (const opChain of availableOpChains) {
+        for (const model of availableOpChains) {
             const option = document.createElement('option');
-            option.value = opChain.path;
-            option.textContent = `${resolveModelLabels(opChain).fullLabel} — ${opChain.path}`;
+            option.value = model.path;
+            option.textContent = `${resolveModelLabels(model).fullLabel} — ${model.path}`;
             this.modelChoice.appendChild(option);
         }
-        if (availableOpChains.some(opChain => opChain.path === selection)) this.modelChoice.value = selection;
+        if (availableOpChains.some(model => model.path === selection)) this.modelChoice.value = selection;
     }
 
     appendEditControls(item, model, models) {
@@ -237,7 +452,8 @@ class ModelsManager {
             button.setAttribute('aria-describedby', 'modelEditHint');
             button.addEventListener('click', action);
             toolbar.appendChild(button);
-            this.editControls.push({ button, limitation: model.modelGroup ? limitation : 'This model is outside an editable model group.' });
+            this.editControls.push({ button, item, toolbar, editableModelGroup: Boolean(model.modelGroup),
+                limitation: model.modelGroup ? limitation : 'This model is outside an editable model group.' });
             return button;
         };
         const handle = addButton('Drag to reorder', '⠿', () => { },
@@ -274,43 +490,115 @@ class ModelsManager {
         }
     }
 
-    bindModelReordering(item, handle, model, position) {
-        let dragBlockedByControl = false;
-        item.addEventListener('pointerdown', event => {
-            const control = event.target.closest('button, input, select, label, a, [tabindex]');
-            dragBlockedByControl = Boolean(control && control !== handle);
+    clearDropTarget() {
+        this.dropTarget?.classList.remove('model-drop-target');
+        this.dropTarget = null;
+    }
+
+    dropDestination(modelGroup, boundary) {
+        if (!this.editMode || this.editDisabledReason() || this.draggedModel?.modelGroup !== modelGroup) return null;
+        const destination = boundary - (this.draggedModel.position < boundary ? 1 : 0);
+        return destination === this.draggedModel.position ? null : destination;
+    }
+
+    showDropTarget(modelGroup, boundary) {
+        this.dropTarget = this.insertionTargets.get(JSON.stringify([modelGroup, boundary])) || null;
+        this.dropTarget?.classList.add('model-drop-target');
+    }
+
+    clearDragPreview() {
+        this.dragPreview?.remove();
+        this.dragPreview = null;
+    }
+
+    createDragPreview(item, bounds) {
+        this.clearDragPreview();
+        const preview = item.cloneNode(true);
+        preview.classList.add('model-drag-preview');
+        preview.setAttribute('aria-hidden', 'true');
+        preview.style.width = `${bounds.width}px`;
+        preview.style.height = `${bounds.height}px`;
+        const originalSelects = item.querySelectorAll('select');
+        preview.querySelectorAll('select').forEach((select, index) => {
+            select.value = originalSelects[index].value;
         });
-        item.addEventListener('dragstart', event => {
-            if (handle.disabled || dragBlockedByControl) { event.preventDefault(); return; }
-            this.draggedModel = { name: model.element_name, modelGroup: model.modelGroup, revision: this.editor.revision };
+        document.body.appendChild(preview);
+        this.dragPreview = preview;
+        return preview;
+    }
+
+    bindModelReordering(item, handle, model, position) {
+        const dropPosition = event => {
+            const bounds = item.getBoundingClientRect();
+            const boundary = position + (event.clientY >= bounds.top + bounds.height / 2 ? 1 : 0);
+            const destination = this.dropDestination(model.modelGroup, boundary);
+            return destination === null ? null : {boundary, destination};
+        };
+        handle.addEventListener('dragstart', event => {
+            if (handle.disabled) { event.preventDefault(); return; }
+            this.clearDropTarget();
+            this.draggedModel = { name: model.element_name, modelGroup: model.modelGroup, revision: this.editor.revision, position };
             item.classList.add('model-dragging');
             const bounds = item.getBoundingClientRect();
-            event.dataTransfer.setDragImage(item, event.clientX - bounds.left, event.clientY - bounds.top);
+            const preview = this.createDragPreview(item, bounds);
+            event.dataTransfer.setDragImage(preview, event.clientX - bounds.left, event.clientY - bounds.top);
             event.dataTransfer.setData('text/plain', model.element_name);
             event.dataTransfer.effectAllowed = 'move';
         });
-        item.addEventListener('dragend', () => {
+        handle.addEventListener('dragend', () => {
             item.classList.remove('model-dragging');
+            this.clearDragPreview();
+            this.clearDropTarget();
             this.draggedModel = null;
         });
         item.addEventListener('dragover', event => {
-            if (!this.editDisabledReason() && this.draggedModel?.modelGroup === model.modelGroup) {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = 'move';
-            }
+            this.clearDropTarget();
+            const target = dropPosition(event);
+            if (!target) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            this.showDropTarget(model.modelGroup, target.boundary);
+        });
+        item.addEventListener('dragleave', event => {
+            if (!item.contains(event.relatedTarget)) this.clearDropTarget();
         });
         item.addEventListener('drop', event => {
             event.preventDefault();
-            if (this.draggedModel?.modelGroup === model.modelGroup && this.draggedModel.name !== model.element_name) {
-                this.submitEdit({ action: 'move', ...this.draggedModel, position });
+            const target = dropPosition(event);
+            this.clearDragPreview();
+            this.clearDropTarget();
+            if (target) {
+                this.submitEdit({ action: 'move', ...this.draggedModel, position: target.destination });
             }
             this.draggedModel = null;
         });
     }
 
+    updateDependencyInfo(info, model, models) {
+        if (!info) return;
+        const requiredInputs = inputs(model.requiredInputs);
+        const descriptions = dependencyProviderTasks(model, models);
+        const items = descriptions.length ? descriptions : ['No input connected'];
+        info.setAttribute('aria-label', `Depends on: ${items.join(', ')}`);
+        const inactiveSource = model.active === true && models.some(candidate =>
+            candidate.element_name !== model.element_name && candidate.active === false &&
+            outputs(candidate.providedOutputs).some(output => requiredInputs.some(input =>
+                input.producerId && input.producerId === output.producerId &&
+                input.payloadType === output.payloadType)));
+        info.classList.toggle('model-dependency-warning', inactiveSource);
+        const list = info.querySelector('ul');
+        list.innerHTML = '';
+        for (const description of items) {
+            const entry = document.createElement('li');
+            entry.textContent = description;
+            list.appendChild(entry);
+        }
+    }
+
     createModelItem(model, models) {
         const item = document.createElement('div');
         item.className = 'model-item';
+        item.classList.toggle('model-edit-mode', this.editMode);
         item.setAttribute('data-model-name', model.name || '');
         item.setAttribute('data-model-element-name', model.element_name || '');
         item.classList.toggle('model-active', Boolean(model.active));
@@ -345,6 +633,8 @@ class ModelsManager {
             label.textContent = `${input.consumerId}/${input.inputId} — ${input.payloadType.split('.').at(-1)} `;
             const select = document.createElement('select');
             inputSelectors.set(input, select);
+            select.disabled = this.editMode;
+            if (this.editMode) select.title = 'Save or discard model list edits before changing input connections.';
             select.setAttribute('aria-label', `Input source for ${modelLabels.fullLabel}, ${input.consumerId}/${input.inputId}, ${input.payloadType}`);
             const addOption = (id, text, disabled = false) => {
                 const option = document.createElement('option');
@@ -380,6 +670,8 @@ class ModelsManager {
                 this._lastModelsSignature = '';
                 try {
                     ctrlSend({ type: 'model_inputs', name: model.element_name, bindings });
+                    this.updateDependencyInfo(item.querySelector('.model-dependency-info'),
+                        { ...model, requiredInputs: bindings }, models);
                 } catch (error) {
                     select.value = input.producerId;
                     console.error('Error connecting model input:', error);
@@ -393,14 +685,9 @@ class ModelsManager {
         modelActions.className = 'model-actions';
 
         if (requiredInputs.length > 0) {
-            const providerTasks = dependencyProviderTasks(model, models);
-            const accessibleProviders = providerTasks.length > 0
-                ? providerTasks.join(', ')
-                : requiredInputs.some(input => input.producerId) ? 'Selected source unavailable' : 'No input connected';
             const dependencyInfo = document.createElement('div');
             dependencyInfo.className = 'model-dependency-info';
             dependencyInfo.setAttribute('tabindex', '0');
-            dependencyInfo.setAttribute('aria-label', `Depends on: ${accessibleProviders}`);
 
             const dependencyIcon = document.createElement('span');
             dependencyIcon.className = 'model-dependency-icon icon';
@@ -417,15 +704,10 @@ class ModelsManager {
             dependencyPopup.appendChild(dependencyHeading);
 
             const dependencyList = document.createElement('ul');
-            const items = providerTasks.length > 0 ? providerTasks : [accessibleProviders];
-            for (const task of items) {
-                const dependency = document.createElement('li');
-                dependency.textContent = task;
-                dependencyList.appendChild(dependency);
-            }
             dependencyPopup.appendChild(dependencyList);
 
             dependencyInfo.append(dependencyIcon, dependencyPopup);
+            this.updateDependencyInfo(dependencyInfo, model, models);
             modelActions.appendChild(dependencyInfo);
         }
 
@@ -437,6 +719,8 @@ class ModelsManager {
         toggle.type = 'checkbox';
         toggle.setAttribute('role', 'switch');
         toggle.checked = Boolean(model.active);
+        toggle.disabled = this.editMode;
+        if (this.editMode) toggle.title = 'Save or discard model list edits before switching models.';
 
         const toggleTrack = document.createElement('span');
         toggleTrack.className = 'model-toggle-track';
