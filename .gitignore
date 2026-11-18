@@ -131,6 +131,8 @@ config/models/**/*.vgf
 config/models/**/*.vgf.part
 config/models/licenses/
 config/models/pp-ocrv6-tiny-rec/characters.txt*
+config/models/mobile-sam-int8-executorch/sample_input.jpg
+config/models/mobile-sam-int8-executorch/segmentation.reference
 
 docs/html
 docs/prepared-public

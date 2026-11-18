@@ -1,4 +1,12 @@
 {
+  "mobile-sam-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/ChaoningZhang/MobileSAM/f706ad9c4eb7f219c00d9050e46328518ffb65d2/LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "mobile-sam-README.md": {
+    "url": "https://huggingface.co/Arm/mobile-sam-int8-xnnpack-executorch/raw/cced0b5344c7f01c731df32955290adf1fe7eae1/README.md",
+    "sha256": "fdf2689493f3d42e781af4582aa94a41df15be0556567d0951feada5cbe3d11d"
+  },
   "silero-vad-LICENSE.txt": {
     "url": "https://huggingface.co/Arm/silero-vad-fp32-onnx/raw/3f0e26baba5e8e1eb1ac97ad7e33a472f2316688/silero_vad.onnx.license",
     "sha256": "51c19c8be941a3fb00ccf58f0bf9053de9f7237a0b37327896eabad32dffe873"

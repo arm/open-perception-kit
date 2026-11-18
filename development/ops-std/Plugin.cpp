@@ -19,6 +19,7 @@
 
 #include <cstring>
 
+#include "BoxPromptPreprocessOp.h"
 #include "GenericAudioPreprocessOp.h"
 #include "GenericImagePreprocessOp.h"
 #include "GenericPostprocessOp.h"
@@ -27,6 +28,9 @@
 #include "TurnDetectorOp.h"
 
 opk::op::Op *createOp(const std::string &opName) {
+    if (opName == "BoxPromptPreprocess") {
+        return new opk::stdop::BoxPromptPreprocessOp();
+    }
     if (opName == "GenericPostprocess")
         return new opk::stdop::GenericPostprocessOp();
     if (opName == "GenericAudioPreprocess")

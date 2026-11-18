@@ -19,6 +19,7 @@ stdops = shared_module(
     'Plugin.cpp',
     'GenericPostprocessOp.cpp',
     'GenericImagePreprocessOp.cpp',
+    'BoxPromptPreprocessOp.cpp',
     'GenericAudioPreprocessOp.cpp',
     'PaddleOcrPreprocessOp.cpp',
     'InferenceControllerOp.cpp',
@@ -44,6 +45,7 @@ stdops = shared_module(
     'postproc/ImageNetClassificationParser.cpp',
     'postproc/ObjectEmbeddingParser.cpp',
     'postproc/ModNetSegmentationParser.cpp',
+    'postproc/MobileSamMaskParser.cpp',
     'postproc/ScrfdParser.cpp',
 
     'preproc/CpuLogMelSpectrogram.cpp',

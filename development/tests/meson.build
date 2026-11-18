@@ -906,6 +906,26 @@ prompt_inputs_tests = executable(
 )
 test('prompt_inputs_tests', prompt_inputs_tests)
 
+numerical_prompt_tests = executable(
+  'numerical_prompt_tests',
+  [
+    'numerical_prompt_test.cpp',
+    '../ops-std/GenericImagePreprocessOp.cpp',
+    '../ops-std/BoxPromptPreprocessOp.cpp',
+    '../ops-std/postproc/MobileSamMaskParser.cpp',
+    '../ops-std/preproc/GenericImageTensorBuilder.cpp',
+    '../ops-std/preproc/CpuImageKernels.cpp',
+    '../ops-std/preproc/CpuImageKernelsI420.cpp',
+    '../ops-std/preproc/CpuImageKernelsNv12.cpp',
+    '../ops-std/preproc/CpuImageKernelsYuy2.cpp',
+  ],
+  include_directories : [common_include, include_directories('../ops-std')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('numerical_prompt_tests', numerical_prompt_tests)
+
+
 prompt_probe_op = shared_module(
   'opk-test-prompt-probe',
   ['prompt_probe_op.cpp'],

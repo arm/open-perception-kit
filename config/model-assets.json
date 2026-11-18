@@ -1,4 +1,12 @@
 {
+  "mobile-sam-int8-executorch/sample_input.jpg": {
+    "url": "https://huggingface.co/Arm/mobile-sam-int8-xnnpack-executorch/resolve/cced0b5344c7f01c731df32955290adf1fe7eae1/sample_input.jpg",
+    "sha256": "c9719da827a2bb88eef5f38531084fbfe60e31217a545ef941edf55e7a6653c1"
+  },
+  "mobile-sam-int8-executorch/segmentation.reference": {
+    "url": "https://huggingface.co/Arm/mobile-sam-int8-xnnpack-executorch/raw/cced0b5344c7f01c731df32955290adf1fe7eae1/segmentation.json",
+    "sha256": "02482c201bcd65d9e6fb006bd30ab91b847e7dab6f417df07d618b879b5f1157"
+  },
   "pp-ocrv6-tiny-rec/characters.txt": {
     "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/dab3fe35379033fdcb2d0e9572fac0b36c9a9ebf/ppocr/utils/dict/ppocrv6_tiny_dict.txt",
     "sha256": "c5cbe34ef40c29c4df07ed012bf96569cb69a2d2a01a07027e9f13cb832bd9cd"

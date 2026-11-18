@@ -79,16 +79,20 @@ class GenericImagePreprocessOp : public opk::op::Op {
      */
     opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &opChainContext) override;
     /**
-     * @brief Resolves the upstream inference operation to get model information.
+     * @brief Resolves the adjacent or explicitly named downstream inference operation.
      *
-     * Finds the inference Op in the chain (typically implementing OpInterfaceInference)
-     * to extract model and tensor metadata.
+     * Resolves model and tensor metadata, then validates cooperating input-preprocessor
+     * capabilities, source/target agreement and distinct tensor ownership for explicit binding.
      *
      * @param index Position of this operation in the OpChain.
      * @param ops Vector of all operations in the chain.
      * @return Result indicating success or binding error.
      */
-    opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
+    opk::Result<void> bind(const size_t index, const std::vector<opk::op::Op *> &ops) override;
+
+    const std::string &inferenceInstance() const;
+    size_t imageTensorIndex() const;
+    const std::string &imageSourceName() const;
 
   private:
     opk::Result<opk::ImageOpDesc>
@@ -96,7 +100,8 @@ class GenericImagePreprocessOp : public opk::op::Op {
                                 const opk::PixelRect &destinationRect);
 
     std::string inputImageSourceName;
-    size_t inputImageTensorIndex;
+    std::string inferenceInstanceId;
+    size_t inputImageTensorIndex{opk::InvalidTensorIndex};
 
     opk::stdop::preproc::GenericImageTensorBuilder genericImageInputTensorBuilder;
 
