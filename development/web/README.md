@@ -405,8 +405,9 @@ source/frame, checked before scanning pixel values. This aggregate budget is
 separate from the unchanged per-bitmap limits (8192 per side, 16,777,216 pixels)
 and applies the same per-image bound to the display-pixel composition surface. Binary validation and
 compositing remain bounded even when many large masks are supplied.
-The entire bitmap is validated; actual foreground bounds then limit compositing
-work, independently of the supplied annotation box.
+One complete pixel pass validates binary membership and finds the foreground
+bounds. Those bounds limit compositing work; the supplied annotation box never
+limits validation.
 
 Drawing uses nearest-neighbor scaling inside the contained video rectangle.
 Raster and annotations share the [overlay hold and clearing rules](#overlay-timing).
@@ -547,7 +548,7 @@ VAD/turn windows remain mono 16 kHz regardless of the original buffer rate.
 - `src/overlay-features.js`: registry, lookup, resolution dispatch, and status text.
 - `src/overlay-feature.js`: shared feature contract, palette, and explicit subject lookup.
 - `src/features/`: individual rendering features.
-- `src/features/segmentation.js`: shared full-frame mask validation and generic class preferences, colors, and legends for semantic/instance features.
+- `src/features/segmentation.js`: shared mask metadata validation and generic class preferences, colors, and legends for semantic/instance features.
 - `src/overlay-drawing.js`: coordinate mapping and drawing primitives.
 - `src/osd-renderer.js`: ordered dispatch and isolated canvas state; overlay opacity
   multiplies the renderer's alpha.

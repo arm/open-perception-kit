@@ -8924,7 +8924,7 @@ function validBitmap(data) {
   const bytes = data?.encoding === BitmapEncoding.Uint8 ? 1 : data?.encoding === BitmapEncoding.Uint32LE ? 4 : 0;
   return bytes > 0 && validImageSpace(data.space) && Number.isInteger(data.width) && data.width > 0 && data.width <= 4294967295 && Number.isInteger(data.height) && data.height > 0 && data.height <= 4294967295 && Number.isSafeInteger(data.width * data.height * bytes) && data.pixels instanceof Uint8Array && data.pixels.length === data.width * data.height * bytes;
 }
-function validMask(data, type) {
+function validMaskMetadata(data, type) {
   if (!validBitmap(data)) return false;
   if (type === "SegmentationMask") return data.encoding === BitmapEncoding.Uint8 && [OpacityMeaning.BackgroundOpacity, OpacityMeaning.RegionOpacity].includes(data.meaning);
   const identified = typeof data.labelSet === "string" && data.labelSet.length > 0;
@@ -8933,7 +8933,10 @@ function validMask(data, type) {
   if (data.classId != null && (!identified || !Number.isInteger(data.classId) || data.classId < 0 || data.classId > 4294967295)) return false;
   if (data.confidence != null && (!Number.isFinite(data.confidence) || data.confidence < 0 || data.confidence > 1)) return false;
   if (data.box && (!imageBox(data.box) || String(data.box.space.frameId) !== String(data.space.frameId) || data.box.space.width !== data.space.width || data.box.space.height !== data.space.height)) return false;
-  return data.pixels.every((value) => value <= 1);
+  return true;
+}
+function validMask(data, type) {
+  return validMaskMetadata(data, type) && (type !== "InstanceSegmentationMask" || data.pixels.every((value) => value <= 1));
 }
 function maskData(item) {
   const bitmap = item?.bitmap;
@@ -10027,7 +10030,7 @@ function withClassSettings(feature2, minId = 0, maxId = 4294967295) {
 }
 function maskGeometryError(mask, type) {
   const { width, height } = mask;
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS || !validMask(mask, type)) {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS || !validMaskMetadata(mask, type)) {
     return { state: "unsupported", message: "Invalid or oversized mask, encoding, identity or image space." };
   }
   return null;

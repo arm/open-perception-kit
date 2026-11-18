@@ -30,7 +30,9 @@ export function validBitmap(data) {
         && data.pixels instanceof Uint8Array && data.pixels.length === data.width * data.height * bytes;
 }
 
-export function validMask(data, type) {
+// Validate structure and annotations without scanning sample values. Consumers
+// that also need foreground bounds can validate binary membership in that pass.
+export function validMaskMetadata(data, type) {
     if (!validBitmap(data)) return false;
     if (type === 'SegmentationMask') return data.encoding === BitmapEncoding.Uint8
         && [OpacityMeaning.BackgroundOpacity, OpacityMeaning.RegionOpacity].includes(data.meaning);
@@ -43,7 +45,12 @@ export function validMask(data, type) {
     if (data.confidence != null && (!Number.isFinite(data.confidence) || data.confidence < 0 || data.confidence > 1)) return false;
     if (data.box && (!imageBox(data.box) || String(data.box.space.frameId) !== String(data.space.frameId)
         || data.box.space.width !== data.space.width || data.box.space.height !== data.space.height)) return false;
-    return data.pixels.every(value => value <= 1);
+    return true;
+}
+
+export function validMask(data, type) {
+    return validMaskMetadata(data, type)
+        && (type !== 'InstanceSegmentationMask' || data.pixels.every(value => value <= 1));
 }
 
 export function maskData(item) {

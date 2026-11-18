@@ -16,7 +16,7 @@
  */
 
 import {STYLE_CONTROLS} from '../overlay-feature.js';
-import {validMask, BitmapEncoding} from '../mask-data.js';
+import {validMaskMetadata, BitmapEncoding} from '../mask-data.js';
 
 export const MAX_MASK_PIXELS = 16_777_216;
 export const MAX_CLASSES = 4096;
@@ -70,7 +70,7 @@ export function maskGeometryError(mask, type) {
     const {width, height} = mask;
     if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
         || width > 8192 || height > 8192 || width * height > MAX_MASK_PIXELS
-        || !validMask(mask, type)) {
+        || !validMaskMetadata(mask, type)) {
         return {state: 'unsupported', message: 'Invalid or oversized mask, encoding, identity or image space.'};
     }
     return null;
