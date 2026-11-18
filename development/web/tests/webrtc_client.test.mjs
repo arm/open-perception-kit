@@ -235,6 +235,40 @@ test('late metadata updates only the displayed video frame', async () => {
     assert.equal(frames.at(-1), null);
 });
 
+test('mask metadata stays exact across RTP wrap, delayed delivery and cache expiry', async () => {
+    const env = createEnv();
+    const frames = [];
+    const client = env.createClient({frameTimeoutMs: 0, onVideoFrame: message => frames.push(message)});
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+    const packet = timestamp => ({type: 'frame-metadata', rtp_timestamp: timestamp, frame_results_packet_b64: 'mask-fixture'});
+    const beforeWrap = packet(0xffffffff);
+    env.latestSocket().receive(beforeWrap);
+    env.video.emitFrame(0xffffffff);
+    assert.deepEqual(frames.at(-1), beforeWrap);
+    env.video.emitFrame(0);
+    assert.equal(frames.at(-1), null);
+    env.latestSocket().receive(beforeWrap);
+    assert.equal(frames.at(-1), null, 'an older mask cannot be applied to the new frame');
+    const wrapped = packet(0);
+    env.latestSocket().receive(wrapped);
+    assert.deepEqual(frames.at(-1), wrapped, 'late metadata for the displayed frame still matches');
+    env.latestSocket().receive(packet(1));
+    env.clock.tick(2000);
+    env.video.emitFrame(1);
+    assert.equal(frames.at(-1), null, 'expired cached metadata cannot revive a mask');
+    env.latestSocket().receive(packet(2));
+    for (let timestamp = 3; timestamp <= 67; timestamp++) env.latestSocket().receive(packet(timestamp));
+    env.video.emitFrame(2);
+    assert.equal(frames.at(-1), null, 'overflow is bounded rather than retaining stale masks indefinitely');
+    env.video.emitFrame(67);
+    assert.deepEqual(frames.at(-1), packet(67));
+    client.stop();
+    assert.equal(frames.at(-1), null);
+});
+
 test('ICE recovery preserves the video session and cancels the grace timer', () => {
     const env = createEnv();
     const client = env.createClient({frameTimeoutMs: 0});

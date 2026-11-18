@@ -614,3 +614,13 @@ reload, disconnect/reconnect, missing parents, and unsupported metadata. Run a l
 pipeline to inspect alignment: synthetic tests do not establish WebRTC timing.
 Also add a feature before its source exists, reload, and then introduce one or
 several compatible sources: only an unambiguous discovery may bind automatically.
+
+For the EXPKITS-1553 flicker regression, run the browser test with
+`--grep 'background replacement retains graded masks'`. It paints real alpha-mask
+pixels across more than ten minutes of simulated presentation time, checking the
+99/100 ms hold boundary, late fresh results, independent live metadata, empty and
+invalid results, and stream resets. WebRTC unit coverage separately verifies exact
+RTP matching through timestamp wrap, late arrival, cache expiry and overflow.
+This qualifies the bounded-hold fix from PR #283; it does not prove live MacBook
+timing or eliminate flicker when metadata gaps exceed the hold window. A live
+RVM/WebRTC run and the reporter's demo remain necessary for that assessment.
