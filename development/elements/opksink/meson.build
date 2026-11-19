@@ -34,6 +34,7 @@ opkinferpre = shared_module(
     'webrtc_session.cpp',
     'webrtc_ws.cpp',
     'ctrl_ws.cpp',
+    'prompt_control.cpp',
     'utils.cpp',
     'model_reg.cpp'
   ],

@@ -91,9 +91,13 @@ def check_control(session, pipeline, gst):
         "notify::active", lambda owner, _spec: GLib.idle_add(applied_values.append, owner.props.active)
     )
     reports = deque()
-    websocket.connect("message", lambda _, kind, data: reports.append(
-        json.loads(data.get_data())["pipeline_state"]["playing"]
-    ))
+
+    def receive_status(_socket, _kind, data):
+        message = json.loads(data.get_data())
+        if "pipeline_state" in message:
+            reports.append(message["pipeline_state"]["playing"])
+
+    websocket.connect("message", receive_status)
 
     def check_play_pause_after(message):
         for playing in (False, True):

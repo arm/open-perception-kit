@@ -40,6 +40,8 @@
 #pragma GCC diagnostic pop
 
 struct _GstOpkSink;
+class PromptControl;
+struct CtrlPromptState;
 
 enum class CtrlSockerError {
     OK,
@@ -56,6 +58,9 @@ class CtrlWebSocket {
 
     std::shared_ptr<ws_server> ws = nullptr;
     std::shared_ptr<GThreadPool> model_toggle_queue;
+    std::shared_ptr<GThreadPool> prompt_queue;
+    std::shared_ptr<PromptControl> prompt_control;
+    std::shared_ptr<CtrlPromptState> prompt_state;
 
     std::unordered_map<std::string, std::shared_ptr<StatusReporter>> status_reporters;
 

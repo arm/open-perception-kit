@@ -1289,6 +1289,26 @@ var ModelsManager = class {
 };
 var modelsManager = new ModelsManager();
 
+// development/web/src/control-messages.js
+function parseControlMessage(raw) {
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return null;
+  }
+  if (["prompt_capabilities", "prompt_ack", "prompt_error", "prompt_failure"].includes(data.type)) {
+    return data.version === 1 ? { kind: "prompt", data } : null;
+  }
+  if (data.type !== void 0) {
+    return null;
+  }
+  return { kind: "status", data };
+}
+
 // development/web/src/ctrlws.js
 var CTRL_PROTO = location.protocol === "https:" ? "wss" : "ws";
 var CTRL_HOST = location.hostname;
@@ -1309,20 +1329,33 @@ function connectCtrl(manual = false) {
   ctrl.onopen = () => {
     ctrlReconnectDelay = 1e3;
     flushQueue();
+    window.dispatchEvent(new CustomEvent("control-connection", { detail: { connected: true } }));
   };
   ctrl.onmessage = async (event) => {
-    const data = JSON.parse(event.data);
-    console.log("ctrl.onmessage: " + event.data);
-    enableAudioButton(data.pipeline_state.audio);
-    enableMicrophoneButton(data.pipeline_state.microphone);
-    setPlayPause(data.pipeline_state.playing);
-    window.dispatchEvent(new CustomEvent("models-change", { detail: data.models }));
-    modelsManager.render(data.models);
+    const message = parseControlMessage(event.data);
+    if (!message) {
+      return;
+    }
+    const { data } = message;
+    if (message.kind === "prompt") {
+      window.dispatchEvent(new CustomEvent("prompt-control-message", { detail: data }));
+      return;
+    }
+    if (data.pipeline_state && typeof data.pipeline_state === "object") {
+      enableAudioButton(data.pipeline_state.audio);
+      enableMicrophoneButton(data.pipeline_state.microphone);
+      setPlayPause(data.pipeline_state.playing);
+    }
+    if (Array.isArray(data.models)) {
+      window.dispatchEvent(new CustomEvent("models-change", { detail: data.models }));
+      modelsManager.render(data.models);
+    }
   };
   ctrl.onerror = () => {
     ;
   };
   ctrl.onclose = () => {
+    window.dispatchEvent(new CustomEvent("control-connection", { detail: { connected: false } }));
     enableMicrophoneButton(false);
     setTimeout(() => {
       ctrlReconnectDelay = Math.min(ctrlReconnectDelay * CTRL_BACKOFF_FACTOR, CTRL_RECONNECT_DELAY_MAX);

@@ -20,6 +20,8 @@ import {enableAudioButton} from "./audio.js"
 import {enableMicrophoneButton} from "./microphone.js"
 import {modelsManager} from "./models.js"
 
+import {parseControlMessage, sendConnected} from './control-messages.js';
+
 const CTRL_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
 const CTRL_HOST = location.hostname;
 
@@ -49,22 +51,34 @@ function connectCtrl(manual = false) {
     ctrl.onopen = () => {
         ctrlReconnectDelay = 1000;
         flushQueue();
+        window.dispatchEvent(new CustomEvent('control-connection', {detail: {connected: true}}));
     };
 
     ctrl.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        console.log("ctrl.onmessage: " + event.data);
-
-        enableAudioButton(data.pipeline_state.audio);
-        enableMicrophoneButton(data.pipeline_state.microphone);
-        setPlayPause(data.pipeline_state.playing);
-        window.dispatchEvent(new CustomEvent('models-change', {detail: data.models}));
-        modelsManager.render(data.models);
+        const message = parseControlMessage(event.data);
+        if (!message) {
+            return;
+        }
+        const {data} = message;
+        if (message.kind === 'prompt') {
+            window.dispatchEvent(new CustomEvent('prompt-control-message', {detail: data}));
+            return;
+        }
+        if (data.pipeline_state && typeof data.pipeline_state === 'object') {
+            enableAudioButton(data.pipeline_state.audio);
+            enableMicrophoneButton(data.pipeline_state.microphone);
+            setPlayPause(data.pipeline_state.playing);
+        }
+        if (Array.isArray(data.models)) {
+            window.dispatchEvent(new CustomEvent('models-change', {detail: data.models}));
+            modelsManager.render(data.models);
+        }
     };
 
     ctrl.onerror = () => { ; };
 
     ctrl.onclose = () => {
+        window.dispatchEvent(new CustomEvent('control-connection', {detail: {connected: false}}));
         enableMicrophoneButton(false);
         setTimeout(() => {
             ctrlReconnectDelay = Math.min(ctrlReconnectDelay * CTRL_BACKOFF_FACTOR, CTRL_RECONNECT_DELAY_MAX);
@@ -92,6 +106,10 @@ export function ctrlSend(obj) {
     sendQueue.push(payload);
     connectCtrl();
     return false;
+}
+
+export function ctrlSendPrompt(message) {
+    return sendConnected(ctrl, message, WebSocket.OPEN);
 }
 
 export function ctrlIsOpen() {

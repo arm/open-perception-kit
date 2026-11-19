@@ -989,3 +989,49 @@ prompt_codec_tests = executable(
   link_with : [common],
 )
 test('prompt_codec_tests', prompt_codec_tests)
+
+prompt_control_tests = executable(
+  'prompt_control_tests',
+  ['prompt_control_test.cpp', '../elements/opksink/prompt_control.cpp', '../elements/opksink/utils.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('prompt_control_tests', prompt_control_tests,
+  env : [
+    'GST_PLUGIN_PATH=' + fs.parent(gstopkinfer.full_path()),
+    'LD_LIBRARY_PATH=' + fs.parent(common.full_path()),
+    'G_DEBUG=fatal-criticals',
+  ],
+  depends : [gstopkprompt, gstopkinfer, opkinferpre],
+  timeout : 60,
+)
+
+
+prompt_control_python_paths = run_command(
+  test_python,
+  '-c',
+  '''import sys
+sys.path.insert(0, sys.argv[1])
+from sdk_config import load_sdk_config
+config = load_sdk_config()
+print(config.python_project / "src")
+print("/opt/opk-deps/perception-sdk-artifacts/" + config.flatbuffers_wheel.filename)
+''',
+  opk_repository_root / 'tools/perception',
+  check : true,
+).stdout().strip().split('\n')
+prompt_control_env = environment()
+prompt_control_env.set('G_DEBUG', 'fatal-criticals')
+# The GI interpreter can import the cached pure-Python wheel without another install.
+prompt_control_env.prepend('PYTHONPATH', prompt_control_python_paths)
+
+test(
+  'opksink_prompt_control',
+  gst_python,
+  args : [files('opksink_prompt_control_test.py'), opkinferpre.full_path(), gstopkprompt.full_path(), gstopkinfer.full_path()],
+  depends : [opkinferpre, gstopkprompt, gstopkinfer],
+  env : prompt_control_env,
+  is_parallel : false,
+  timeout : 90,
+)

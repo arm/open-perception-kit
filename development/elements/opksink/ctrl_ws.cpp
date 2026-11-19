@@ -33,9 +33,60 @@
 #include "Log.h"
 #include "ctrl_ws.h"
 #include "opksink.h"
+#include "prompt_control.h"
 #include "utils.h"
 
 using namespace nlohmann;
+
+struct CtrlPromptState {
+    std::weak_ptr<ws_server> server;
+    std::weak_ptr<PromptControl> control;
+    std::map<connection_hdl, std::string, std::owner_less<connection_hdl>> sessions;
+    std::set<std::string> pending;
+    bool accepting = true;
+};
+
+static void send_prompt(const std::shared_ptr<CtrlPromptState> &state,
+                        const std::string &session,
+                        const json &message,
+                        const bool overflow) {
+    const auto server = state->server.lock();
+    if (!server || !state->accepting) {
+        return;
+    }
+    for (const auto &[hdl, id] : state->sessions) {
+        if (id != session) {
+            continue;
+        }
+        websocketpp::lib::error_code ec;
+        const auto connection = server->get_con_from_hdl(hdl, ec);
+        if (ec || connection->get_state() != websocketpp::session::state::open) {
+            return;
+        }
+        if (overflow || connection->get_buffered_amount() > PromptControl::MaxSocketBacklogBytes) {
+            if (const auto control = state->control.lock()) {
+                control->close(session);
+            }
+            server->close(hdl,
+                          websocketpp::close::status::policy_violation,
+                          "Prompt notification backlog exceeded",
+                          ec);
+            return;
+        }
+        const std::string payload = message.dump();
+        server->send(hdl, payload, websocketpp::frame::opcode::text, ec);
+        return;
+    }
+}
+
+static void run_prompt_work(gpointer data, gpointer) {
+    const std::unique_ptr<std::function<void()>> work(static_cast<std::function<void()> *>(data));
+    (*work)();
+}
+
+static void queue_prompt(const std::shared_ptr<GThreadPool> &queue, std::function<void()> work) {
+    g_thread_pool_push(queue.get(), new std::function<void()>(std::move(work)), nullptr);
+}
 
 CtrlWebSocket::CtrlWebSocket(_GstOpkSink *self) : self_(self) {
     using namespace std::placeholders;
@@ -65,7 +116,41 @@ CtrlSockerError CtrlWebSocket::setup() {
         g_thread_pool_free(queue, TRUE, FALSE);
     });
 
+    ws->set_max_message_size(PromptControl::MaxMessageBytes);
     ws->init_asio();
+    prompt_state = std::make_shared<CtrlPromptState>();
+    prompt_state->server = ws;
+    const std::weak_ptr<ws_server> weakServer = ws;
+    const std::weak_ptr<CtrlPromptState> weakState = prompt_state;
+    auto *const commands = g_thread_pool_new_full(
+        run_prompt_work,
+        nullptr,
+        [](gpointer data) { delete static_cast<std::function<void()> *>(data); },
+        1,
+        FALSE,
+        nullptr);
+    prompt_queue.reset(commands, [](GThreadPool *const queue) {
+        // Required end-session work owns ingress references and must drain even at shutdown.
+        g_thread_pool_free(queue, FALSE, FALSE);
+    });
+    prompt_control = std::make_shared<PromptControl>(
+        GST_ELEMENT(self_),
+        [weakServer](std::function<void()> callback) {
+            if (const auto server = weakServer.lock()) {
+                server->get_io_service().post(std::move(callback));
+            }
+        },
+        [weakState](const std::string &session, const json &message, const bool overflow) {
+            if (const auto state = weakState.lock()) {
+                send_prompt(state, session, message, overflow);
+            }
+        },
+        [queue = prompt_queue](std::function<void()> work) {
+            queue_prompt(queue, std::move(work));
+        });
+    prompt_state->control = prompt_control;
+    prompt_control->start();
+
     ws->clear_access_channels(websocketpp::log::alevel::all);
     ws->clear_error_channels(websocketpp::log::elevel::all);
     ws->set_error_channels(websocketpp::log::elevel::fatal);
@@ -106,6 +191,8 @@ CtrlSockerError CtrlWebSocket::stop() {
         ws->get_io_service().post([this] {
             websocketpp::lib::error_code ec;
             ws->stop_listening(ec);
+            prompt_state->accepting = false;
+            prompt_control->stop();
             std::lock_guard<std::mutex> g(hdl_lock);
             for (const auto &hdl : hdls) {
                 ws->close(hdl, websocketpp::close::status::going_away, "", ec);
@@ -119,9 +206,12 @@ CtrlSockerError CtrlWebSocket::stop() {
         ws->run(); // Startup may have failed before the worker was created.
     }
 
+    prompt_queue.reset();
     model_toggle_queue.reset();
     std::lock_guard<std::mutex> g(hdl_lock);
     hdls.clear();
+    prompt_control.reset();
+    prompt_state.reset();
     ws.reset();
 
     return CtrlSockerError::OK;
@@ -153,11 +243,21 @@ void CtrlWebSocket::on_open(const connection_hdl &hdl) {
     }
 
     report();
+    const json capabilities = prompt_control->open();
+    const std::string session = capabilities.at("session_id");
+    prompt_state->sessions.emplace(hdl, session);
+    send_prompt(prompt_state, session, capabilities, false);
 }
 
 void CtrlWebSocket::on_close(const connection_hdl &hdl) {
     opk::log::debug("on_close");
 
+    const auto found = prompt_state->sessions.find(hdl);
+    if (found != prompt_state->sessions.end()) {
+        prompt_control->close(found->second);
+        prompt_state->pending.erase(found->second);
+        prompt_state->sessions.erase(found);
+    }
     std::lock_guard<std::mutex> g(hdl_lock);
     hdls.erase(hdl);
 }
@@ -165,9 +265,61 @@ void CtrlWebSocket::on_close(const connection_hdl &hdl) {
 void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
     opk::log::debug("on_message");
     try {
-        auto payload = msg->get_payload();
-        auto jsn = json::parse(payload);
-        auto type = jsn.at("type").get<std::string>();
+        const auto &payload = msg->get_payload();
+        const auto session = prompt_state->sessions.find(hdl);
+        if (!prompt_state->accepting || session == prompt_state->sessions.end()) {
+            return;
+        }
+        if (payload.size() > PromptControl::MaxMessageBytes) {
+            const json reply{{"type", "prompt_error"},
+                             {"version", 1},
+                             {"reason", "Control message exceeds 16 KiB"}};
+            send_prompt(prompt_state, session->second, reply, false);
+            return;
+        }
+        const auto jsn = json::parse(payload);
+        const auto type = jsn.at("type").get<std::string>();
+        if (type == "prompt_command") {
+            if (!prompt_state->pending.insert(session->second).second) {
+                json reply{{"type", "prompt_error"},
+                           {"version", 1},
+                           {"reason", "A prompt command is already pending"}};
+                for (const char *const name : {"command_id", "target"}) {
+                    if (jsn.contains(name) && jsn[name].is_string()) {
+                        const auto &value = jsn[name].get_ref<const std::string &>();
+                        if (!value.empty() && value.size() <= PromptControl::MaxNameBytes &&
+                            value.find('\0') == std::string::npos) {
+                            reply[name] = value;
+                        }
+                    }
+                }
+                send_prompt(prompt_state, session->second, reply, false);
+                return;
+            }
+            const std::weak_ptr<PromptControl> weakControl = prompt_control;
+            const std::weak_ptr<CtrlPromptState> weakState = prompt_state;
+            const std::string id = session->second;
+            // A public bus handler can stop the pipeline during event dispatch.
+            queue_prompt(prompt_queue, [weakControl, weakState, id, jsn] {
+                const auto control = weakControl.lock();
+                if (!control) {
+                    return;
+                }
+                const json reply = control->command(id, jsn);
+                if (const auto state = weakState.lock()) {
+                    if (const auto server = state->server.lock()) {
+                        server->get_io_service().post([weakState, id, reply] {
+                            if (const auto current = weakState.lock();
+                                current && current->accepting) {
+                                current->pending.erase(id);
+                                send_prompt(current, id, reply, false);
+                            }
+                        });
+                    }
+                }
+            });
+            return;
+        }
 
         if (auto it = message_types.find(type); it != message_types.end()) {
             (*it).second(jsn);

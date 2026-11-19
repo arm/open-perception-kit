@@ -52,9 +52,13 @@ def main():
                 nested.remove(microphone)
             messages = []
             websocket = connect(session, ctrl_port)
-            websocket.connect("message", lambda _, kind, data: messages.append(
-                json.loads(data.get_data())
-            ))
+
+            def receive_status(_socket, _kind, data):
+                message = json.loads(data.get_data())
+                if "pipeline_state" in message:
+                    messages.append(message)
+
+            websocket.connect("message", receive_status)
             wait_for(lambda: messages, "Initial control status")
             assert messages[-1]["pipeline_state"]["microphone"] is present, messages
             websocket.close(1000, "done")

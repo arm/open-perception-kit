@@ -37,7 +37,7 @@ a false flag hides the button and stops any microphone capture.
 ## Element Contract
 
 - Base class: `GstBin`
-- Video sink pad: `videosink`, always present, accepting
+- Video sink pad: `sink` (template `videosink`), always present, accepting
   `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Audio sink pad: `audiosink`, request pad
 - Output: WebRTC transport rather than a normal downstream pad
@@ -95,6 +95,57 @@ Browsers without this callback or its RTP timestamp display video without overla
 Authored modules live under `development/web/src`; deployable files live under
 `development/web/content`. Regenerate, verify, and test the committed bundle
 with `./scripts/opksink-web.sh generate`, `check`, and `test` respectively.
+
+### Prompt Control
+
+The control WebSocket also accepts version 1 `prompt_command` messages and sends
+`prompt_capabilities`, `prompt_ack`, `prompt_error` and `prompt_failure` replies.
+The focused prompt adapter is hosted inside `opksink`; it is not another element
+or service. It discovers actual `opkprompt` elements and reads their public
+binding properties. `BPRM` 1.0 is the adapter's current input format. Model
+registration/content types do not imply prompt capability. Discovery enables
+input only for a verified full-frame route to this sink's video input; unsupported
+or ambiguous geometry is reported explicitly.
+
+A connection receives a server-generated session ID. Commands name the ingress;
+submit carries a base64 generated SDK packet, cancel carries uint64 decimal
+request/revision strings, and end-session releases ownership. A bounded transport
+command token correlates replies; it is independent of the request identity.
+The adapter uses generated schema accessors to read only the reusable request
+identity for acknowledgement correlation, including nested public-host callbacks.
+It does not interpret box coordinates or access private GstMeta/OpChain state.
+Ingress remains the request-validation and buffer-pairing authority. See the
+[public prompt protocol and browser walkthrough](../../public/how-to/box-prompts.md).
+
+The adapter observes `sync-message::element` on the containing pipeline bus,
+balancing sync emission enablement without replacing the application's sync
+handler or consuming bus messages. It copies bounded public message fields and
+routes replies only to the owning session and actual source element. Synchronous
+acknowledgements are captured around the matching event call; event-return
+fallbacks are explicitly identified when a host suppresses bus acknowledgements.
+They establish ingress acceptance, not inference completion. Normal application
+bus handling continues unchanged.
+
+All public command events, including disconnect/session-end cleanup, run through
+one FIFO worker. A public-host bus callback may stop the pipeline during event
+posting, so sending events on the WebSocket thread would make shutdown wait on
+itself. No adapter lock is held across event dispatch or a transport callback.
+Stop fences connections and sessions, detaches observation, and drains owned
+cleanup work without joining the event worker. Cleanup retains only the needed
+ingress references and can finish after stop returns; an accepted in-flight
+submission whose connection closed is cleaned up before its task releases the
+ingress. Old-generation deliveries cannot reach a restarted server.
+
+Prompt JSON is bounded to 16 KiB, with 4096 decoded SDK bytes and bounded names.
+The adapter permits one outstanding prompt command per connection. It bounds
+queued failure notifications and socket backlog; an overflowing client is closed
+and its session cleanup is scheduled. The browser never queues disconnected
+prompt commands or automatically replays them on reconnect. Status objects for
+existing play/pause and model controls retain their existing shape.
+
+This adds no generic remote property access or authentication layer. Use the
+existing control deployment boundary. Cairn integration still requires its own
+public-protocol backend adapter; it does not depend on this helper or `opksink`.
 
 ### Browser Metadata Configuration
 
