@@ -23,6 +23,7 @@ import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit
 import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
+import {PromptAssociationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-association.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
@@ -300,6 +301,19 @@ export function decodeFrameResultsMessage(message) {
                     width: Number(item.box.width), height: Number(item.box.height)} : null,
             },
         })), layers);
+
+    addPayloadLayers(envelope, PromptAssociationT, 'PromptAssociation', (payload) => [{
+        type: 'PromptAssociation',
+        data: {
+            sessionId: text(payload.sessionId),
+            requestId: identifier(payload.request?.requestId),
+            revision: identifier(payload.request?.revision),
+            inferenceInstance: text(payload.request?.destination?.inferenceInstance),
+            sourceName: text(payload.request?.destination?.sourceName),
+            application: payload.request?.application,
+            parentId: identifier(payload.parentId),
+        },
+    }], layers);
 
     addPayloadLayers(envelope, ObjectEmbeddingsT, 'ObjectEmbeddings', (payload) =>
         payload.embeddings.map((item) => ({

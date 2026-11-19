@@ -490,3 +490,12 @@ body.is-resizing-sidebar, body.is-resizing-sidebar *, body.is-resizing-bottom-co
   .model-toggle-switch input:checked + .model-toggle-track { background: Highlight; forced-color-adjust: none; }
   .model-toggle-switch input:checked + .model-toggle-track .model-toggle-thumb { background: HighlightText; }
 }
+
+.prompt-panel { border-top: 1px solid var(--wfr-bdr-bounds); padding-top: var(--wfr-padding-lg); }
+.prompt-coordinates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--wfr-margin-sm); }
+.prompt-coordinates label { display: grid; gap: var(--wfr-margin-xs); min-width: 0; }
+.prompt-coordinates input { width: 100%; min-width: 0; padding: var(--wfr-padding-sm); border: 1px solid var(--wfr-bdr-input-default); border-radius: var(--wfr-rounded-sm); background: var(--wfr-bg-input-default); color: var(--wfr-txt-primary); }
+.prompt-actions { display: flex; flex-wrap: wrap; gap: var(--wfr-margin-sm); margin-block: var(--wfr-margin-lg); }
+.prompt-preview-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 12; pointer-events: none; }
+.prompt-preview-canvas.is-drawing { pointer-events: auto; touch-action: none; cursor: crosshair; }
+body.video-feed-hidden .prompt-preview-canvas { visibility: hidden; }

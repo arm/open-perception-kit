@@ -29,3 +29,8 @@ import './inference-output.js';
 import './debug-log.js';
 import './metadata-ws.js';
 import './client-osd.js';
+
+import {ctrlSendPrompt} from './ctrlws.js';
+import {initializePromptEditor} from './prompt-editor.js';
+
+initializePromptEditor({send: ctrlSendPrompt});

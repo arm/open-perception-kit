@@ -1308,6 +1308,17 @@ function parseControlMessage(raw) {
   }
   return { kind: "status", data };
 }
+function sendConnected(socket2, message, openState) {
+  if (!socket2 || socket2.readyState !== openState) {
+    return false;
+  }
+  try {
+    socket2.send(JSON.stringify(message));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // development/web/src/ctrlws.js
 var CTRL_PROTO = location.protocol === "https:" ? "wss" : "ws";
@@ -1378,6 +1389,9 @@ function ctrlSend(obj) {
   sendQueue.push(payload);
   connectCtrl();
   return false;
+}
+function ctrlSendPrompt(message) {
+  return sendConnected(ctrl, message, WebSocket.OPEN);
 }
 connectCtrl();
 
@@ -8145,6 +8159,18 @@ function decodeFrameResultsMessage(message) {
       } : null
     }
   })), layers);
+  addPayloadLayers(envelope, PromptAssociationT, "PromptAssociation", (payload) => [{
+    type: "PromptAssociation",
+    data: {
+      sessionId: text(payload.sessionId),
+      requestId: identifier(payload.request?.requestId),
+      revision: identifier(payload.request?.revision),
+      inferenceInstance: text(payload.request?.destination?.inferenceInstance),
+      sourceName: text(payload.request?.destination?.sourceName),
+      application: payload.request?.application,
+      parentId: identifier(payload.parentId)
+    }
+  }], layers);
   addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => ({
     type: "ObjectEmbedding",
     data: { ...objectData(item.object), values: [...item.values] }
@@ -10065,3 +10091,425 @@ if (typeof video4.requestVideoFrameCallback !== "function") {
   console.warn("Synchronized overlays require requestVideoFrameCallback; overlays are disabled.");
 }
 window.requestAnimationFrame(renderFrame);
+
+// development/web/src/prompt-inputs.js
+var MAX_UINT64 = (1n << 64n) - 1n;
+function validPromptBox(box) {
+  return box && ["left", "top", "right", "bottom"].every((key) => Number.isFinite(box[key])) && box.left >= 0 && box.left < box.right && box.right <= 1 && box.top >= 0 && box.top < box.bottom && box.bottom <= 1;
+}
+function promptPoint(x, y, width, height, videoWidth, videoHeight, clamp3 = false) {
+  if (![x, y, width, height, videoWidth, videoHeight].every(Number.isFinite) || Math.min(width, height, videoWidth, videoHeight) <= 0) {
+    return null;
+  }
+  const rect = calculateContainedRect(width, height, videoWidth, videoHeight);
+  const point = { x: (x - rect.x) / rect.width, y: (y - rect.y) / rect.height };
+  if (!clamp3 && (point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1)) {
+    return null;
+  }
+  return { x: Math.max(0, Math.min(1, point.x)), y: Math.max(0, Math.min(1, point.y)) };
+}
+function encodeBoxPrompt(target, requestId, revision, box) {
+  if (typeof requestId !== "bigint" || typeof revision !== "bigint" || requestId <= 0n || requestId > MAX_UINT64 || revision <= 0n || revision > MAX_UINT64 || !target?.inference_instance || !target?.source_name || !validPromptBox(box)) {
+    throw new Error("A valid box, destination and nonzero uint64 request/revision are required.");
+  }
+  const destination = new RequestDestinationT(target.inference_instance, target.source_name);
+  const request = new RequestEnvelopeT(requestId, revision, destination);
+  const payload = new BoxPromptPayloadT(new PromptBoxT(box.left, box.top, box.right, box.bottom));
+  const packet = new BoxPromptInputsT(1, 0, request, payload);
+  const builder = new Builder();
+  const root2 = packet.pack(builder);
+  BoxPromptInputs.finishBoxPromptInputsBuffer(builder, root2);
+  return btoa(String.fromCharCode(...builder.asUint8Array()));
+}
+function matchingPromptResult(frame, target, sessionId, request) {
+  if (!frame || !target || !sessionId || !request) {
+    return false;
+  }
+  for (const association of frame.layers || []) {
+    if (association.payloadType !== "PromptAssociation" || association.inferElementId !== target.destination_element) {
+      continue;
+    }
+    for (const { data } of association.detections || []) {
+      if (data.application !== 0 || data.sessionId !== sessionId || data.requestId !== String(request.requestId) || data.revision !== String(request.revision) || data.parentId === "0" || data.inferenceInstance !== target.inference_instance || data.sourceName !== target.source_name) {
+        continue;
+      }
+      const producer = association.producer;
+      if (!producer?.instanceId || !producer.component) {
+        continue;
+      }
+      if ((frame.layers || []).some((layer2) => layer2.payloadType === "InstanceSegmentationMasks" && layer2.inferElementId === association.inferElementId && layer2.producer?.instanceId === producer.instanceId && layer2.producer?.component === producer.component && (layer2.detections || []).some((item) => item.type === "InstanceSegmentationMask" && item.data.parentUuid === data.parentId))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+var BoxPromptSession = class {
+  constructor(send) {
+    this.send = send;
+    this.disconnect();
+  }
+  disconnect() {
+    this.sessionId = "";
+    this.targets = [];
+    this.states = /* @__PURE__ */ new Map();
+    this.nextRequestId = 1n;
+    this.nextCommandId = 1n;
+  }
+  capabilities(message) {
+    if (message.version !== 1 || typeof message.session_id !== "string" || !message.session_id || !Array.isArray(message.targets)) {
+      return false;
+    }
+    if (this.sessionId !== message.session_id) {
+      this.disconnect();
+    }
+    this.sessionId = message.session_id;
+    this.targets = message.targets.filter((target) => target && typeof target.target === "string" && target.format === "BPRM" && target.format_major === 1 && target.format_minor === 0 && typeof target.inference_instance === "string" && typeof target.source_name === "string" && typeof target.destination_element === "string");
+    return true;
+  }
+  state(name) {
+    if (!this.states.has(name)) {
+      this.states.set(name, { active: null, pending: null, message: "Local draft. Apply to submit." });
+    }
+    return this.states.get(name);
+  }
+  command(name, command, box) {
+    const target = this.targets.find((item) => item.target === name);
+    const state = this.state(name);
+    if (!this.sessionId || !target || state.pending) {
+      return false;
+    }
+    if (command === "submit" && !target.drawing_supported) {
+      return false;
+    }
+    const commandId = `ui-${this.nextCommandId++}`;
+    const wire = { type: "prompt_command", version: 1, command_id: commandId, target: name, command };
+    let request = state.active;
+    if (command === "submit") {
+      request = state.active ? { ...state.active, revision: state.active.revision + 1n } : { requestId: this.nextRequestId++, revision: 1n };
+      wire.payload_b64 = encodeBoxPrompt(target, request.requestId, request.revision, box);
+    } else if (command === "cancel") {
+      if (!request) {
+        return false;
+      }
+      wire.request_id = String(request.requestId);
+      wire.revision = String(request.revision);
+    } else {
+      return false;
+    }
+    state.pending = { commandId, command, request };
+    if (!this.send(wire)) {
+      state.pending = null;
+      state.message = "Disconnected. Reconnect and Apply deliberately.";
+      return false;
+    }
+    state.message = "Awaiting ingress reply.";
+    return true;
+  }
+  receive(message) {
+    if (message.version !== 1 || message.session_id && message.session_id !== this.sessionId) {
+      return false;
+    }
+    const state = this.states.get(message.target);
+    if (!state) {
+      return false;
+    }
+    if (message.type === "prompt_failure") {
+      if (message.session_id !== this.sessionId || !state.active || message.request_id !== String(state.active.requestId) || message.revision !== String(state.active.revision)) {
+        return false;
+      }
+      state.message = `Invocation failed: ${message.reason || "Unknown failure"}`;
+      return true;
+    }
+    const pending = state.pending;
+    if (!pending || message.command_id !== pending.commandId) {
+      return false;
+    }
+    if (message.type === "prompt_error") {
+      state.pending = null;
+      state.message = `Command not dispatched: ${message.reason || "Unknown transport error"}`;
+      return true;
+    }
+    if (message.type !== "prompt_ack" || message.session_id !== this.sessionId || message.command !== pending.command || typeof message.accepted !== "boolean") {
+      return false;
+    }
+    const identityMatches = message.request_id === String(pending.request.requestId) && message.revision === String(pending.request.revision);
+    if (message.accepted && !identityMatches && !(message.basis === "event-return" && message.request_id === "0" && message.revision === "0")) {
+      return false;
+    }
+    state.pending = null;
+    if (message.accepted) {
+      state.active = pending.command === "submit" ? pending.request : null;
+      state.message = pending.command === "submit" ? `Accepted revision ${pending.request.revision} for future buffers. Waiting for matching results.` : "Cancelled for future buffers. Already paired work may finish.";
+    } else {
+      state.message = `Ingress rejected command: ${message.reason || "No reason supplied"}`;
+    }
+    return true;
+  }
+};
+
+// development/web/src/prompt-editor.js
+function initializePromptEditor({ send, document: document2 = globalThis.document, window: window2 = globalThis.window }) {
+  const panel2 = document2.getElementById("promptPanel");
+  const select = document2.getElementById("promptTarget");
+  const form2 = document2.getElementById("promptForm");
+  const apply = document2.getElementById("promptApply");
+  const cancel = document2.getElementById("promptCancel");
+  const draw = document2.getElementById("promptDraw");
+  const status2 = document2.getElementById("promptStatus");
+  const eligibility = document2.getElementById("promptEligibility");
+  const canvas2 = document2.getElementById("promptPreviewCanvas");
+  const video5 = document2.getElementById("video");
+  const keys = ["left", "top", "right", "bottom"];
+  const inputs = Object.fromEntries(keys.map((key) => [key, document2.getElementById(`prompt-${key}`)]));
+  const session = new BoxPromptSession(send);
+  let drawMode = false;
+  let drag = null;
+  const drafts = /* @__PURE__ */ new Map();
+  const listeners = [];
+  function listen(element, type, listener) {
+    element.addEventListener(type, listener);
+    listeners.push(() => element.removeEventListener(type, listener));
+  }
+  function target() {
+    return session.targets.find((item) => item.target === select.value);
+  }
+  function box() {
+    return Object.fromEntries(keys.map((key) => [key, inputs[key].value === "" ? NaN : Number(inputs[key].value)]));
+  }
+  function viewReason() {
+    if (!target()?.drawing_supported) {
+      return target()?.reason || "The display route is not qualified for box input.";
+    }
+    if (!video5.videoWidth || !video5.videoHeight || !canvas2.clientWidth || !canvas2.clientHeight) {
+      return "Waiting for video dimensions.";
+    }
+    if (document2.body.classList.contains("video-feed-hidden")) {
+      return "Show the video feed to enter prompts.";
+    }
+    for (let element = video5; element; element = element.parentElement) {
+      const style = window2.getComputedStyle(element);
+      if (style.transform && style.transform !== "none" || style.rotate && style.rotate !== "none" || style.scale && style.scale !== "none" && style.scale !== "1" || style.translate && style.translate !== "none" || style.zoom && style.zoom !== "1" && style.zoom !== "normal") {
+        return "Transformed or mirrored video is not supported for box input.";
+      }
+    }
+    const videoStyle = window2.getComputedStyle(video5);
+    if (videoStyle.objectPosition && videoStyle.objectPosition !== "50% 50%") {
+      return "Box input requires a centered video image.";
+    }
+    if (videoStyle.objectFit !== "contain") {
+      return "Box input requires the contained full video image.";
+    }
+    return "";
+  }
+  function releaseDrag() {
+    const previous = drag;
+    drag = null;
+    if (previous && canvas2.hasPointerCapture?.(previous.pointerId)) {
+      canvas2.releasePointerCapture(previous.pointerId);
+    }
+  }
+  function render5() {
+    const current = target();
+    const state = session.state(select.value);
+    const reason = session.sessionId ? viewReason() : "Disconnected. Reconnect and Apply deliberately.";
+    const blocked = Boolean(reason) || Boolean(state.pending);
+    eligibility.textContent = reason || "Box applies to successive incoming frames, not the previously displayed frame.";
+    status2.textContent = session.sessionId ? state.message : "Disconnected. Prompts will not replay on reconnect.";
+    select.disabled = !session.sessionId || Boolean(state.pending);
+    apply.disabled = blocked || !validPromptBox(box());
+    cancel.disabled = !session.sessionId || Boolean(state.pending) || !state.active;
+    draw.disabled = blocked;
+    for (const input of Object.values(inputs)) {
+      input.disabled = blocked;
+    }
+    if (blocked) {
+      drawMode = false;
+      releaseDrag();
+    }
+    draw.setAttribute("aria-pressed", String(drawMode));
+    canvas2.classList.toggle("is-drawing", drawMode);
+    const dpr = window2.devicePixelRatio || 1;
+    canvas2.width = Math.max(1, Math.round(canvas2.clientWidth * dpr));
+    canvas2.height = Math.max(1, Math.round(canvas2.clientHeight * dpr));
+    const context = canvas2.getContext("2d");
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, canvas2.clientWidth, canvas2.clientHeight);
+    const preview = box();
+    if (!current || reason || !validPromptBox(preview)) {
+      return;
+    }
+    const rect = calculateContainedRect(canvas2.clientWidth, canvas2.clientHeight, video5.videoWidth, video5.videoHeight);
+    context.strokeStyle = "#f59e0b";
+    context.lineWidth = 2;
+    context.setLineDash([6, 4]);
+    context.strokeRect(
+      rect.x + preview.left * rect.width,
+      rect.y + preview.top * rect.height,
+      (preview.right - preview.left) * rect.width,
+      (preview.bottom - preview.top) * rect.height
+    );
+  }
+  function updateDraft2() {
+    drafts.set(select.value, box());
+    const state = session.state(select.value);
+    if (!state.pending) {
+      state.message = "Local draft. Apply to submit.";
+    }
+    render5();
+  }
+  function selectTarget() {
+    releaseDrag();
+    const draft2 = drafts.get(select.value) || { left: 0.25, top: 0.25, right: 0.75, bottom: 0.75 };
+    for (const key of keys) {
+      inputs[key].value = String(draft2[key]);
+    }
+    drawMode = false;
+    render5();
+  }
+  function pointer(event, clamp3) {
+    const rect = canvas2.getBoundingClientRect();
+    return promptPoint(
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+      rect.width,
+      rect.height,
+      video5.videoWidth,
+      video5.videoHeight,
+      clamp3
+    );
+  }
+  listen(select, "change", selectTarget);
+  for (const input of Object.values(inputs)) {
+    listen(input, "input", updateDraft2);
+  }
+  listen(form2, "submit", (event) => {
+    event.preventDefault();
+    if (apply.disabled || viewReason() || !validPromptBox(box())) {
+      return;
+    }
+    try {
+      session.command(select.value, "submit", box());
+    } catch (error) {
+      session.state(select.value).message = error.message;
+    }
+    render5();
+  });
+  listen(cancel, "click", () => {
+    if (!cancel.disabled) {
+      session.command(select.value, "cancel");
+      render5();
+    }
+  });
+  listen(draw, "click", () => {
+    if (!draw.disabled) {
+      drawMode = !drawMode;
+      releaseDrag();
+      render5();
+    }
+  });
+  listen(canvas2, "pointerdown", (event) => {
+    if (!drawMode || event.button !== 0 || viewReason()) {
+      return;
+    }
+    const start = pointer(event, false);
+    if (!start) {
+      return;
+    }
+    event.preventDefault();
+    drag = { pointerId: event.pointerId, start };
+    canvas2.setPointerCapture(event.pointerId);
+  });
+  listen(canvas2, "pointermove", (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) {
+      return;
+    }
+    const end = pointer(event, true);
+    if (!end) {
+      return;
+    }
+    const preview = {
+      left: Math.min(drag.start.x, end.x),
+      top: Math.min(drag.start.y, end.y),
+      right: Math.max(drag.start.x, end.x),
+      bottom: Math.max(drag.start.y, end.y)
+    };
+    for (const key of keys) {
+      inputs[key].value = String(preview[key]);
+    }
+    updateDraft2();
+  });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    listen(canvas2, type, () => {
+      releaseDrag();
+      render5();
+    });
+  }
+  listen(document2, "keydown", (event) => {
+    if (event.key === "Escape") {
+      releaseDrag();
+      drawMode = false;
+      render5();
+    }
+  });
+  listen(window2, "prompt-control-message", ({ detail }) => {
+    if (detail.type === "prompt_capabilities") {
+      const previous = select.value;
+      const previousSession = session.sessionId;
+      if (!session.capabilities(detail)) {
+        return;
+      }
+      if (previousSession !== session.sessionId) {
+        drafts.clear();
+      }
+      select.replaceChildren();
+      for (const item of session.targets) {
+        const option = document2.createElement("option");
+        option.value = item.target;
+        option.textContent = `${item.target} \u2192 ${item.destination_element}`;
+        select.append(option);
+      }
+      if (session.targets.some((item) => item.target === previous)) {
+        select.value = previous;
+      }
+      panel2.hidden = session.targets.length === 0;
+      selectTarget();
+    } else if (session.receive(detail)) {
+      render5();
+    }
+  });
+  listen(window2, "control-connection", ({ detail }) => {
+    if (!detail.connected) {
+      session.disconnect();
+      drafts.clear();
+      releaseDrag();
+      drawMode = false;
+      render5();
+    }
+  });
+  listen(window2, "video-frame-results", ({ detail }) => {
+    const state = session.state(select.value);
+    if (!state.pending && matchingPromptResult(detail, target(), session.sessionId, state.active)) {
+      state.message = `Matching result observed for revision ${state.active.revision}.`;
+      render5();
+    }
+  });
+  for (const type of ["resize", "video-layout-change"]) {
+    listen(window2, type, render5);
+  }
+  listen(document2, "fullscreenchange", render5);
+  listen(video5, "loadedmetadata", render5);
+  const observer = window2.ResizeObserver ? new window2.ResizeObserver(render5) : null;
+  observer?.observe(canvas2);
+  render5();
+  return { session, render: render5, destroy() {
+    releaseDrag();
+    observer?.disconnect();
+    for (const remove of listeners) {
+      remove();
+    }
+  } };
+}
+
+// development/web/src/app.js
+initializePromptEditor({ send: ctrlSendPrompt });

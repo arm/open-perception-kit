@@ -49,7 +49,8 @@ try {
         absWorkingDir: repoRoot,
         alias: {flatbuffers: flatbuffersPath},
         bundle: true,
-        entryPoints: [path.join(root, 'tests', 'frame-results.test.mjs')],
+        stdin: {contents: ["import './tests/frame-results.test.mjs';",
+            "import './tests/prompt-inputs.test.mjs';", "import './tests/prompt-editor.test.mjs';"].join('\n'), resolveDir: root},
         format: 'esm',
         outfile: output,
         platform: 'node',
@@ -57,7 +58,7 @@ try {
         target: ['node20'],
     });
 
-    execFileSync(process.execPath, ['--test', ...process.argv.slice(2), output], {stdio: 'inherit'});
+    execFileSync(process.execPath, ['--test', ...process.argv.slice(2), output], {stdio: 'inherit', cwd: root});
 } finally {
     rmSync(output, {force: true});
 }

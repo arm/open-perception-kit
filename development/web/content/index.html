@@ -91,6 +91,28 @@ limitations under the License.
                             </div>
                         </div>
                     </div>
+                    <section id="promptPanel" class="sidebar-section prompt-panel" aria-label="Box prompts" hidden>
+                        <h2 class="sidebar-section-title wfr-txt-h3">Box prompts</h2>
+                        <p class="overlay-hint wfr-txt-caption">Select a fixed region for successive video frames.</p>
+                        <label class="overlay-field">Destination
+                            <select id="promptTarget"></select>
+                        </label>
+                        <p id="promptEligibility" class="overlay-hint wfr-txt-caption"></p>
+                        <form id="promptForm">
+                            <div class="prompt-coordinates">
+                                <label>Left <input id="prompt-left" type="number" min="0" max="1" step="any" value="0.25" required /></label>
+                                <label>Top <input id="prompt-top" type="number" min="0" max="1" step="any" value="0.25" required /></label>
+                                <label>Right <input id="prompt-right" type="number" min="0" max="1" step="any" value="0.75" required /></label>
+                                <label>Bottom <input id="prompt-bottom" type="number" min="0" max="1" step="any" value="0.75" required /></label>
+                            </div>
+                            <div class="prompt-actions">
+                                <button id="promptDraw" type="button" aria-pressed="false">Draw box</button>
+                                <button id="promptApply" class="primary" type="submit">Apply</button>
+                                <button id="promptCancel" type="button">Cancel prompt</button>
+                            </div>
+                        </form>
+                        <p id="promptStatus" class="overlay-hint wfr-txt-caption" role="status" aria-live="polite">Disconnected.</p>
+                    </section>
                 </div>
 
                 <div id="sidePanelResizeHandle" class="side-panel-resize-handle" aria-hidden="true"></div>
@@ -100,6 +122,7 @@ limitations under the License.
                 <div class="video-wrapper">
                     <video id="video" autoplay playsinline muted></video>
                     <canvas id="clientOsdCanvas" class="client-osd-canvas"></canvas>
+                    <canvas id="promptPreviewCanvas" class="prompt-preview-canvas" aria-hidden="true"></canvas>
                     <div id="video-overlay" class="video-overlay">
                         <div class="overlay-chip">
                             <div class="spinner"></div>
