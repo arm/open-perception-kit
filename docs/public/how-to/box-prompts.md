@@ -47,6 +47,46 @@ The ready-to-use [model](../../../config/models/mobile-sam-int8-executorch/index
 provide the initial integration. Enable the packaged ExecuTorch backend when
 building. Model provenance and qualification limits are recorded with the model.
 
+## Browser DebugUI
+
+The [DebugUI preset](../../../config/pipelines/mobile-sam-int8-executorch-debugui.json)
+adds browser control and results delivery to the same model. Run it through the
+normal pipeline menu:
+
+```sh
+./tools/opk-menu mobile-sam-int8-executorch-debugui
+```
+
+Open the served DebugUI (normally `http://<pipeline-host>:9999`). In **Box prompts**,
+select the ingress target, draw a region in draw mode or enter the normalized
+coordinates, then choose **Apply**. Apply again to replace the continuing box;
+**Cancel prompt** stops future attachments. The camera preset also provides an
+`alternative-source-image` using the model owner's downloaded sample for repeatable
+host evaluation. Select that alternative through the existing media-input flow.
+
+The first UI path supports a straight full-frame unmirrored route from ingress
+through its inference destination to the displayed video. Unknown geometry,
+fan-out and intervening transformations disable box submission with a reason.
+Move geometry conversion before `opkprompt`. Drawing cannot select the exact old
+camera frame shown when the pointer moved; the accepted region applies to future
+video buffers and stays fixed until replaced.
+
+The server assigns a fresh session to each control connection. Another browser
+or native application can own the ingress, in which case Apply is rejected.
+Cancel retains ownership. Closing/disconnecting the tab ends that connection's
+sessions and releases ownership after ordered cleanup; already paired work may
+finish. Reconnect never resubmits an old box automatically. If a new connection
+briefly sees busy while shutdown cleanup drains, retry Apply after it completes.
+An accepted status is ingress acceptance, not evidence of inference or of a mask
+for the currently displayed frame. The UI reports a matching result only when
+its session/request/revision and result identity match; late old results remain
+identified as old. Invocation failures appear separately.
+
+No model weights, SDK schemas or interpolation policy change for this UI. The
+normal native preset and public protocol below remain available. See
+[opksink control architecture](../../arch/elements/opksink.md) for the WebSocket
+adapter and deployment boundaries.
+
 ## Public GStreamer protocol version 1
 
 Locate the named `opkprompt` with `gst_bin_get_by_name()` and call
