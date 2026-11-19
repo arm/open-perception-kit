@@ -19,6 +19,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -551,6 +552,12 @@ class LocalSourceReceiptTests(unittest.TestCase):
         shutil.copyfile(config.descriptor_path, descriptor)
         generated = self.root / "generated"
         generated.mkdir()
+        self.rust_readme = self.root / "tools/perception/generator-inputs/rust/README.md"
+        self.rust_readme.parent.mkdir(parents=True)
+        self.rust_readme.write_bytes(b"# Rust SDK\n\nAuthored consumer instructions.\n")
+        readme_input = patch.object(self.generate, "RUST_README_INPUT", self.rust_readme)
+        readme_input.start()
+        self.addCleanup(readme_input.stop)
         internal = self.root / "meson.build"
         internal.write_text("# integration\n", encoding="utf-8")
         self.config = replace(
@@ -635,6 +642,18 @@ class LocalSourceReceiptTests(unittest.TestCase):
                     module.write_bytes(original)
                     version.write_bytes(version_text)
                     extra.unlink(missing_ok=True)
+
+    def test_records_authored_rust_readme_as_generation_input(self) -> None:
+        self.assertIn(
+            {"path": self.rust_readme.relative_to(release_package.REPO_ROOT).as_posix(),
+             "sha256": digest(self.rust_readme), "size": self.rust_readme.stat().st_size},
+            self.manifest["generation"]["tools"],
+        )
+
+    def test_authored_rust_readme_edits_require_regeneration(self) -> None:
+        self.rust_readme.write_bytes(b"# Rust SDK\n\nUpdated consumer instructions.\n")
+        with self.assertRaisesRegex(RuntimeError, "generation tools changed; regenerate"):
+            self.generate.verify_perception_manifest(self.config)
 
     def test_ignores_only_python_cache_directories(self) -> None:
         cache = self.tree / "engine/__pycache__"
@@ -780,6 +799,46 @@ class PythonPackagingTests(unittest.TestCase):
                 release_package.perception_generate.prepare_python_package(
                     project, "open_perception_kit", "1.2.3", "1.2.3.dev0"
                 )
+
+
+class RustPackagingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.generate = release_package.perception_generate
+        self.config = release_package.perception_config.load_sdk_config()
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.readme = self.root / "authored-README.md"
+        self.readme.write_bytes("# Rust SDK\n\nConsumer example: café.\r\n".encode("utf-8"))
+        readme_input = patch.object(self.generate, "RUST_README_INPUT", self.readme)
+        readme_input.start()
+        self.addCleanup(readme_input.stop)
+        artifact = patch.object(
+            self.generate, "acquire_artifact", return_value=self.root / "flatbuffers.whl"
+        )
+        artifact.start()
+        self.addCleanup(artifact.stop)
+        fixture_writer = patch.object(self.generate, "run")
+        fixture_writer.start()
+        self.addCleanup(fixture_writer.stop)
+        self.rust = self.root / "generated/rust"
+        self.rust.mkdir(parents=True)
+        (self.rust / "Cargo.toml").write_text(
+            f'[package]\nname = "{self.config.public_name}"\n'
+            f'version = "{self.config.version}"\nedition = "2021"\n',
+            encoding="utf-8",
+        )
+
+    def test_copies_authored_readme_verbatim(self) -> None:
+        self.generate.prepare_rust_tests(self.config, self.rust.parent, sys.executable)
+        self.assertEqual((self.rust / "README.md").read_bytes(), self.readme.read_bytes())
+
+    def test_rust_package_declares_its_readme(self) -> None:
+        self.generate.prepare_rust_tests(self.config, self.rust.parent, sys.executable)
+        self.assertRegex(
+            (self.rust / "Cargo.toml").read_text(encoding="utf-8"),
+            r'(?m)^readme = "README\.md"$',
+        )
 
 
 class BundleVerificationTests(unittest.TestCase):
@@ -1566,6 +1625,7 @@ class GeneratedSdkTests(unittest.TestCase):
             (source / "src").mkdir(parents=True)
             (source / "target" / "debug").mkdir(parents=True)
             (source / "Cargo.toml").write_text("[package]\n", encoding="utf-8")
+            (source / "README.md").write_bytes(b"# Rust SDK\n\nConsumer instructions.\n")
             (source / "Cargo.lock").write_text("transient\n", encoding="utf-8")
             (source / "src" / "lib.rs").write_text("pub fn sdk() {}\n", encoding="utf-8")
             (source / "target" / "debug" / "sdk").write_bytes(b"transient")
@@ -1575,6 +1635,7 @@ class GeneratedSdkTests(unittest.TestCase):
 
             self.assertTrue((destination / "Cargo.toml").is_file())
             self.assertTrue((destination / "src" / "lib.rs").is_file())
+            self.assertEqual((destination / "README.md").read_bytes(), (source / "README.md").read_bytes())
             self.assertFalse((destination / "Cargo.lock").exists())
             self.assertFalse((destination / "target").exists())
 
@@ -1586,6 +1647,28 @@ class GeneratedSdkTests(unittest.TestCase):
             shutil.copytree(config.generated_root / "rust", rust_copy)
             subprocess.run(
                 ["cargo", "test", "--manifest-path", str(rust_copy / "Cargo.toml")],
+                check=True,
+            )
+
+    @unittest.skipUnless(cargo_is_usable(), "cargo is not installed or usable")
+    def test_generated_rust_readme_example_runs_as_consumer(self) -> None:
+        config = release_package.perception_config.load_sdk_config()
+        rust = config.generated_root / "rust"
+        readme = (rust / "README.md").read_text(encoding="utf-8")
+        examples = re.findall(r"(?m)^```rust\n([\s\S]*?)^```$", readme)
+        self.assertEqual(len(examples), 1, "Rust README must provide one complete quick-start program")
+        with tempfile.TemporaryDirectory() as tmp:
+            consumer = Path(tmp)
+            (consumer / "src").mkdir()
+            (consumer / "src/main.rs").write_text(examples[0], encoding="utf-8")
+            (consumer / "Cargo.toml").write_text(
+                '[package]\nname = "opk-readme-consumer"\nversion = "0.0.0"\nedition = "2021"\n'
+                f'\n[dependencies]\n{config.public_name} = {{ path = {json.dumps(str(rust))} }}\n',
+                encoding="utf-8",
+            )
+            subprocess.run(
+                ["cargo", "run", "--quiet", "--manifest-path", str(consumer / "Cargo.toml")],
+                cwd=consumer,
                 check=True,
             )
 
@@ -1606,6 +1689,10 @@ class GeneratedSdkTests(unittest.TestCase):
             "open-perception-kit",
         )
         self.assertTrue((generated / "rust" / "Cargo.toml").is_file())
+        self.assertEqual(
+            (generated / "rust" / "README.md").read_bytes(),
+            (repository / "tools/perception/generator-inputs/rust/README.md").read_bytes(),
+        )
         self.assertTrue((generated / "rust" / "src" / "lib.rs").is_file())
         self.assertTrue((generated / "rust" / "tests" / "opk_packet.rs").is_file())
         self.assertIn(
@@ -1617,6 +1704,11 @@ class GeneratedSdkTests(unittest.TestCase):
             (generated / "open-perception-kit-manifest.json").read_text(encoding="utf-8")
         )
         self.assertNotIn("manifest_version", manifest)
+        self.assertIn("rust/README.md", {entry["path"] for entry in manifest["files"]})
+        self.assertIn(
+            "tools/perception/generator-inputs/rust/README.md",
+            {entry["path"] for entry in manifest["generation"]["tools"]},
+        )
         self.assertEqual(
             manifest["descriptor"]["path"],
             config.descriptor_path.relative_to(repository).as_posix(),
