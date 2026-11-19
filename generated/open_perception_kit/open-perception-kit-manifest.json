@@ -495,8 +495,8 @@
     },
     {
       "path": "rust/Cargo.toml",
-      "sha256": "87d34062c3c838764efdd578b713e6a95aeb1d104d3ff3f9536fc059cfbb5d7a",
-      "size": 859
+      "sha256": "ae5a7ff3f8f0535abb2c209eb52e406850639796051c319173ffa744a691cb87",
+      "size": 880
     },
     {
       "path": "rust/LICENSE",
@@ -507,6 +507,11 @@
       "path": "rust/NOTICE",
       "sha256": "702f1ad85054e1aa180093506c0ee1f5433655d982a152b8c3860fcf177b3e66",
       "size": 508
+    },
+    {
+      "path": "rust/README.md",
+      "sha256": "43329a12a8fca6ce8833ab4d5b792d303553172bd424c19d72c5dd9977ee4eda",
+      "size": 6547
     },
     {
       "path": "rust/src/fb/mod.rs",
@@ -2021,8 +2026,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "7f6feb29df02fd9b7c131f10ecc3991977df30709e7078b98fc3edc6422a411e",
-        "size": 47803
+        "sha256": "c99a56d7156ac40dac39f38694b7648c3bfa481cb84f6343504973f7ed1b2de9",
+        "size": 47998
       },
       {
         "path": "tools/perception/artifacts.py",
@@ -2053,6 +2058,11 @@
         "path": "tools/perception/generator-inputs/NOTICE",
         "sha256": "702f1ad85054e1aa180093506c0ee1f5433655d982a152b8c3860fcf177b3e66",
         "size": 508
+      },
+      {
+        "path": "tools/perception/generator-inputs/rust/README.md",
+        "sha256": "43329a12a8fca6ce8833ab4d5b792d303553172bd424c19d72c5dd9977ee4eda",
+        "size": 6547
       },
       {
         "path": ".clang-format",

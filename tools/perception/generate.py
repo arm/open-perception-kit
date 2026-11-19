@@ -50,6 +50,7 @@ SDK_LEGAL_FILES = ("LICENSE", "NOTICE")
 PYTHON_OPTIONAL_DEPENDENCIES = {"numpy": ["numpy"]}
 # Authored inputs copied into each generated language package.
 SDK_LEGAL_INPUT_DIR = Path(__file__).with_name("generator-inputs")
+RUST_README_INPUT = SDK_LEGAL_INPUT_DIR / "rust" / "README.md"
 CPP_LICENSE_HEADER = """\
 /*
  * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
@@ -402,10 +403,12 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path, python: str) -> 
     cargo_toml.write_text(
         cargo.replace(
             source_version,
-            f'version = "{config.cargo_package_version}"\nlicense = "{SDK_LICENSE}"',
+            f'version = "{config.cargo_package_version}"\nlicense = "{SDK_LICENSE}"\n'
+            'readme = "README.md"',
         ),
         encoding="utf-8",
     )
+    shutil.copyfile(RUST_README_INPUT, rust_root / "README.md")
     fixture_target = rust_root / "tests" / "fixtures" / "opk-box-detections.hex"
     fixture_target.parent.mkdir(parents=True, exist_ok=True)
     supplied_wheel = CONTAINER_ARTIFACT_DIR / config.flatbuffers_wheel.filename
@@ -758,6 +761,7 @@ def _generation_tool_records() -> list[dict[str, object]]:
             Path(__file__).with_name("sdk_config.py").resolve(),
             RUST_FIXTURE_WRITER,
             *(SDK_LEGAL_INPUT_DIR / name for name in SDK_LEGAL_FILES),
+            RUST_README_INPUT,
             REPO_ROOT / ".clang-format",
             REPO_ROOT / ".cmake-format.yaml",
         )
