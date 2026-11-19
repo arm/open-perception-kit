@@ -159,52 +159,55 @@ browser asset after SDK or WebUI changes.
 
 ## Integrate the Rust SDK
 
-Stable OPK releases publish the `open_perception_kit` crate at the OPK version to the
-`edge-ai-tooling` Cargo registry. Configure its sparse index:
+Stable OPK releases publish `open_perception_kit` at the OPK version on
+[crates.io](https://crates.io/crates/open_perception_kit):
 
-```toml
-[registries.edge-ai-tooling]
-index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
+```bash
+cargo add open_perception_kit
 ```
 
-Select that registry only for the Open Perception Kit crate. The published crate metadata assigns
-its FlatBuffers dependency to crates.io explicitly:
+Pin the tested release in `Cargo.toml` and commit the consumer's `Cargo.lock`:
 
 ```toml
 [dependencies]
-open_perception_kit = { version = "=<opk-version>", registry = "edge-ai-tooling" }
+open_perception_kit = "=<opk-version>"
 ```
 
-Manual snapshots do not publish to the Cargo registry. For a snapshot or an
-offline build, add the extracted `rust/` crate as a path dependency. The crate
-already pins the FlatBuffers runtime version used to generate its sources. The
-bundle also contains checksum-locked Cargo archives, a generated `Cargo.lock`,
-and a `rust/vendor/` directory:
+See the [crate README](https://crates.io/crates/open_perception_kit) for a runnable
+example and the [Rust API reference](https://docs.rs/open_perception_kit) for types and selectors.
+
+Snapshots are not published to crates.io. For snapshots or offline builds, use the bundle's
+`rust/` crate, which pins its FlatBuffers runtime:
 
 ```toml
 [dependencies]
 open_perception_kit = { path = "/path/to/open-perception-kit-<opk-version>/rust" }
 ```
 
-Copy `rust/.cargo/config.toml` into the consumer's `.cargo/config.toml` and
-change its `directory` value to the absolute path of the extracted `rust/vendor`
-directory. Generate the consumer lockfile, then build without accessing the
-registry:
+The bundle includes checksum-locked Cargo archives, `rust/Cargo.lock`, and
+`rust/vendor/`. Copy `rust/.cargo/config.toml` to the consumer's
+`.cargo/config.toml`, setting `directory` to the absolute `rust/vendor` path.
+Run from the consumer workspace:
 
 ```bash
 cargo generate-lockfile --offline
 cargo build --offline --locked
 ```
 
-Cargo configuration and the consumer lockfile are resolved from the consumer
-workspace, not from path dependencies.
+Cargo uses the consumer workspace's configuration and lockfile, not the path dependency's.
 
-Import `Envelope`, `payload`, and generated native payload types from
-`open_perception_kit`. Construct an envelope with `Envelope::decode(...)`, require a
-successful result, and check `producer_identity()` before typed access. Use the
-same selector for `count`, `contains`, `get`, and `for_each`; use `external_key`
-for external
-payloads. Unknown or changed payloads remain preserved across serialization.
+- Require successful `Envelope::decode` and `producer_identity()` of `ExactMatch`
+  or `CompatibleMatch` before typed access: expected SDK name, valid version,
+  and same SemVer major, including zero. Schema digests are diagnostic.
+  SDK 1.0 requires coordinated producer and consumer upgrades from earlier SDKs;
+  see the [compatibility contract](https://github.com/arm/open-perception-kit/blob/main/schemas/perception/README.md#compatibility-model).
+- Select results by payload type and `LayerInfo.producer.instance_id`. Map
+  geometry using `ImageSpace` and `CoordinateUnits`; coordinates are local to the
+  described image region. See the
+  [geometry schema](https://github.com/arm/open-perception-kit/blob/main/schemas/perception/metadata/common.fbs).
+- For byte-exact forwarding, retain the original packet: repacking can lose
+  unknown fields in recognized payloads, and `serialize()` stamps this SDK's
+  producer identity.
 
 ## Integrate the C++ SDK
 
