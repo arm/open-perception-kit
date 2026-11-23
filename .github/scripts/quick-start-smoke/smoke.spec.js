@@ -166,6 +166,71 @@ test('quick-start plays video and displays an object detection', async ({ page }
 
 });
 
+for (const activity of ['keyboard editing', 'image decoding']) {
+  test(`new default overlays preserve existing controls during ${activity}`, async ({page}) => {
+    await page.routeWebSocket('**/ws', () => {});
+    await page.addInitScript(() => {
+      const decode = window.createImageBitmap.bind(window);
+      window.createImageBitmap = async (...args) => {
+        const image = await decode(...args);
+        await new Promise(resolve => { window.finishOverlayImage = resolve; });
+        return image;
+      };
+    });
+    await page.goto('/', {waitUntil: 'domcontentloaded'});
+    const emit = payloadType => page.evaluate(payloadType => {
+      window.dispatchEvent(new CustomEvent('metadata-message', {detail: {frame_results: {layers: [{
+        payloadType, model: payloadType, producer: {instanceId: `test/${payloadType}`, component: 'test'}, detections: [],
+      }]}}}));
+    }, payloadType);
+    await emit('SegmentationMasks');
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    const card = page.locator('.overlay-card').filter({hasText: 'Background replacement'});
+    await card.locator('.overlay-toggle').click();
+    const original = await card.elementHandle();
+    const opacity = card.getByLabel('Opacity', {exact: true});
+    if (activity === 'keyboard editing') {
+      await opacity.fill('0.42');
+      await opacity.focus();
+    } else {
+      const image = await page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 2;
+        canvas.getContext('2d').fillRect(0, 0, 2, 2);
+        return canvas.toDataURL('image/png').split(',')[1];
+      });
+      await card.getByLabel('Background image', {exact: true}).setInputFiles({
+        name: 'background.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64'),
+      });
+      await expect(card).toContainText('Preparing image');
+      await expect.poll(() => page.evaluate(() => typeof window.finishOverlayImage)).toBe('function');
+    }
+    await emit('BoxDetections');
+    await expect(page.locator('.overlay-card')).toHaveCount(2);
+    expect(await original.evaluate(element => element.isConnected)).toBe(true);
+    await expect(card.locator('.overlay-toggle')).toHaveAttribute('aria-expanded', 'true');
+    if (activity === 'keyboard editing') {
+      await expect(opacity).toBeFocused();
+      await expect(opacity).toHaveValue('0.42');
+      await page.keyboard.press('ArrowRight');
+      await expect(opacity).toHaveValue('0.43');
+    } else {
+      await page.evaluate(() => window.finishOverlayImage());
+      await expect(card).toContainText('Image prepared locally');
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
+        .overlays.find(overlay => overlay.featureId === 'background-replacement').settings.image)).toMatch(/^data:image\//);
+    }
+    await emit('BoxDetections');
+    await expect(page.locator('.overlay-card')).toHaveCount(2);
+    expect(await original.evaluate(element => element.isConnected)).toBe(true);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('metadata-connection', {detail: {connected: false}})));
+    await emit('SegmentationMasks');
+    await emit('BoxDetections');
+    await expect(page.locator('.overlay-card')).toHaveCount(2);
+    expect(await original.evaluate(element => element.isConnected)).toBe(true);
+  });
+}
+
 test('default overlays are editable, removable and persistent without adding an overlay', async ({page}) => {
   await page.routeWebSocket('**/ws', () => {});
   await page.goto('/', {waitUntil: 'domcontentloaded'});

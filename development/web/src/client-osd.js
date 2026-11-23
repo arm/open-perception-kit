@@ -228,13 +228,21 @@ function updateSourceLabels() {
     }
 }
 
-function renderList() {
-    cardNodes.clear();
-    list.replaceChildren();
+function renderList(editedOverlay = null) {
+    // Keep unrelated controls attached: discovery must not interrupt focus or image decoding.
+    for (const [overlay, row] of cardNodes) {
+        if (!overlays.includes(overlay) || overlay === editedOverlay) {
+            list.removeChild(row.card);
+            cardNodes.delete(overlay);
+        }
+    }
+    if (!cardNodes.size) list.replaceChildren();
     if (!overlays.length) {
         list.append(node('p', 'overlay-hint', 'No overlays. Add an overlay to draw pipeline outputs on the video.'));
     }
     for (const [index, overlay] of overlays.entries()) {
+        if (cardNodes.has(overlay)) continue;
+        const controlId = ++nextControlId;
         const card = node('article', 'overlay-card');
         const header = node('div', 'overlay-card-header');
         const featureLabel = featureFor(overlay.featureId)?.label || overlay.featureId;
@@ -255,7 +263,7 @@ function renderList() {
         visibility.append(checkbox, track);
         const toggle = node('button', 'overlay-toggle');
         toggle.type = 'button';
-        toggle.id = `overlay-toggle-${index}`;
+        toggle.id = `overlay-toggle-${controlId}`;
         const chevron = node('span', 'icon');
         chevron.setAttribute('data-icon', 'chevron-right');
         chevron.setAttribute('aria-hidden', 'true');
@@ -265,9 +273,9 @@ function renderList() {
         const title = node('span', 'overlay-title wfr-txt-label');
         toggle.append(swatch, title, chevron);
         const status = node('p', 'overlay-hint wfr-txt-caption');
-        status.id = `overlay-status-${index}`;
+        status.id = `overlay-status-${controlId}`;
         const settings = node('div', 'overlay-settings');
-        settings.id = `overlay-settings-${index}`;
+        settings.id = `overlay-settings-${controlId}`;
         settings.hidden = !expandedOverlays.has(overlay);
         settings.setAttribute('role', 'group');
         settings.setAttribute('aria-labelledby', toggle.id);
@@ -315,7 +323,8 @@ function renderList() {
         settings.append(metadata);
         card.append(header, settings);
         cardNodes.set(overlay, {card, toggle, title, checkbox, remove, status, metadata, featureLabel, legend});
-        list.append(card);
+        const next = overlays.slice(index + 1).find(item => cardNodes.has(item));
+        list.insertBefore(card, cardNodes.get(next)?.card || null);
     }
     updateStatuses();
     updateSourceLabels();
@@ -565,7 +574,7 @@ form.addEventListener('submit', (event) => {
     if (editing) Object.assign(editing, draft);
     else overlays.push(draft);
     persist();
-    renderList();
+    renderList(editing);
     dialog.close();
 });
 
@@ -587,7 +596,7 @@ function updateMetadata(frame, decodeError) {
     }
     const bound = bindPendingOverlays(overlays, knownOutputs);
     const previousCount = overlays.length;
-    const defaultsChanged = addDefaultOverlays(overlays, knownOutputs, restored.defaultSources);
+    const defaultsChanged = changed && addDefaultOverlays(overlays, knownOutputs, restored.defaultSources);
     if (bound || defaultsChanged) persist();
     if (overlays.length !== previousCount) renderList();
     updateStatuses();

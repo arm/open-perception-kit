@@ -40,6 +40,7 @@ class Element {
     fire(type, event = {}) { this.listeners.get(type)?.({preventDefault() {}, ...event}); }
     setAttribute(name, value) { this[name] = value; }
     append(...children) { this.children.push(...children); }
+    removeChild(child) { this.children.splice(this.children.indexOf(child), 1); }
     insertBefore(child, next) { this.children.splice(next ? this.children.indexOf(next) : this.children.length, 0, child); }
     replaceChildren(...children) { this.children = children; this.selectedIndex = -1; }
     get options() { return this.children; }
@@ -198,6 +199,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         get('overlayOutput').value = secondKey;
         get('overlayOutput').fire('change');
         get('overlayForm').fire('submit');
+        assert.equal(get('overlayList').children[0], firstCard, 'adding an overlay preserves existing controls');
         const checkbox = find(get('overlayList'), (element) => element.tag === 'input' && element.type === 'checkbox');
         assert.equal(checkbox.role, 'switch');
         assert.ok(find(get('overlayList'), (element) => element.className === 'model-toggle-track'));
@@ -206,6 +208,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.equal(find(get('overlayList').children[0], (element) => element.className === 'overlay-settings').hidden, false);
         assert.equal(get('overlayList').children[0].style['--overlay-color'], '#123456');
         const beforeEdit = storage.get(OVERLAY_STORAGE_KEY);
+        const secondCard = get('overlayList').children[1];
         window.fire('metadata-connection', {detail: {connected: false}});
         assert.equal(get('overlayList').children[0].style['--overlay-color'], '#123456');
         assert.equal(get('overlayList').children[0]['data-unavailable'], 'true');
@@ -234,6 +237,7 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.deepEqual(saved().map((overlay) => sourceKey(overlay.selection.primary)), [firstKey, secondKey]);
         assert.equal(saved()[0].enabled, false);
         assert.deepEqual(saved()[0].settings, {color: '#123456', opacity: 0.6});
+        assert.equal(get('overlayList').children[1], secondCard, 'editing replaces only the edited card and preserves order');
 
         const unsupported = {payloadType: 'TestUnsupportedPayload', model: 'Unsupported fixture', count: 0, detections: []};
         emit([first, unsupported]);
@@ -342,8 +346,10 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.ok(contactCard.textContent.includes('Waiting for source'));
         // Removing a different row does not collapse an already expanded overlay.
         const remove = find(contactCard.children[0], (element) => element.className === 'overlay-remove');
+        const remainingCard = get('overlayList').children[0];
         remove.fire('click');
         assert.equal(saved().length, 4);
+        assert.equal(get('overlayList').children[0], remainingCard, 'removing a row preserves other controls');
         assert.equal(find(get('overlayList').children[0], (element) => element.className === 'overlay-settings').hidden, false);
 
         // A source from another feature must not silently select the first match.
