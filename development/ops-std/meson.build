@@ -46,6 +46,7 @@ stdops = shared_module(
     'postproc/ModNetSegmentationParser.cpp',
     'postproc/ScrfdParser.cpp',
     'postproc/AudioEventClassificationParser.cpp',
+    'postproc/PitchEstimationParser.cpp',
 
     'preproc/CpuLogMelSpectrogram.cpp',
     'preproc/GenericAudioTensorBuilder.cpp',

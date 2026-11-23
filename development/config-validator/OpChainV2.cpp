@@ -400,10 +400,15 @@ void validateAudioParserIntegers(ValidationReport &report,
         if (op.id != Postprocess)
             continue;
         const auto parser = stringAttribute(op.attributes, "parser");
-        if (parser != "VoiceActivityParser" && parser != "KeywordClassificationParser")
+        if (parser != "VoiceActivityParser" && parser != "KeywordClassificationParser" &&
+            parser != "PitchEstimationParser")
             continue;
-        for (const auto *const attribute :
-             {"outputTensorIndex", "scoreIndex", "attackMs", "releaseMs"}) {
+        for (const auto *const attribute : {"outputTensorIndex",
+                                            "scoreIndex",
+                                            "attackMs",
+                                            "releaseMs",
+                                            "binCount",
+                                            "weightedRadius"}) {
             if (!op.attributes.contains(attribute) || op.attributes.at(attribute).isInt())
                 continue;
             report.issues.push_back(

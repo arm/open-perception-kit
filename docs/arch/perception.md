@@ -660,8 +660,10 @@ item describes one complete inference window, not a note event or speech segment
 
 `opk::audio_results::valid` checks item semantics; FlatBuffers verification alone
 checks structure, not signal values. Producers must apply semantic validation.
-The pitch parser, signal-level gating and inference pipeline will be integrated
-separately; this change establishes the result contract and SDK types.
+`PitchEstimationParser` emits one estimate per scheduled audio window, including
+explicit unvoiced results. See the [audio processing guide](audio-log-mel.md#pitch-postprocessing)
+for decoding and signal-level gating. The CREPE tiny model-local opchain connects
+PCM normalization, ONNX inference and this parser.
 
 This is an additive schema change: existing root identities and fields remain
 unchanged. Older SDKs can forward the new root as an unknown payload, while typed

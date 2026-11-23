@@ -16,6 +16,7 @@
  */
 
 #include "GenericAudioPreprocessOp.h"
+#include <cmath>
 
 using namespace opk::stdop;
 
@@ -102,6 +103,7 @@ opk::Result<void> GenericAudioPreprocessOp::bind(const size_t index,
 }
 
 opk::Result<opk::op::OpSignal> GenericAudioPreprocessOp::process(opk::op::OpChainContext &context) {
+    context.inferenceInfo.audio.pcmRms.reset();
     if (!inference) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "GenericAudioPreprocess is not bound"));
@@ -117,6 +119,11 @@ opk::Result<opk::op::OpSignal> GenericAudioPreprocessOp::process(opk::op::OpChai
             tensorBuilder.build(*window, destination, audio.hopSampleCount, audio.discontinuity);
         !result)
         return tl::unexpected(result.error());
+    double squared = 0;
+    for (const auto segment : {window->first(), window->second()})
+        for (const float sample : segment)
+            squared += static_cast<double>(sample) * sample;
+    context.inferenceInfo.audio.pcmRms = std::sqrt(squared / static_cast<double>(window->size()));
     const auto &model = inference->getModel();
     context.inferenceInfo.modelName = model.name;
     context.inferenceInfo.parentId = 0;

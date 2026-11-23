@@ -1,0 +1,44 @@
+{
+  "version": "2.3.0",
+  "name": "crepe-tiny",
+  "displayName": "CREPE tiny pitch",
+  "task": "Pitch estimation",
+  "runtime": "ONNX",
+  "description": "Estimates monophonic pitch from normalized 16 kHz PCM windows.",
+  "ops": [
+    {
+      "id": "opk-std-ops/GenericAudioPreprocess",
+      "attributes": {
+        "inputAudioTensorIndex": 0,
+        "pcmNormalization": {
+          "kind": "window",
+          "epsilon": 1e-10
+        }
+      }
+    },
+    {
+      "id": "opk-onnx-ops/Inference",
+      "attributes": {
+        "modelDescriptor": "model.json"
+      }
+    },
+    {
+      "id": "opk-std-ops/GenericPostprocess",
+      "attributes": {
+        "parser": "PitchEstimationParser",
+        "outputTensorIndex": 0,
+        "binCount": 360,
+        "weightedRadius": 4,
+        "activation": "none",
+        "decoder": "weightedArgmax",
+        "centsOffset": 1997.379408437619,
+        "centsPerBin": 20,
+        "referenceFrequencyHz": 10,
+        "minFrequencyHz": 32,
+        "maxFrequencyHz": 2000,
+        "periodicityThreshold": 0.21,
+        "minimumRms": 0.001
+      }
+    }
+  ]
+}

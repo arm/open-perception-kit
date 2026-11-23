@@ -492,3 +492,11 @@ Use an OpChain version of `2.2.0` and rebuild native readers before adopting the
 attribute. Window normalization requires at least two PCM samples, no retained
 context, and cannot be combined with log-mel processing. No payload schema changes
 are required.
+
+## OpChain 2.3: pitch postprocessing
+
+OpChain schema `2.3.0` adds `PitchEstimationParser` to `GenericPostprocess`.
+Its required attributes explicitly configure the score tensor, activation,
+pitch-bin frequency grid, decoder and voicing thresholds. Use version `2.3.0`
+and rebuild native readers before adopting this parser. Existing opchains keep
+their behavior; older readers cannot validate the new parser contract.

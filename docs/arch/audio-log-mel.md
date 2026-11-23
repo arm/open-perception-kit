@@ -293,3 +293,51 @@ For CREPE tiny, use a `[1,1024]` Float32 `AudioPcm` tensor, the window mode abov
 and `audio-hop-samples=160`. The scheduler supplies complete, unpadded 64 ms
 windows every 10 ms, matching the reference's `pad=False` framing. This step
 prepares model inputs only; pitch decoding is a separate integration step.
+
+## Pitch postprocessing
+
+`opk-std-ops/GenericPostprocess` supports `PitchEstimationParser` for monophonic
+pitch scores. This parser consumes raw PCM model outputs; it does not require
+log-mel preprocessing. See `config/models/crepe-tiny/opchain.json` for a complete
+PCM normalization → ONNX inference → pitch result chain.
+
+All parser attributes are required:
+
+| Attribute | Meaning |
+| --- | --- |
+| `outputTensorIndex`, `binCount` | Float32 output vector selection and size; leading dimensions must be singleton. |
+| `activation` | `none` for probabilities in [0,1], or stable independent `sigmoid` for logits. |
+| `centsOffset`, `centsPerBin`, `referenceFrequencyHz` | Bin `i` maps to `referenceFrequencyHz * 2^((centsOffset + centsPerBin*i)/1200)`. |
+| `minFrequencyHz`, `maxFrequencyHz` | Inclusive candidate-bin frequency limits. |
+| `decoder` | `argmax`, or `weightedArgmax` for a score-weighted mean in cents around the strongest bin. |
+| `weightedRadius` | Neighbor radius for weighted decoding, clipped to the vector and frequency limits; ignored by argmax. |
+| `periodicityThreshold` | Minimum strongest eligible score for a voiced result. All-zero scores remain unvoiced. |
+| `minimumRms` | Minimum original PCM RMS for a voiced result; zero disables this gate. |
+
+Equal maxima select the lowest eligible bin. There is no temporal smoothing,
+Viterbi decoding or random dithering. Periodicity is the maximum eligible score,
+not a calibrated probability that the frequency is correct. Malformed tensors,
+nonfinite values and invalid scheduling metadata fail without appending results.
+
+`GenericAudioPreprocess` records RMS over the scheduled PCM window before any
+model normalization in the inference context. It resets this value on each
+attempt, so failed preprocessing cannot leave a stale level. A positive RMS gate
+requires this value; it rejects missing metadata instead of assuming silence.
+The parser emits one `PitchEstimate` with window bounds, optional timestamps,
+discontinuity and producer identity. Unvoiced results retain periodicity and
+omit frequency. Voiced includes periodic instrumental sounds as well as speech.
+
+The CREPE tiny configuration uses 360 bins, 20 cents per bin, a 10 Hz reference,
+1997.3794084376191 cents offset and a weighted radius of four bins. Its exported
+ONNX output already contains sigmoid scores, so activation is `none`. Initial
+voicing settings are periodicity ≥ 0.21 and RMS ≥ 0.001 (−60 dBFS for full-scale
+PCM); tune these for the source. They are configuration choices, not model
+accuracy guarantees. Use mono 16 kHz audio, 1024-sample full windows and a
+160-sample hop for 10 ms updates. Windows are unpadded; timestamps describe the
+actual input window rather than an inferred point event.
+
+After downloading `crepe-tiny` and building the native runtime, run the opt-in
+`development/tests/crepe_integration_test.py` in the development container. It
+checks the actual model and serialized results for silence, a 440 Hz tone and a
+quiet tone below the RMS gate. This smoke test does not measure general pitch
+accuracy or realtime throughput.

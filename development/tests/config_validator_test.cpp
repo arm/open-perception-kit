@@ -559,3 +559,45 @@ TEST(ConfigValidator, AcceptsExactInt64ValueConstants) {
     EXPECT_FALSE(opk::config::validateModelJson(model("16000.5")));
     EXPECT_FALSE(opk::config::validateModelJson(model("16777217")));
 }
+
+TEST(ConfigValidator, PitchParserRequiresExplicitGridDecoderAndThresholds) {
+    nlohmann::json attributes{{"parser", "PitchEstimationParser"},
+                              {"outputTensorIndex", 0},
+                              {"binCount", 360},
+                              {"weightedRadius", 4},
+                              {"activation", "none"},
+                              {"decoder", "weightedArgmax"},
+                              {"centsOffset", 1997.3794084376191},
+                              {"centsPerBin", 20},
+                              {"referenceFrequencyHz", 10},
+                              {"minFrequencyHz", 32},
+                              {"maxFrequencyHz", 2000},
+                              {"periodicityThreshold", 0.21},
+                              {"minimumRms", 0.001}};
+    const auto valid = [](const nlohmann::json &a) {
+        const nlohmann::json doc{
+            {"version", "2.3.0"},
+            {"name", "pitch"},
+            {"description", "Pitch estimation"},
+            {"ops", {{{"id", "opk-std-ops/GenericPostprocess"}, {"attributes", a}}}}};
+        return bool(opk::config::validateOpChainJson(doc.dump()));
+    };
+    EXPECT_TRUE(valid(attributes));
+    for (const auto *const key :
+         {"binCount", "weightedRadius", "centsOffset", "minimumRms", "decoder"}) {
+        auto missing = attributes;
+        missing.erase(key);
+        EXPECT_FALSE(valid(missing)) << key;
+    }
+    const nlohmann::json invalidAttributes{{"activation", "softmax"},
+                                           {"decoder", "viterbi"},
+                                           {"binCount", 0},
+                                           {"weightedRadius", -1},
+                                           {"periodicityThreshold", 1.1},
+                                           {"minimumRms", -1}};
+    for (const auto &[key, value] : invalidAttributes.items()) {
+        auto bad = attributes;
+        bad[key] = value;
+        EXPECT_FALSE(valid(bad)) << key;
+    }
+}

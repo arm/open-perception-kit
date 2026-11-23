@@ -87,6 +87,8 @@ TEST(GenericAudioPreprocess, NormalizesWrappedPcmIntoUnalignedStorage) {
     ASSERT_TRUE(pre.process(ctx));
     std::array<float, 4> actual{};
     std::memcpy(actual.data(), storage.data() + 1, 16);
+    ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms, std::sqrt(21.5), 1e-12);
     // [3,4,5,6]: mean 4.5, unbiased variance 5/3 (not population variance).
     const std::array<float, 4> expected{-1.161895004f, -0.387298335f, 0.387298335f, 1.161895004f};
     for (size_t i = 0; i < actual.size(); ++i)
@@ -113,6 +115,11 @@ TEST(GenericAudioPreprocess, NormalizesCrepeWindowAndHandlesConstantAndTinySigna
         ctx.pcmViews.emplace("pipelineAudioData", ring.view());
         ctx.inferenceInfo.audio.hopSampleCount = 160;
         ASSERT_TRUE(pre.process(ctx));
+        ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+        // Summing 1024 squared samples introduces small relative rounding error.
+        EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms,
+                    static_cast<double>(amplitude),
+                    static_cast<double>(amplitude) * 1e-12);
         const float expected = amplitude == 0 ? 0 : amplitude < 1e-10f ? .01f : .999511599f;
         for (size_t i = 0; i < input.size(); ++i) {
             EXPECT_TRUE(std::isfinite(inference.data[i]));
@@ -151,7 +158,9 @@ TEST(GenericAudioPreprocess, RejectsInvalidPcmNormalization) {
     opk::op::OpChainContext ctx;
     ctx.pcmViews.emplace("pipelineAudioData", ring.view());
     const auto original = inference.data;
+    ctx.inferenceInfo.audio.pcmRms = 1.0;
     EXPECT_FALSE(pre.process(ctx));
+    EXPECT_FALSE(ctx.inferenceInfo.audio.pcmRms);
     EXPECT_EQ(inference.data, original);
 }
 
