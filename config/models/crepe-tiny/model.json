@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "name": "crepe-tiny",
+  "legal": "https://huggingface.co/FredrikKarlssonSpeech/torchcrepe-onnx",
+  "modelFile": "tiny.onnx",
+  "hfDownload": {
+    "repo_id": "FredrikKarlssonSpeech/torchcrepe-onnx",
+    "revision": "5768ab3ad99977bc83b15dd69a91b4d6e20987e8",
+    "filename": "onnx/tiny.onnx",
+    "sha256": "48130a2e69a5f7ebfdfbd680a85a41dda9dffc9ce810f64481e0c6269ee5661b"
+  },
+  "dynamicOutput": false,
+  "inputTensors": [
+    {
+      "shape": [1, 1024],
+      "dataKind": "AudioPcm",
+      "valueType": "Float32"
+    }
+  ],
+  "outputTensors": [
+    {
+      "shape": [1, 360],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    }
+  ]
+}
