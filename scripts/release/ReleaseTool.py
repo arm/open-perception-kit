@@ -832,9 +832,17 @@ def onnxruntime_archive_source(descriptor: Path, architecture: str) -> dict[str,
     config = json_mapping(descriptor)
     version = config["onnxruntime"]
     archive_arch = {"x86_64": "x64", "aarch64": "aarch64"}[architecture]
+    source = os.environ.get("OPK_ONNXRUNTIME_SOURCE") or "nuget"
     archive = f"onnxruntime-linux-{archive_arch}-{version}.tgz"
+    url = f"https://github.com/microsoft/onnxruntime/releases/download/v{version}/{archive}"
+    if source == "nuget":
+        archive = f"microsoft.ml.onnxruntime.{version}.nupkg"
+        url = f"https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/{version}/{archive}"
+        archive_arch = "nuget"
+    elif source != "github":
+        fail(f"Unsupported ONNX Runtime source: {source}")
     return {
-        "archive_url": f"https://github.com/microsoft/onnxruntime/releases/download/v{version}/{archive}",
+        "archive_url": url,
         "archive_sha256": config[f"onnxruntime-sha256-{archive_arch}"],
         "library": f"libonnxruntime.so.{version}",
     }

@@ -194,6 +194,11 @@ build stages.
 
 ## Installed Tools By Layer
 
+ONNX Runtime defaults to Microsoft's NuGet package while the GitHub assets are
+unavailable. Set `OPK_ONNXRUNTIME_SOURCE=github` for native installation and release
+validation, or pass `--build-arg OPK_ONNXRUNTIME_SOURCE=github` to Docker, to use the
+original GitHub archives. Both sources have separate pinned checksums.
+
 The lists below name the tools or runtime packages added by each layer. Child
 stages inherit everything from their parent unless noted otherwise.
 

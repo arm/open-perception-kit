@@ -229,6 +229,7 @@ class ReleaseToolTests(unittest.TestCase):
             descriptor.write_text(json.dumps({
                 "onnxruntime": ONNX_VERSION,
                 "onnxruntime-sha256-x64": "a" * 64,
+                "onnxruntime-sha256-nuget": "b" * 64,
             }), encoding="utf-8")
             import hashlib
             receipt = release_tool.onnxruntime_archive_source(descriptor, "x86_64")

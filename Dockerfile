@@ -131,6 +131,7 @@ RUN set -eux; \
     --sdk-json /tmp/perception-sdk.json; \
   rm -f /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
+ARG OPK_ONNXRUNTIME_SOURCE
 
 FROM opk-build-base AS opk-cross-build-base
 
