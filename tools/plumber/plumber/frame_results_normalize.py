@@ -21,6 +21,7 @@ import math
 
 from .frame_results_sdk import FrameResults
 
+from open_perception_kit.fb.open_perception_kit.metadata.PitchEstimates import PitchEstimatesT
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
 from open_perception_kit.fb.open_perception_kit.metadata.CoordinateUnits import CoordinateUnits
 from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT
@@ -296,6 +297,21 @@ def _normalize_voice_activity(detection: Any) -> dict[str, Any]:
     return {"item_type": "VoiceActivityDetection", "data": data}
 
 
+def _normalize_pitch(estimate: Any) -> dict[str, Any]:
+    data = _object_data(estimate.object)
+    data.update({
+        "frequencyHz": estimate.frequencyHz,
+        "periodicity": estimate.periodicity,
+        "voiced": estimate.voiced,
+        "windowStartSample": int(estimate.windowStartSample),
+        "windowEndSample": int(estimate.windowEndSample),
+        "windowStartTsNs": estimate.windowStartTsNs,
+        "windowEndTsNs": estimate.windowEndTsNs,
+        "discontinuity": bool(estimate.discontinuity),
+    })
+    return {"item_type": "PitchEstimate", "data": data}
+
+
 def _normalize_turn_detection(detection: Any) -> dict[str, Any]:
     data = _object_data(detection.object)
     data.update({
@@ -515,6 +531,10 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         payloads={},
     )
     _normalize_frame_contexts(frame_results, snapshot)
+    _normalize_payload_collection(
+        frame_results, snapshot, PitchEstimatesT,
+        "open_perception_kit.metadata.PitchEstimates", "estimates", _normalize_pitch,
+    )
     _normalize_payload_collection(
         frame_results, snapshot, BoxDetectionsT,
         "open_perception_kit.metadata.BoxDetections", "detections", _normalize_box_detection,

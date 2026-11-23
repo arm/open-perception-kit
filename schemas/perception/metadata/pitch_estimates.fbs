@@ -1,0 +1,35 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+// One monophonic fundamental-frequency estimate for one inference window.
+table PitchEstimate {
+  object:open_perception_kit.metadata.ObjectMeta;
+  // Finite positive Hz when voiced is true; absent otherwise. Never a zero-Hz sentinel.
+  frequency_hz:float = null;
+  // Optional finite score in [0,1]. Zero is measured; absence means unavailable.
+  // Model-dependent periodicity, not a calibrated probability of correct pitch.
+  periodicity:float = null;
+  // Required by runtime semantics. True means usable periodic pitch, including
+  // instruments; it is not a speech-activity decision. Null means unavailable.
+  voiced:bool = null;
+  // Exclusive end; positions count mono 16 kHz samples since the latest reset.
+  window_start_sample:ulong;
+  window_end_sample:ulong;
+  // Media presentation timestamps; both present or both absent. Zero is valid.
+  // Absent when no source timestamp is known or the window includes negative preroll.
+  window_start_ts_ns:ulong = null;
+  window_end_ts_ns:ulong = null;
+  // First result after a stream discontinuity; sample positions restart at zero.
+  discontinuity:bool;
+}
+
+table PitchEstimates {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:open_perception_kit.metadata.LayerInfo;
+  estimates:[open_perception_kit.metadata.PitchEstimate];
+}
+
+root_type PitchEstimates;
+file_identifier "PTCH";

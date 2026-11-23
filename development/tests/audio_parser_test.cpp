@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "opk/AudioResults.h"
 #include "postproc/AudioEventClassificationParser.h"
 #include "postproc/KeywordClassificationParser.h"
 #include "postproc/VoiceActivityParser.h"
@@ -248,6 +249,110 @@ TEST(VoiceActivityParser, RoundTripsZeroAndAbsentTimestamps) {
         }
     });
     EXPECT_EQ(count, 2u);
+}
+
+TEST(PitchEstimates, RoundTripsVoicedUnvoicedAndUnavailableValues) {
+    using Pitch = open_perception_kit::metadata::PitchEstimateT;
+    using Payload = open_perception_kit::metadata::PitchEstimatesT;
+    Payload payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = "pitch-model", .inferElementId = "pitch"});
+    auto voiced = std::make_unique<Pitch>();
+    voiced->object = open_perception_kit::makeObjectMeta(41U, 9U);
+    voiced->voiced = true;
+    voiced->frequency_hz = 440.f;
+    voiced->periodicity = 1.f;
+    voiced->window_end_sample = 1024;
+    voiced->window_start_ts_ns = 0;
+    voiced->window_end_ts_ns = 64'000'000;
+    voiced->discontinuity = true;
+    ASSERT_TRUE(opk::audio_results::valid(*voiced));
+    payload.estimates.push_back(std::move(voiced));
+    auto unvoiced = std::make_unique<Pitch>();
+    unvoiced->voiced = false;
+    unvoiced->periodicity = 0.f;
+    unvoiced->window_start_sample = 160;
+    unvoiced->window_end_sample = 1184;
+    ASSERT_TRUE(opk::audio_results::valid(*unvoiced));
+    payload.estimates.push_back(std::move(unvoiced));
+    payload.estimates.push_back(std::make_unique<Pitch>()); // Structural absence is preserved.
+    Results results;
+    results.add(std::move(payload));
+    const auto bytes = open_perception_kit::serialize(results);
+    const Results decoded{std::span<const uint8_t>(bytes)};
+    const auto result = decoded.get<Payload>();
+    ASSERT_TRUE(result);
+    const auto &value = result->value();
+    EXPECT_EQ(value.layer->model, "pitch-model");
+    ASSERT_EQ(value.estimates.size(), 3u);
+    const auto &first = *value.estimates[0];
+    EXPECT_TRUE(opk::audio_results::valid(first));
+    EXPECT_EQ(first.frequency_hz, 440.f);
+    EXPECT_EQ(first.periodicity, 1.f);
+    EXPECT_EQ(first.object->id, 41u);
+    EXPECT_EQ(first.object->parent_id, 9u);
+    EXPECT_EQ(first.window_start_ts_ns, 0u);
+    EXPECT_EQ(first.window_end_ts_ns, 64'000'000u);
+    EXPECT_TRUE(first.discontinuity);
+    const auto &second = *value.estimates[1];
+    EXPECT_TRUE(opk::audio_results::valid(second));
+    EXPECT_EQ(second.voiced, false);
+    EXPECT_EQ(second.periodicity, 0.f);
+    EXPECT_FALSE(second.frequency_hz);
+    EXPECT_FALSE(second.window_start_ts_ns);
+    EXPECT_FALSE(second.window_end_ts_ns);
+    EXPECT_FALSE(value.estimates[2]->voiced);
+    EXPECT_FALSE(value.estimates[2]->periodicity);
+    EXPECT_FALSE(opk::audio_results::valid(*value.estimates[2]));
+    Results empty;
+    empty.add(Payload{});
+    const auto emptyBytes = open_perception_kit::serialize(empty);
+    const Results emptyDecoded{std::span<const uint8_t>(emptyBytes)};
+    const auto emptyPayload = emptyDecoded.get<Payload>();
+    ASSERT_TRUE(emptyPayload);
+    EXPECT_TRUE(emptyPayload->value().estimates.empty());
+    EXPECT_FALSE(emptyPayload->value().layer);
+}
+
+TEST(PitchEstimates, ValidatesFrequencyPeriodicityAndWindowSemantics) {
+    open_perception_kit::metadata::PitchEstimateT value;
+    value.voiced = true;
+    value.frequency_hz = 440.f;
+    value.window_end_sample = 1024;
+    EXPECT_TRUE(opk::audio_results::valid(value)); // Periodicity may be unavailable.
+    for (const float invalid : {0.f,
+                                -1.f,
+                                std::numeric_limits<float>::infinity(),
+                                std::numeric_limits<float>::quiet_NaN()}) {
+        value.frequency_hz = invalid;
+        EXPECT_FALSE(opk::audio_results::valid(value));
+    }
+    value.frequency_hz.reset();
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.voiced = false;
+    EXPECT_TRUE(opk::audio_results::valid(value));
+    value.frequency_hz = 440.f;
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.frequency_hz.reset();
+    for (const float invalid : {-1.f,
+                                1.01f,
+                                std::numeric_limits<float>::infinity(),
+                                std::numeric_limits<float>::quiet_NaN()}) {
+        value.periodicity = invalid;
+        EXPECT_FALSE(opk::audio_results::valid(value));
+    }
+    value.periodicity.reset();
+    value.window_end_sample = 0;
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.window_end_sample = 1024;
+    value.window_start_ts_ns = 0;
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.window_end_ts_ns = 0;
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.window_end_ts_ns = 64'000'000;
+    EXPECT_TRUE(opk::audio_results::valid(value));
+    value.window_start_ts_ns.reset();
+    EXPECT_FALSE(opk::audio_results::valid(value));
 }
 
 TEST(VoiceActivityDetections, EmptyPayloadAndOptionalLayerRoundTrip) {

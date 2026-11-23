@@ -84,6 +84,11 @@
       "size": 25499
     },
     {
+      "path": "cpp/fb/pitch_estimates_generated.h",
+      "sha256": "7e73bd606230fa114b5cec4b0f80ff22e3fcf7c0fc37b846842fb26de037d134",
+      "size": 24812
+    },
+    {
       "path": "cpp/fb/segmentation_masks_generated.h",
       "sha256": "6b0ec57da225fc8f5fb9ff0ccae3d956d8baffc64a53a6b57b04c61e12d62d88",
       "size": 21338
@@ -125,13 +130,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "974a6b69d0300a0a987f4efc3f4a5c9264c195832c80daae4ebd804e5df8a23d",
-      "size": 37133
+      "sha256": "2c62a85782c45682c190a07732b753ade174963b9a05caff902acc6f213a380b",
+      "size": 37917
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "0ed6fb917c3524ce456c649ba96b277699480c8de0964e21d1816d8daba6c260",
-      "size": 447516
+      "sha256": "4e83c4b6334906b4bd203211a906dd75cd6403ef2c568ec30b5c0c2c45f8331e",
+      "size": 470499
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -155,7 +160,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "3653059cfedcbec5111b076b0718f9c0f9d184c090b59e82b429f78dddbaa0b5",
+      "sha256": "e00ccaa0f393f688fa06b4dec5905f7d753e6cb85c5547c529ffd33d2e8114b0",
       "size": 1166
     },
     {
@@ -344,6 +349,16 @@
       "size": 8014
     },
     {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PitchEstimate.py",
+      "sha256": "da8216a5879c88e18b22e0ecf3d675a502fe5def8ee14cd64dc13f5332896557",
+      "size": 9516
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PitchEstimates.py",
+      "sha256": "2a48fc53c5c480f987d4f75ce24e621492a6dc415164ca2e431eea8ce4f44da8",
+      "size": 7949
+    },
+    {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ProducerInfo.py",
       "sha256": "a5614a88b5c641ef5d920c0c8da0a0817b63e87caec6c215c2a81964604f442d",
       "size": 4959
@@ -485,12 +500,12 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "abfde8f1991f1cbc5930ec1571c7b764591390cf7f42bc93a36bb9030773876f",
-      "size": 6708
+      "sha256": "7f2720b1abfb0272c88ff7c2aa264d30e684b96d54684f22e8f54727f13a2bb0",
+      "size": 7089
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "187abec47422ac9ceb1e4ad6a4488c428b4252f23bcd197a32b4e9cb5417df85",
+      "sha256": "bed45a871f84b0403b8d3933da8221a1e0c57c33dc8a0adb77192a325ded8ce7",
       "size": 15484
     },
     {
@@ -645,8 +660,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "43f86273826292b5959d90fee1654a12e23ef74e13e69ec7ff63a6cac62acea9",
-      "size": 5002
+      "sha256": "c027caea68f3e52cc0dc8a93aab68993a3313553f38421079b38ce115578783a",
+      "size": 5150
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -697,6 +712,16 @@
       "path": "rust/src/fb/open_perception_kit/metadata/person_presences_generated.rs",
       "sha256": "040c4f62a92ea99beb1d877d74456f8618558ec9a3c4bc6a1e096063d946f268",
       "size": 13019
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/pitch_estimate_generated.rs",
+      "sha256": "fdf9b1ac84964b2b4e91f65d8db12a94c791deba86727247c7b9ba01ddf3345e",
+      "size": 13959
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/pitch_estimates_generated.rs",
+      "sha256": "1936643b043d28fe5e4c8520e613cecc0895a4ef1262290cf15a2449e6918ff5",
+      "size": 12867
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/producer_info_generated.rs",
@@ -825,12 +850,12 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "ac0523a6707ac8121ed51159d673f64c16a0caa2b722de608004006dda7ba0af",
-      "size": 58636
+      "sha256": "18054729eaaee96e3900a8cd90ccfc76afd9e21da0af5e717e57573a00128d97",
+      "size": 60739
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
-      "sha256": "845b47296ffc8f51958d93d2c1410e7d572db83a8ff0187881eceb16066f7f44",
+      "sha256": "0e226050593c771ba691775ab298f2823ac873e0c182fc4c088788a8d8ec1c77",
       "size": 1025
     },
     {
@@ -850,12 +875,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "442ae2cb332d572d0b31dd7c766deb137e621ec6971e1fd48e7a413b57f3b984",
+      "sha256": "e292d17cd4a718c980b5614a44d6457479b4225fc7d52c6742b650e3c212f76b",
       "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "e188382effb4288c017f704db1a87c7c250a719bd97e3e30e57465fff0b3931b",
+      "sha256": "3f39cda31d947d753114d7ccfb1a7616d18ff730bdd08df3b132db2d84f23cb2",
       "size": 14047
     },
     {
@@ -1239,6 +1264,26 @@
       "size": 5238
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimate.d.ts",
+      "sha256": "d8961abe82358fce0a28a57dc6bdac7910ea6aa37b7a9eb43763dd5d28fce058",
+      "size": 3709
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimate.js",
+      "sha256": "be990b96f67a573a932e5f685a337394d4e259e9c0933d8c45989082fc636df7",
+      "size": 7082
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimates.d.ts",
+      "sha256": "79b8b9cadd741cd12a6ac2572634699013422da69d1aab69b5e1c4d5c6919fcb",
+      "size": 3108
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimates.js",
+      "sha256": "971086ba2a60741b643e515d60f2ec1510521b6e3c9a6f7eae56a98bf57e2539",
+      "size": 5215
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/producer-info.d.ts",
       "sha256": "3c429a3f3cef71e44e07b3123fa3939f5930f3282e2524222e3ac3057f04f8fb",
       "size": 2746
@@ -1450,12 +1495,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "23312f6405657c7a9ef66fdf0c2240251842e75cbb4af866742d9750827f977e",
+      "sha256": "5146a614199efd5368a5a0e8af7cb684683ca407967a44ea89d9d4712e1a0a3b",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "388335c74b2a5049ece82d496937f7bb2871e4e06696b4b926c72a383f131ac2",
+      "sha256": "ab4ce6f65ff2d4f7f985a20b3ea2012fcc554cce88d44cf39681a4cec8afcad9",
       "size": 1203
     },
     {
@@ -1465,8 +1510,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "d36b1935a7f90132586081264ba2d0877b51133eb0c3ef2fc4e623288bbb0129",
-      "size": 14406
+      "sha256": "222c682f6dd2eefa0894b23ef50c647239624238453a872a9669b745d181d451",
+      "size": 15273
     },
     {
       "path": "ts/package.json",
@@ -1475,7 +1520,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "c8936c4603fde466d8c193be3770c11f35c9194ae82fada23d808fbe39a31e4c",
+      "sha256": "27f45ba342fcd85a6c7c402102c5e25ef52e2a9b920e064359584d7ae0f026f4",
       "size": 12726
     },
     {
@@ -1669,6 +1714,16 @@
       "size": 5694
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimate.ts",
+      "sha256": "6239557fc0b1367943ad6c89a5a583eb1d0127237ff3f966dc0f74d0ff927eaf",
+      "size": 7301
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimates.ts",
+      "sha256": "26d9c7bfabfbfa3bd1389c1f7f9dc12a6c7a18aa340af62850f1af2c20fc77ef",
+      "size": 5655
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/producer-info.ts",
       "sha256": "ddf478f6b867bb42fd8a8249b400e41e83ee3f3fe4ef9f0474d27b72bb7bff60",
       "size": 4643
@@ -1775,13 +1830,13 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "e7c7269a2be97a60ba175a67e852b87c670a74bfd5b5c7506abe16b73f3858d6",
+      "sha256": "1160d3f96e79eade34ac6558ced3394f81c3d1493e643cef1532a2f08ecbf932",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "192d0ed74cc9000e2abf25761d5becc9f199c30ffab349611a77c8fba83bed89",
-      "size": 14484
+      "sha256": "fac8f3f7911ddaf6226089f0c8144eb9891ca88b092d5a990f84b73627c68172",
+      "size": 15335
     },
     {
       "path": "ts/tsconfig.json",
@@ -2168,6 +2223,11 @@
           "size": 22391
         },
         {
+          "path": "fb/pitch_estimates_generated.h",
+          "sha256": "1d126bab84f72229021bb589abf7f1ab9dd7c8dacb1e272e82dc6974e801b935",
+          "size": 21412
+        },
+        {
           "path": "fb/segmentation_masks_generated.h",
           "sha256": "80c42e14c14a42e7ef1c09e1f89ee241620857be920e4da3196f02c9acfe5dd7",
           "size": 18555
@@ -2209,13 +2269,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "800811671261c5433fcd7d2914bdb163864acb9bb35c84eab422936ab42e97a9",
-          "size": 35746
+          "sha256": "feebaa1d1335ae3d4eb46e40c438328b598411edf0882e78b2a302906967b5dd",
+          "size": 36496
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "c2a0e983baca2b81124bc06cfcd8c348d47be45c37dc66a4830580e9351b216b",
-          "size": 425360
+          "sha256": "3c240cbf4208c88f641006baa4296d29e54098d68035dc65f6a8d1d21cfcb7c6",
+          "size": 447324
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -2314,6 +2374,12 @@
           "schema": "person_presences.fbs"
         },
         {
+          "file_identifier": "PTCH",
+          "payload_id": "0x3a61cc9071d26d52",
+          "qualified_root_type": "open_perception_kit.metadata.PitchEstimates",
+          "schema": "pitch_estimates.fbs"
+        },
+        {
           "file_identifier": "SGMS",
           "payload_id": "0x2b6a575fbd8e8e44",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
@@ -2410,6 +2476,11 @@
           "size": 806
         },
         {
+          "path": "pitch_estimates.fbs",
+          "sha256": "430076c1f03ff8cece0e75e276ae2eb25999a79fa347442c7e13fcf6fd4e9397",
+          "size": 1416
+        },
+        {
           "path": "segmentation_masks.fbs",
           "sha256": "0c27afa034f80fb82f0891583c1122ff1d14483179856ad1705db577d72301f1",
           "size": 854
@@ -2440,7 +2511,7 @@
           "size": 1082
         }
       ],
-      "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
+      "schema_set_sha256": "4ccb3562b7ecb91baf667f9e0eee7d5fc06fbac6b0bf79d7d5d19f42de1bf11c",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2455,7 +2526,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "35c924ca0cc2e59583c7c8f4cf597fd33039cd333b0fa629df9705c69890dd6b",
+          "sha256": "f4c940673d5934eb7726992d79260a6330255e564d7b6e03b2a38f07a1a1c079",
           "size": 506
         },
         {
@@ -2644,6 +2715,16 @@
           "size": 7294
         },
         {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PitchEstimate.py",
+          "sha256": "825eca4e27d2d4fe34dcc0e325a39fc2bb8d029611b9033617b77e389fa6614b",
+          "size": 8823
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PitchEstimates.py",
+          "sha256": "3c2a058580ba5ae53a8a1a1ce1fde0749564795a889ec7abfa3ab4a1bd9bce35",
+          "size": 7229
+        },
+        {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ProducerInfo.py",
           "sha256": "4be5b5ade0a1cda0b8977a8695baa5fbfcce5ec1416c4d7b79d06ca38b0fc735",
           "size": 4292
@@ -2785,12 +2866,12 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "bc3f8454713442d3da311768d6940769907ae3e9dc7db9cd025da18b29ef88d2",
-          "size": 6047
+          "sha256": "2ba93fd58493eedb2dcd0b4d1b2f65baa55af66f0019c446cdb66b0851af0198",
+          "size": 6428
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "922ab81a14f33ff3a20bf38d5e3da2e1cdd8e3dfa23bc58c9c58a0d2f0d3741f",
+          "sha256": "8cd91a5d047bf810c746ab162c9c9b8a888502ecb0e259acb786033303dc6503",
           "size": 14823
         }
       ],
@@ -2875,6 +2956,12 @@
           "payload_id": "0x68c8d833e939f1de",
           "qualified_root_type": "open_perception_kit.metadata.PersonPresences",
           "schema": "person_presences.fbs"
+        },
+        {
+          "file_identifier": "PTCH",
+          "payload_id": "0x3a61cc9071d26d52",
+          "qualified_root_type": "open_perception_kit.metadata.PitchEstimates",
+          "schema": "pitch_estimates.fbs"
         },
         {
           "file_identifier": "SGMS",
@@ -2979,6 +3066,11 @@
           "size": 806
         },
         {
+          "path": "pitch_estimates.fbs",
+          "sha256": "430076c1f03ff8cece0e75e276ae2eb25999a79fa347442c7e13fcf6fd4e9397",
+          "size": 1416
+        },
+        {
           "path": "segmentation_masks.fbs",
           "sha256": "0c27afa034f80fb82f0891583c1122ff1d14483179856ad1705db577d72301f1",
           "size": 854
@@ -3009,7 +3101,7 @@
           "size": 1082
         }
       ],
-      "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
+      "schema_set_sha256": "4ccb3562b7ecb91baf667f9e0eee7d5fc06fbac6b0bf79d7d5d19f42de1bf11c",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3154,8 +3246,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "dd5f7367a2c4e084fcef0b0c72209ca02d15401b0fcced80713c44d212c6922a",
-          "size": 4321
+          "sha256": "848c40a521c244408ab8e34fe96eaa6748a41c00e5ed984836acfe98c0d1e77e",
+          "size": 4469
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -3206,6 +3298,16 @@
           "path": "src/fb/open_perception_kit/metadata/person_presences_generated.rs",
           "sha256": "0fa81e343fed9dd5fca24bb51af8b707cf8201fdaad16c664edbe0d499214d3b",
           "size": 12338
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/pitch_estimate_generated.rs",
+          "sha256": "e8ed5473a9a30c67730e647173e784378357adf1c20b907710c3faec27567e5f",
+          "size": 13278
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/pitch_estimates_generated.rs",
+          "sha256": "4b84e24d8aab9b8076b9d417de37b8ed913d4eba1c180d564d74bcab376a067c",
+          "size": 12186
         },
         {
           "path": "src/fb/open_perception_kit/metadata/producer_info_generated.rs",
@@ -3334,8 +3436,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "c7269281693177c417ace1a4076d3efaf169e07f8f8918e65777ae53f12ccb6b",
-          "size": 57955
+          "sha256": "d237d76a07cded581f61b2b402396ce5382711b80d31767956950fe2a8d0072f",
+          "size": 60058
         }
       ],
       "flatbuffers_runtimes": [
@@ -3419,6 +3521,12 @@
           "payload_id": "0x68c8d833e939f1de",
           "qualified_root_type": "open_perception_kit.metadata.PersonPresences",
           "schema": "person_presences.fbs"
+        },
+        {
+          "file_identifier": "PTCH",
+          "payload_id": "0x3a61cc9071d26d52",
+          "qualified_root_type": "open_perception_kit.metadata.PitchEstimates",
+          "schema": "pitch_estimates.fbs"
         },
         {
           "file_identifier": "SGMS",
@@ -3508,6 +3616,11 @@
           "size": 806
         },
         {
+          "path": "pitch_estimates.fbs",
+          "sha256": "430076c1f03ff8cece0e75e276ae2eb25999a79fa347442c7e13fcf6fd4e9397",
+          "size": 1416
+        },
+        {
           "path": "segmentation_masks.fbs",
           "sha256": "0c27afa034f80fb82f0891583c1122ff1d14483179856ad1705db577d72301f1",
           "size": 854
@@ -3538,7 +3651,7 @@
           "size": 1082
         }
       ],
-      "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
+      "schema_set_sha256": "4ccb3562b7ecb91baf667f9e0eee7d5fc06fbac6b0bf79d7d5d19f42de1bf11c",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3553,7 +3666,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "f548dbc8d38704c2e710eda9542d50a2f38313f9bd335bd2d907257ca53427b6",
+          "sha256": "8fa8a0160ac3d15590674d64f036ce2d698d5eb4cf8ff5bfd27a26bbd74fe214",
           "size": 12045
         },
         {
@@ -3752,6 +3865,16 @@
           "size": 5013
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimate.ts",
+          "sha256": "b8fb6cd217b445ff20063b557d0e1e62bf4352d4628c71e1703d4d00f6c343ca",
+          "size": 6620
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimates.ts",
+          "sha256": "faeb9b8ba72abea950724f2b0c680dc26cf8ea753855cfca9330d12bb2f74f2c",
+          "size": 4974
+        },
+        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/producer-info.ts",
           "sha256": "bd896ee2fda4b075d8c45e00897d53b70e7caec774be5815189884deebb4abfe",
           "size": 3962
@@ -3853,13 +3976,13 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "22a2d27f33d94b20366bc7c57dde861705f6c4b2b2fd5f259515406665a0f5dc",
+          "sha256": "4869bdd9bbd93f0c310683d531f3d4f05ec443f6b73db2fae731ad6f65584ed9",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "b7b68c8754d7980d85a39d19cde7e8a027352c433275416b8b17f1a16fe3d06d",
-          "size": 13803
+          "sha256": "5402e1c89395d4f5bfc78ac5fd4a3b4999540ebb640a356baed02896b7199a76",
+          "size": 14654
         },
         {
           "path": "tsconfig.json",
@@ -3950,6 +4073,12 @@
           "schema": "person_presences.fbs"
         },
         {
+          "file_identifier": "PTCH",
+          "payload_id": "0x3a61cc9071d26d52",
+          "qualified_root_type": "open_perception_kit.metadata.PitchEstimates",
+          "schema": "pitch_estimates.fbs"
+        },
+        {
           "file_identifier": "SGMS",
           "payload_id": "0x2b6a575fbd8e8e44",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
@@ -4037,6 +4166,11 @@
           "size": 806
         },
         {
+          "path": "pitch_estimates.fbs",
+          "sha256": "430076c1f03ff8cece0e75e276ae2eb25999a79fa347442c7e13fcf6fd4e9397",
+          "size": 1416
+        },
+        {
           "path": "segmentation_masks.fbs",
           "sha256": "0c27afa034f80fb82f0891583c1122ff1d14483179856ad1705db577d72301f1",
           "size": 854
@@ -4067,7 +4201,7 @@
           "size": 1082
         }
       ],
-      "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
+      "schema_set_sha256": "4ccb3562b7ecb91baf667f9e0eee7d5fc06fbac6b0bf79d7d5d19f42de1bf11c",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"

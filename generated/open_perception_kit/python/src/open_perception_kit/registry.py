@@ -96,6 +96,14 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.PersonPresences',
         'file_identifier': 'PPRS',
     },
+    4206868447697726802: {
+        'name': 'open_perception_kit::metadata::PitchEstimates',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.PitchEstimates',
+        'root_type': 'PitchEstimates',
+        'native_type': 'PitchEstimatesT',
+        'qualified_root_type': 'open_perception_kit.metadata.PitchEstimates',
+        'file_identifier': 'PTCH',
+    },
     3128408959875976772: {
         'name': 'open_perception_kit::metadata::SegmentationMasks',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks',
