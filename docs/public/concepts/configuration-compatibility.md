@@ -465,20 +465,30 @@ outputs retain their behavior. Chains adopting this option use version `1.9.0`.
 Rebuild the runtime and its embedded configuration schemas before using it;
 older readers reject the new attribute.
 
-## OpChain 1.14: audio event classification
+## OpChain 2.1: audio event classification
 
-OpChain reader schema `1.14.0` adds `AudioEventClassificationParser` and optional
+OpChain reader schema `2.1.0` adds `AudioEventClassificationParser` and optional
 log-mel `spectrum`, `centerPadding`, and `frameCount` attributes. Existing chains
-retain power spectra, no waveform padding, and all available frames. Chains using
-the new attributes must rebuild or upgrade native readers and runtime; older
-readers reject these attributes. The YAMNet chain uses the new contract with
-magnitude spectra, centered reflection, a leading frame prefix, and sigmoid
-postprocessing. This reuses `Classifications`; no payload schema changes are needed.
+retain power spectra, no waveform padding, and all available frames. Rebuild
+native readers and runtime before using the new attributes.
 
-## OpChain 1.15: audio event debug logging
+YAMNet uses magnitude spectra, centered reflection, a leading frame prefix, and
+sigmoid postprocessing. Its Model descriptor uses `2.0.0` without `contentType`;
+its OpChain uses `2.1.0`. The parser declares typed `Classifications` output and
+requires a nonempty `labelSet` identifying the class vocabulary. It emits
+categorical classifications with optional scores and class IDs using the existing
+SDK 1.0 schema. No additional payload schema change is required.
 
-OpChain reader schema `1.15.0` adds optional boolean `log` (default `false`) to
-`AudioEventClassificationParser`. When enabled, every accepted candidate is
-printed to stderr with its model, label, class ID and confidence, independently
-of the global log level. Rebuild
-native readers and runtime before using the attribute; older readers reject it.
+Optional boolean `log` (default `false`) prints every accepted candidate to stderr
+with its model, label, class ID and confidence, independently of the global log level.
+
+## OpChain 2.2: PCM normalization
+
+OpChain schema `2.2.0` adds optional `pcmNormalization` to
+`GenericAudioPreprocess`. Existing descriptors retain raw PCM copying. Select
+`{ "kind": "window", "epsilon": 1e-10 }` for CREPE-compatible per-window
+mean subtraction and sample-standard-deviation scaling with a clamped denominator.
+Use an OpChain version of `2.2.0` and rebuild native readers before adopting the
+attribute. Window normalization requires at least two PCM samples, no retained
+context, and cannot be combined with log-mel processing. No payload schema changes
+are required.

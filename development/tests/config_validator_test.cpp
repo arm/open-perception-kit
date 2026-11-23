@@ -477,6 +477,29 @@ TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {
     EXPECT_TRUE(hasRule(modelDescriptorResult.error(), "opchain.v2.model-descriptor-control"));
 }
 
+TEST(ConfigValidator, PcmWindowNormalizationContract) {
+    nlohmann::json document{
+        {"version", "2.2.0"},
+        {"name", "pcm-normalization"},
+        {"description", "Normalize scheduled PCM windows"},
+        {"ops",
+         {{{"id", "opk-std-ops/GenericAudioPreprocess"},
+           {"attributes", {{"pcmNormalization", {{"kind", "window"}, {"epsilon", 1e-10}}}}}}}}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    auto &attributes = document["ops"][0]["attributes"];
+    attributes["pcmNormalization"]["epsilon"] = 0;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["pcmNormalization"]["epsilon"] = 1e-10;
+    attributes["contextSampleCount"] = 1;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["contextSampleCount"] = 0;
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    attributes["pcmNormalization"]["unexpected"] = true;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["pcmNormalization"] = {{"kind", "none"}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+}
+
 TEST(ConfigValidator, AudioEventParserRequiresIndependentActivationAndPositiveTopK) {
     nlohmann::json document{{"version", "1.14.0"},
                             {"name", "events"},

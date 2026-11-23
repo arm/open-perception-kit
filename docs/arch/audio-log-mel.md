@@ -273,3 +273,23 @@ meson test -C development/build-active cpu_log_mel_spectrogram_tests --print-err
 
 The generator records its library versions in the header. Repeating generation
 and formatting with Torch/torchaudio 2.9.1 produced identical contents.
+
+## PCM window normalization
+
+OpChain 2.2 adds optional `pcmNormalization` to `GenericAudioPreprocess`.
+Omission or `{ "kind": "none" }` retains the raw PCM copy behavior.
+`{ "kind": "window", "epsilon": 1e-10 }` subtracts the mean of the scheduled
+window and divides by `max(sample_stddev, epsilon)`, using N−1 variance and
+double-precision reductions. This is the waveform normalization required by
+CREPE; it differs from log-mel normalization's additive epsilon.
+
+Window normalization requires at least two samples, a finite positive epsilon,
+and zero PCM context. It cannot be combined with `logMel`. Constant windows
+produce zero; nonfinite input is rejected before writing the tensor. Normalization
+has no history and preserves scheduler timing. The original PCM view remains
+unchanged for downstream signal-level measurements.
+
+For CREPE tiny, use a `[1,1024]` Float32 `AudioPcm` tensor, the window mode above,
+and `audio-hop-samples=160`. The scheduler supplies complete, unpadded 64 ms
+windows every 10 ms, matching the reference's `pad=False` framing. This step
+prepares model inputs only; pitch decoding is a separate integration step.

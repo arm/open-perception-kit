@@ -114,5 +114,13 @@
   "yamnet-LICENSE.txt": {
     "url": "https://raw.githubusercontent.com/w-hc/torch_audioset/e8852c5/LICENSE",
     "sha256": "d3a4edfce36af367508ee5ed8a2127daa9d9e749343bb38471bc198bd8caf782"
+  },
+  "crepe-tiny-README.md": {
+    "url": "https://huggingface.co/FredrikKarlssonSpeech/torchcrepe-onnx/raw/5768ab3ad99977bc83b15dd69a91b4d6e20987e8/README.md",
+    "sha256": "ad82d1d632082aa6b239bc4732c4db741e02afb39c4389c0d90100bc067148c7"
+  },
+  "crepe-tiny-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/maxrmorrison/torchcrepe/19e2ec3d494c0797a5ff2a11408ec5838fba6681/LICENSE",
+    "sha256": "2e1d0b22e64e0f0937cb213dbe45b0b02c97d278c4db8bae926ae031325b2417"
   }
 }

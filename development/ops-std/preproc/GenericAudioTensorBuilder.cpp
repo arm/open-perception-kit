@@ -30,8 +30,11 @@ namespace {
 
 class PcmCopy {
   public:
-    PcmCopy(const size_t sampleCount, const size_t contextSampleCount)
-        : sampleCount_(sampleCount), context_(contextSampleCount, 0.0f) {}
+    PcmCopy(const size_t sampleCount,
+            const size_t contextSampleCount,
+            const double normalizationEpsilon)
+        : sampleCount_(sampleCount), normalizationEpsilon_(normalizationEpsilon),
+          context_(contextSampleCount, 0.0f) {}
 
     size_t getRequiredAudioSamples() const {
         return sampleCount_ - context_.size();
@@ -54,6 +57,33 @@ class PcmCopy {
         if (!std::all_of(first.begin(), first.end(), finite) ||
             !std::all_of(second.begin(), second.end(), finite))
             return false;
+        if (normalizationEpsilon_ > 0) {
+            // Double reductions avoid overflow for finite Float32 input. Read the
+            // borrowed window without modifying it or assuming tensor alignment.
+            double mean = 0;
+            for (const float value : first)
+                mean += value;
+            for (const float value : second)
+                mean += value;
+            mean /= static_cast<double>(sampleCount_);
+            double squared = 0;
+            for (const auto segment : {first, second})
+                for (const float value : segment) {
+                    const double centered = static_cast<double>(value) - mean;
+                    squared += centered * centered;
+                }
+            const double denominator = std::max(
+                std::sqrt(squared / static_cast<double>(sampleCount_ - 1)), normalizationEpsilon_);
+            size_t index = 0;
+            for (const auto segment : {first, second})
+                for (const float value : segment) {
+                    const float normalized =
+                        static_cast<float>((static_cast<double>(value) - mean) / denominator);
+                    std::memcpy(
+                        destination.data() + index++ * sizeof(float), &normalized, sizeof(float));
+                }
+            return true;
+        }
         if (!context_.empty()) {
             if (hopSampleCount != getRequiredAudioSamples() ||
                 (!discontinuity && nextPosition_ && *nextPosition_ != pcm.beginPosition()))
@@ -79,6 +109,7 @@ class PcmCopy {
 
   private:
     size_t sampleCount_;
+    double normalizationEpsilon_;
     std::vector<float> context_;
     std::optional<uint64_t> nextPosition_;
 };
@@ -132,7 +163,8 @@ readNormalization(const opk::AttributeMap &attributes) {
 
 opk::Result<LogMelSpectrogramConfig> readLogMelConfig(const opk::AttributeMap &attributes) {
     const auto config = attributes.getObjectOrNull("logMel");
-    if (!config || attributes.contains("contextSampleCount"))
+    if (!config || attributes.contains("contextSampleCount") ||
+        attributes.contains("pcmNormalization"))
         return invalidConfiguration(
             "logMel requires its complete frontend configuration without PCM context");
     for (const auto &[name, value] : config->raw()) {
@@ -223,6 +255,7 @@ opk::Result<void> validateTensor(const opk::ModelInput &input,
 
 struct PcmConversion {
     size_t contextSampleCount;
+    double normalizationEpsilon = 0;
     std::unique_ptr<PcmCopy> kernel{};
 
     opk::Result<void> bind(const opk::ModelInput &input) {
@@ -231,7 +264,9 @@ struct PcmConversion {
         const auto samples = static_cast<size_t>(input.shape.dims[input.shape.rank - 1]);
         if (contextSampleCount >= samples || contextSampleCount > samples - contextSampleCount)
             return invalidConfiguration("Audio context must fit within the fresh sample window");
-        kernel = std::make_unique<PcmCopy>(samples, contextSampleCount);
+        if (normalizationEpsilon > 0 && samples < 2)
+            return invalidConfiguration("PCM window normalization requires at least two samples");
+        kernel = std::make_unique<PcmCopy>(samples, contextSampleCount, normalizationEpsilon);
         return {};
     }
 };
@@ -284,7 +319,26 @@ opk::Result<void> GenericAudioTensorBuilder::configure(const opk::AttributeMap &
         const auto context = readPcmContext(attributes);
         if (!context)
             return tl::unexpected(context.error());
-        impl_->conversion.emplace(PcmConversion{.contextSampleCount = *context});
+        double epsilon = 0;
+        if (attributes.contains("pcmNormalization")) {
+            const auto normalization = attributes.getObjectOrNull("pcmNormalization");
+            if (!normalization || !normalization->contains("kind") ||
+                !normalization->at("kind").isString())
+                return invalidConfiguration("pcmNormalization requires an object with a kind");
+            const auto &kind = normalization->getString("kind");
+            if (kind == "window") {
+                if (normalization->raw().size() != 2 || !isNumber(*normalization, "epsilon"))
+                    return invalidConfiguration("PCM window normalization requires only epsilon");
+                epsilon = normalization->getDouble("epsilon");
+                if (!std::isfinite(epsilon) || epsilon <= 0 || *context != 0)
+                    return invalidConfiguration(
+                        "PCM window normalization requires finite positive epsilon and no context");
+            } else if (kind != "none" || normalization->raw().size() != 1) {
+                return invalidConfiguration("Invalid pcmNormalization kind or parameters");
+            }
+        }
+        impl_->conversion.emplace(
+            PcmConversion{.contextSampleCount = *context, .normalizationEpsilon = epsilon});
     }
     return {};
 }
