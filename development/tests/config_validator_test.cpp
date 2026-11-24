@@ -580,7 +580,7 @@ TEST(ConfigValidator, PitchParserRequiresExplicitGridDecoderAndThresholds) {
             {"name", "pitch"},
             {"description", "Pitch estimation"},
             {"ops", {{{"id", "opk-std-ops/GenericPostprocess"}, {"attributes", a}}}}};
-        return bool(opk::config::validateOpChainJson(doc.dump()));
+        return static_cast<bool>(opk::config::validateOpChainJson(doc.dump()));
     };
     EXPECT_TRUE(valid(attributes));
     for (const auto *const key :

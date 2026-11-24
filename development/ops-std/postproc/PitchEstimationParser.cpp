@@ -138,7 +138,7 @@ opk::Result<void> PitchEstimationParser::parse(const opk::TensorParser::Input &i
     estimate->periodicity = static_cast<float>(maximum);
     estimate->voiced = maximum > 0 &&
                        static_cast<float>(maximum) >= static_cast<float>(c.threshold) &&
-                       (c.minimumRms == 0 || *audio.pcmRms >= c.minimumRms);
+                       (c.minimumRms == 0 || (audio.pcmRms && *audio.pcmRms >= c.minimumRms));
     if (*estimate->voiced) {
         double bin = static_cast<double>(peak);
         if (c.weighted) {
@@ -165,11 +165,11 @@ opk::Result<void> PitchEstimationParser::parse(const opk::TensorParser::Input &i
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
                                             .producer = &input.producerInfo});
-    if (input.attributes.getBoolOrDefault("log", false) && *estimate->voiced) {
+    if (input.attributes.getBoolOrDefault("log", false) && estimate->frequency_hz.has_value()) {
         fmt::print(stderr,
                    "Pitch [{}]: {:.2f} Hz (periodicity={:.3f})\n",
                    input.inferenceInfo.modelName,
-                   *estimate->frequency_hz,
+                   estimate->frequency_hz.value_or(0.0f),
                    *estimate->periodicity);
     }
     payload.estimates.push_back(std::move(estimate));

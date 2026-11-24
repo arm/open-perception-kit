@@ -113,6 +113,9 @@ its pinned notices too.
 Companion files such as OCR dictionaries are listed in `config/model-assets.json`,
 with model-tree-relative destinations, pinned URLs, and SHA-256 digests. The same
 downloader verifies and installs them into `config/models/` before packaging.
+Repository validation excludes these explicitly declared companion files (including
+archive destinations) from descriptor discovery. Unknown JSON files remain errors,
+and reserved `model`/`opchain` descriptor filenames are always validated.
 
 For models distributed as ZIP bundles, an entry can instead name a destination
 directory and include an `archive` object. Each key in `archive` is a relative

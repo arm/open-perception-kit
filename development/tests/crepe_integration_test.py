@@ -47,8 +47,8 @@ def main():
     times = np.arange(1024) / 16000
     tone = np.sin(2 * np.pi * 440 * times)
     for name, signal, voiced in [("silence", np.zeros(1024), False),
-                                  ("tone", .1 * tone, True),
-                                  ("quiet-tone", .0001 * tone, False)]:
+                                 ("tone", .1 * tone, True),
+                                 ("quiet-tone", .0001 * tone, False)]:
         with tempfile.TemporaryDirectory(prefix="crepe-integration-") as temporary:
             source = Path(temporary) / "audio.f32"
             target = Path(temporary) / "results.jsonl"

@@ -873,6 +873,9 @@ TEST(PitchEstimationParser, RejectsInvalidConfigurationShapesAndTiming) {
         case 8:
             f.input.tensors[0] = nullptr;
             break;
+        default:
+            // intentionally does nothing
+            break;
         }
         EXPECT_FALSE(f.parser.parse(f.input, f.results)) << mode;
         EXPECT_EQ(f.results.size(), 0u);
