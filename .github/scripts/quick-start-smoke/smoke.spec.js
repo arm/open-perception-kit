@@ -147,17 +147,9 @@ test('quick-start plays video and displays an object detection', async ({ page }
   await page.getByRole('button', { name: 'Show performance metrics', exact: true }).click();
   const fpsRow = page.locator('#performanceMetricsBody tr').filter({ hasText: /^Pipeline/ });
   await expect(fpsRow.locator('td').nth(1)).toHaveText(/^\d+\.\d FPS$/);
-  // Overlays are opt-in in the feature manager; exercise the real source picker.
+  // A fresh browser gets editable defaults without using Add overlay.
   await page.getByRole('button', { name: 'Overlays', exact: true }).click();
-  await page.locator('#addOverlayBtn').click();
-  await page.locator('#overlayFeature').selectOption('bounding-boxes');
-  if (await page.locator('#overlayOutput').isEnabled()) {
-    const source = await page.locator('#overlayOutput option').evaluateAll(options =>
-      options.find(option => option.value && JSON.parse(option.value)[0] === 'BoxDetections')?.value);
-    expect(source).toBeTruthy();
-    await page.locator('#overlayOutput').selectOption(source);
-  }
-  await page.locator('#saveOverlayBtn').click();
+  await expect(page.getByRole('switch', { name: /^Show Bounding boxes/ }).first()).toBeChecked();
   await page.getByRole('button', { name: 'Overlays', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.overlaySmoke.matchedFrames))
     .toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
@@ -172,6 +164,139 @@ test('quick-start plays video and displays an object detection', async ({ page }
     .toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
 });
 
+});
+
+test('smoke server survives the former 30-second frame limit', async ({request}) => {
+  // This wait exercises server lifetime, rather than waiting for a UI condition.
+  await new Promise(resolve => setTimeout(resolve, 31000));
+  const response = await request.get('/opk-config.js');
+  expect(response.ok()).toBe(true);
+  expect(await response.text()).toContain('window.OPK_CONFIG');
+});
+
+for (const activity of ['keyboard editing', 'image decoding']) {
+  test(`new default overlays preserve existing controls during ${activity}`, async ({page}) => {
+    await page.routeWebSocket('**/ws', () => {});
+    await page.addInitScript(() => {
+      const decode = window.createImageBitmap.bind(window);
+      window.createImageBitmap = async (...args) => {
+        const image = await decode(...args);
+        await new Promise(resolve => { window.finishOverlayImage = resolve; });
+        return image;
+      };
+    });
+    await page.goto('/', {waitUntil: 'domcontentloaded'});
+    const emit = payloadType => page.evaluate(payloadType => {
+      window.dispatchEvent(new CustomEvent('metadata-message', {detail: {frame_results: {layers: [{
+        payloadType, model: payloadType, producer: {instanceId: `test/${payloadType}`, component: 'test'}, detections: [],
+      }]}}}));
+    }, payloadType);
+    await emit('SegmentationMasks');
+    await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+    const card = page.locator('.overlay-card').filter({hasText: 'Background replacement'});
+    await card.locator('.overlay-toggle').click();
+    const original = await card.elementHandle();
+    const opacity = card.getByLabel('Opacity', {exact: true});
+    if (activity === 'keyboard editing') {
+      await opacity.fill('0.42');
+      await opacity.focus();
+    } else {
+      const image = await page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 2;
+        canvas.getContext('2d').fillRect(0, 0, 2, 2);
+        return canvas.toDataURL('image/png').split(',')[1];
+      });
+      await card.getByLabel('Background image', {exact: true}).setInputFiles({
+        name: 'background.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64'),
+      });
+      await expect(card).toContainText('Preparing image');
+      await expect.poll(() => page.evaluate(() => typeof window.finishOverlayImage)).toBe('function');
+    }
+    await emit('BoxDetections');
+    await expect(page.locator('.overlay-card')).toHaveCount(2);
+    expect(await original.evaluate(element => element.isConnected)).toBe(true);
+    await expect(card.locator('.overlay-toggle')).toHaveAttribute('aria-expanded', 'true');
+    if (activity === 'keyboard editing') {
+      await expect(opacity).toBeFocused();
+      await expect(opacity).toHaveValue('0.42');
+      await page.keyboard.press('ArrowRight');
+      await expect(opacity).toHaveValue('0.43');
+    } else {
+      await page.evaluate(() => window.finishOverlayImage());
+      await expect(card).toContainText('Image prepared locally');
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v3'))
+        .overlays.find(overlay => overlay.featureId === 'background-replacement').settings.image)).toMatch(/^data:image\//);
+    }
+    await emit('BoxDetections');
+    await expect(page.locator('.overlay-card')).toHaveCount(2);
+    expect(await original.evaluate(element => element.isConnected)).toBe(true);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('metadata-connection', {detail: {connected: false}})));
+    await emit('SegmentationMasks');
+    await emit('BoxDetections');
+    await expect(page.locator('.overlay-card')).toHaveCount(2);
+    expect(await original.evaluate(element => element.isConnected)).toBe(true);
+  });
+}
+
+test('default overlays are editable, removable and persistent without adding an overlay', async ({page}) => {
+  await page.routeWebSocket('**/ws', () => {});
+  await page.goto('/', {waitUntil: 'domcontentloaded'});
+  const emit = (producer = 'detector/boxes', matched = true) => page.evaluate(({producer, matched}) => {
+    const frame = {layers: [{payloadType: 'BoxDetections', model: 'Example detector',
+      producer: {instanceId: producer, component: 'example/parser', implementation: 'Example'},
+      detections: [{type: 'Rect', data: {uuid: 'box', x: 20, y: 30, width: 40, height: 50}}]}]};
+    Object.defineProperties(document.getElementById('video'), {
+      videoWidth: {configurable: true, value: 100}, videoHeight: {configurable: true, value: 100},
+    });
+    Object.defineProperties(document.getElementById('clientOsdCanvas'), {
+      clientWidth: {configurable: true, value: 100}, clientHeight: {configurable: true, value: 100},
+    });
+    window.dispatchEvent(new CustomEvent(matched ? 'video-frame-results' : 'metadata-message', {
+      detail: matched ? frame : {frame_results: frame},
+    }));
+  }, {producer, matched});
+  const painted = () => page.locator('#clientOsdCanvas').evaluate(canvas =>
+    canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, i) => i % 4 === 3 && value > 0));
+  await emit('detector/boxes', false);
+  await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+  const card = page.locator('.overlay-card');
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText('Bounding boxes · Example detector');
+  await expect.poll(painted).toBe(false); // Live discovery does not draw unmatched metadata.
+  await emit();
+  await expect.poll(painted).toBe(true);
+  await card.locator('.overlay-toggle').click();
+  await card.getByLabel('Color', {exact: true}).fill('#00ff00');
+  await card.getByLabel('Color', {exact: true}).dispatchEvent('change');
+  await expect.poll(() => page.locator('#clientOsdCanvas').evaluate(canvas => {
+    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    return pixels.some((value, i) => i % 4 === 1 && value === 255 && pixels[i - 1] === 0 && pixels[i + 2] > 0);
+  })).toBe(true);
+  await card.getByRole('switch').focus();
+  await page.keyboard.press('Space');
+  await expect.poll(painted).toBe(false);
+  await page.reload({waitUntil: 'domcontentloaded'});
+  await emit();
+  await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+  await expect(card).toHaveCount(1);
+  await expect(card.getByRole('switch')).not.toBeChecked();
+  await card.locator('.overlay-toggle').click();
+  await expect(card.getByLabel('Color', {exact: true})).toHaveValue('#00ff00');
+  await card.getByRole('switch').focus();
+  await page.keyboard.press('Space');
+  await expect.poll(painted).toBe(true);
+  await card.locator('.overlay-remove').click();
+  await emit();
+  await expect(card).toHaveCount(0);
+  await expect.poll(painted).toBe(false);
+  await page.reload({waitUntil: 'domcontentloaded'});
+  await emit();
+  await page.getByRole('button', {name: 'Overlays', exact: true}).click();
+  await expect(card).toHaveCount(0);
+  await emit('another/boxes');
+  await expect(card).toHaveCount(1);
+  await expect(card.getByRole('switch')).toBeChecked();
 });
 
 test('signaling diagnostics render as text', async ({ page }) => {

@@ -72,13 +72,24 @@ corresponding patterns. Canvas annotation colors are data, not UI status colors.
 
 ## Overlay controls
 
-Open **Overlays** (the layers button beside the video), then **Add overlay…**.
+Open **Overlays** (the layers button beside the video) to edit the default overlays,
+or choose **Add overlay…** for another visualization.
 The panel stays open while you use model switches and other controls. Only the
 Overlays button hides it; Escape still cancels an open add/edit dialog.
 Choose a rendering feature in **Show**, then configure its controls. A single source is selected automatically
 and shown as **From YOLO26n** (using the actual model or producer name). When
-several sources match, a **From** dropdown lets you choose. The initial overlay
-list is empty.
+several sources match, a **From** dropdown lets you choose.
+
+With no saved overlay preferences, supported outputs create enabled, editable
+overlays when their real producer identities first arrive. Each source gets its
+own row, including models enabled later. Defaults show detection boxes, movement
+trails, classifications, camera contact, gaze, performance text and supported
+mask features. Tracker boxes are not added alongside detector boxes; add
+**Tracked objects** explicitly for that presentation. OCR and circular markers
+remain explicit choices. Styles, visibility and removal use the same controls as
+manually added overlays. A source is initialized only once: removing its row does
+not recreate it on later frames, reconnects or reloads. Existing saved lists,
+including empty lists, retain their exact configuration.
 
 Supported features are available in **Show** even before their metadata arrives.
 Configure an overlay's color and opacity while its model is disabled. It waits
@@ -118,7 +129,10 @@ later entries on top. Adding overlapping features deliberately draws each one;
 they never implicitly change each other's settings.
 
 These controls affect browser drawing only. Decorations already encoded into
-the video by server-side `opkosd` cannot be hidden by browser controls.
+the video by server-side `opkosd` cannot be hidden by browser controls. The standard
+browser presets, including `full-onnx-yuv`, omit that native stage so every default
+decoration can be edited here. Custom pipelines using native drawing should omit
+it when using browser overlays.
 
 ## Features and metadata
 
@@ -184,6 +198,9 @@ Preferences are stored per browser origin under `opk-overlays:v3`:
 ```
 
 Frames, resolved relationships, and inference mask bytes are never persisted.
+New setups also store `defaultSources`, the source keys already considered for
+defaults, so removals persist while newly discovered producers get their own rows.
+Records without that field retain the existing manually configured behavior.
 Selected background images are saved locally as bounded raster data in the overlay
 settings. Settings load/save failures show a notice and leave in-memory controls
 usable. Invalid saved entries are skipped with a notice.
@@ -539,7 +556,7 @@ VAD/turn windows remain mono 16 kHz regardless of the original buffer rate.
 - `src/overlay-drawing.js`: coordinate mapping and drawing primitives.
 - `src/osd-renderer.js`: ordered dispatch and isolated canvas state; overlay opacity
   multiplies the renderer's alpha.
-- `src/overlays.js`: validated feature records, persistence, one-time source
+- `src/overlays.js`: validated feature records, per-source defaults, persistence, one-time source
   binding, and v2-to-v3 saved-selection migration.
 - `src/client-osd.js`: discovery, native dialog, overlay list, and control binding.
 
