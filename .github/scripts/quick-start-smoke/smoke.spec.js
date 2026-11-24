@@ -377,16 +377,19 @@ test('model and overlay switches share compact geometry and accessible interacti
   });
   for (const colorScheme of ['light', 'dark']) {
     await page.emulateMedia({colorScheme, reducedMotion: 'reduce'});
+    const offsets = [];
     for (const checked of [false, true]) {
       await model.setChecked(checked);
       await overlay.setChecked(checked);
       await page.mouse.move(0, 0);
       const sidebar = await geometry('#models-container [role=switch]');
+      offsets.push(sidebar.offset);
       expect(sidebar).toEqual(await geometry('.overlay-visible [role=switch]'));
       expect(sidebar.contained).toBe(true);
       expect(sidebar.width).toBeGreaterThan(sidebar.height);
       expect(sidebar.hitHeight).toBeGreaterThan(sidebar.height);
     }
+    expect(offsets[1]).toBeGreaterThan(offsets[0]);
   }
   expect(sent.some(message => message.type === 'model_toggle' && message.name === 'example')).toBe(true);
   await model.focus();
