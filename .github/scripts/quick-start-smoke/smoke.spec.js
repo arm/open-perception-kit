@@ -166,6 +166,14 @@ test('quick-start plays video and displays an object detection', async ({ page }
 
 });
 
+test('smoke server survives the former 30-second frame limit', async ({request}) => {
+  // This wait exercises server lifetime, rather than waiting for a UI condition.
+  await new Promise(resolve => setTimeout(resolve, 31000));
+  const response = await request.get('/opk-config.js');
+  expect(response.ok()).toBe(true);
+  expect(await response.text()).toContain('window.OPK_CONFIG');
+});
+
 for (const activity of ['keyboard editing', 'image decoding']) {
   test(`new default overlays preserve existing controls during ${activity}`, async ({page}) => {
     await page.routeWebSocket('**/ws', () => {});
