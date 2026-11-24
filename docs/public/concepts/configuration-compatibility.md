@@ -500,3 +500,11 @@ Its required attributes explicitly configure the score tensor, activation,
 pitch-bin frequency grid, decoder and voicing thresholds. Use version `2.3.0`
 and rebuild native readers before adopting this parser. Existing opchains keep
 their behavior; older readers cannot validate the new parser contract.
+
+## OpChain 2.4: pitch debug logging
+
+OpChain schema `2.4.0` adds optional boolean `log` to `PitchEstimationParser`.
+It defaults to false. When enabled, each voiced estimate prints its model,
+frequency in Hz and periodicity to stderr, independently of the global log
+level. Unvoiced estimates are still published but do not print. Rebuild native
+readers before using this attribute; no payload schema changes are required.

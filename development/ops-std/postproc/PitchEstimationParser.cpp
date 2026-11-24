@@ -19,6 +19,8 @@
 #include "opk/AudioResults.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <fmt/core.h>
 #include <limits>
 
 namespace opk::stdop::postproc {
@@ -163,6 +165,13 @@ opk::Result<void> PitchEstimationParser::parse(const opk::TensorParser::Input &i
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
                                             .inferElementId = input.inferenceInfo.inferElementId,
                                             .producer = &input.producerInfo});
+    if (input.attributes.getBoolOrDefault("log", false) && *estimate->voiced) {
+        fmt::print(stderr,
+                   "Pitch [{}]: {:.2f} Hz (periodicity={:.3f})\n",
+                   input.inferenceInfo.modelName,
+                   *estimate->frequency_hz,
+                   *estimate->periodicity);
+    }
     payload.estimates.push_back(std::move(estimate));
     results.add(std::move(payload));
     return {};

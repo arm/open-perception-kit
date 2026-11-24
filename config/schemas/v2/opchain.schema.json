@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:arm:opk:schema:opchain-descriptor:v2",
   "title": "OPK OpChain descriptor v2",
-  "x-opk-supported-version": "2.3.0",
+  "x-opk-supported-version": "2.4.0",
   "type": "object",
   "additionalProperties": false,
   "required": [

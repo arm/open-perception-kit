@@ -149,6 +149,28 @@ when the client disconnects. The audio output defaults to mono 16 kHz F32LE PCM
 before conversion and encoding by `opksink`. Set `opksrc rate=48000` for 48 kHz
 output, or select another output rate with the `rate` property while in `NULL`.
 
+### CREPE tiny pitch detection
+
+Run `./tools/opk-menu crepe-tiny`, open `http://localhost:9999`, and click
+**Mic**. The [preset](crepe-tiny.json) uses the same WebRTC source, playback
+and ports as the microphone test above. It requires the `crepe-tiny` model
+artifact from the existing model downloader.
+
+Audio passes through the model-local PCM normalization, ONNX inference and
+pitch postprocessor. The model consumes 1024 samples at 16 kHz (64 ms), with a
+160-sample hop (10 ms). Placeholder silence before microphone capture is skipped.
+`opkcomm` publishes serialized `PitchEstimates` through the `/ws` WebSocket,
+including frequency in Hz, periodicity, voiced state and window timing. Unvoiced
+results omit frequency. The browser supports microphone capture and playback;
+a dedicated pitch display is not implemented yet.
+
+The periodicity and original-PCM RMS thresholds are configured in
+[`config/models/crepe-tiny/opchain.json`](../models/crepe-tiny/opchain.json).
+See [pitch postprocessing](../../docs/arch/audio-log-mel.md#pitch-postprocessing)
+for the decoder and gating contract. The CREPE opchain currently enables debug
+logging: each voiced estimate prints frequency and periodicity to the terminal.
+Set its postprocessor attribute `"log": false` to disable this output.
+
 ## Interactive selection
 
 `.last_selected_pipeline_id` stores the last chosen top-level pipeline ID.

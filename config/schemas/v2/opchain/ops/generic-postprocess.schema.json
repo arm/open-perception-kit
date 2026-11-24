@@ -79,6 +79,10 @@
         "minimumRms": {
           "type": "number",
           "minimum": 0
+        },
+        "log": {
+          "type": "boolean",
+          "default": false
         }
       }
     },

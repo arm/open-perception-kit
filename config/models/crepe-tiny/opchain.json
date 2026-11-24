@@ -1,5 +1,5 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "name": "crepe-tiny",
   "displayName": "CREPE tiny pitch",
   "task": "Pitch estimation",
@@ -37,7 +37,8 @@
         "minFrequencyHz": 32,
         "maxFrequencyHz": 2000,
         "periodicityThreshold": 0.21,
-        "minimumRms": 0.001
+        "minimumRms": 0.001,
+        "log": true
       }
     }
   ]

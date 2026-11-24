@@ -301,7 +301,7 @@ pitch scores. This parser consumes raw PCM model outputs; it does not require
 log-mel preprocessing. See `config/models/crepe-tiny/opchain.json` for a complete
 PCM normalization → ONNX inference → pitch result chain.
 
-All parser attributes are required:
+The decoding and gating attributes below are required:
 
 | Attribute | Meaning |
 | --- | --- |
@@ -313,6 +313,10 @@ All parser attributes are required:
 | `weightedRadius` | Neighbor radius for weighted decoding, clipped to the vector and frequency limits; ignored by argmax. |
 | `periodicityThreshold` | Minimum strongest eligible score for a voiced result. All-zero scores remain unvoiced. |
 | `minimumRms` | Minimum original PCM RMS for a voiced result; zero disables this gate. |
+
+Optional `log: true` prints each voiced estimate to stderr with the model name,
+frequency and periodicity, regardless of the global log level. It defaults to
+false; the CREPE opchain enables it for debugging.
 
 Equal maxima select the lowest eligible bin. There is no temporal smoothing,
 Viterbi decoding or random dithering. Periodicity is the maximum eligible score,
