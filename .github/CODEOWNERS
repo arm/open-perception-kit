@@ -14,4 +14,4 @@
 # limitations under the License.
 
 # These owners will be the default owners for everything in the repo.
-* @arm/opk-engineers @arm/opk-admins
+* @arm/opk-engineers @arm/opk-admins @arm/opk-reviewers
