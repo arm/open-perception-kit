@@ -14,6 +14,21 @@
 # limitations under the License.
 
 
+if opkcomm_frame_access_enabled and not release_package
+  frame_pipeline_test = executable(
+    'opkcomm_frame_access_pipeline_test',
+    ['opkcomm_frame_access_pipeline_test.cpp', frame_contract[0]],
+    include_directories: [common_include, include_directories('../elements/opkcomm')],
+    dependencies: [opk_deps, native_dep, dependency('gstreamer-app-1.0')],
+    cpp_args: ['-UNDEBUG'],
+  )
+  test('opkcomm_frame_access_pipeline', frame_pipeline_test,
+    args: [opkcomm.full_path(), meson.current_build_dir() / 'frame-access-runtime', frame_contract[2].full_path()],
+    depends: [opkcomm, frame_contract],
+    timeout: 20,
+  )
+endif
+
 if get_option('or_runtime')
   # The runtime ABI conformance suite has no OPK runtime dependencies.
   or_host_conformance_tests = executable(

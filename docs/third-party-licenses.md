@@ -43,7 +43,7 @@ and check the built artifacts before publication.
 | [ExecuTorch](https://github.com/pytorch/executorch) | 1.3.1-3 | BSD-3-Clause and bundled terms | Debian package |
 | [expected](https://github.com/TartanLlama/expected) | [1.3.1](https://github.com/TartanLlama/expected/tree/v1.3.1) | CC0-1.0 | Fedora |
 | [fsspec](https://github.com/fsspec/filesystem_spec) | [2026.7.0](https://pypi.org/project/fsspec/2026.7.0/) | BSD-3-Clause | PyPI |
-| [FlatBuffers](https://github.com/google/flatbuffers) | [25.9.23](https://github.com/google/flatbuffers/tree/v25.9.23) (SDK/build), [25.12.19](https://pypi.org/project/flatbuffers/25.12.19/) (host Python), [25.2.10](https://github.com/google/flatbuffers/tree/v25.2.10) (MLWL build) | Apache-2.0 | npm, crates.io, PyPI, GitHub |
+| [FlatBuffers](https://github.com/google/flatbuffers) | [25.9.23](https://github.com/google/flatbuffers/tree/v25.9.23) (compiler/C++/Python/TypeScript SDK), [25.12.19](https://crates.io/crates/flatbuffers/25.12.19) (Rust SDK), [25.12.19](https://pypi.org/project/flatbuffers/25.12.19/) (host Python), [25.2.10](https://github.com/google/flatbuffers/tree/v25.2.10) (MLWL build) | Apache-2.0 | npm, crates.io, PyPI, GitHub |
 | [fmt](https://github.com/fmtlib/fmt) | [12.0.0](https://github.com/fmtlib/fmt/tree/12.0.0) | MIT | openSUSE |
 | [Lucide](https://lucide.dev/) | [1.61.0](https://www.npmjs.com/package/lucide-static/v/1.61.0) | ISC and MIT (Feather-derived icons) | vendored SVG assets |
 | [Wafer](https://github.com/Arm-Debug/design-system) | [2.0.2](https://github.com/Arm-Debug/design-system/tree/v2.0.2) | Arm copyright notice; upstream declares no CSS licence identifier | vendored CSS |
@@ -170,7 +170,7 @@ build requirements; Cairn instead uses Debian's `python3-gi`, whose copyright
 file remains in the image at `/usr/share/doc/python3-gi/copyright` and whose
 LGPL text is at `/usr/share/common-licenses/LGPL-2`. The Python SDK permits
 `flatbuffers>=24.3.25,<26.0.0`; 24.3.25 is a lower bound, while 25.9.23 is
-the checked-in runtime pin.
+the checked-in Python runtime pin.
 
 The Vulkan-related Debian packages above are resolved by apt; release images
 record installed versions in `/share/opk/licenses/debian-packages.tsv`.

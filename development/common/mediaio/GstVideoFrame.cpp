@@ -193,7 +193,7 @@ opk::YuvRange yuvRangeFromGstVideoInfo(const GstVideoInfo &info) noexcept {
 }
 
 /**
- * @brief Returns the byte range needed to expose a mapped video plane.
+ * @brief Returns the plane's stride extent clamped to its actual mapped allocation.
  */
 size_t
 mappedPlaneByteSize(const GstVideoInfo &info, const ::GstVideoFrame &frame, guint plane) noexcept {
@@ -209,7 +209,16 @@ mappedPlaneByteSize(const GstVideoInfo &info, const ::GstVideoFrame &frame, guin
         return 0;
     }
 
-    return strideBytes * static_cast<size_t>(height);
+    const auto address = reinterpret_cast<uintptr_t>(GST_VIDEO_FRAME_PLANE_DATA(&frame, plane));
+    size_t available = 0;
+    for (const auto &mapping : frame.map) {
+        if (mapping.data == nullptr) continue;
+        const auto start = reinterpret_cast<uintptr_t>(mapping.data);
+        if (address >= start && address - start <= mapping.size) {
+            available = std::max(available, mapping.size - static_cast<size_t>(address - start));
+        }
+    }
+    return std::min(strideBytes * static_cast<size_t>(height), available);
 }
 
 /**
@@ -466,7 +475,8 @@ std::unique_ptr<GstVideoFrame> GstVideoFrame::mapGstBufferUnique(GstBuffer *buff
         auto *data = GST_VIDEO_FRAME_PLANE_DATA(&frameMap, plane);
         const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frameMap, plane);
         const size_t byteSize = mappedPlaneByteSize(videoInfo, frameMap, plane);
-        if (data == nullptr || stride <= 0 || byteSize == 0) {
+        const size_t occupied = videoPlaneByteSize(videoInfo, plane, stride);
+        if (data == nullptr || stride <= 0 || occupied == 0 || byteSize < occupied) {
             gst_video_frame_unmap(&frameMap);
             return nullptr;
         }

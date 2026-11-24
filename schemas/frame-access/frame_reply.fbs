@@ -1,0 +1,59 @@
+// Draft v1. Normative validation and transport rules: CONTRACT.md.
+// No file_identifier: iceoryx2 0.10.0 finalizes native FlatBuffers with none.
+namespace opk.frame_access.v1;
+
+enum ReplyStatus : ubyte {
+  Unspecified = 0,
+  Ok = 1,
+  InvalidRequest = 2,
+  NotReady = 3,
+  UnsupportedFrame = 4,
+  TooLarge = 5,
+  ResourceExhausted = 6,
+  InternalError = 7
+}
+
+// Covers every non-Unknown OPK RawImagePixelFormat in the inspected sources.
+// Explicit wire numbers are independent of OPK's C++ enum ordinals.
+enum PixelFormat : ubyte {
+  Unknown = 0,
+  BGRA8 = 1,
+  RGB8 = 2,
+  Gray8 = 3,
+  I420 = 4,
+  NV12 = 5,
+  YUY2 = 6
+}
+
+table Plane {
+  // Tightly packed rows. Length and plane order are derived from format/W/H.
+  data:[ubyte] (required, id: 0);
+}
+
+table Frame {
+  format:PixelFormat = Unknown (id: 0);
+  width:uint (id: 1);
+  height:uint (id: 2);
+  planes:[Plane] (required, id: 3);
+}
+
+table SampleInfo {
+  sequence:ulong (id: 0);
+  // GStreamer PTS, not a verified raw PipeWire capture timestamp.
+  // Nanoseconds; null means unavailable and zero is valid.
+  pts_ns:ulong = null (id: 1);
+}
+
+table FrameReply {
+  // Outer version is identified by the schema/type namespace above.
+  status:ReplyStatus = Unspecified (id: 0);
+  // Success requires sample + a nonempty, complete OPK FLWD envelope.
+  sample:SampleInfo (id: 1);
+  opk_results:[ubyte] (id: 2);
+  // Present exactly when a successful request asked for source pixels.
+  frame:Frame (id: 3);
+  // Errors only; at most 512 UTF-8 bytes. Status is authoritative.
+  error_message:string (id: 4);
+}
+
+root_type FrameReply;
