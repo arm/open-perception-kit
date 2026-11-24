@@ -1,0 +1,18 @@
+addReviewers: true
+addAssignees: false
+
+# A list of reviewers to be added to pull requests (GitHub user name)
+reviewers:
+  - pogadam7
+  - sardnarellum
+  - gergelybado
+  - Balazs060
+  - nyari-kovacs-arm
+  - ibori75
+  - Szendvics
+  - msandor93
+  - tamas-kulcsar-arm
+  - zmolnar
+
+# Set 0 to add all the reviewers (default: 0)
+numberOfReviewers: 1
