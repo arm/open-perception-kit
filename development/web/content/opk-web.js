@@ -788,16 +788,17 @@ var muteIcon = document.getElementById("muteUnmuteIcon");
 var muteText = muteBtn.querySelector(".video-control-text");
 muteBtn.addEventListener("click", () => {
   video3.muted = !video3.muted;
-  if (video3.muted) {
-    muteIcon.dataset.icon = "volume-x";
-    muteText.textContent = "Unmute";
-    muteBtn.setAttribute("aria-label", "Unmute");
-  } else {
-    muteIcon.dataset.icon = "volume-2";
-    muteText.textContent = "Mute";
-    muteBtn.setAttribute("aria-label", "Mute");
-  }
+  updateAudioButton();
 });
+function updateAudioButton() {
+  const action = video3.muted ? "Unmute Audio" : "Mute Audio";
+  muteIcon.dataset.icon = video3.muted ? "volume-x" : "volume-2";
+  muteText.textContent = action;
+  muteBtn.setAttribute("aria-label", action);
+  muteBtn.title = action;
+}
+video3.addEventListener("volumechange", updateAudioButton);
+updateAudioButton();
 function enableAudioButton(enable) {
   if (muteBtn) {
     muteBtn.hidden = !enable;
@@ -1058,21 +1059,24 @@ var client2 = new MicrophoneClient({
     const output = kind === "video" ? cameraStatus : status;
     const name = kind === "video" ? "camera" : "microphone";
     const glyph = kind === "video" ? "video" : "mic";
+    const action = kind === "video" ? active ? `Stop sharing ${name}` : `Share ${name}` : active ? "Mute Mic" : "Unmute Mic";
     control.setAttribute("aria-pressed", String(active));
-    control.setAttribute("aria-label", active ? `Stop sharing ${name}` : `Share ${name}`);
-    control.title = message;
+    control.setAttribute("aria-label", action);
+    if (kind === "audio") control.querySelector(".video-control-text").textContent = action;
+    control.title = action;
     indicator.dataset.icon = active ? glyph : `${glyph}-off`;
-    output.textContent = message;
+    output.textContent = ["Microphone off", "Camera off", "Microphone sharing", "Camera sharing"].includes(message) ? "" : message;
+    output.hidden = !microphoneAvailable || !output.textContent;
   }
 });
 function enableMicrophoneButton(enable) {
   microphoneAvailable = enable === true;
   button.style.display = microphoneAvailable ? "inline-flex" : "none";
   button.disabled = !microphoneAvailable;
-  status.hidden = !microphoneAvailable;
+  status.hidden = !microphoneAvailable || !status.textContent;
   cameraButton.style.display = microphoneAvailable ? "inline-flex" : "none";
   cameraButton.disabled = !microphoneAvailable;
-  cameraStatus.hidden = !microphoneAvailable;
+  cameraStatus.hidden = !microphoneAvailable || !cameraStatus.textContent;
   if (!microphoneAvailable)
     client2.stop();
 }
@@ -1083,6 +1087,7 @@ button.addEventListener("click", () => {
     client2.stopTrack("audio");
   } else if (!navigator.mediaDevices?.getUserMedia) {
     status.textContent = "Microphone unavailable. Open this page through localhost.";
+    status.hidden = false;
   } else {
     void client2.start();
   }
@@ -1093,6 +1098,7 @@ cameraButton.addEventListener("click", () => {
     client2.stopTrack("video");
   } else if (!navigator.mediaDevices?.getUserMedia) {
     cameraStatus.textContent = "Camera unavailable. Open this page through localhost.";
+    cameraStatus.hidden = false;
   } else {
     void client2.start("video");
   }

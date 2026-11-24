@@ -24,17 +24,19 @@ const muteText = muteBtn.querySelector(".video-control-text");
 
 muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
-
-    if (video.muted) {
-        muteIcon.dataset.icon = 'volume-x';
-        muteText.textContent = "Unmute";
-        muteBtn.setAttribute("aria-label", "Unmute");
-    } else {
-        muteIcon.dataset.icon = 'volume-2';
-        muteText.textContent = "Mute";
-        muteBtn.setAttribute("aria-label", "Mute");
-    }
+    updateAudioButton();
 });
+
+function updateAudioButton() {
+    const action = video.muted ? 'Unmute Audio' : 'Mute Audio';
+    muteIcon.dataset.icon = video.muted ? 'volume-x' : 'volume-2';
+    muteText.textContent = action;
+    muteBtn.setAttribute('aria-label', action);
+    muteBtn.title = action;
+}
+
+video.addEventListener('volumechange', updateAudioButton);
+updateAudioButton();
 
 export function enableAudioButton(enable) {
     if(muteBtn) {

@@ -136,7 +136,7 @@ and audio paths.
 ### WebRTC microphone test
 
 Run `./tools/opk-menu opksrc-test`, then open `http://localhost:9999` and
-click **Mic** to request microphone access and negotiate with `opksrc`.
+click **Unmute Mic** to request microphone access and negotiate with `opksrc`.
 The preset connects `opksrc.video` (internal live black frames) and `opksrc.src`
 (audio) to `opksink`. It requires no model or media downloads.
 
