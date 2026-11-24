@@ -93,6 +93,12 @@ class MetadataDiscoveryTest(unittest.TestCase):
         self.assert_metadata(ports, 8002, "/ws")
         self.assertEqual(sink.get_property("metadata-port"), 0)
 
+    def test_server_ports_exclude_the_client_ephemeral_range(self):
+        ports, _ = reserve_ports(self.reservations, 6)
+        low, high = map(int, Path("/proc/sys/net/ipv4/ip_local_port_range").read_text().split())
+        self.assertEqual(len(set(ports)), 6)
+        self.assertTrue(all(not low <= port <= high for port in ports), ports)
+
     def test_single_websocket_publisher(self):
         pipeline, sink, ports = self.make_pipeline()
         self.add_publisher(pipeline, port=9102, endpoint="/perception/results")

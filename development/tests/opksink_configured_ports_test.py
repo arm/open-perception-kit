@@ -19,6 +19,7 @@
 from contextlib import ExitStack
 import errno
 from pathlib import Path
+import random
 import socket
 import sys
 from urllib.error import HTTPError
@@ -46,10 +47,24 @@ def start_pipeline(gst, pipeline):
 
 
 def reserve_ports(reservations, count):
+    # Linux integration tests hand these sockets off to servers, including restarts.
+    # Keep them out of the client auto-bind range so outgoing connections cannot
+    # steal a reserved server port between closing its reservation and binding it.
+    low, high = map(int, Path("/proc/sys/net/ipv4/ip_local_port_range").read_text().split())
+    candidates = list(range(1024, low)) + list(range(max(1024, high + 1), 65536))
+    random.shuffle(candidates)
     sockets = [reservations.enter_context(socket.socket()) for _ in range(count)]
     for listener in sockets:
         # Match the servers' wildcard bind and exclude clients on other interfaces.
-        listener.bind(("0.0.0.0", 0))
+        while candidates:
+            try:
+                listener.bind(("0.0.0.0", candidates.pop()))
+                break
+            except OSError as error:
+                if error.errno != errno.EADDRINUSE:
+                    raise
+        else:
+            raise OSError(errno.EADDRINUSE, "No free test port outside the client ephemeral range")
     return [listener.getsockname()[1] for listener in sockets], sockets
 
 
