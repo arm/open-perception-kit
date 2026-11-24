@@ -333,6 +333,7 @@ test('media actions stay visible and distinguish capture from playback', async (
   await expect(mic).toHaveAccessibleName('Mute Mic');
   await expect(page.locator('#microphoneIcon')).toHaveAttribute('data-icon', 'mic');
   await expect(page.locator('#microphoneStatus')).toContainText('permission');
+  await expect(page.locator('#microphoneStatus')).toBeVisible();
   await mic.click();
   await expect(mic).toHaveText('Unmute Mic');
   await expect(page.locator('#microphoneStatus')).toBeHidden();
@@ -342,6 +343,7 @@ test('media actions stay visible and distinguish capture from playback', async (
   await expect(mic).toHaveText('Unmute Mic');
   await expect(page.locator('#microphoneIcon')).toHaveAttribute('data-icon', 'mic-off');
   await expect(page.locator('#microphoneStatus')).toContainText('Permission denied');
+  await expect(page.locator('#microphoneStatus')).toBeVisible();
   await audio.click();
   await expect(audio).toHaveText('Unmute Audio');
   await expect(page.locator('#muteUnmuteIcon')).toHaveAttribute('data-icon', 'volume-x');
