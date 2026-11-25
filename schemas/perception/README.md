@@ -24,16 +24,16 @@ versions, evaluate compatibility, regenerate the SDKs, and validate a change.
 ## Sources of Truth
 
 - `schemas/perception/metadata/` contains the complete authored schema set.
-- `tools/perception/sdk.json` owns the SDK name, schema and
+- `tools/perception/sdk.json` owns the SDK name and version, schema and
   output paths, FlowData generator location, exact FlatBuffers version, and
   release-tool checksums.
-- `development/meson.build` owns the shared OPK and SDK package version.
+- `development/meson.build` owns the independent OPK product version.
 - `generated/open_perception_kit/` contains derived C++, Python, Rust, and TypeScript SDK output.
 - `generated/open_perception_kit/open-perception-kit-manifest.json` is the generation receipt.
 - `scripts/perception-sdk.sh` is the supported command surface for generation,
   drift checking, packaging, verification, and development installation.
 - `tools/perception/evaluate_schema_change.py` evaluates schema compatibility
-  and required OPK release impact against a Git revision.
+  and required SDK release impact against a Git revision.
 
 Do not edit generated files, generated build integrations, or manifests by
 hand. Change the schemas or `tools/perception/sdk.json`, then regenerate them.
@@ -43,7 +43,7 @@ hand. Change the schemas or `tools/perception/sdk.json`, then regenerate them.
 Open Perception Kit work has separate concerns:
 
 1. Use `$evolve-perception-schema` to design or change authored schemas, assess
-   compatibility, record the required OPK release impact, and update runtime semantics.
+   compatibility, record the required SDK release impact, and update runtime semantics.
 2. Use `$regenerate-perception-sdk` during implementation to materialize and
    validate the tracked C++, Python, Rust, and TypeScript SDK snapshot. Commit these generated
    files normally with their authored inputs.
@@ -97,8 +97,9 @@ with one another. Complete the refactor before publishing stable 1.0 packages.
 The release rules below apply when evolving a published contract, not between
 subtasks of that unreleased refactor.
 
-SDK packages use the OPK product version from `development/meson.build`. Apply
-the schema compatibility impact to that release version:
+SDK packet and package versions come from `tools/perception/sdk.json`,
+independently of the OPK product version.
+Apply the schema compatibility impact to the SDK version:
 
 - Increment **MAJOR** for an incompatible generated API or semantic contract,
   including removed or renamed public fields, changed field types, changed
@@ -174,7 +175,7 @@ provenance and diagnostics only, not for semantic payload routing.
    `schema_major`, `schema_minor`, optional `LayerInfo`, and the payload data.
 5. Add one `root_type` and choose a descriptive, unique four-character
    `file_identifier`.
-6. Record that a new payload normally requires a MINOR OPK release.
+6. Record that a new payload normally requires a MINOR SDK release.
 7. Hand off to `$regenerate-perception-sdk` and regenerate all configured SDK
    outputs:
 
@@ -232,7 +233,7 @@ Before editing a published schema:
 5. Prefer appending an optional table field for an additive change.
 6. For an incompatible or meaning-changing redesign, consider a new root and
    file identifier so both contracts can coexist during migration.
-7. Record the required OPK release impact according to the public API and semantics.
+7. Record the required SDK release impact according to the public API and semantics.
 8. Regenerate and inspect all payload and manifest changes.
 9. Add old/new fixture tests when mixed-version behavior matters. Test old
    payload bytes with the new schema and new payload bytes with the old schema,
@@ -280,7 +281,7 @@ for review candidates; do not weaken manifest or checksum validation.
 ## Review Checklist
 
 - The change follows the FlatBuffers evolution rules above.
-- The OPK release version matches the SDK API and semantic impact.
+- The SDK version matches its API and semantic impact.
 - Every root has one unique `file_identifier` and stable root identity.
 - Shared-schema impact has been reviewed across all dependent roots.
 - Generated C++, Python, Rust, and TypeScript outputs and manifests were regenerated, not edited.

@@ -28,11 +28,9 @@ from release_common import sha256
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SDK_CONFIG_PATH = Path(__file__).with_name("sdk.json")
-PRODUCT_VERSION_PATH = REPO_ROOT / "development/meson.build"
 PACKAGE_NAME_RE = re.compile(r"[a-z][a-z0-9_-]*")
 PYTHON_PACKAGE_NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
-PRODUCT_VERSION = re.compile(r"project\([^)]*version:\s*'([^']+)'", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -187,19 +185,11 @@ def _typescript_build(
     return runtime, compiler, node_minimum_major
 
 
-def product_version(path: Path = PRODUCT_VERSION_PATH) -> str:
-    match = PRODUCT_VERSION.search(path.read_text(encoding="utf-8"))
-    if not match or not SEMVER.fullmatch(match.group(1)):
-        raise RuntimeError(
-            "development/meson.build must contain a stable MAJOR.MINOR.PATCH version"
-        )
-    return match.group(1)
-
-
-def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
+def load_sdk_config(path: Path = SDK_CONFIG_PATH, *, repo_root: Path = REPO_ROOT) -> SdkConfig:
     raw = json.loads(path.read_text(encoding="utf-8"))
     expected = {
         "public_name",
+        "version",
         "package_prerelease",
         "schema_dir",
         "generated_dir",
@@ -215,6 +205,9 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     public_name = raw["public_name"]
     if not isinstance(public_name, str) or PYTHON_PACKAGE_NAME_RE.fullmatch(public_name) is None:
         raise RuntimeError("SDK public_name must match [a-z][a-z0-9_]*")
+    version = raw["version"]
+    if not isinstance(version, str) or not SEMVER.fullmatch(version):
+        raise RuntimeError("SDK version must contain a stable MAJOR.MINOR.PATCH version")
     package_prerelease = raw["package_prerelease"]
     if not isinstance(package_prerelease, bool):
         raise RuntimeError("package_prerelease must be boolean")
@@ -249,7 +242,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     flowdata = raw["flowdata_sdk"]
     if not isinstance(flowdata, dict) or set(flowdata) != {"root", "generator"}:
         raise RuntimeError("flowdata_sdk fields must be exactly: ['generator', 'root']")
-    flowdata_root = _relative_path(flowdata["root"], "flowdata_sdk.root")
+    flowdata_root = _relative_path(flowdata["root"], "flowdata_sdk.root", repo_root)
     flowdata_generator = _relative_path(
         flowdata["generator"], "flowdata_sdk.generator", flowdata_root
     )
@@ -258,17 +251,17 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     if not isinstance(project_files, dict) or set(project_files) != {"internal_meson"}:
         raise RuntimeError("project_generated_files must contain only internal_meson")
 
-    schema_dir = _relative_path(raw["schema_dir"], "schema_dir")
-    generated_root = _relative_path(raw["generated_dir"], "generated_dir")
+    schema_dir = _relative_path(raw["schema_dir"], "schema_dir", repo_root)
+    generated_root = _relative_path(raw["generated_dir"], "generated_dir", repo_root)
     internal_meson_path = _relative_path(
-        project_files["internal_meson"], "project_generated_files.internal_meson"
+        project_files["internal_meson"], "project_generated_files.internal_meson", repo_root
     )
     if not schema_dir.is_dir():
         raise RuntimeError(f"schema directory does not exist: {schema_dir}")
 
     return SdkConfig(
         public_name=public_name,
-        version=product_version(),
+        version=version,
         package_prerelease=package_prerelease,
         schema_dir=schema_dir,
         generated_root=generated_root,

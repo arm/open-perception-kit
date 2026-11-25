@@ -5,7 +5,7 @@
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "cb4bae029c80713b673face612aec8763f9acca0c14ff5d9e7b89ccd17c5437a"
+    "sha256": "74d9f09a097840e2f6d0094d80456ad49c64d400fedaef15d38c4541ececc7ca"
   },
   "files": [
     {
@@ -2026,8 +2026,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "c99a56d7156ac40dac39f38694b7648c3bfa481cb84f6343504973f7ed1b2de9",
-        "size": 47998
+        "sha256": "24f8381b6aaf188e979a00f17beb49ca2234f61fde1c50081c593082680603cf",
+        "size": 47789
       },
       {
         "path": "tools/perception/artifacts.py",
@@ -2041,8 +2041,8 @@
       },
       {
         "path": "tools/perception/sdk_config.py",
-        "sha256": "8a9424ba02deb56291c36e96ae547fbf2fdd7079cf75ea2e54fc7c16c86ca33c",
-        "size": 12000
+        "sha256": "472f0b86d64a321fb8bb67c99c5d894561ef12f408665b93ba714162d98ab407",
+        "size": 11792
       },
       {
         "path": "tools/perception/tests/fixtures/write_packet.py",

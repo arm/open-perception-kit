@@ -68,7 +68,8 @@ releases remain independently versioned in `development/meson.build`.
 | OpChain JSON | `config/schemas/v2/opchain.schema.json` and its referenced Op schemas | OPK Op maintainers own ordering, loops, and built-in attributes. Custom Op authors own their attributes. |
 | Model JSON | `config/schemas/v2/model.schema.json` | OPK model integration maintainers own tensor and preprocessing declarations. Model authors own the artifact and its export requirements. |
 | SDK descriptor JSON | `tools/perception/sdk.json` and `tools/perception/sdk_config.py` | SDK tooling maintainers own its dependency locks, generator inputs, and release fields. It has no configuration-format version. |
-| OPK runtime, native plugins, and SDK package version | `development/meson.build` | OPK maintainers version and distribute these together. Use components from the same release or source checkout. |
+| OPK runtime and native plugins | `development/meson.build` | OPK maintainers own the product version. Use native components from the same release or source checkout. |
+| SDK packet and package version | `tools/perception/sdk.json` | SDK maintainers version APIs and payload semantics independently of the product. |
 | Inference frameworks | `Dockerfile` dependency versions and `development/ops-*/meson.build` build integration | Backend maintainers select the packaged framework. Exported models must be supported by that framework. |
 | Open Perception Kit and FlatBuffers | `schemas/perception/`, `tools/perception/sdk.json`, and the generated SDK manifest | Schema maintainers own payload semantics; the SDK descriptor owns generator inputs and exact FlatBuffers artifacts. |
 | Embedded Python dependencies | `development/ops-python/runtime.json` and `tools/perception/sdk.json` | Python Op maintainers own NumPy; the SDK descriptor owns FlatBuffers. Use the supplied container or matching binary release runtime. |
@@ -424,7 +425,8 @@ omitted `description`, add a string description as well:
 
 Existing model and OpChain files using `"version": 1` must also migrate to
 `"version": "2.0.0"` with the field changes above. The SDK descriptor is not part of this configuration
-version contract and must keep its own unversioned format. For an unversioned
+version contract: its `version` identifies the SDK packet and packages, not the
+descriptor format. For an unversioned
 external Model, OpChain, or pipeline descriptor, compare it with the corresponding
 schema and checked-in example before adding `version`; the number alone does
 not convert old field semantics. There is no automatic major-version converter.

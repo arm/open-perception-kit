@@ -34,8 +34,6 @@ from pathlib import Path
 from artifacts import acquire_artifact
 from release_common import sha256
 from sdk_config import (
-    PRODUCT_VERSION,
-    PRODUCT_VERSION_PATH,
     REPO_ROOT,
     SDK_CONFIG_PATH,
     SEMVER,
@@ -105,15 +103,12 @@ def run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
 
 
-def set_product_version(path: Path, version: str) -> None:
+def set_sdk_version(path: Path, version: str) -> None:
     if SEMVER.fullmatch(version) is None:
-        raise RuntimeError("product version must use MAJOR.MINOR.PATCH form")
-    text = path.read_text(encoding="utf-8")
-    matches = list(PRODUCT_VERSION.finditer(text))
-    if len(matches) != 1:
-        raise RuntimeError("product Meson file must contain exactly one version")
-    start, end = matches[0].span(1)
-    path.write_text(f"{text[:start]}{version}{text[end:]}", encoding="utf-8")
+        raise RuntimeError("SDK version must use MAJOR.MINOR.PATCH form")
+    descriptor = json.loads(path.read_text(encoding="utf-8"))
+    descriptor["version"] = version
+    path.write_text(json.dumps(descriptor, indent=2) + "\n", encoding="utf-8")
 
 
 def set_package_prerelease(path: Path, enabled: bool) -> None:
@@ -1110,7 +1105,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--version",
         metavar="MAJOR.MINOR.PATCH",
-        help="set the product version before regenerating every consumer",
+        help="set the SDK version before regenerating its consumers",
     )
     parser.add_argument(
         "--package-prerelease",
@@ -1167,7 +1162,7 @@ def main() -> int:
         if args.package_prerelease and not args.version:
             raise RuntimeError("--package-prerelease requires --version")
         if args.version:
-            set_product_version(PRODUCT_VERSION_PATH, args.version)
+            set_sdk_version(SDK_CONFIG_PATH, args.version)
             set_package_prerelease(SDK_CONFIG_PATH, args.package_prerelease)
         config = load_sdk_config()
         node_modules = args.node_modules

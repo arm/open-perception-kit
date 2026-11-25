@@ -102,17 +102,23 @@ checked-in inputs before packaging:
 | Input | Requirement |
 | --- | --- |
 | `development/meson.build` | Product version in stable `MAJOR.MINOR.PATCH` form |
-| `generated/open_perception_kit/python/pyproject.toml` | Python package version equals the product version |
-| `generated/open_perception_kit/rust/Cargo.toml` | Cargo package version equals the product version |
+| `tools/perception/sdk.json` | Independent SDK version in stable `MAJOR.MINOR.PATCH` form, with `package_prerelease: false` |
+| `generated/open_perception_kit/python/pyproject.toml` | Python package version equals the SDK version |
+| `generated/open_perception_kit/rust/Cargo.toml` | Cargo package version equals the SDK version |
 | `CHANGELOG.md` | Non-empty `## [<version>]` section for the product version |
 
-The `prepare` job then checks whether the version already has a GitHub tag or
-release, a crates.io `open_perception_kit` crate, or an Artifactory destination.
+The product and SDK versions are independent.
+The SDK version also identifies packet producers; product releases do not change it.
+The `prepare` job checks the product version for an existing GitHub tag, release,
+or Artifactory destination, and the SDK version for an existing crates.io
+`open_perception_kit` crate.
 An existing version or an unavailable version check stops the workflow before
 publication.
 
-In a release-preparation PR, update the product version, changelog section, and
-exact `open_perception_kit` dependency in `tools/plumber/pyproject.toml`.
+In a release-preparation PR, update the product version and changelog section.
+Select the SDK version separately in `tools/perception/sdk.json`; generation
+keeps the exact `open_perception_kit` dependency in `tools/plumber/pyproject.toml`
+aligned with the SDK package version.
 Check `docs/third-party-licenses.md` against current dependency pins and
 licence sources, and update it for added, removed, or changed components.
 Verify the release surfaces and original notice files for components that will
@@ -190,7 +196,7 @@ Meson targets. The demo package includes model binaries downloaded by
 published unchanged to Artifactory and the GitHub Release.
 Demo videos are not included; provide your own video input.
 
-For product version `<version>`, the release produces:
+For product version `<version>` and SDK version `<sdk-version>`, the release produces:
 
 | Artifact | Destination |
 | --- | --- |
@@ -198,8 +204,8 @@ For product version `<version>`, the release produces:
 | `opk-<version>-linux-aarch64.tar.gz` | Actions, Artifactory, GitHub Release |
 | `opk-runtime_<version>-1_<architecture>.deb` (`amd64`, `arm64`) | Actions, Artifactory, GitHub Release |
 | `opk-demo_<version>-1_<architecture>.deb` (`amd64`, `arm64`) | Actions, Artifactory, GitHub Release |
-| `open_perception_kit-<version>-py3-none-any.whl` | Actions and Artifactory publisher input |
-| `open_perception_kit-<version>.crate` | Actions, Artifactory publisher input, and crates.io |
+| `open_perception_kit-<sdk-version>-py3-none-any.whl` | Actions and Artifactory publisher input |
+| `open_perception_kit-<sdk-version>.crate` | Actions, Artifactory publisher input, and crates.io |
 | `opk-sbom-source.json` | Actions and GitHub Release |
 | `opk-sbom-open-perception-kit-crate.json` | Actions and GitHub Release |
 
@@ -214,8 +220,8 @@ published as a site.
 
 ## Publication order
 
-1. `prepare` validates the version and source commit, then checks publication
-   destinations for the version. Native builds and source SBOM generation follow.
+1. `prepare` validates the product and SDK versions and source commit, then checks
+   publication destinations using the corresponding version. Native builds and source SBOM generation follow.
    Quick-start smoke, SDK tests, and Meson tests also run.
 2. `artifactory` waits for the builds, the source SBOM, and all required test
    workflows. It collects the architecture archives, the Debian packages for

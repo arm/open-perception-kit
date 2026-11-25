@@ -44,6 +44,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.release.outputs.version }}
+      sdk_version: ${{ steps.release.outputs.sdk_version }}
       cargo_package_version: ${{ steps.release.outputs.cargo_package_version }}
       python_package_version: ${{ steps.release.outputs.python_package_version }}
       commit: ${{ steps.release.outputs.commit }}
@@ -69,9 +70,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.release.outputs.version }}
+          SDK_VERSION: ${{ steps.release.outputs.sdk_version }}
         run: |
           python3 scripts/release/ReleaseTool.py check-version \
             --version "$VERSION" \
+            --sdk-version "$SDK_VERSION" \
             --repository "$GITHUB_REPOSITORY"
 
   quick-start-smoke:
@@ -260,19 +263,21 @@ jobs:
         working-directory: ${{ env.SOURCE_DIR }}
         env:
           RUSTUP_TOOLCHAIN: 1.85.0
-          VERSION: ${{ needs.prepare.outputs.version }}
+          SDK_VERSION: ${{ needs.prepare.outputs.sdk_version }}
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
         run: |
           set -euo pipefail
-          export_root="$RUNNER_TEMP/open-perception-kit-$VERSION"
+          export_root="$RUNNER_TEMP/open-perception-kit-$SDK_VERSION"
           rm -rf -- "$export_root"
           python3 -m zipfile -e \
-            "dist/open-perception-kit-input/open-perception-kit-$VERSION.zip" "$RUNNER_TEMP"
+            "dist/open-perception-kit-input/open-perception-kit-$SDK_VERSION.zip" "$RUNNER_TEMP"
           rust="$export_root/rust"
           scripts/release/patch-perception-cargo-toml.sh "$rust/Cargo.toml"
           printf '\n[registries.crates-io]\nprotocol = "sparse"\n' \
             >> "$rust/.cargo/config.toml"
           (cd "$rust" && cargo package --offline --locked)
-          publish_source="$RUNNER_TEMP/open_perception_kit-cargo-source-$VERSION"
+          publish_source="$RUNNER_TEMP/open_perception_kit-cargo-source-$CARGO_PACKAGE_VERSION"
           rm -rf -- "$publish_source"
           python3 - "$rust" "$publish_source" <<'PY'
           import shutil
@@ -296,11 +301,11 @@ jobs:
             CARGO_HOME="$publish_cargo_home" \
               cargo package --locked
           )
-          cp "$publish_source/target/package/open_perception_kit-$VERSION.crate" \
+          cp "$publish_source/target/package/open_perception_kit-$CARGO_PACKAGE_VERSION.crate" \
             dist/open-perception-kit-input/
           rm -rf -- "$publish_source/target"
           mv "$publish_source" dist/open-perception-kit-input/
-          cp "$export_root/python/open_perception_kit-$VERSION-py3-none-any.whl" \
+          cp "$export_root/python/open_perception_kit-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
             dist/open-perception-kit-input/
 
       - name: Upload open-perception-kit input

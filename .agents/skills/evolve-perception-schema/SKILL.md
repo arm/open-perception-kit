@@ -42,11 +42,11 @@ change, and define its runtime semantics before regenerating derived SDK files.
 
 ## Classify the Change
 
-- **No schema change:** no schema-driven OPK release impact.
+- **No schema change:** no schema-driven SDK release impact.
 - **Compatible addition:** append table fields or add a payload root; increment
-  an OPK MINOR release.
+  an SDK MINOR release.
 - **Breaking change:** remove, rename, reorder, retype, or reinterpret published
-  fields; require an OPK MAJOR release and define migration behavior.
+  fields; require an SDK MAJOR release and define migration behavior.
 - **Unclear semantics:** stop and document the compatibility decision before
   editing.
 
@@ -63,7 +63,8 @@ breaks from earlier content-derived IDs without aliases or packet conversion.
    identifiers unless intentionally making a breaking change.
 3. Give every new transportable root a unique four-character file identifier,
    one `root_type`, and initial `schema_major` and `schema_minor` fields.
-4. Record the required OPK release impact; do not create a separate SDK version.
+4. Record the required SDK release impact and update `version` in
+   `tools/perception/sdk.json` independently of the OPK product version.
 5. Update affected runtime producers, consumers, inspection tools, tests, and
    documentation.
 6. Add old/new fixture tests when mixed-version behavior matters.
@@ -96,7 +97,7 @@ Run tests for the runtime behavior that produces or consumes the payload. Let
 
 ## Report
 
-Summarize the compatibility classification, required OPK version bump, changed
+Summarize the compatibility classification, required SDK version bump, changed
 roots, transitively affected payloads, runtime semantics, migration behavior,
 and fixture coverage. State whether generation has been handed off and whether
 a release bundle is intentionally out of scope.

@@ -175,18 +175,36 @@ class SchemaChangeParserTests(unittest.TestCase):
         output = io.StringIO()
         with redirect_stdout(output):
             schema_change.print_report(report)
-        self.assertIn("OPK version: 1.2.3 -> 1.2.3", output.getvalue())
-        self.assertIn("Required OPK release impact: none", output.getvalue())
+        self.assertIn("SDK version: 1.2.3 -> 1.2.3", output.getvalue())
+        self.assertIn("Required SDK release impact: none", output.getvalue())
 
-    def test_rejects_invalid_product_version(self) -> None:
+    def test_rejects_invalid_sdk_version(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "stable MAJOR.MINOR.PATCH"):
-            schema_change.parse_product_version("project('opk', version: 'next')")
+            schema_change.parse_sdk_version("next")
 
-    def test_schema_release_impact_uses_product_version(self) -> None:
+    def test_base_version_uses_the_selected_revision_layout(self) -> None:
+        for directory, manifest, version in (
+            ("generated/perception", "perception-sdk-manifest.json", "0.1.0"),
+            ("generated/open_perception_kit", "open-perception-kit-manifest.json", "0.1.3"),
+        ):
+            with self.subTest(version=version), patch.object(
+                schema_change, "run_git", side_effect=[
+                    json.dumps({"generated_dir": directory}),
+                    f"cpp\n{manifest}\npython\nrust\nts\n",
+                    json.dumps({"artifact": {"version": version}}),
+                ],
+            ) as git:
+                self.assertEqual(
+                    schema_change.load_base_version(Path("."), f"v{version}"),
+                    tuple(int(part) for part in version.split(".")),
+                )
+                self.assertEqual(git.call_args.args[1], ["show", f"v{version}:{directory}/{manifest}"])
+
+    def test_schema_release_impact_uses_sdk_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "development").mkdir()
-            version_file = root / schema_change.PRODUCT_VERSION_PATH
+            (root / "tools/perception").mkdir(parents=True)
+            version_file = root / schema_change.SDK_VERSION_PATH
             with (
                 patch.object(schema_change, "load_base_schemas", return_value={}),
                 patch.object(schema_change, "load_current_schemas", return_value={}),
@@ -194,11 +212,15 @@ class SchemaChangeParserTests(unittest.TestCase):
                 patch.object(
                     schema_change,
                     "run_git",
-                    return_value="project('opk', version: '1.2.3')\n",
+                    side_effect=[
+                        '{"generated_dir": "generated/open_perception_kit"}',
+                        'open-perception-kit-manifest.json\n',
+                        '{"artifact": {"version": "1.2.3"}}',
+                    ] * 2,
                 ),
             ):
                 version_file.write_text(
-                    "project('opk', version: '1.2.4')\n", encoding="utf-8"
+                    '{"version": "1.2.4"}', encoding="utf-8"
                 )
                 insufficient = schema_change.evaluate(root, "base")
                 self.assertEqual(insufficient["required_bump"], "minor")
@@ -210,7 +232,7 @@ class SchemaChangeParserTests(unittest.TestCase):
                 )
 
                 version_file.write_text(
-                    "project('opk', version: '1.3.0')\n", encoding="utf-8"
+                    '{"version": "1.3.0"}', encoding="utf-8"
                 )
                 sufficient = schema_change.evaluate(root, "base")
                 self.assertFalse(
@@ -251,10 +273,11 @@ class SemanticVersionTests(unittest.TestCase):
 
 
 class SdkDescriptorTests(unittest.TestCase):
-    def test_descriptor_and_product_version_are_the_release_configuration(self) -> None:
+    def test_descriptor_owns_the_sdk_release_configuration(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         descriptor = json.loads(config.descriptor_path.read_text(encoding="utf-8"))
         self.assertEqual(config.public_name, descriptor["public_name"])
+        self.assertEqual(config.version, descriptor["version"])
         self.assertIsNotNone(release_package.SEMANTIC_VERSION_RE.fullmatch(config.version))
         self.assertEqual(config.flatbuffers_version, descriptor["flatbuffers"]["version"])
         self.assertEqual(
@@ -303,16 +326,20 @@ class SdkDescriptorTests(unittest.TestCase):
             descriptor["project_generated_files"]["internal_meson"],
         )
 
-    def test_product_version_is_read_from_meson(self) -> None:
+    def test_sdk_version_is_independent_of_the_product_version(self) -> None:
+        descriptor = json.loads(release_package.perception_config.SDK_CONFIG_PATH.read_text())
+        descriptor["version"] = "2.3.4"
         with tempfile.TemporaryDirectory() as tmp:
-            meson = Path(tmp) / "meson.build"
-            meson.write_text("project('demo', version: '1.2.3')\n", encoding="utf-8")
-            self.assertEqual(
-                release_package.perception_config.product_version(meson), "1.2.3"
-            )
-            meson.write_text("project('demo', version: 'next')\n", encoding="utf-8")
-            with self.assertRaisesRegex(RuntimeError, "stable MAJOR.MINOR.PATCH"):
-                release_package.perception_config.product_version(meson)
+            path = Path(tmp) / "sdk.json"
+            path.write_text(json.dumps(descriptor), encoding="utf-8")
+            config = release_package.perception_config.load_sdk_config(path)
+            self.assertEqual(config.version, "2.3.4")
+            for invalid in ("next", "1.0", "1.0.0.dev0", True, None):
+                with self.subTest(version=invalid):
+                    descriptor["version"] = invalid
+                    path.write_text(json.dumps(descriptor), encoding="utf-8")
+                    with self.assertRaisesRegex(RuntimeError, "stable MAJOR.MINOR.PATCH"):
+                        release_package.perception_config.load_sdk_config(path)
 
     def test_descriptor_rejects_unknown_fields(self) -> None:
         descriptor = json.loads(
@@ -466,21 +493,19 @@ class GenerationReceiptTests(unittest.TestCase):
             "20260914.1123456.34831718470001-dev.0",
         )
 
-    def test_generator_sets_the_single_product_version_source(self) -> None:
+    def test_generator_sets_sdk_version_without_changing_the_product(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            meson = Path(tmp) / "meson.build"
-            meson.write_text(
-                "project('demo', version: '0.3.0')\n", encoding="utf-8"
-            )
-            release_package.perception_generate.set_product_version(
-                meson, "20260910.1091234.34458724856"
-            )
-            self.assertEqual(
-                meson.read_text(encoding="utf-8"),
-                "project('demo', version: '20260910.1091234.34458724856')\n",
-            )
+            root = Path(tmp)
+            meson = root / "meson.build"
+            meson.write_text("project('demo', version: '0.1.4')\n", encoding="utf-8")
+            descriptor = root / "sdk.json"
+            descriptor.write_text('{"version": "0.3.0", "package_prerelease": false}\n')
+            release_package.perception_generate.set_sdk_version(descriptor, "1.0.0")
+            self.assertEqual(json.loads(descriptor.read_text()),
+                             {"version": "1.0.0", "package_prerelease": False})
+            self.assertEqual(meson.read_text(), "project('demo', version: '0.1.4')\n")
 
-    def test_synchronizes_plumber_dependency_with_the_product_version(self) -> None:
+    def test_synchronizes_plumber_dependency_with_the_sdk_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "pyproject.toml"
             project.write_text(
@@ -994,7 +1019,7 @@ class BundleVerificationTests(unittest.TestCase):
         )
         (bundle / "metadata/sdk.json").write_text(
             json.dumps({
-                "version": "1.0.0",
+                "version": "1.2.3",
                 "flatbuffers": {
                     "python_wheel": {
                         "filename": flatbuffers_wheel_path.name,
@@ -1511,6 +1536,32 @@ class BundleVerificationTests(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "wheel filename"):
                 release_package.verify_bundle(bundle)
+
+    def test_accepts_legacy_descriptor_without_sdk_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = self.create_bundle(root)
+            descriptor = json.loads((bundle / "metadata/sdk.json").read_text(encoding="utf-8"))
+            del descriptor["version"]
+            self.rewrite_descriptor_identity(bundle, descriptor)
+            archive = root / "legacy.zip"
+            release_package.write_deterministic_zip(bundle, archive)
+            release_package.verify_release_archive(archive)
+
+    def test_rejects_descriptor_sdk_version_mismatch(self) -> None:
+        for version in ("9.9.9", None):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                bundle = self.create_bundle(root)
+                descriptor_path = bundle / "metadata/sdk.json"
+                descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+                descriptor["version"] = version
+                self.rewrite_descriptor_identity(bundle, descriptor)
+                archive = root / "mismatched.zip"
+                release_package.write_deterministic_zip(bundle, archive)
+
+                with self.assertRaisesRegex(RuntimeError, "descriptor.*identities differ"):
+                    release_package.verify_release_archive(archive)
 
     def test_rejects_descriptor_flatbuffers_version_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

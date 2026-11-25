@@ -85,7 +85,8 @@ Meson:
   'import importlib.metadata, flatbuffers, numpy, open_perception_kit; print(importlib.metadata.version("open-perception-kit"))'
 ```
 
-The printed SDK version must match the OPK version. If the command reports that
+The printed SDK version must match the generated SDK package version, independently
+of the OPK product version. If the command reports that
 `open-perception-kit` is missing from an existing container, repair that private
 environment with:
 

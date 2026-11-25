@@ -30,7 +30,7 @@ import sdk_config
 
 
 SCHEMA_DIRECTORY = Path("schemas/perception/metadata")
-PRODUCT_VERSION_PATH = Path("development/meson.build")
+SDK_VERSION_PATH = Path("tools/perception/sdk.json")
 RECORD_PATTERN = re.compile(r"\b(table|struct)\s+(\w+)\s*\{(.*?)\}", re.DOTALL)
 ENUM_PATTERN = re.compile(
     r"\b(enum|union)\s+(\w+)(?:\s*:\s*(\w+))?\s*\{(.*?)\}", re.DOTALL
@@ -206,23 +206,27 @@ def load_base_schemas(repo_root: Path, base: str) -> dict[str, Schema]:
 
 
 def load_current_version(repo_root: Path) -> tuple[int, int, int]:
-    value = sdk_config.product_version(repo_root / PRODUCT_VERSION_PATH)
+    descriptor = json.loads((repo_root / SDK_VERSION_PATH).read_text(encoding="utf-8"))
+    return parse_sdk_version(descriptor.get("version"))
+
+
+def parse_sdk_version(value: object) -> tuple[int, int, int]:
+    if not isinstance(value, str) or not sdk_config.SEMVER.fullmatch(value):
+        raise RuntimeError("SDK version must contain a stable MAJOR.MINOR.PATCH version")
     return tuple(int(component) for component in value.split("."))
 
 
-def parse_product_version(source: str) -> tuple[int, int, int]:
-    match = sdk_config.PRODUCT_VERSION.search(source)
-    if not match or not sdk_config.SEMVER.fullmatch(match.group(1)):
-        raise RuntimeError(
-            "development/meson.build must contain a stable MAJOR.MINOR.PATCH version"
-        )
-    return tuple(int(component) for component in match.group(1).split("."))
-
-
 def load_base_version(repo_root: Path, base: str) -> tuple[int, int, int]:
-    return parse_product_version(
-        run_git(repo_root, ["show", f"{base}:{PRODUCT_VERSION_PATH.as_posix()}"])
+    descriptor = json.loads(run_git(repo_root, ["show", f"{base}:{SDK_VERSION_PATH}"]))
+    generated_dir = descriptor["generated_dir"]
+    paths = run_git(repo_root, ["ls-tree", "--name-only", f"{base}:{generated_dir}"]).splitlines()
+    manifests = [path for path in paths if path.endswith("-manifest.json")]
+    if len(manifests) != 1:
+        raise RuntimeError(f"Expected one SDK manifest at {base}:{generated_dir}")
+    manifest = json.loads(
+        run_git(repo_root, ["show", f"{base}:{generated_dir}/{manifests[0]}"])
     )
+    return parse_sdk_version(manifest["artifact"]["version"])
 
 
 def format_version(version: tuple[int, int, int]) -> str:
@@ -492,8 +496,8 @@ def evaluate(repo_root: Path, base: str) -> dict[str, object]:
         findings.append(
             Finding(
                 "error",
-                str(PRODUCT_VERSION_PATH),
-                f"OPK version {format_version(current_version)} does not satisfy required {bump} "
+                str(SDK_VERSION_PATH),
+                f"SDK version {format_version(current_version)} does not satisfy required {bump} "
                 f"bump from {format_version(base_version)}",
             )
         )
@@ -511,8 +515,8 @@ def evaluate(repo_root: Path, base: str) -> dict[str, object]:
 
 def print_report(report: dict[str, object]) -> None:
     print(f"Base: {report['base']}")
-    print(f"OPK version: {report['base_version']} -> {report['current_version']}")
-    print(f"Required OPK release impact: {report['required_bump']}")
+    print(f"SDK version: {report['base_version']} -> {report['current_version']}")
+    print(f"Required SDK release impact: {report['required_bump']}")
     changed = report["changed_schemas"]
     affected = report["affected_roots"]
     print("Changed schemas: " + (", ".join(changed) if changed else "none"))
@@ -540,7 +544,7 @@ def repository_root(argument: Optional[str]) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Evaluate Perception schema compatibility and OPK release impact against a Git base."
+        description="Evaluate Perception schema compatibility and SDK release impact against a Git base."
     )
     parser.add_argument(
         "--base",
