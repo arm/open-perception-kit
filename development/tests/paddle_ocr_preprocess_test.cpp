@@ -19,6 +19,7 @@
 #include "PaddleOcrPreprocessOp.h"
 #include "mediaio/PixelBufferVideoFrame.h"
 #include "op/ExecutionSelection.h"
+#include "op/OpChainDescriptor.h"
 #include "postproc/PaddleOcrDbDetectionParser.h"
 
 #include <gtest/gtest.h>
@@ -133,7 +134,21 @@ class PaddleOcrPreprocess : public ::testing::Test {
         attributes.set("mode", detection ? "detection" : "recognition");
         attributes.set("paddingValue", 0.0);
         ASSERT_TRUE(op.configure(attributes));
+        inference->instanceId = "paddle";
         ASSERT_TRUE(op.bind(0, {&op, inference.get()}));
+        const auto *const image = op.as<opk::op::OpInterfaceImageInputPreprocessor>();
+        ASSERT_NE(image, nullptr);
+        EXPECT_TRUE(op.supportsStageRole(opk::op::StageRole::ImagePreprocess));
+        EXPECT_TRUE(op.supportsStageRole(opk::op::StageRole::IntermediateProcess));
+        EXPECT_FALSE(op.supportsStageRole(opk::op::StageRole::InputPreprocess));
+        EXPECT_FALSE(op.supportsStageRole(opk::op::StageRole::Postprocess));
+        EXPECT_FALSE(op.supportsStageRole(opk::op::StageRole::Controller));
+        EXPECT_TRUE(inference->supportsStageRole(opk::op::StageRole::Inference));
+        const auto binding = image->getImageInputBinding();
+        EXPECT_EQ(binding.inferenceInstance, "paddle");
+        ASSERT_EQ(binding.tensorIndices.size(), 1);
+        EXPECT_EQ(binding.tensorIndices[0], 0);
+        EXPECT_EQ(binding.sourceName, "pipelineVideoFrame");
         frame = std::make_shared<TestFrame>(w, h);
         context.videoFrames["pipelineVideoFrame"] = frame;
         context.inferenceImageCrops = {{0, 0, w, h}};
@@ -485,3 +500,31 @@ TEST_F(PaddleOcrPreprocess, RejectsInvalidConfigurationAndBinding) {
 }
 
 } // namespace
+
+#ifdef OPK_GPU_OPS
+TEST(ImagePreprocessRoles, GpuReplacementExposesSelectedImageBindingWithoutDeviceSetup) {
+    opk::op::OpRef operation;
+    const auto loaded = operation.bind(OPK_GPU_OPS, "GenericImagePreprocess");
+    ASSERT_TRUE(loaded) << loaded.error().info;
+    EXPECT_TRUE(operation->supportsStageRole(opk::op::StageRole::ImagePreprocess));
+    EXPECT_FALSE(operation->supportsStageRole(opk::op::StageRole::Inference));
+    EXPECT_FALSE(operation->supportsStageRole(opk::op::StageRole::Controller));
+    opk::AttributeMap attributes;
+    attributes.set("inputImageSourceName", "reference");
+    attributes.set("inputImageTensorIndex", int64_t{0});
+    ASSERT_TRUE(operation->configure(attributes));
+    FakeInference inference;
+    inference.instanceId = "detector";
+    inference.model.inputs[0].dataKind = opk::DataKind::ImageRgbChw;
+    ASSERT_TRUE(operation->bind(0, {operation.operator->(), &inference}));
+    const auto *const image = operation->as<opk::op::OpInterfaceImageInputPreprocessor>();
+    ASSERT_NE(image, nullptr);
+    const auto binding = image->getImageInputBinding();
+    EXPECT_EQ(binding.inferenceInstance, "detector");
+    EXPECT_EQ(binding.sourceName, "reference");
+    ASSERT_EQ(binding.tensorIndices.size(), 1);
+    EXPECT_EQ(binding.tensorIndices[0], 0);
+    ASSERT_TRUE(operation->configure(attributes));
+    EXPECT_TRUE(image->getImageInputBinding().inferenceInstance.empty());
+}
+#endif

@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "MobileSamInt8Executorch",
   "displayName": "MobileSAM INT8 box prompts (ExecuTorch)",
   "task": "Instance segmentation",
@@ -7,10 +7,10 @@
   "description": "Segments the region selected by a continuing normalized box; skips inference when no prompt is bound.",
   "execution": {"preprocessing": "cpu"},
   "ops": [
-    {"id": "opk-std-ops/InferenceController", "attributes": {}},
-    {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inferenceInstance": "mobileSam", "inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-    {"id": "opk-std-ops/BoxPromptPreprocess", "attributes": {"inferenceInstance": "mobileSam", "inputBoxTensorIndex": 1, "inputImageSourceName": "pipelineVideoFrame"}},
-    {"id": "opk-executorch-ops/Inference", "instanceId": "mobileSam", "attributes": {"modelDescriptor": "model.json"}},
-    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "MobileSamMaskParser"}}
+    {"id": "opk-std-ops/InferenceController", "role": "controller", "attributes": {}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "attributes": {"inferenceInstance": "mobileSam", "inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-std-ops/BoxPromptPreprocess", "role": "input-preprocess", "attributes": {"inferenceInstance": "mobileSam", "inputBoxTensorIndex": 1, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-executorch-ops/Inference", "role": "inference", "instanceId": "mobileSam", "attributes": {"modelDescriptor": "model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "role": "postprocess", "attributes": {"parser": "MobileSamMaskParser"}}
   ]
 }

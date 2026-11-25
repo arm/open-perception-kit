@@ -146,7 +146,7 @@ to control parallel execution of independent operators within that model:
 
 ```json
 {
-  "id": "opk-onnx-ops/Inference",
+  "id": "opk-onnx-ops/Inference", "role": "inference",
   "attributes": {
     "modelDescriptor": "model.json",
     "intraOpNumThreads": 2,

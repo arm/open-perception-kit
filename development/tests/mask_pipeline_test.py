@@ -57,14 +57,16 @@ class MaskPipelineTest(unittest.TestCase):
                                          "modelFile": str(artifact), "dynamicOutput": True, "inputTensors": [{"dataKind": "ImageRgbChw",
                                                                                                               "shape": [1, 3, size, size], "keepAspectRatio": True, "mean": [0, 0, 0], "std": [1, 1, 1]}]}))
             chain = directory / "opchain.json"
-            chain.write_text(json.dumps({"version": "2.0.0", "name": "Mask regression",
+            chain.write_text(json.dumps({"version": "3.0.0", "name": "Mask regression",
                                          "description": "Verify mask image space and semantics through real inference", "ops": [
-                                             {"id": "opk-std-ops/InferenceController", "attributes": {}},
-                                             {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {
+                                             {"id": "opk-std-ops/InferenceController",
+                                                 "role": "controller", "attributes": {}},
+                                             {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "attributes": {
                                                  "inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-                                             {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": str(model),
-                                                                                             "intraOpNumThreads": 1, "interOpNumThreads": 1}},
-                                             {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": parser}},
+                                             {"id": "opk-onnx-ops/Inference", "role": "inference", "attributes": {"modelDescriptor": str(model),
+                                                                                                                  "intraOpNumThreads": 1, "interOpNumThreads": 1}},
+                                             {"id": "opk-std-ops/GenericPostprocess",
+                                                 "role": "postprocess", "attributes": {"parser": parser}},
                                          ]}))
             output = directory / "results.ndjson"
             process = run_file_pipeline([

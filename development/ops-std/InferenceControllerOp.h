@@ -41,7 +41,9 @@ namespace opk::stdop {
  * 2. Preprocess, inference, and postprocess operations consume one crop per loop iteration
  * 3. GenericImagePreprocessOp returns OpSignal::BreakLoop when no crops remain
  */
-class InferenceControllerOp : public opk::op::Op, public opk::op::OpInterfaceResultConsumer {
+class InferenceControllerOp : public opk::op::Op,
+                              public opk::op::OpInterfaceResultConsumer,
+                              public opk::op::OpInterfaceController {
   public:
     /**
      * @brief Constructs an inference controller operation.

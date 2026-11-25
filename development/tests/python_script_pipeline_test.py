@@ -71,7 +71,7 @@ class PythonScriptPipelineTest(unittest.TestCase):
             opchain.write_text(
                 json.dumps(
                     {
-                        "version": "2.0.0",
+                        "version": "3.0.0",
                         "name": "Terminal PythonScript test",
                         "displayName": "Terminal PythonScript test",
                         "task": "Test",
@@ -79,18 +79,18 @@ class PythonScriptPipelineTest(unittest.TestCase):
                         "description": "Test terminal PythonScript FrameResults output.",
                         "ops": [
                             {
-                                "id": "opk-std-ops/InferenceController",
+                                "id": "opk-std-ops/InferenceController", "role": "controller",
                                 "attributes": {},
                             },
                             {
-                                "id": "opk-std-ops/GenericImagePreprocess",
+                                "id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess",
                                 "attributes": {
                                     "inputImageTensorIndex": 0,
                                     "inputImageSourceName": "pipelineVideoFrame",
                                 },
                             },
                             {
-                                "id": "opk-onnx-ops/Inference",
+                                "id": "opk-onnx-ops/Inference", "role": "inference",
                                 "attributes": {
                                     "modelDescriptor": str(
                                         repository / "config/models/yolo26n-320/model.json"
@@ -98,7 +98,7 @@ class PythonScriptPipelineTest(unittest.TestCase):
                                 },
                             },
                             {
-                                "id": "opk-python-ops/PythonScript",
+                                "id": "opk-python-ops/PythonScript", "role": "postprocess",
                                 "instanceId": "terminal-python-test",
                                 "attributes": {"script": str(script)},
                             },

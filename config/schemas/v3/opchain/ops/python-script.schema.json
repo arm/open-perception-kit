@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:python-script-op:v2",
-  "title": "PythonScript Op v2",
+  "$id": "urn:arm:opk:schema:python-script-op:v3",
+  "title": "PythonScript Op v3",
   "$defs": {
     "outputs": {
       "type": "array",
@@ -47,6 +47,7 @@
       "attributes"
     ],
     "properties": {
+      "role": {"enum": ["postprocess", "intermediate-process"]},
       "attributes": {
         "type": "object",
         "additionalProperties": false,
@@ -57,12 +58,12 @@
           "providedOutputs": {"$ref": "#/$defs/outputs"},
           "requiredInputs": {"$ref": "#/$defs/inputs"},
           "script": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/localPath"
+            "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/localPath"
           },
           "pythonPaths": {
             "type": "array",
             "items": {
-              "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/localPath"
+              "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/localPath"
             },
             "uniqueItems": true
           }

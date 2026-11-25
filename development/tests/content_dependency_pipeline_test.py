@@ -252,7 +252,7 @@ class ContentDependencyPipelineTest(unittest.TestCase):
             with self.subTest(op=op):
                 descriptor = self.descriptors["face-a"]
                 chain = json.loads(descriptor.read_text())
-                chain["ops"] = [{"id": f"opk-std-ops/{op}", "attributes": {
+                chain["ops"] = [{"id": f"opk-std-ops/{op}", "role": "postprocess", "attributes": {
                     "parser": "ImageNetClassificationParser"}}]
                 descriptor.write_text(json.dumps(chain))
                 self.descriptors = {"face-a": descriptor}

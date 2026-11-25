@@ -30,8 +30,11 @@ namespace opk::stdop {
  * Optional inputImageSourceName defaults to pipelineVideoFrame; optional
  * inputImageTensorIndex defaults to zero. The next Op must provide inference.
  */
-class PaddleOcrPreprocessOp : public opk::op::Op, public opk::op::OpInterfaceCpuPreprocessor {
+class PaddleOcrPreprocessOp : public opk::op::Op,
+                              public opk::op::OpInterfaceCpuPreprocessor,
+                              public opk::op::OpInterfaceImageInputPreprocessor {
   public:
+    opk::op::InferenceInputBinding getImageInputBinding() const override;
     opk::Result<void> configure(const opk::AttributeMap &attributes) override;
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
     opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &context) override;
@@ -40,6 +43,7 @@ class PaddleOcrPreprocessOp : public opk::op::Op, public opk::op::OpInterfaceCpu
     enum class Mode { Unconfigured, Detection, Recognition };
     Mode mode = Mode::Unconfigured;
     float paddingValue = 0.0f;
+    std::string inferenceInstanceId;
     std::string inputImageSourceName = "pipelineVideoFrame";
     size_t inputImageTensorIndex = 0;
     const opk::op::OpInterfaceInference *inferenceOp = nullptr;

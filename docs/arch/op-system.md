@@ -96,22 +96,58 @@ values. Persistent output is appended to the `FrameResults` instance referenced
 by the context rather than stored as transient context state. See
 [OpChain Context](op-chain-context.md).
 
+### Declared stage roles
+
+OpChain format `3.0.0` requires a per-operation `role` alongside `id` and
+`attributes`. It selects this instance's use, rather than listing all of its interfaces:
+
+| Role | Runtime contract |
+| --- | --- |
+| `controller` | `OpInterfaceController` |
+| `inference` | `OpInterfaceInference` |
+| `image-preprocess` | `OpInterfaceImageInputPreprocessor` |
+| `audio-preprocess` | `OpInterfaceAudioPreprocessor` |
+| `input-preprocess` | `OpInterfaceInferenceInputPreprocessor` |
+| `postprocess` | `OpInterfacePostprocessor` |
+| `intermediate-process` | Base `Op` contract |
+
+The descriptor validator checks stage order, counts, bindings and loop restrictions
+using explicit roles. Setup checks every role against the loaded operation's
+interfaces. Built-in attribute schemas also reject incompatible roles. No role is
+inferred from an operation name or its position.
+
+Between image preprocessing and inference, only cooperating input preprocessors
+are permitted, with matching bindings and nonoverlapping inputs verified at runtime.
+Intermediate operations do not replace required stage positions. A PythonScript
+must select `postprocess` when it supplies the terminal result, or
+`intermediate-process` when it transforms data between inference and that result.
+Audio preprocessing retains its existing unlooped scheduling contract.
+
+All descriptors must migrate together with the reader; see
+[configuration compatibility](../public/concepts/configuration-compatibility.md).
+No plugin loading is needed for offline structural validation; tensor semantics
+remain the runtime adapter's responsibility.
+
 ### OpChainDescriptor
 
 `opk::OpChainDescriptor` is the declarative representation loaded from JSON. Each
 Op entry can provide:
 
 - `id`: library and Op identifier used for dynamic loading.
+- `role`: required stage responsibility, checked against runtime capabilities.
 - `loopId`: optional repeated-execution group identifier.
 - `attributes`: Op-specific configuration.
 
 The exact `<library>/Inference` operation name is the OpChain inference
 extension contract. Its only attribute is the required filesystem path
-`modelDescriptor`. Relative paths resolve from the OpChain descriptor directory;
+`modelDescriptor`. This attribute has shared filesystem-path semantics on every
+Op, including custom preparation Ops. Relative paths resolve from the OpChain descriptor directory;
 absolute paths are used unchanged. The loader preserves path components rather
 than lexically normalizing them, so filesystem symlink and parent-traversal
 semantics remain intact. Differently named Ops remain custom and keep open
-attributes.
+attributes, except for this shared path attribute. Only inference Ops contribute
+the model directories used to resolve PythonScript paths; auxiliary model
+references do not affect that selection.
 
 This keeps composition and model changes in configuration instead of requiring a
 rebuild. A non-zero `loopId` forms one contiguous group of at least two Ops and

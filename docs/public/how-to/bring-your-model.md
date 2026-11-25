@@ -143,7 +143,7 @@ The easiest workflow is to copy one of the existing model folders and then adjus
 The supported descriptor structure is defined by:
 
 - `config/schemas/v2/model.schema.json`
-- `config/schemas/v2/opchain.schema.json`
+- `config/schemas/v3/opchain.schema.json`
 
 A minimal dynamic-output Model descriptor is:
 
@@ -169,8 +169,8 @@ pipeline preset, Model descriptor, and OpChain with:
 opk-ci --config-schema-check
 ```
 
-These JSON contracts use `MAJOR.MINOR.PATCH` strings. New Model and OpChain files
-use `"version": "2.0.0"`; pipeline presets use `"1.0.0"`. Increment an existing file's patch whenever editing it
+These JSON contracts use `MAJOR.MINOR.PATCH` strings. New Model files use `"version": "2.0.0"` and new OpChain files
+use `"version": "3.0.0"`; pipeline presets use `"1.0.0"`. Increment an existing file's patch whenever editing it
 within the same major/minor contract. Major mismatches fail, minor mismatches
 warn and continue, and patch differences are ignored at runtime. See
 [Configuration Compatibility](../concepts/configuration-compatibility.md) for
@@ -207,7 +207,7 @@ A minimal model opchain typically looks like this:
 
 ```json
 {
-	"version": "2.0.0",
+	"version": "3.0.0",
 	"name": "YourModel",
 	"description": "Run the example model on each video frame.",
 	"displayName": "Your model",
@@ -215,24 +215,24 @@ A minimal model opchain typically looks like this:
 	"runtime": "ONNX",
 	"ops": [
 		{
-			"id": "opk-std-ops/InferenceController",
+			"id": "opk-std-ops/InferenceController", "role": "controller",
 			"attributes": {}
 		},
 		{
-			"id": "opk-std-ops/GenericImagePreprocess",
+			"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess",
 			"attributes": {
 				"inputImageTensorIndex": 0,
 				"inputImageSourceName": "pipelineVideoFrame"
 			}
 		},
 		{
-			"id": "opk-onnx-ops/Inference",
+			"id": "opk-onnx-ops/Inference", "role": "inference",
 			"attributes": {
 				"modelDescriptor": "model.json"
 			}
 		},
 		{
-			"id": "opk-std-ops/GenericPostprocess",
+			"id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
 			"attributes": {
 				"parser": "<YourParser>"
 			}

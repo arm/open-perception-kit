@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:opchain-op:v3",
+  "title": "OPK OpChain operation v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "role"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^(?=[^/]*[^\\s/][^/]*/)(?=[^/]*/[^/]*[^\\s/][^/]*$)[^/]+/[^/]+$"
+    },
+    "instanceId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "loopId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "attributes": {
+      "type": "object"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "controller",
+        "inference",
+        "image-preprocess",
+        "audio-preprocess",
+        "input-preprocess",
+        "postprocess",
+        "intermediate-process"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "urn:arm:opk:schema:inference-controller-op:v3"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:generic-image-preprocess-op:v3"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:paddle-ocr-preprocess-op:v3"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:inference-op:v3"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:generic-postprocess-op:v3"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:python-script-op:v3"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:generic-audio-preprocess-op:v3"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:turn-detector-op:v3"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:box-prompt-preprocess-op:v3"
+    }
+  ]
+}

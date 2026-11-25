@@ -29,11 +29,12 @@ namespace {
 nlohmann::json descriptor(std::string modelDescriptor,
                           std::string id = "opk-future-ops/Inference") {
     return {
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "test"},
         {"description", "Path resolution test."},
         {"ops",
-         {{{"id", std::move(id)},
+         {{{"role", id.ends_with("/Inference") ? "inference" : "intermediate-process"},
+           {"id", std::move(id)},
            {"attributes", {{"modelDescriptor", std::move(modelDescriptor)}}}}}},
     };
 }
@@ -117,7 +118,7 @@ TEST(OpChainDescriptor, PreservesCanonicalJsonAndAbsolutePaths) {
     std::filesystem::remove_all(directory.parent_path());
 
     auto executionDocument = descriptor("model.json");
-    executionDocument["version"] = "2.1.0";
+    executionDocument["version"] = "3.0.0";
     const auto omitted{opk::op::OpChainDescriptor::fromJson(executionDocument.dump())};
     ASSERT_TRUE(omitted);
     EXPECT_FALSE(omitted->execution);
@@ -155,18 +156,21 @@ TEST(OpChainDescriptor, ResolvesPythonScriptPathsRelativeToModelDescriptor) {
     std::filesystem::create_directories(modelDirectory);
     const auto descriptorPath = opchainDirectory / "opchain.json";
     nlohmann::json value = {
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
          {{{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "../models/example/model.json"}}}},
           {{"id", "opk-python-ops/PythonScript"},
+           {"role", "postprocess"},
            {"attributes",
             {{"script", "scripts/process.py"},
              {"pythonPaths", {"modules", std::filesystem::absolute("shared").string()}}}}}}},
     };
     value["ops"].push_back({{"id", "custom/PromptPrepare"},
+                            {"role", "intermediate-process"},
                             {"attributes", {{"modelDescriptor", "../encoders/model.json"}}}});
     std::ofstream(descriptorPath) << value;
 
@@ -188,11 +192,12 @@ TEST(OpChainDescriptor, RejectsRelativePythonScriptPathsWithoutModelDescriptor) 
     std::filesystem::create_directories(directory);
     const auto descriptorPath = directory / "opchain.json";
     nlohmann::json value = {
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
          {{{"id", "opk-python-ops/PythonScript"},
+           {"role", "postprocess"},
            {"attributes", {{"script", "scripts/process.py"}}}}}},
     };
     std::ofstream(descriptorPath) << value;
@@ -211,15 +216,18 @@ TEST(OpChainDescriptor, RejectsAmbiguousRelativePythonScriptPaths) {
     std::filesystem::create_directories(directory);
     const auto descriptorPath = directory / "opchain.json";
     nlohmann::json value = {
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
          {{{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "models/first/model.json"}}}},
           {{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "models/second/model.json"}}}},
           {{"id", "opk-python-ops/PythonScript"},
+           {"role", "postprocess"},
            {"attributes", {{"script", "scripts/process.py"}}}}}},
     };
     std::ofstream(descriptorPath) << value;
@@ -239,15 +247,18 @@ TEST(OpChainDescriptor, AllowsAbsolutePythonScriptPathsWithMultipleModelDirector
     const auto absoluteScript = std::filesystem::absolute("scripts/process.py").string();
     const auto absolutePythonPath = std::filesystem::absolute("modules").string();
     nlohmann::json value = {
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
          {{{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "models/first/model.json"}}}},
           {{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "models/second/model.json"}}}},
           {{"id", "opk-python-ops/PythonScript"},
+           {"role", "postprocess"},
            {"attributes", {{"script", absoluteScript}, {"pythonPaths", {absolutePythonPath}}}}}}},
     };
     std::ofstream(descriptorPath) << value;
@@ -278,7 +289,7 @@ TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().flag, opk::ErrorFlag::InvalidOpChain);
-    EXPECT_NE(result.error().info.find("opchain.v2.loop-group"), std::string::npos);
+    EXPECT_NE(result.error().info.find("opchain.v3.loop-group"), std::string::npos);
 }
 
 TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
@@ -288,8 +299,8 @@ TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
                                             std::pair{"retryMs", "500"},
                                             std::pair{"maxAttempts", "3"}}) {
         const std::string prefix =
-            R"({"version":"2.0.0","name":"turn-notation","description":"Validate turn notation.",
-                "ops":[{"id":"opk-std-ops/TurnDetector","attributes":{")" +
+            R"({"version":"3.0.0","name":"turn-notation","description":"Validate turn notation.",
+                "ops":[{"id":"opk-std-ops/TurnDetector", "role": "audio-preprocess","attributes":{")" +
             std::string(attribute) + "\":";
         ASSERT_TRUE(opk::op::OpChainDescriptor::fromJson(prefix + number + "}}]}"));
 
@@ -300,7 +311,7 @@ TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
                 const auto parsed = opk::op::OpChainDescriptor::fromJson(json);
                 EXPECT_FALSE(parsed);
                 if (!parsed) {
-                    EXPECT_NE(parsed.error().info.find("opchain.v2.turn-detector-integer"),
+                    EXPECT_NE(parsed.error().info.find("opchain.v3.turn-detector-integer"),
                               std::string::npos);
                     EXPECT_NE(
                         parsed.error().info.find(std::string("/ops/0/attributes/") + attribute),
@@ -315,7 +326,7 @@ TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
                 EXPECT_FALSE(setup);
                 if (!setup) {
                     EXPECT_EQ(setup.error().flag, opk::ErrorFlag::InvalidOpChain);
-                    EXPECT_NE(setup.error().info.find("opchain.v2.turn-detector-integer"),
+                    EXPECT_NE(setup.error().info.find("opchain.v3.turn-detector-integer"),
                               std::string::npos);
                 }
             });
@@ -335,8 +346,9 @@ TEST(OpChainDescriptor, ValidatesConfigurableAudioFrontendBeforeStartup) {
         {"logOffset", 1e-7},
         {"layout", "mel-major"},
         {"normalization", {{"kind", "rolling"}, {"epsilon", 1e-6}, {"historyFrames", 7}}}};
-    value["ops"] = {
-        {{"id", "opk-std-ops/GenericAudioPreprocess"}, {"attributes", {{"logMel", frontend}}}}};
+    value["ops"] = {{{"id", "opk-std-ops/GenericAudioPreprocess"},
+                     {"role", "audio-preprocess"},
+                     {"attributes", {{"logMel", frontend}}}}};
     EXPECT_TRUE(opk::op::OpChainDescriptor::fromJson(value.dump()));
     value["ops"][0]["attributes"]["contextSampleCount"] = 0;
     EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
@@ -353,6 +365,7 @@ TEST(OpChainDescriptor, ValidatesConfigurableAudioFrontendBeforeStartup) {
 TEST(OpChainDescriptor, ValidatesVoiceActivityIntegerNotationBeforeStartup) {
     auto value = descriptor("model.json");
     value["ops"] = {{{"id", "opk-std-ops/GenericPostprocess"},
+                     {"role", "postprocess"},
                      {"attributes",
                       {{"parser", "VoiceActivityParser"},
                        {"outputTensorIndex", 1},
@@ -368,7 +381,7 @@ TEST(OpChainDescriptor, ValidatesVoiceActivityIntegerNotationBeforeStartup) {
         value["ops"][0]["attributes"][attribute] = 0.0;
         const auto rejected = opk::op::OpChainDescriptor::fromJson(value.dump());
         ASSERT_FALSE(rejected);
-        EXPECT_NE(rejected.error().info.find("opchain.v2.audio-parser-integer"), std::string::npos);
+        EXPECT_NE(rejected.error().info.find("opchain.v3.audio-parser-integer"), std::string::npos);
         value["ops"][0]["attributes"][attribute] = 0;
         EXPECT_TRUE(opk::op::OpChainDescriptor::fromJson(value.dump()));
     }
@@ -377,6 +390,7 @@ TEST(OpChainDescriptor, ValidatesVoiceActivityIntegerNotationBeforeStartup) {
 TEST(OpChainDescriptor, ValidatesKeywordLabelsAndExplicitDecoding) {
     auto value = descriptor("model.json");
     value["ops"] = {{{"id", "opk-std-ops/GenericPostprocess"},
+                     {"role", "postprocess"},
                      {"attributes",
                       {{"parser", "KeywordClassificationParser"},
                        {"labelSet", "test:commands-v1"},
@@ -393,4 +407,41 @@ TEST(OpChainDescriptor, ValidatesKeywordLabelsAndExplicitDecoding) {
     attributes["labels"] = {"open", "close"};
     attributes.erase("confidenceThreshold");
     EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+}
+
+TEST(OpChainDescriptor, ExplicitRolesRoundTripAndRejectUnknownValues) {
+    for (const auto *const role :
+         {"image-preprocess", "input-preprocess", "postprocess", "intermediate-process"}) {
+        auto value = descriptor("model.json", "custom/Operation");
+        value["version"] = "3.0.0";
+        value["ops"][0]["role"] = role;
+        value["ops"].push_back({{"id", "custom/Next"},
+                                {"role", "intermediate-process"},
+                                {"attributes", nlohmann::json::object()}});
+        const auto parsed = opk::op::OpChainDescriptor::fromJson(value.dump());
+        ASSERT_TRUE(parsed);
+        EXPECT_EQ(nlohmann::json(*parsed), value);
+    }
+    auto value = descriptor("model.json", "custom/Operation");
+    value["ops"][0]["role"] = "unknown";
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+}
+
+TEST(OpChainDescriptor, MissingRolesAndPreviousMajorAreRejected) {
+    auto value = descriptor("model.json");
+    value["ops"][0].erase("role");
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    EXPECT_THROW(value["ops"][0].get<opk::op::OpChainDescriptor::Op>(),
+                 nlohmann::json::out_of_range);
+    value = descriptor("model.json");
+    value["version"] = "2.1.0";
+    EXPECT_FALSE(opk::op::OpChainDescriptor::fromJson(value.dump()));
+    EXPECT_THROW(nlohmann::json("unknown").get<opk::op::StageRole>(), std::invalid_argument);
+    for (const auto *const role : {"inference", "audio-preprocess"}) {
+        value = descriptor("model.json", "custom/Backend");
+        value["ops"][0]["role"] = role;
+        const auto parsed = opk::op::OpChainDescriptor::fromJson(value.dump());
+        ASSERT_TRUE(parsed);
+        EXPECT_EQ(nlohmann::json(*parsed), value);
+    }
 }

@@ -32,10 +32,14 @@ using opk::config::test::hasRule;
 opk::op::OpChainDescriptor builtInStage() {
     opk::op::OpChainDescriptor descriptor;
     descriptor.ops = {
-        {"opk-std-ops/InferenceController", std::nullopt, {}},
-        {"opk-std-ops/GenericImagePreprocess", std::nullopt, {}},
-        {"opk-future-ops/Inference", std::nullopt, {}},
-        {"opk-std-ops/GenericPostprocess", std::nullopt, {}},
+        {"opk-std-ops/InferenceController", std::nullopt, {}, {}, opk::op::StageRole::Controller},
+        {"opk-std-ops/GenericImagePreprocess",
+         std::nullopt,
+         {},
+         {},
+         opk::op::StageRole::ImagePreprocess},
+        {"opk-future-ops/Inference", std::nullopt, {}, {}, opk::op::StageRole::Inference},
+        {"opk-std-ops/GenericPostprocess", std::nullopt, {}, {}, opk::op::StageRole::Postprocess},
     };
     return descriptor;
 }
@@ -43,7 +47,7 @@ opk::op::OpChainDescriptor builtInStage() {
 TEST(ConfigValidator, SileroAudioPreservesOpChainVersion) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "2.0.0");
+    EXPECT_EQ(*supported, "3.0.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
@@ -62,7 +66,7 @@ TEST(ConfigValidator, YoloClassScoresUseCurrentOpChainContract) {
     std::ifstream input(path);
     ASSERT_TRUE(input);
     const auto document = nlohmann::json::parse(input);
-    EXPECT_EQ(document.at("version"), "2.0.0");
+    EXPECT_EQ(document.at("version"), "3.0.0");
     const auto result = opk::config::validateOpChainJson(document.dump(), path.string());
     ASSERT_TRUE(result) << result.error().toText();
     EXPECT_EQ(nlohmann::json(*result).at("version"), document.at("version"));
@@ -113,11 +117,12 @@ TEST(ConfigValidator, RejectsInvalidTurnDetectorAttributesAndLoops) {
 TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
     using namespace std::string_literals;
 
-    nlohmann::json document{{"version", "2.0.0"},
+    nlohmann::json document{{"version", "3.0.0"},
                             {"name", "model-reference"},
                             {"description", "Validate the model descriptor path contract."},
                             {"ops",
                              {{{"id", "opk-future-ops/Inference"},
+                               {"role", "inference"},
                                {"attributes", {{"modelDescriptor", "model.json"}}}}}}};
 
     for (const auto *path : {"../models/model.json", "/opt/models/model.json"}) {
@@ -143,10 +148,12 @@ TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
     constexpr int ExplicitThreads = 2;
     constexpr int MaximumThreads = std::numeric_limits<int>::max();
     document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
+                          {"role", "inference"},
                           {"attributes", {{"modelDescriptor", "model.json"}}}};
     EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
     for (const auto *attribute : {"intraOpNumThreads", "interOpNumThreads"}) {
         document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
+                              {"role", "inference"},
                               {"attributes", {{"modelDescriptor", "model.json"}}}};
         for (const int threads :
              {AutomaticThreads, SequentialThreads, ExplicitThreads, MaximumThreads}) {
@@ -158,8 +165,8 @@ TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
             "-1"s, "1.5"s, "2147483648"s, "2.0"s, "2e0"s, "true"s, R"("2")"s, "null"s};
         for (const auto &threads : invalidThreads) {
             const std::string json =
-                R"({"version":"2.0.0","name":"thread-notation","description":"Validate thread notation.",
-                    "ops":[{"id":"opk-onnx-ops/Inference","attributes":{
+                R"({"version":"3.0.0","name":"thread-notation","description":"Validate thread notation.",
+                    "ops":[{"id":"opk-onnx-ops/Inference", "role": "inference","attributes":{
                     "modelDescriptor":"model.json",)" +
                 std::string{"\""} + attribute + "\":" + threads + "}}]}";
             const auto result = opk::config::validateOpChainJson(json);
@@ -173,6 +180,7 @@ TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
     }
 
     document["ops"][0] = {{"id", "opk-onnx-ops/Inference"},
+                          {"role", "inference"},
                           {"attributes",
                            {{"modelDescriptor", "model.json"},
                             {"intraOpNumThreads", ExplicitThreads},
@@ -180,6 +188,7 @@ TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
     EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
 
     document["ops"][0] = {{"id", "custom/InferenceLike"},
+                          {"role", "intermediate-process"},
                           {"attributes", {{"implementationDefined", true}}}};
     const auto custom = opk::config::validateOpChainJson(document.dump());
     EXPECT_TRUE(custom) << (custom ? "" : custom.error().toText());
@@ -187,15 +196,19 @@ TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
 
 TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
     nlohmann::json document{
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "optional-attributes"},
         {"description", "Validate optional empty operation attributes."},
         {"ops",
-         {{{"id", "opk-std-ops/InferenceController"}},
-          {{"id", "opk-std-ops/GenericImagePreprocess"}},
-          {{"id", "opk-future-ops/Inference"}, {"attributes", {{"modelDescriptor", "model.json"}}}},
-          {{"id", "custom/Operation"}},
-          {{"id", "opk-std-ops/GenericPostprocess"}, {"attributes", {{"parser", "DummyParser"}}}}}},
+         {{{"id", "opk-std-ops/InferenceController"}, {"role", "controller"}},
+          {{"id", "opk-std-ops/GenericImagePreprocess"}, {"role", "image-preprocess"}},
+          {{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
+           {"attributes", {{"modelDescriptor", "model.json"}}}},
+          {{"id", "custom/Operation"}, {"role", "intermediate-process"}},
+          {{"id", "opk-std-ops/GenericPostprocess"},
+           {"role", "postprocess"},
+           {"attributes", {{"parser", "DummyParser"}}}}}},
     };
 
     const auto result = opk::config::validateOpChainJson(document.dump());
@@ -203,7 +216,7 @@ TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
     for (const auto index : {0U, 1U, 3U})
         EXPECT_TRUE(result->ops[index].attributes.raw().empty());
 
-    document["version"] = "2.0.0";
+    document["version"] = "3.0.0";
     for (const auto *const mode : {"cpu", "gpu"}) {
         document["execution"] = {{"preprocessing", mode}};
         EXPECT_TRUE(opk::config::validateOpChainJson(document.dump())) << mode;
@@ -244,10 +257,13 @@ TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
 
 TEST(ConfigValidator, OpChainAcceptsStableInstanceIds) {
     nlohmann::json document{
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "instance-id"},
         {"description", "Validate operation producer identities."},
-        {"ops", {{{"id", "custom/Operation"}, {"instanceId", "python-classifier"}}}},
+        {"ops",
+         {{{"id", "custom/Operation"},
+           {"role", "intermediate-process"},
+           {"instanceId", "python-classifier"}}}},
     };
 
     const auto result = opk::config::validateOpChainJson(document.dump());
@@ -258,21 +274,22 @@ TEST(ConfigValidator, OpChainAcceptsStableInstanceIds) {
     EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
 
     document["ops"] = {
-        {{"id", "custom/First"}, {"instanceId", "duplicate"}},
-        {{"id", "custom/Second"}, {"instanceId", "duplicate"}},
+        {{"id", "custom/First"}, {"role", "intermediate-process"}, {"instanceId", "duplicate"}},
+        {{"id", "custom/Second"}, {"role", "intermediate-process"}, {"instanceId", "duplicate"}},
     };
     const auto duplicate = opk::config::validateOpChainJson(document.dump());
     ASSERT_FALSE(duplicate);
-    EXPECT_TRUE(hasRule(duplicate.error(), "opchain.v2.instance-id"));
+    EXPECT_TRUE(hasRule(duplicate.error(), "opchain.v3.instance-id"));
 }
 
 TEST(ConfigValidator, OpChainValidatesPythonScriptAttributes) {
     nlohmann::json document{
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "python-script"},
         {"description", "Validate PythonScript attributes."},
         {"ops",
          {{{"id", "opk-python-ops/PythonScript"},
+           {"role", "postprocess"},
            {"attributes",
             {{"script", "scripts/process.py"}, {"pythonPaths", {"scripts/modules"}}}}}}},
     };
@@ -289,8 +306,8 @@ TEST(ConfigValidator, OpChainValidatesPythonScriptAttributes) {
 
 TEST(ConfigValidator, PythonOutputDeclarationsRequireTypedCapabilities) {
     auto document = nlohmann::json::parse(R"({
-        "version":"2.0.0", "name":"declared-output", "description":"Typed Python inputs",
-        "ops":[{"id":"opk-python-ops/PythonScript", "attributes":{
+        "version":"3.0.0", "name":"declared-output", "description":"Typed Python inputs",
+        "ops":[{"id":"opk-python-ops/PythonScript", "role": "postprocess", "attributes":{
             "script":"script.py",
             "providedOutputs":[{"payloadType":"open_perception_kit.metadata.BoxDetections"}],
             "requiredInputs":[{"inputId":"audio", "payloadType":"open_perception_kit.metadata.VoiceActivityDetections", "producerId":"vad/output"}]
@@ -304,12 +321,12 @@ TEST(ConfigValidator, PythonOutputDeclarationsRequireTypedCapabilities) {
 TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
     opk::op::OpChainDescriptor::Op reused;
     reused.attributes.set("stale", true);
-    nlohmann::json{{"id", "custom/Operation"}}.get_to(reused);
+    nlohmann::json{{"id", "custom/Operation"}, {"role", "intermediate-process"}}.get_to(reused);
     EXPECT_TRUE(reused.attributes.raw().empty());
 
     opk::op::OpChainDescriptor chain;
     chain.execution = opk::op::ExecutionDefaults{.preprocessing = opk::op::ExecutionMode::Gpu};
-    nlohmann::json{{"version", "2.1.0"},
+    nlohmann::json{{"version", "3.0.0"},
                    {"name", "reused"},
                    {"description", "Clear omitted execution settings."},
                    {"ops", nlohmann::json::array()}}
@@ -321,14 +338,16 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     const auto supportedVersion = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
-    EXPECT_EQ(*supportedVersion, "2.0.0");
+    EXPECT_EQ(*supportedVersion, "3.0.0");
 
     nlohmann::json document{
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "parser-contract"},
         {"description", "Validate GenericPostprocess parser attributes."},
         {"ops",
-         {{{"id", "opk-std-ops/GenericPostprocess"}, {"attributes", {{"parser", "DummyParser"}}}}}},
+         {{{"id", "opk-std-ops/GenericPostprocess"},
+           {"role", "postprocess"},
+           {"attributes", {{"parser", "DummyParser"}}}}}},
     };
     auto &attributes = document["ops"][0]["attributes"];
     constexpr std::array Parsers = {
@@ -410,49 +429,51 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     }
 }
 
-TEST(ConfigValidator, OpChainV1RejectsControlsButAllowsUnicodeInOpId) {
-    auto document = nlohmann::json{
-        {"version", "2.0.0"},
-        {"name", "op-id-validation"},
-        {"description", "Validate operation identifiers."},
-        {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
+TEST(ConfigValidator, OpChainV3RejectsControlsButAllowsUnicodeInOpId) {
+    auto document = nlohmann::json{{"version", "3.0.0"},
+                                   {"name", "op-id-validation"},
+                                   {"description", "Validate operation identifiers."},
+                                   {"ops",
+                                    {{{"id", "custom/Operation"},
+                                      {"role", "intermediate-process"},
+                                      {"attributes", nlohmann::json::object()}}}}};
 
     document["ops"][0]["id"] = std::string{"custom/"} + "\xC2\x80" + "Operation";
     const auto controlResult = opk::config::validateOpChainJson(document.dump());
     ASSERT_FALSE(controlResult);
-    EXPECT_TRUE(hasRule(controlResult.error(), "opchain.v2.op-id-control"));
+    EXPECT_TRUE(hasRule(controlResult.error(), "opchain.v3.op-id-control"));
 
     document["ops"][0]["id"] = std::string{"custom/"} + "\xC3\x81" + "Operation";
     const auto unicodeResult = opk::config::validateOpChainJson(document.dump());
     EXPECT_TRUE(unicodeResult) << (unicodeResult ? "" : unicodeResult.error().toText());
 }
 
-TEST(ConfigValidator, OpChainV1ValidatesLoopGroups) {
+TEST(ConfigValidator, OpChainV3ValidatesLoopGroups) {
     opk::op::OpChainDescriptor descriptor;
     descriptor.ops = {
-        {"custom/A", 1, {}},
-        {"custom/B", 1, {}},
+        {"custom/A", 1, {}, {}, opk::op::StageRole::IntermediateProcess},
+        {"custom/B", 1, {}, {}, opk::op::StageRole::IntermediateProcess},
     };
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
 
     descriptor.ops.pop_back();
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.loop-group"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.loop-group"));
 
     descriptor.ops[0].loopId = 0;
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.loop-group"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.loop-group"));
 
     descriptor.ops = {
-        {"custom/A", 1, {}},
-        {"custom/B", std::nullopt, {}},
-        {"custom/C", 1, {}},
+        {"custom/A", 1, {}, {}, opk::op::StageRole::IntermediateProcess},
+        {"custom/B", std::nullopt, {}, {}, opk::op::StageRole::IntermediateProcess},
+        {"custom/C", 1, {}, {}, opk::op::StageRole::IntermediateProcess},
     };
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.loop-group"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.loop-group"));
 }
 
-TEST(ConfigValidator, OpChainV1ValidatesBuiltInStageStructure) {
+TEST(ConfigValidator, OpChainV3ValidatesBuiltInStageStructure) {
     auto descriptor = builtInStage();
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
 
@@ -461,79 +482,103 @@ TEST(ConfigValidator, OpChainV1ValidatesBuiltInStageStructure) {
 
     descriptor = builtInStage();
     descriptor.ops.insert(descriptor.ops.end() - 1,
-                          {"opk-python-ops/PythonScript", std::nullopt, {}});
+                          {"opk-python-ops/PythonScript",
+                           std::nullopt,
+                           {},
+                           {},
+                           opk::op::StageRole::IntermediateProcess});
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
 
-    descriptor.ops.insert(descriptor.ops.end() - 1, {"custom/Between", std::nullopt, {}});
+    descriptor.ops.insert(
+        descriptor.ops.end() - 1,
+        {"custom/Between", std::nullopt, {}, {}, opk::op::StageRole::IntermediateProcess});
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
 
     descriptor = builtInStage();
     descriptor.ops[1].id = "custom/WrongPreprocess";
+    descriptor.ops[1].role = opk::op::StageRole::IntermediateProcess;
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.builtin-stage"));
 
     descriptor = builtInStage();
     descriptor.ops[2].id = "custom/WrongInference";
+    descriptor.ops[2].role = opk::op::StageRole::IntermediateProcess;
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.builtin-stage"));
 
     descriptor = builtInStage();
     descriptor.ops.back().id = "custom/WrongPostprocess";
+    descriptor.ops.back().role = opk::op::StageRole::IntermediateProcess;
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.builtin-stage"));
 
     descriptor = builtInStage();
     descriptor.ops.back().id = "opk-python-ops/PythonScript";
-    descriptor.ops.insert(descriptor.ops.end() - 1,
-                          {"opk-std-ops/GenericPostprocess", std::nullopt, {}});
+    descriptor.ops.insert(
+        descriptor.ops.end() - 1,
+        {"opk-std-ops/GenericPostprocess", std::nullopt, {}, {}, opk::op::StageRole::Postprocess});
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.builtin-stage"));
 
     descriptor = builtInStage();
     descriptor.ops.insert(descriptor.ops.end() - 1,
-                          {"opk-std-ops/GenericImagePreprocess", std::nullopt, {}});
+                          {"opk-std-ops/GenericImagePreprocess",
+                           std::nullopt,
+                           {},
+                           {},
+                           opk::op::StageRole::ImagePreprocess});
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.builtin-stage"));
 
-    descriptor.ops = {{"opk-std-ops/GenericImagePreprocess", std::nullopt, {}}};
+    descriptor.ops = {{"opk-std-ops/GenericImagePreprocess",
+                       std::nullopt,
+                       {},
+                       {},
+                       opk::op::StageRole::ImagePreprocess}};
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.builtin-stage"));
 }
 
-TEST(ConfigValidator, OpChainV1ValidatesBuiltInStageLoopOwnership) {
+TEST(ConfigValidator, OpChainV3ValidatesBuiltInStageLoopOwnership) {
     auto descriptor = builtInStage();
     for (auto &op : descriptor.ops)
         op.loopId = 1;
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
 
-    descriptor.ops.insert(descriptor.ops.begin(), {"custom/Before", 1, {}});
+    descriptor.ops.insert(descriptor.ops.begin(),
+                          {"custom/Before", 1, {}, {}, opk::op::StageRole::IntermediateProcess});
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.stage-loop"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.stage-loop"));
 
     descriptor = builtInStage();
     for (auto &op : descriptor.ops)
         op.loopId = 1;
     descriptor.ops.back().loopId.reset();
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.stage-loop"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.stage-loop"));
 
     descriptor = builtInStage();
     descriptor.ops.front().attributes.set("sourceProducer", "upstream/output");
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.stage-loop"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.stage-loop"));
 }
 
 TEST(ConfigValidator, OpChainValidatesPaddleOcrPreprocessAttributes) {
     nlohmann::json document{
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "paddle-ocr"},
         {"description", "Validate OCR preprocessing attributes."},
         {"ops",
-         {{{"id", "opk-std-ops/InferenceController"}},
+         {{{"id", "opk-std-ops/InferenceController"}, {"role", "controller"}},
           {{"id", "opk-std-ops/PaddleOcrPreprocess"},
+           {"role", "image-preprocess"},
            {"attributes", {{"mode", "detection"}, {"paddingValue", 0}}}},
-          {{"id", "opk-onnx-ops/Inference"}, {"attributes", {{"modelDescriptor", "model.json"}}}},
-          {{"id", "opk-std-ops/GenericPostprocess"}, {"attributes", {{"parser", "DummyParser"}}}}}},
+          {{"id", "opk-onnx-ops/Inference"},
+           {"role", "inference"},
+           {"attributes", {{"modelDescriptor", "model.json"}}}},
+          {{"id", "opk-std-ops/GenericPostprocess"},
+           {"role", "postprocess"},
+           {"attributes", {{"parser", "DummyParser"}}}}}},
     };
     auto &attributes = document["ops"][1]["attributes"];
     for (const auto *mode : {"detection", "recognition"}) {
@@ -567,8 +612,21 @@ TEST(ConfigValidator, OpChainValidatesPaddleOcrPreprocessAttributes) {
 }
 
 TEST(ConfigValidator, OpChainAcceptsOcrPreprocessWithoutRelaxingStageOrderOrLoops) {
+    const auto path =
+        std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/opchains/pp-ocrv6-tiny/opchain.json";
+    std::ifstream input(path);
+    ASSERT_TRUE(input);
+    const auto document = nlohmann::json::parse(input);
+    const auto parsed = opk::config::validateOpChainJson(document.dump(), path.string());
+    ASSERT_TRUE(parsed) << parsed.error().toText();
+    EXPECT_EQ(parsed->ops[1].role, opk::op::StageRole::ImagePreprocess);
+    EXPECT_EQ(parsed->ops[5].role, opk::op::StageRole::ImagePreprocess);
+
     auto descriptor = builtInStage();
     descriptor.ops[1].id = "opk-std-ops/PaddleOcrPreprocess";
+    descriptor.ops[1].role = opk::op::StageRole::IntermediateProcess;
+    EXPECT_FALSE(opk::config::validateOpChainSemantics(descriptor).ok());
+    descriptor.ops[1].role = opk::op::StageRole::ImagePreprocess;
     descriptor.ops[1].attributes.set("mode", "recognition");
     descriptor.ops[1].attributes.set("paddingValue", 0.0);
     descriptor.ops.front().attributes.set("sourceProducer", "upstream/output");
@@ -578,28 +636,36 @@ TEST(ConfigValidator, OpChainAcceptsOcrPreprocessWithoutRelaxingStageOrderOrLoop
 
     descriptor.ops[2].loopId.reset();
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.stage-loop"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.stage-loop"));
     descriptor.ops[2].loopId = 1;
     std::swap(descriptor.ops[1], descriptor.ops[2]);
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.builtin-stage"));
     std::swap(descriptor.ops[1], descriptor.ops[2]);
 
     for (const auto *id :
          {"opk-std-ops/GenericImagePreprocess", "opk-std-ops/PaddleOcrPreprocess"}) {
         auto duplicate = descriptor;
-        duplicate.ops.insert(duplicate.ops.end() - 1, {id, 1, {}});
+        auto extra = descriptor.ops[1];
+        extra.id = id;
+        duplicate.ops.insert(duplicate.ops.end() - 1, extra);
         EXPECT_TRUE(
-            hasRule(opk::config::validateOpChainSemantics(duplicate), "opchain.v2.builtin-stage"));
+            hasRule(opk::config::validateOpChainSemantics(duplicate), "opchain.v3.builtin-stage"));
     }
-    descriptor.ops = {{"opk-std-ops/PaddleOcrPreprocess", std::nullopt, {}}};
+    descriptor.ops = {{"opk-std-ops/PaddleOcrPreprocess",
+                       std::nullopt,
+                       {},
+                       {},
+                       opk::op::StageRole::ImagePreprocess}};
+    descriptor.ops[0].role = opk::op::StageRole::ImagePreprocess;
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.builtin-stage"));
 }
 
-TEST(ConfigValidator, OpChainV1ValidatesEffectiveThresholdOrder) {
+TEST(ConfigValidator, OpChainV3ValidatesEffectiveThresholdOrder) {
     opk::op::OpChainDescriptor descriptor;
-    descriptor.ops = {{"opk-std-ops/GenericPostprocess", std::nullopt, {}}};
+    descriptor.ops = {
+        {"opk-std-ops/GenericPostprocess", std::nullopt, {}, {}, opk::op::StageRole::Postprocess}};
     auto &attributes = descriptor.ops.front().attributes;
     attributes.set("parser", "ModNetSegmentationParser");
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
@@ -607,7 +673,7 @@ TEST(ConfigValidator, OpChainV1ValidatesEffectiveThresholdOrder) {
     attributes.set("thresholdLow", 0.9);
     attributes.set("thresholdHigh", 0.8);
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v2.threshold-order"));
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v3.threshold-order"));
 
     attributes.set("parser", "PaddleOcrDetectionParser");
     attributes.set("thresholdLow", 0.6);
@@ -623,10 +689,12 @@ TEST(ConfigValidator, MobileSamUsesDefaultImageSamplingWithoutSamplingAttribute)
     auto document = nlohmann::json::parse(input);
     EXPECT_FALSE(document["ops"][1]["attributes"].contains("sampling"));
     ASSERT_TRUE(opk::config::validateOpChainJson(document.dump(), path.string()));
-    for (const auto *const sampling : {"nearest", "bilinearHalfPixel"}) {
+    for (const auto *const sampling : {"nearest", "bilinear"}) {
         document["ops"][1]["attributes"]["sampling"] = sampling;
         EXPECT_FALSE(opk::config::validateOpChainJson(document.dump(), path.string()));
     }
+    document["ops"][1]["attributes"]["sampling"] = "unknown";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump(), path.string()));
 }
 
 TEST(ConfigValidator, ExplicitImageBindingDefersCustomInputCapabilitiesToRuntime) {
@@ -644,35 +712,45 @@ TEST(ConfigValidator, ExplicitImageBindingDefersCustomInputCapabilitiesToRuntime
     auto descriptor = builtInStage();
     descriptor.ops[1].attributes.set("inferenceInstance", "sam");
     descriptor.ops[2].instanceId = "sam";
-    descriptor.ops.insert(descriptor.ops.begin() + 2,
-                          {"custom/InputPreprocessor", std::nullopt, {}});
+    descriptor.ops.insert(
+        descriptor.ops.begin() + 2,
+        {"custom/InputPreprocessor", std::nullopt, {}, {}, opk::op::StageRole::InputPreprocess});
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
     descriptor.ops.insert(descriptor.ops.begin() + 2,
-                          {"custom/AnotherInputPreprocessor", std::nullopt, {}});
+                          {"custom/AnotherInputPreprocessor",
+                           std::nullopt,
+                           {},
+                           {},
+                           opk::op::StageRole::InputPreprocess});
     EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
     auto invalid = descriptor;
     invalid.ops[1].attributes = opk::AttributeMap{};
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
     invalid = descriptor;
     invalid.ops[1].attributes.set("inferenceInstance", "other");
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
     invalid = descriptor;
     invalid.ops[2].loopId = 1;
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
     invalid = descriptor;
     invalid.ops[2].id = "opk-std-ops/GenericImagePreprocess";
+    invalid.ops[2].role = opk::op::StageRole::ImagePreprocess;
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
 }
 
 TEST(ConfigValidator, BoxSpecificCrossOperationChecksAreDeferredToBinding) {
     auto descriptor = builtInStage();
     descriptor.ops[1].attributes.set("inferenceInstance", "sam");
     descriptor.ops[2].instanceId = "sam";
-    opk::op::OpChainDescriptor::Op box{"opk-std-ops/BoxPromptPreprocess", std::nullopt, {}};
+    opk::op::OpChainDescriptor::Op box{"opk-std-ops/BoxPromptPreprocess",
+                                       std::nullopt,
+                                       {},
+                                       {},
+                                       opk::op::StageRole::InputPreprocess};
     box.attributes.set("inferenceInstance", "sam");
     box.attributes.set("inputBoxTensorIndex", int64_t{1});
     descriptor.ops.insert(descriptor.ops.begin() + 2, box);
@@ -681,7 +759,7 @@ TEST(ConfigValidator, BoxSpecificCrossOperationChecksAreDeferredToBinding) {
     auto invalid = descriptor;
     invalid.ops[1].attributes.set("inferenceInstance", "other");
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
     invalid = descriptor;
     invalid.ops[2].attributes.set("inputBoxTensorIndex", int64_t{0});
     EXPECT_TRUE(opk::config::validateOpChainSemantics(invalid).ok());
@@ -693,13 +771,13 @@ TEST(ConfigValidator, BoxSpecificCrossOperationChecksAreDeferredToBinding) {
     EXPECT_TRUE(opk::config::validateOpChainSemantics(invalid).ok());
     invalid = descriptor;
     std::swap(invalid.ops[2], invalid.ops[3]);
-    EXPECT_TRUE(opk::config::validateOpChainSemantics(invalid).ok());
+    EXPECT_FALSE(opk::config::validateOpChainSemantics(invalid).ok());
     invalid = descriptor;
     for (auto &op : invalid.ops) {
         op.loopId = 1;
     }
     EXPECT_TRUE(
-        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v2.builtin-stage"));
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
 }
 
 TEST(ConfigValidator, MobileSamDescriptorAndPromptAttributesUsePublishedFormat) {
@@ -727,11 +805,12 @@ TEST(ConfigValidator, MobileSamDescriptorAndPromptAttributesUsePublishedFormat) 
 
 TEST(ConfigValidator, UltraFaceLogitsUseOpChain2Contract) {
     nlohmann::json document{
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "ultraface-logit-schema"},
         {"description", "Validate the logits attribute without a runtime artifact."},
         {"ops",
          {{{"id", "opk-std-ops/GenericPostprocess"},
+           {"role", "postprocess"},
            {"attributes", {{"parser", "UltrafaceParser"}, {"scoresAreLogits", true}}}}}},
     };
     const auto validated = opk::config::validateOpChainJson(document.dump(), "opchain.json");
@@ -739,4 +818,78 @@ TEST(ConfigValidator, UltraFaceLogitsUseOpChain2Contract) {
 
     document["ops"][0]["attributes"]["scoresAreLogits"] = "true";
     EXPECT_FALSE(opk::config::validateOpChainJson(document.dump(), "opchain.json"));
+}
+
+TEST(ConfigValidator, QueryStageKeepsExplicitImageBindingAndTerminalContract) {
+    auto descriptor = builtInStage();
+    descriptor.ops[1].id = "custom/Image";
+    descriptor.ops[1].role = opk::op::StageRole::ImagePreprocess;
+    descriptor.ops[1].attributes.set("inferenceInstance", "query");
+    descriptor.ops[2].instanceId = "query";
+    descriptor.ops[3].id = "custom/Results";
+    descriptor.ops[3].role = opk::op::StageRole::Postprocess;
+    descriptor.ops.insert(descriptor.ops.begin() + 2,
+                          {"opk-python-ops/YoloePromptPack",
+                           std::nullopt,
+                           {},
+                           {},
+                           opk::op::StageRole::InputPreprocess});
+    descriptor.ops.insert(descriptor.ops.begin(),
+                          {"opk-python-ops/YoloePromptPrepare",
+                           std::nullopt,
+                           {},
+                           {},
+                           opk::op::StageRole::IntermediateProcess});
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
+
+    auto invalid = descriptor;
+    invalid.ops[2].attributes = opk::AttributeMap{};
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
+    invalid = descriptor;
+    invalid.ops[2].attributes.set("inferenceInstance", "other");
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
+    invalid = descriptor;
+    invalid.ops.back().id = "custom/NotTerminal";
+    invalid.ops.back().role = opk::op::StageRole::IntermediateProcess;
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
+    invalid = descriptor;
+    invalid.ops.insert(invalid.ops.end() - 1, invalid.ops.back());
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
+    invalid = descriptor;
+    invalid.ops[3].role = opk::op::StageRole::ImagePreprocess;
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(invalid), "opchain.v3.builtin-stage"));
+}
+
+TEST(ConfigValidator, ExplicitIntermediateRoleDoesNotReplaceStageContracts) {
+    using opk::op::StageRole;
+    auto descriptor = builtInStage();
+    descriptor.ops.back().id = "opk-python-ops/PythonScript";
+    descriptor.ops.back().role = StageRole::Postprocess;
+    auto intermediate = descriptor.ops.back();
+    intermediate.role = StageRole::IntermediateProcess;
+    descriptor.ops.insert(descriptor.ops.end() - 1, intermediate);
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
+    descriptor.ops.back().role = StageRole::IntermediateProcess;
+    EXPECT_FALSE(opk::config::validateOpChainSemantics(descriptor).ok());
+    descriptor = builtInStage();
+    descriptor.ops[1].role = StageRole::IntermediateProcess;
+    EXPECT_FALSE(opk::config::validateOpChainSemantics(descriptor).ok());
+    descriptor = builtInStage();
+    descriptor.ops.insert(descriptor.ops.begin() + 2, intermediate);
+    descriptor.ops[1].attributes.set("inferenceInstance", "infer");
+    descriptor.ops[3].instanceId = "infer";
+    EXPECT_FALSE(opk::config::validateOpChainSemantics(descriptor).ok());
+}
+
+TEST(ConfigValidator, ExplicitRolesClassifyCustomStageNames) {
+    auto descriptor = builtInStage();
+    for (size_t index = 0; index < descriptor.ops.size(); ++index) {
+        descriptor.ops[index].id = "custom/Implementation" + std::to_string(index);
+    }
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
 }

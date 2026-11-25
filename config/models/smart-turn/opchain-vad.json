@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "SileroVadSmartTurn",
   "displayName": "VAD + SmartTurn",
   "task": "Voice activity and turn detection",
@@ -7,14 +7,14 @@
   "description": "Run Silero every 512 samples and evaluate padded eight-second SmartTurn history during pauses after speech.",
   "ops": [
     {
-      "id": "opk-std-ops/GenericAudioPreprocess",
+      "id": "opk-std-ops/GenericAudioPreprocess", "role": "audio-preprocess",
       "attributes": {
         "inputAudioTensorIndex": 0,
         "contextSampleCount": 64
       }
     },
     {
-      "id": "opk-onnx-ops/Inference",
+      "id": "opk-onnx-ops/Inference", "role": "inference",
       "attributes": {
         "modelDescriptor": "../silero-vad/model.json",
         "intraOpNumThreads": 3,
@@ -22,7 +22,7 @@
       }
     },
     {
-      "id": "opk-std-ops/GenericPostprocess",
+      "id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
       "instanceId": "opk-std-ops-GenericPostprocess-0",
       "attributes": {
         "parser": "VoiceActivityParser",
@@ -36,7 +36,7 @@
       }
     },
     {
-      "id": "opk-std-ops/TurnDetector",
+      "id": "opk-std-ops/TurnDetector", "role": "audio-preprocess",
       "attributes": {
         "hopSampleCount": 512,
         "silenceMs": 700,
@@ -45,7 +45,7 @@
       }
     },
     {
-      "id": "opk-onnx-ops/Inference",
+      "id": "opk-onnx-ops/Inference", "role": "inference",
       "attributes": {
         "modelDescriptor": "model.json",
         "intraOpNumThreads": 3,
@@ -53,7 +53,7 @@
       }
     },
     {
-      "id": "opk-std-ops/GenericPostprocess",
+      "id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
       "instanceId": "opk-std-ops-GenericPostprocess-1",
       "attributes": {
         "parser": "SmartTurnParser",

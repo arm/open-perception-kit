@@ -58,11 +58,13 @@ interpreter; it does not reinitialize or take ownership of that interpreter.
 
 ## Configure the Op
 
-Add the operation at the required position in an OpChain:
+In an OpChain with version `3.0.0`, explicitly select `postprocess` when the script
+produces the stage result, or `intermediate-process` when another postprocessor follows.
+For a terminal script:
 
 ```json
 {
-  "id": "opk-python-ops/PythonScript",
+  "id": "opk-python-ops/PythonScript", "role": "postprocess",
   "instanceId": "python-classifier",
   "attributes": {
     "script": "scripts/process.py",
@@ -79,7 +81,7 @@ changing a script.
 `instanceId` is optional, but assigning one gives payloads a stable producer
 identity even if the operation order changes.
 
-OpChain format `2.0.0` supports payload-only `providedOutputs` and named
+OpChain format `3.0.0` supports payload-only `providedOutputs` and named
 `requiredInputs`. An output declares `payloadType`, for example
 `open_perception_kit.metadata.BoxDetections`. An input also declares `inputId`
 and optionally `sourceOp` (an earlier Op's `instanceId`) or `producerId` (a concrete

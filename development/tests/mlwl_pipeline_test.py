@@ -74,13 +74,13 @@ class MlwlPipeline(unittest.TestCase):
         }), encoding="utf-8")
         ops = []
         if kind != "Value":
-            ops = [{"id": "opk-std-ops/InferenceController", "attributes": {}},
-                   {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {}}]
-        ops += [{"id": "opk-mlwl-ops/Inference", "attributes": {"modelDescriptor": "model.json"}},
-                {"id": "opk-python-ops/PythonScript", "attributes": {"script": "observe.py"}},
-                {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "ModNetSegmentationParser"}}]
+            ops = [{"id": "opk-std-ops/InferenceController", "role": "controller", "attributes": {}},
+                   {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "attributes": {}}]
+        ops += [{"id": "opk-mlwl-ops/Inference", "role": "inference", "attributes": {"modelDescriptor": "model.json"}},
+                {"id": "opk-python-ops/PythonScript", "role": "intermediate-process", "attributes": {"script": "observe.py"}},
+                {"id": "opk-std-ops/GenericPostprocess", "role": "postprocess", "attributes": {"parser": "ModNetSegmentationParser"}}]
         descriptor = directory / "opchain.json"
-        descriptor.write_text(json.dumps({"version": "2.0.0", "name": "mlwl-pipeline-test",
+        descriptor.write_text(json.dumps({"version": "3.0.0", "name": "mlwl-pipeline-test",
                                           "description": "Real VGF pipeline", "ops": ops}), encoding="utf-8")
         frames = directory / "frames.bgra"
         frames.write_bytes(b"".join(bytes((value, value, value, 255)) * 256 for value in pattern))

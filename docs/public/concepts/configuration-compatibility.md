@@ -25,10 +25,37 @@ limitations under the License.
 # Configuration compatibility
 
 Every pipeline preset, OpChain, and model descriptor must declare a string
-version in `MAJOR.MINOR.PATCH` form. Current Model and OpChain contracts use
-major 2; pipeline presets use major 1. This configuration version is independent of the OPK
+version in `MAJOR.MINOR.PATCH` form. Current Model contracts use major 2, OpChains use major 3,
+and pipeline presets use major 1. This configuration version is independent of the OPK
 product version, model artifact format, dependency package versions, and
 FrameResults payload format.
+
+## OpChain format 3: mandatory stage roles
+
+OpChain readers now require version `3.0.0` and an explicit `role` on every Op.
+Format 2 chains are rejected by major-version validation. Model and Pipeline
+versions are unchanged. OpChain schema resources now live under `config/schemas/v3`;
+`x-opk-supported-version` owns the compatibility version.
+
+Migrate each operation according to its selected responsibility:
+
+| Operations | Role |
+| --- | --- |
+| InferenceController | `controller` |
+| Inference backends | `inference` |
+| GenericImagePreprocess, PaddleOcrPreprocess | `image-preprocess` |
+| GenericAudioPreprocess, TurnDetector | `audio-preprocess` |
+| BoxPromptPreprocess, YoloePromptPack | `input-preprocess` |
+| GenericPostprocess, YoloeInstancePostprocess, terminal PythonScript | `postprocess` |
+| YoloePromptPrepare, intermediate PythonScript, other intermediate work | `intermediate-process` |
+
+Set the chain's version to `3.0.0` after assigning all roles. Preserve its attributes,
+instance identities, bindings and loop IDs. Update custom operations to expose the
+corresponding runtime capability; controllers implement `OpInterfaceController`.
+The general validator no longer infers roles from names or positions. Missing,
+unknown and unsupported roles are errors. Rebuild readers and plugins together,
+validate migrated chains, and run the intended pipelines.
+
 
 ## Where to update the supported version
 
@@ -65,7 +92,7 @@ releases remain independently versioned in `development/meson.build`.
 | Contract or dependency | Authoritative source | Owner and compatibility boundary |
 | --- | --- | --- |
 | Pipeline JSON | `config/schemas/v1/pipeline.schema.json` | OPK launcher maintainers own the preset format and execution semantics. |
-| OpChain JSON | `config/schemas/v2/opchain.schema.json` and its referenced Op schemas | OPK Op maintainers own ordering, loops, and built-in attributes. Custom Op authors own their attributes. |
+| OpChain JSON | `config/schemas/v3/opchain.schema.json` and its referenced Op schemas | OPK Op maintainers own ordering, loops, and built-in attributes. Custom Op authors own their attributes. |
 | Model JSON | `config/schemas/v2/model.schema.json` | OPK model integration maintainers own tensor and preprocessing declarations. Model authors own the artifact and its export requirements. |
 | SDK descriptor JSON | `tools/perception/sdk.json` and `tools/perception/sdk_config.py` | SDK tooling maintainers own its dependency locks, generator inputs, and release fields. It has no configuration-format version. |
 | OPK runtime, native plugins, and SDK package version | `development/meson.build` | OPK maintainers version and distribute these together. Use components from the same release or source checkout. |
@@ -106,7 +133,7 @@ that file's evolution. A differing minor still produces the warning described
 above, and the runtime must implement every attribute the file uses.
 
 Each file has its own patch counter. Start new pipeline presets at `1.0.0`,
-and new Model and OpChain descriptors at `2.0.0`.
+new Model descriptors at `2.0.0`, and new OpChains at `3.0.0`.
 When editing a command, model path, tensor declaration, dependency lock, or even
 an inert annotation, increment that file's patch in the same change; do not
 bump unrelated files. A new major or minor contract starts at patch zero and
@@ -116,7 +143,7 @@ not compare patch history. For manually authored Pipeline, Model, and OpChain
 files, the author owns the bump when changing a versioned descriptor.
 
 Schema directories and resource IDs identify each contract's supported major:
-`v1` for pipelines and `v2` for Model and OpChain descriptors.
+`v1` for pipelines, `v2` for Models, and `v3` for OpChains.
 Rebuild native consumers after changing their supported contract or
 schemas. Contract families evolve independently.
 
@@ -217,7 +244,8 @@ validated when the pipeline starts.
 
 ### Model and OpChain format 2.0.0
 
-The current Model and OpChain readers require major **2**. Pipeline presets remain
+Format 2 introduced the following Model and OpChain changes. Current OpChains
+also require the format-3 role migration above. Pipeline presets remain
 major **1**. Rebuild custom Op libraries and upgrade the generated SDK and WebUI together.
 
 1. Remove Model `contentType` and set the Model version to `2.0.0`.
@@ -247,8 +275,8 @@ live changes and saved overlay migration. There is no automatic field-semantic c
 
 The following records describe the earlier format-1 evolution. Their features are
 included in format 2; the earlier version numbers below apply only to matching
-older readers. Migrate existing Model and OpChain files to `2.0.0` as above for
-the current runtime.
+older readers. Migrate Models to `2.0.0` and OpChains through the format-2
+changes below and then the format-3 role migration above.
 
 Model reader schema `1.4.0` accepts Float32 `AudioLogMel` inputs.
 OpChain reader schema `1.11.0` adds `GenericAudioPreprocess.logMel`, which requires
@@ -422,8 +450,8 @@ omitted `description`, add a string description as well:
 }
 ```
 
-Existing model and OpChain files using `"version": 1` must also migrate to
-`"version": "2.0.0"` with the field changes above. The SDK descriptor is not part of this configuration
+Existing model and OpChain files using `"version": 1` must migrate through the field changes above; the resulting versions are
+`2.0.0` for Models and `3.0.0` for OpChains. The SDK descriptor is not part of this configuration
 version contract and must keep its own unversioned format. For an unversioned
 external Model, OpChain, or pipeline descriptor, compare it with the corresponding
 schema and checked-in example before adding `version`; the number alone does

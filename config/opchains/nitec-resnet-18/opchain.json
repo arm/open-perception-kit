@@ -1,18 +1,18 @@
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "UltraFaceNitecResnet18",
   "displayName": "UltraFace + NITEC ResNet-18 INT8",
   "task": "Camera contact",
   "runtime": "ONNX",
   "description": "Detects faces, then evaluates camera contact on each face crop.",
   "ops": [
-    {"id": "opk-std-ops/InferenceController", "attributes": {}},
-    {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-    {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "../../models/ultraface-rfb-320/model.json", "intraOpNumThreads": 1, "interOpNumThreads": 1}},
-    {"id": "opk-std-ops/GenericPostprocess", "instanceId": "opk-std-ops-GenericPostprocess-0", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.1, "iouThreshold": 0.3}},
-    {"id": "opk-std-ops/InferenceController", "instanceId": "opk-std-ops-InferenceController-1", "loopId": 2, "attributes": {"sourceOp": "opk-std-ops-GenericPostprocess-0"}},
-    {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 2, "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-    {"id": "opk-onnx-ops/Inference", "loopId": 2, "attributes": {"modelDescriptor": "../../models/nitec-resnet-18/model.json", "intraOpNumThreads": 3, "interOpNumThreads": 1}},
-    {"id": "opk-std-ops/GenericPostprocess", "instanceId": "opk-std-ops-GenericPostprocess-1", "loopId": 2, "attributes": {"parser": "CameraContactParser", "contactClassIndex": 1, "noContactClassIndex": 0}}
+    {"id": "opk-std-ops/InferenceController", "role": "controller", "attributes": {}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-onnx-ops/Inference", "role": "inference", "attributes": {"modelDescriptor": "../../models/ultraface-rfb-320/model.json", "intraOpNumThreads": 1, "interOpNumThreads": 1}},
+    {"id": "opk-std-ops/GenericPostprocess", "role": "postprocess", "instanceId": "opk-std-ops-GenericPostprocess-0", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.1, "iouThreshold": 0.3}},
+    {"id": "opk-std-ops/InferenceController", "role": "controller", "instanceId": "opk-std-ops-InferenceController-1", "loopId": 2, "attributes": {"sourceOp": "opk-std-ops-GenericPostprocess-0"}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "loopId": 2, "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-onnx-ops/Inference", "role": "inference", "loopId": 2, "attributes": {"modelDescriptor": "../../models/nitec-resnet-18/model.json", "intraOpNumThreads": 3, "interOpNumThreads": 1}},
+    {"id": "opk-std-ops/GenericPostprocess", "role": "postprocess", "instanceId": "opk-std-ops-GenericPostprocess-1", "loopId": 2, "attributes": {"parser": "CameraContactParser", "contactClassIndex": 1, "noContactClassIndex": 0}}
   ]
 }

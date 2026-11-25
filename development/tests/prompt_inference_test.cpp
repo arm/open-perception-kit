@@ -120,12 +120,13 @@ class PromptInference : public ::testing::Test {
 
     std::filesystem::path chain(const bool supported, const size_t index) {
         const nlohmann::json descriptor = {
-            {"version", "2.0.0"},
+            {"version", "3.0.0"},
             {"name", "PromptProbe"},
             {"description", "Test-only inference scheduling and prompt routing probe."},
             {"execution", {{"preprocessing", "cpu"}}},
             {"ops",
-             {{{"id",
+             {{{"role", "intermediate-process"},
+               {"id",
                 supported ? "opk-test-prompt-probe/PromptInference"
                           : "opk-test-prompt-probe/PlainInference"},
                {"instanceId", "sam"},

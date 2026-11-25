@@ -93,7 +93,7 @@ The shortest practical path is:
 6. add that source file to `development/ops-std/meson.build`
 7. register the parser name in `GenericPostprocessOp.cpp`
 8. reuse or add its closed local `$defs` entry in
-   `config/schemas/v2/opchain/ops/generic-postprocess.schema.json`
+   `config/schemas/v3/opchain/ops/generic-postprocess.schema.json`
 9. add that `$defs` entry to the schema's dispatcher `oneOf`
 10. reference that parser name from the relevant `opchain.json`
 11. run `opk-ci --config-schema-check` in the development container
@@ -289,19 +289,19 @@ The usual chain shape is still:
 
 ```json
 {
-	"version": "2.0.0",
+	"version": "3.0.0",
 	"name": "CameraContact",
 	"description": "Estimate camera contact for each detected face.",
 	"ops": [
 		{
-			"id": "opk-std-ops/InferenceController",
+			"id": "opk-std-ops/InferenceController", "role": "controller",
 			"loopId": 1,
 			"attributes": {
 				"sourceProducer": "detector/faces"
 			}
 		},
 		{
-			"id": "opk-std-ops/GenericImagePreprocess",
+			"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess",
 			"loopId": 1,
 			"attributes": {
 				"inputImageTensorIndex": 0,
@@ -309,14 +309,14 @@ The usual chain shape is still:
 			}
 		},
 		{
-			"id": "opk-onnx-ops/Inference",
+			"id": "opk-onnx-ops/Inference", "role": "inference",
 			"loopId": 1,
 			"attributes": {
 				"modelDescriptor": "model.json"
 			}
 		},
 		{
-			"id": "opk-std-ops/GenericPostprocess",
+			"id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
 			"loopId": 1,
 			"attributes": {
 				"parser": "CameraContactParser",

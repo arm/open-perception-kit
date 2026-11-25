@@ -105,12 +105,13 @@ class OpkConfigCheckCliTest(unittest.TestCase):
             for target, (source, schema) in sources.items():
                 path = root / "config" / target
                 document = json.loads((self.repository_root / "config" / source).read_text())
-                schema_major = "v1" if schema == "pipeline.schema.json" else "v2"
+                schema_major = {"pipeline.schema.json": "v1", "model.schema.json": "v2",
+                                "opchain.schema.json": "v3"}[schema]
                 supported_version = json.loads((root / "config/schemas" / schema_major / schema).read_text())[
                     "x-opk-supported-version"]
                 supported_major_minor, supported_patch = supported_version.rsplit(".", 1)
                 patch_variant = f"{supported_major_minor}.{int(supported_patch) + PATCH_REVISION_INCREMENT}"
-                for version in (supported_version, patch_variant, "1.0.0", "1.0.37", "2.1.0", "2.4.2", "0.9.0", "2.0.0"):
+                for version in (supported_version, patch_variant, "1.0.0", "1.0.37", "2.1.0", "2.4.2", "3.1.0", "0.9.0", "2.0.0"):
                     with self.subTest(target=target, version=version):
                         document["version"] = version
                         path.write_text(json.dumps(document))

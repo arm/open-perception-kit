@@ -62,22 +62,23 @@ def process(env, tensors, context):
             box=BoundingBoxT(x=.25, y=.25, width=.5, height=.5, space=space, units=CoordinateUnits.Normalized))]))
 ''', encoding="utf-8")
             opchain = directory / "opchain.json"
-            opchain.write_text(json.dumps({"version": "2.0.0", "name": "Geometry regression",
+            opchain.write_text(json.dumps({"version": "3.0.0", "name": "Geometry regression",
                                           "description": "Normalized ROI through native inference", "ops": [
-                                              {"id": "opk-std-ops/InferenceController", "attributes": {}},
-                                              {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {
+                                              {"id": "opk-std-ops/InferenceController",
+                                                  "role": "controller", "attributes": {}},
+                                              {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "attributes": {
                                                   "inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-                                              {"id": "opk-onnx-ops/Inference",
+                                              {"id": "opk-onnx-ops/Inference", "role": "inference",
                                                   "attributes": {"modelDescriptor": str(model)}},
-                                              {"id": "opk-python-ops/PythonScript", "instanceId": "seed-roi",
+                                              {"id": "opk-python-ops/PythonScript", "role": "postprocess", "instanceId": "seed-roi",
                                                "attributes": {"script": str(script), "providedOutputs": [{"payloadType": "open_perception_kit.metadata.BoxDetections"}]}},
-                                              {"id": "opk-std-ops/InferenceController", "loopId": 1,
+                                              {"id": "opk-std-ops/InferenceController", "role": "controller", "loopId": 1,
                                                "attributes": {"sourceOp": "seed-roi"}},
-                                              {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 1,
+                                              {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "loopId": 1,
                                                "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-                                              {"id": "opk-onnx-ops/Inference", "loopId": 1,
+                                              {"id": "opk-onnx-ops/Inference", "role": "inference", "loopId": 1,
                                                   "attributes": {"modelDescriptor": str(model)}},
-                                              {"id": "opk-std-ops/GenericPostprocess", "loopId": 1, "attributes": {
+                                              {"id": "opk-std-ops/GenericPostprocess", "role": "postprocess", "loopId": 1, "attributes": {
                                                   "parser": "YoloParser", "outputFormat": "cornerScoreClass", "normalizeOutputCoordinates": False,
                                                   "confidenceThreshold": 0.0, "applyNms": False}},
                                           ]}), encoding="utf-8")

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:generic-image-preprocess-op:v2",
-  "title": "GenericImagePreprocess Op v2",
+  "$id": "urn:arm:opk:schema:generic-image-preprocess-op:v3",
+  "title": "GenericImagePreprocess Op v3",
   "if": {
     "properties": {
       "id": {
@@ -14,12 +14,15 @@
   },
   "then": {
     "properties": {
+      "role": {
+        "const": "image-preprocess"
+      },
       "attributes": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "inputImageSourceName": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString",
+            "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/trimNonEmptyString",
             "default": "pipelineVideoFrame"
           },
           "inputImageTensorIndex": {
@@ -28,7 +31,7 @@
             "maximum": 15
           },
           "inferenceInstance": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString"
+            "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/trimNonEmptyString"
           }
         }
       }

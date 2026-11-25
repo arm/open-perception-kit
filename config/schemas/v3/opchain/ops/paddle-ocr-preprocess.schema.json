@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:paddle-ocr-preprocess-op:v2",
-  "title": "PaddleOcrPreprocess Op v2",
+  "$id": "urn:arm:opk:schema:paddle-ocr-preprocess-op:v3",
+  "title": "PaddleOcrPreprocess Op v3",
   "if": {
     "properties": {
       "id": {
@@ -13,6 +13,7 @@
   "then": {
     "required": ["attributes"],
     "properties": {
+      "role": {"const": "image-preprocess"},
       "attributes": {
         "type": "object",
         "additionalProperties": false,
@@ -29,7 +30,7 @@
             "maximum": 3.4028234663852886e38
           },
           "inputImageSourceName": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString",
+            "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/trimNonEmptyString",
             "default": "pipelineVideoFrame"
           },
           "inputImageTensorIndex": {

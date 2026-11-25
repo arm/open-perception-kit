@@ -61,19 +61,19 @@ def process(env, tensors, context):
             for loop in (0, 1):
                 loop_fields = {"loopId": 1} if loop else {}
                 ops.extend([
-                    {"id": "opk-std-ops/InferenceController", **loop_fields,
+                    {"id": "opk-std-ops/InferenceController", "role": "controller", **loop_fields,
                      "attributes": {"sourceOp": "seed-subject"} if loop else {}},
-                    {"id": "opk-std-ops/GenericImagePreprocess", **loop_fields,
+                    {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", **loop_fields,
                      "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-                    {"id": "opk-onnx-ops/Inference", **loop_fields,
+                    {"id": "opk-onnx-ops/Inference", "role": "inference", **loop_fields,
                      "attributes": {"modelDescriptor": str(model), "intraOpNumThreads": 1, "interOpNumThreads": 1}},
                 ])
-                ops.append({"id": "opk-std-ops/GenericPostprocess", "loopId": 1,
+                ops.append({"id": "opk-std-ops/GenericPostprocess", "role": "postprocess", "loopId": 1,
                             "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}} if loop else
-                           {"id": "opk-python-ops/PythonScript", "instanceId": "seed-subject",
+                           {"id": "opk-python-ops/PythonScript", "role": "postprocess", "instanceId": "seed-subject",
                             "attributes": {"script": str(script), "providedOutputs": [{"payloadType": "open_perception_kit.metadata.BoxDetections"}]}})
             opchain = directory / "opchain.json"
-            opchain.write_text(json.dumps({"version": "2.0.0", "name": "Gaze regression",
+            opchain.write_text(json.dumps({"version": "3.0.0", "name": "Gaze regression",
                                            "description": "Typed face-crop gaze", "ops": ops}), encoding="utf-8")
             output = directory / "frames.ndjson"
             process = run_file_pipeline([

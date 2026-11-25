@@ -74,7 +74,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         from jsonschema import Draft202012Validator
 
         for name in ("model", "opchain", "pipeline"):
-            major = "v1" if name == "pipeline" else "v2"
+            major = {"pipeline": "v1", "model": "v2", "opchain": "v3"}[name]
             schema = json.loads((REPO_ROOT / SCHEMAS_DIR / major / f"{name}.schema.json").read_text())
             validator = Draft202012Validator(schema["properties"]["version"])
             for version in ("1.0.0", "1.0.37", "1.4.2", "0.9.0", "2.0.0"):
@@ -513,7 +513,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             digest = hashlib.sha256(archive.read_bytes()).hexdigest()
             shutil.copy2(REPO_ROOT / "scripts/release/smoke-opk-package.sh", context / "smoke.sh")
             shutil.copy2(REPO_ROOT / "scripts/release/ReleaseTool.py", context / "ReleaseTool.py")
-            shutil.copy2(REPO_ROOT / SCHEMAS_DIR / "v2/opchain.schema.json", context / "opchain.schema.json")
+            shutil.copy2(REPO_ROOT / SCHEMAS_DIR / "v3/opchain.schema.json", context / "opchain.schema.json")
             operation = context / "development/tests/python_script_op/runtime_environment.py"
             operation.parent.mkdir(parents=True)
             operation.touch()

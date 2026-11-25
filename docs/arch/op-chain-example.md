@@ -63,7 +63,7 @@ detected face.
 
 ```json
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "GazeDetectionWithUltraface",
   "description": "Detect faces, then estimate gaze for each face.",
   "displayName": "UltraFace + L2CS MobileGaze",
@@ -71,24 +71,24 @@ detected face.
   "runtime": "ONNX",
   "ops": [
     {
-      "id": "opk-std-ops/InferenceController",
+      "id": "opk-std-ops/InferenceController", "role": "controller",
       "attributes": {}
     },
     {
-      "id": "opk-std-ops/GenericImagePreprocess",
+      "id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess",
       "attributes": {
         "inputImageTensorIndex": 0,
         "inputImageSourceName": "pipelineVideoFrame"
       }
     },
     {
-      "id": "opk-onnx-ops/Inference",
+      "id": "opk-onnx-ops/Inference", "role": "inference",
       "attributes": {
         "modelDescriptor": "../../models/ultraface/model.json"
       }
     },
     {
-      "id": "opk-std-ops/GenericPostprocess",
+      "id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
       "instanceId": "faces",
       "attributes": {
         "parser": "UltrafaceParser",
@@ -98,14 +98,14 @@ detected face.
       }
     },
     {
-      "id": "opk-std-ops/InferenceController",
+      "id": "opk-std-ops/InferenceController", "role": "controller",
       "loopId": 1,
       "attributes": {
         "sourceOp": "faces"
       }
     },
     {
-      "id": "opk-std-ops/GenericImagePreprocess",
+      "id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess",
       "loopId": 1,
       "attributes": {
         "inputImageTensorIndex": 0,
@@ -113,14 +113,14 @@ detected face.
       }
     },
     {
-      "id": "opk-onnx-ops/Inference",
+      "id": "opk-onnx-ops/Inference", "role": "inference",
       "loopId": 1,
       "attributes": {
         "modelDescriptor": "../../models/mobilegaze-mobilenet-v2/model.json"
       }
     },
     {
-      "id": "opk-std-ops/GenericPostprocess",
+      "id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
       "loopId": 1,
       "attributes": {
         "parser": "GazeDetectionParser"

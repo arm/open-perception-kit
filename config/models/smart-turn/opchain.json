@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "SmartTurn",
   "displayName": "SmartTurn PCM",
   "task": "Turn detection",
@@ -7,13 +7,13 @@
   "description": "Evaluate eight seconds of mono 16 kHz PCM and publish turn-completion probability.",
   "ops": [
     {
-      "id": "opk-std-ops/GenericAudioPreprocess",
+      "id": "opk-std-ops/GenericAudioPreprocess", "role": "audio-preprocess",
       "attributes": {
         "inputAudioTensorIndex": 0
       }
     },
     {
-      "id": "opk-onnx-ops/Inference",
+      "id": "opk-onnx-ops/Inference", "role": "inference",
       "attributes": {
         "modelDescriptor": "model.json",
         "intraOpNumThreads": 3,
@@ -21,7 +21,7 @@
       }
     },
     {
-      "id": "opk-std-ops/GenericPostprocess",
+      "id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
       "instanceId": "opk-std-ops-GenericPostprocess-0",
       "attributes": {
         "parser": "SmartTurnParser",

@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "PpOcrV6Tiny",
   "displayName": "PP-OCRv6 tiny text detection and recognition",
   "task": "Text recognition",
@@ -7,24 +7,25 @@
   "description": "Detects horizontal text regions and recognizes each axis-aligned crop with greedy CTC decoding.",
   "ops": [
     {
-      "id": "opk-std-ops/InferenceController",
+      "id": "opk-std-ops/InferenceController", "role": "controller",
       "attributes": {}
     },
     {
       "id": "opk-std-ops/PaddleOcrPreprocess",
+      "role": "image-preprocess",
       "attributes": {
         "mode": "detection",
         "paddingValue": 0
       }
     },
     {
-      "id": "opk-onnx-ops/Inference",
+      "id": "opk-onnx-ops/Inference", "role": "inference",
       "attributes": {
         "modelDescriptor": "../../models/pp-ocrv6-tiny-det/model.json"
       }
     },
     {
-      "id": "opk-std-ops/GenericPostprocess",
+      "id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
       "instanceId": "opk-std-ops-GenericPostprocess-0",
       "attributes": {
         "parser": "PaddleOcrDbDetectionParser",
@@ -37,7 +38,7 @@
       }
     },
     {
-      "id": "opk-std-ops/InferenceController",
+      "id": "opk-std-ops/InferenceController", "role": "controller",
       "loopId": 2,
       "attributes": {
         "sourceOp": "opk-std-ops-GenericPostprocess-0"
@@ -45,6 +46,7 @@
     },
     {
       "id": "opk-std-ops/PaddleOcrPreprocess",
+      "role": "image-preprocess",
       "loopId": 2,
       "attributes": {
         "mode": "recognition",
@@ -52,14 +54,14 @@
       }
     },
     {
-      "id": "opk-onnx-ops/Inference",
+      "id": "opk-onnx-ops/Inference", "role": "inference",
       "loopId": 2,
       "attributes": {
         "modelDescriptor": "../../models/pp-ocrv6-tiny-rec/model.json"
       }
     },
     {
-      "id": "opk-std-ops/GenericPostprocess",
+      "id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
       "instanceId": "opk-std-ops-GenericPostprocess-1",
       "loopId": 2,
       "attributes": {

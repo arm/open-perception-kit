@@ -397,12 +397,12 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             (model_dir / "opchain.json").write_text(
                 json.dumps(
                     {
-                        "version": "2.0.0",
+                        "version": "3.0.0",
                         "name": "missing",
                         "description": "Missing files.",
                         "ops": [
                             {
-                                "id": "opk-future-ops/Inference",
+                                "id": "opk-future-ops/Inference", "role": "inference",
                                 "attributes": {"modelDescriptor": "model.json"},
                             }
                         ],
@@ -479,12 +479,12 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             (model_dir / "opchain.json").write_text(
                 json.dumps(
                     {
-                        "version": "2.0.0",
+                        "version": "3.0.0",
                         "name": "executorch",
                         "description": "ExecuTorch plugin check.",
                         "ops": [
                             {
-                                "id": "opk-executorch-ops/Inference",
+                                "id": "opk-executorch-ops/Inference", "role": "inference",
                                 "attributes": {"modelDescriptor": "model.json"},
                             }
                         ],

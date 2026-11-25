@@ -51,18 +51,19 @@ class AudioWindowTest(unittest.TestCase):
     def create(self, hop=0, window=512, rate=16000, extra=None, second_window=None, copy_input=False,
                loop_id=None, preprocess=None):
         attributes = {"trace": str(self.trace), "window": window, **(extra or {})}
-        ops = [{"id": "opk-test-audio-window/Window", "attributes": attributes}]
+        ops = [{"id": "opk-test-audio-window/Window", "role": "intermediate-process", "attributes": attributes}]
         if preprocess is not None:
             attributes["preprocessed"] = True
-            ops.insert(0, {"id": "opk-std-ops/GenericAudioPreprocess", "attributes": preprocess})
+            ops.insert(0, {"id": "opk-std-ops/GenericAudioPreprocess",
+                       "role": "audio-preprocess", "attributes": preprocess})
         if second_window is not None:
-            ops.append({"id": "opk-test-audio-window/Window", "attributes": {
+            ops.append({"id": "opk-test-audio-window/Window", "role": "intermediate-process", "attributes": {
                 **attributes, "window": second_window}})
         if loop_id is not None:
             for op in ops:
                 op["loopId"] = loop_id
         descriptor = Path(self.directory.name) / "opchain.json"
-        descriptor.write_text(json.dumps({"version": "2.0.0", "name": "audio-window-test",
+        descriptor.write_text(json.dumps({"version": "3.0.0", "name": "audio-window-test",
                                           "displayName": "Audio Window Test", "task": "Test", "runtime": "Test",
                                           "description": "Model-free audio scheduler test", "ops": ops}))
         self.rate = rate

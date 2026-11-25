@@ -1,15 +1,15 @@
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "Yolo26n320Mlwl",
   "displayName": "YOLO26n FP32 (320x320)",
   "task": "Object detection",
   "runtime": "MLWL",
   "description": "Runs the VGF detector with host-side TopK selection.",
   "ops": [
-    {"id": "opk-std-ops/InferenceController", "attributes": {}},
-    {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-    {"id": "opk-mlwl-ops/Inference", "attributes": {"modelDescriptor": "model.json"}},
-    {"id": "opk-std-ops/GenericPostprocess", "instanceId": "opk-std-ops-GenericPostprocess-0", "attributes": {
+    {"id": "opk-std-ops/InferenceController", "role": "controller", "attributes": {}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-mlwl-ops/Inference", "role": "inference", "attributes": {"modelDescriptor": "model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "role": "postprocess", "instanceId": "opk-std-ops-GenericPostprocess-0", "attributes": {
       "parser": "YoloParser", "outputFormat": "cornerClassScores", "maxDetections": 300,
       "normalizeOutputCoordinates": false, "applyNms": false, "confidenceThreshold": 0.4
     }}

@@ -97,6 +97,7 @@ def add_model(repo_root: Path, model_id: str, filename: str, op_id: str) -> None
                 "ops": [
                     {
                         "id": op_id,
+                        "role": "inference",
                         "attributes": {"modelDescriptor": MODEL_DESCRIPTOR},
                     }
                 ]
@@ -955,6 +956,7 @@ class ReleaseToolTests(unittest.TestCase):
                         "ops": [
                             {
                                 "id": ONNX_INFERENCE_OP,
+                                "role": "inference",
                                 "attributes": {
                                     "modelDescriptor": (
                                         "../../models/yolo26n-320/model.json"
@@ -963,6 +965,7 @@ class ReleaseToolTests(unittest.TestCase):
                             },
                             {
                                 "id": ONNX_INFERENCE_OP,
+                                "role": "inference",
                                 "attributes": {
                                     "modelDescriptor": (
                                         "/work/config/models/ultraface-rfb-320/model.json"
@@ -1266,6 +1269,7 @@ class ReleaseToolTests(unittest.TestCase):
                         "ops": [
                             {
                                 "id": ONNX_INFERENCE_OP,
+                                "role": "inference",
                                 "attributes": {"modelDescriptor": MODEL_DESCRIPTOR},
                             }
                         ]

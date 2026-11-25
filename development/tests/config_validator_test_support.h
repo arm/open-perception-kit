@@ -51,6 +51,7 @@ class TemporaryRepository {
 
         std::filesystem::create_directories(root_ / "config/schemas/v1");
         std::filesystem::create_directories(root_ / "config/schemas/v2");
+        std::filesystem::create_directories(root_ / "config/schemas/v3");
         std::filesystem::create_directories(root_ / "config/models/first");
         std::filesystem::create_directories(root_ / "config/models/second");
         std::filesystem::create_directories(root_ / "config/opchains");
@@ -59,12 +60,12 @@ class TemporaryRepository {
         const std::filesystem::path sourceRoot = OPK_REPOSITORY_ROOT;
         std::filesystem::copy_file(sourceRoot / "config/schemas/v1/pipeline.schema.json",
                                    root_ / "config/schemas/v1/pipeline.schema.json");
-        for (const auto *name : {"model.schema.json", "opchain.schema.json"}) {
-            std::filesystem::copy_file(sourceRoot / "config/schemas/v2" / name,
-                                       root_ / "config/schemas/v2" / name);
-        }
-        std::filesystem::copy(sourceRoot / "config/schemas/v2/opchain",
-                              root_ / "config/schemas/v2/opchain",
+        std::filesystem::copy_file(sourceRoot / "config/schemas/v2/model.schema.json",
+                                   root_ / "config/schemas/v2/model.schema.json");
+        std::filesystem::copy_file(sourceRoot / "config/schemas/v3/opchain.schema.json",
+                                   root_ / "config/schemas/v3/opchain.schema.json");
+        std::filesystem::copy(sourceRoot / "config/schemas/v3/opchain",
+                              root_ / "config/schemas/v3/opchain",
                               std::filesystem::copy_options::recursive);
     }
 
@@ -93,11 +94,13 @@ class TemporaryRepository {
     }
 
     void writeOpChain(std::string_view name) const {
-        nlohmann::json opchain{
-            {"version", "2.0.0"},
-            {"name", name},
-            {"description", "Repository name test."},
-            {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
+        nlohmann::json opchain{{"version", "3.0.0"},
+                               {"name", name},
+                               {"description", "Repository name test."},
+                               {"ops",
+                                {{{"id", "custom/Operation"},
+                                  {"role", "intermediate-process"},
+                                  {"attributes", nlohmann::json::object()}}}}};
         std::ofstream output(root_ / "config/opchains/opchain.json");
         output << opchain;
     }

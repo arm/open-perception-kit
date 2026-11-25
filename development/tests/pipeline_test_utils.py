@@ -42,7 +42,7 @@ def write_test_opchain(
     descriptor.write_text(
         json.dumps(
             {
-                "version": "2.0.0",
+                "version": "3.0.0",
                 "name": f"pipeline-test-{name}",
                 "displayName": f"Pipeline Test {name}",
                 "task": "Pipeline integration",
@@ -50,7 +50,7 @@ def write_test_opchain(
                 "description": "Pipeline integration test OpChain",
                 "ops": [
                     {
-                        "id": "opk-test-qos-delay/Delay",
+                        "id": "opk-test-qos-delay/Delay", "role": "intermediate-process",
                         "attributes": attributes,
                     }
                 ],

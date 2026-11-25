@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:box-prompt-preprocess-op:v2",
-  "title": "BoxPromptPreprocess Op v2",
+  "$id": "urn:arm:opk:schema:box-prompt-preprocess-op:v3",
+  "title": "BoxPromptPreprocess Op v3",
   "if": {
     "properties": {
       "id": {
@@ -17,6 +17,7 @@
       "attributes"
     ],
     "properties": {
+      "role": {"const": "input-preprocess"},
       "attributes": {
         "type": "object",
         "additionalProperties": false,
@@ -26,7 +27,7 @@
         ],
         "properties": {
           "inferenceInstance": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString"
+            "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/trimNonEmptyString"
           },
           "inputBoxTensorIndex": {
             "type": "integer",
@@ -34,7 +35,7 @@
             "maximum": 15
           },
           "inputImageSourceName": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString",
+            "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/trimNonEmptyString",
             "default": "pipelineVideoFrame"
           }
         }

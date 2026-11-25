@@ -27,6 +27,7 @@
 #include "PythonScriptOp.h"
 #include "TensorBridge.h"
 #include "op/Op.h"
+#include "op/OpChainDescriptor.h"
 #include "opk/FrameResults.h"
 #include "perf/PerformanceMetrics.h"
 #include "python_bridge/open_perception_kit_python_bridge.h"
@@ -646,4 +647,12 @@ assert detections[1].windowEndTsNs is None
     EXPECT_NE(executed, nullptr);
     Py_XDECREF(executed);
     Py_DECREF(globals);
+}
+
+TEST(PythonScriptOp, SupportsIntermediateAndTerminalRolesWithoutInputWriterCapabilities) {
+    const opk::python::PythonScriptOp operation;
+    EXPECT_TRUE(operation.supportsStageRole(opk::op::StageRole::IntermediateProcess));
+    EXPECT_TRUE(operation.supportsStageRole(opk::op::StageRole::Postprocess));
+    EXPECT_FALSE(operation.supportsStageRole(opk::op::StageRole::ImagePreprocess));
+    EXPECT_FALSE(operation.supportsStageRole(opk::op::StageRole::InputPreprocess));
 }

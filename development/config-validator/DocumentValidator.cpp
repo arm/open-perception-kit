@@ -289,7 +289,7 @@ DocumentResult validateDocument(std::string_view json,
         }
 
         auto descriptor = projection.get<opk::op::OpChainDescriptor>();
-        report = validateOpChainV2(descriptor, source);
+        report = validateOpChainV3(descriptor, source);
         if (!report.ok())
             return tl::unexpected{std::move(report)};
         return Descriptor{std::move(descriptor)};

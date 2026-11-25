@@ -46,14 +46,15 @@ class ClassificationPipelineTest(unittest.TestCase):
             paths = []
             for index in (1, 0):
                 path = directory / f"opchain-contact-{index}.json"
-                path.write_text(json.dumps({"version": "2.0.0", "name": "Contact representation regression",
+                path.write_text(json.dumps({"version": "3.0.0", "name": "Contact representation regression",
                                             "description": "Preserve model mapping through typed contact output", "ops": [
-                                                {"id": "opk-std-ops/InferenceController", "attributes": {}},
-                                                {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {
+                                                {"id": "opk-std-ops/InferenceController",
+                                                    "role": "controller", "attributes": {}},
+                                                {"id": "opk-std-ops/GenericImagePreprocess", "role": "image-preprocess", "attributes": {
                                                     "inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-                                                {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": str(model),
-                                                                                                "intraOpNumThreads": 1, "interOpNumThreads": 1}},
-                                                {"id": "opk-std-ops/GenericPostprocess", "attributes": {
+                                                {"id": "opk-onnx-ops/Inference", "role": "inference", "attributes": {"modelDescriptor": str(model),
+                                                                                                                     "intraOpNumThreads": 1, "interOpNumThreads": 1}},
+                                                {"id": "opk-std-ops/GenericPostprocess", "role": "postprocess", "attributes": {
                                                     "parser": "CameraContactParser", "contactClassIndex": index, "noContactClassIndex": 1 - index}},
                                             ]}), encoding="utf-8")
                 paths.append(path)

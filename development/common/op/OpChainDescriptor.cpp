@@ -84,7 +84,7 @@ opk::Result<void> resolveDescriptorPaths(OpChainDescriptor &descriptor,
             resolvePathAttribute(op, "dictionaryFile", descriptorDirectory);
         }
         resolvePathAttribute(op, "modelDescriptor", descriptorDirectory);
-        if (!isInferenceOpId(op.id)) {
+        if (op.role != StageRole::Inference || !op.attributes.contains("modelDescriptor")) {
             continue;
         }
         modelDirectories.emplace(

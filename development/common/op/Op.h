@@ -33,6 +33,8 @@
 
 namespace opk::op {
 
+enum class StageRole;
+
 /**
  * @brief Scheduler signal returned by an operation after process() completes.
  */
@@ -61,6 +63,11 @@ struct OpInterfaceInference {
      * @return Pointer to tensor data at the specified index.
      */
     virtual uint8_t *getTensorDataAddress(size_t index) const = 0;
+};
+
+/// Marks an operation that selects work and controls execution of an inference stage.
+struct OpInterfaceController {
+    virtual ~OpInterfaceController() = default;
 };
 
 /// Optional backend capability for graph-declared dynamic input dimensions.
@@ -231,6 +238,9 @@ struct Op {
     producerInfo(std::string_view inferElementId,
                  std::string_view implementation,
                  std::string_view fallbackComponent) const;
+
+    /// Checks the interfaces required by a declared use, not its position in the chain.
+    bool supportsStageRole(const StageRole role) const;
 
     std::string libName;    ///< Name of the shared library providing this operation.
     std::string opName;     ///< Name of the operation class within the library.

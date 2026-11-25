@@ -46,10 +46,10 @@ class MlwlPipelineStartup(unittest.TestCase):
             }), encoding="utf-8")
             descriptor = directory / "opchain.json"
             descriptor.write_text(json.dumps({
-                "version": "2.0.0", "name": "invalid-vgf-startup",
+                "version": "3.0.0", "name": "invalid-vgf-startup",
                 "description": "MLWL pipeline startup test",
                 "ops": [{
-                    "id": "opk-mlwl-ops/Inference",
+                    "id": "opk-mlwl-ops/Inference", "role": "inference",
                     "attributes": {"modelDescriptor": "model.json"},
                 }],
             }), encoding="utf-8")

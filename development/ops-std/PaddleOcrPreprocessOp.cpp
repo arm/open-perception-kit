@@ -119,9 +119,14 @@ void writeTensor(const opk::mediaio::VideoFrame &frame,
 
 } // namespace
 
+opk::op::InferenceInputBinding PaddleOcrPreprocessOp::getImageInputBinding() const {
+    return {inferenceInstanceId, inputImageSourceName, {&inputImageTensorIndex, 1}};
+}
+
 opk::Result<void> PaddleOcrPreprocessOp::configure(const opk::AttributeMap &attributes) {
     mode = Mode::Unconfigured;
     inferenceOp = nullptr;
+    inferenceInstanceId.clear();
     for (const auto &[key, value] : attributes.raw()) {
         if (key != "mode" && key != "paddingValue" && key != "inputImageSourceName" &&
             key != "inputImageTensorIndex")
@@ -165,6 +170,7 @@ opk::Result<void> PaddleOcrPreprocessOp::configure(const opk::AttributeMap &attr
 
 opk::Result<void> PaddleOcrPreprocessOp::bind(size_t index, const std::vector<opk::op::Op *> &ops) {
     inferenceOp = nullptr;
+    inferenceInstanceId.clear();
     if (mode == Mode::Unconfigured || index >= ops.size() || index + 1 >= ops.size() ||
         ops[index + 1] == nullptr)
         return tl::unexpected(
@@ -201,6 +207,7 @@ opk::Result<void> PaddleOcrPreprocessOp::bind(size_t index, const std::vector<op
                                         "PaddleOcrPreprocess inference input buffer is missing"));
     model = next->getModel();
     inferenceOp = next;
+    inferenceInstanceId = ops[index + 1]->instanceId;
     return {};
 }
 

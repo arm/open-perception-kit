@@ -35,9 +35,9 @@ class AudioMetadataPipelineTest(unittest.TestCase):
             directory = Path(temporary)
             trace = directory / "windows.txt"
             descriptor = directory / "opchain.json"
-            descriptor.write_text(json.dumps({"version": "2.0.0", "name": "audio-source-test",
+            descriptor.write_text(json.dumps({"version": "3.0.0", "name": "audio-source-test",
                                               "description": "Original buffers remain distinct from normalized windows",
-                                              "ops": [{"id": "opk-test-audio-window/Window", "attributes": {"trace": str(trace), "window": 512}}]}))
+                                              "ops": [{"id": "opk-test-audio-window/Window", "role": "intermediate-process", "attributes": {"trace": str(trace), "window": 512}}]}))
             output = directory / "results.ndjson"
             process = run_file_pipeline([
                 "audiotestsrc", "num-buffers=2", "samplesperbuffer=256", "wave=sine", "!",

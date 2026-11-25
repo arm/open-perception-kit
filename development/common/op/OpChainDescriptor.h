@@ -33,11 +33,18 @@
 
 namespace opk::op {
 
-inline bool isInferenceOpId(std::string_view id) {
-    constexpr std::string_view Suffix = "/Inference";
-    return id.size() > Suffix.size() && id.ends_with(Suffix) &&
-           id.find('/') == id.size() - Suffix.size();
-}
+enum class StageRole {
+    Controller,
+    Inference,
+    ImagePreprocess,
+    AudioPreprocess,
+    InputPreprocess,
+    Postprocess,
+    IntermediateProcess
+};
+
+void to_json(nlohmann::json &json, const StageRole role);
+void from_json(const nlohmann::json &json, StageRole &role);
 
 inline std::string makeDefaultInstanceId(std::string_view opId, std::size_t occurrence) {
     const auto isAsciiAlphaNumeric = [](char character) {
@@ -76,6 +83,8 @@ struct OpChainDescriptor {
         AttributeMap
             attributes; ///< Configuration attributes passed to the operation's configure() method.
         std::string instanceId{}; ///< Optional stable identity for this operation instance.
+        StageRole role{StageRole::IntermediateProcess}; ///< Selected use, verified against runtime
+                                                        ///< capabilities.
     };
 
     std::string name;        ///< Internal name of the operation chain.
@@ -101,7 +110,7 @@ struct OpChainDescriptor {
      * @brief Loads an OpChainDescriptor from a JSON file.
      *
      * @param path File path to the JSON descriptor file.
-     * @return OpChainDescriptor with relative Inference modelDescriptor and recognition
+     * @return OpChainDescriptor with relative modelDescriptor attributes on all Ops and recognition
      * dictionaryFile paths joined to the OpChain directory without lexical normalization,
      * or an error Result. Absolute values are preserved.
      */
@@ -146,6 +155,7 @@ inline void from_json(const nlohmann::json &j, ExecutionDefaults &execution) {
 
 inline void to_json(nlohmann::json &j, const OpChainDescriptor::Op &op) {
     j = nlohmann::json{{"id", op.id}, {"attributes", op.attributes}};
+    j["role"] = op.role;
     if (!op.instanceId.empty())
         j["instanceId"] = op.instanceId;
     if (op.loopId.has_value())
@@ -154,6 +164,7 @@ inline void to_json(nlohmann::json &j, const OpChainDescriptor::Op &op) {
 
 inline void from_json(const nlohmann::json &j, OpChainDescriptor::Op &op) {
     j.at("id").get_to(op.id);
+    j.at("role").get_to(op.role);
     if (j.contains("instanceId"))
         j.at("instanceId").get_to(op.instanceId);
     else

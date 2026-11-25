@@ -218,11 +218,14 @@ TEST(ConfigValidator, CompatibleMinorAndPatchVersionsSurviveRoundTrips) {
             {"dynamicOutput", true},
             {"inputTensors",
              {{{"shape", {1}}, {"dataKind", "RawTensorData"}, {"valueType", "Float32"}}}}};
-        const nlohmann::json opchain{
-            {"version", version},
-            {"name", "Chain"},
-            {"description", "Version test"},
-            {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
+        const auto chainVersion = "3" + std::string(version).substr(1);
+        const nlohmann::json opchain{{"version", chainVersion},
+                                     {"name", "Chain"},
+                                     {"description", "Version test"},
+                                     {"ops",
+                                      {{{"id", "custom/Operation"},
+                                        {"role", "intermediate-process"},
+                                        {"attributes", nlohmann::json::object()}}}}};
         const auto pipelineVersion = "1" + std::string(version).substr(1);
         const nlohmann::json pipeline{{"version", pipelineVersion},
                                       {"description", "Version test"},
@@ -234,7 +237,7 @@ TEST(ConfigValidator, CompatibleMinorAndPatchVersionsSurviveRoundTrips) {
         ASSERT_TRUE(chainResult) << chainResult.error().toText();
         ASSERT_TRUE(pipelineResult) << pipelineResult.error().toText();
         EXPECT_EQ(nlohmann::json(*modelResult).at("version"), version);
-        EXPECT_EQ(nlohmann::json(*chainResult).at("version"), version);
+        EXPECT_EQ(nlohmann::json(*chainResult).at("version"), chainVersion);
         EXPECT_EQ(pipelineResult->at("version"), pipelineVersion);
     }
 }
@@ -310,10 +313,10 @@ TEST(ConfigValidator, TypedValidationRejectsMismatchedRoutingFilename) {
     })",
                                                       "opchain.json");
     const auto opchain = opk::config::validateOpChainJson(R"({
-        "version": "2.0.0",
+        "version": "3.0.0",
         "name": "opchain",
         "description": "Routing test.",
-        "ops": [{"id": "custom/Operation", "attributes": {}}]
+        "ops": [{"id": "custom/Operation", "role": "intermediate-process", "attributes": {}}]
     })",
                                                           "model.json");
 
@@ -343,11 +346,11 @@ TEST(ConfigValidator, SchemasRejectValuesThatCannotProjectToFiniteFloat) {
         }]
     })");
     const auto gamma = opk::config::validateOpChainJson(R"({
-        "version": "2.0.0",
+        "version": "3.0.0",
         "name": "large-gamma",
         "description": "Reject gamma that narrows to infinity.",
         "ops": [{
-            "id": "opk-std-ops/GenericPostprocess",
+            "id": "opk-std-ops/GenericPostprocess", "role": "postprocess",
             "attributes": {"parser": "PaddleOcrDetectionParser", "gamma": 1e308}
         }]
     })");
@@ -367,11 +370,13 @@ TEST(ConfigValidator, ModelAndOpChainSemanticsRejectControlCharactersInNames) {
         {"dynamicOutput", true},
         {"inputTensors",
          {{{"shape", {1}}, {"dataKind", "RawTensorData"}, {"valueType", "Float32"}}}}};
-    nlohmann::json opchain{
-        {"version", "2.0.0"},
-        {"name", "opchain"},
-        {"description", "Control-character test."},
-        {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
+    nlohmann::json opchain{{"version", "3.0.0"},
+                           {"name", "opchain"},
+                           {"description", "Control-character test."},
+                           {"ops",
+                            {{{"id", "custom/Operation"},
+                              {"role", "intermediate-process"},
+                              {"attributes", nlohmann::json::object()}}}}};
 
     for (const std::string &control :
          {std::string{"\0", 1}, std::string{"\x7f", 1}, std::string{"\xc2\x80", 2}}) {
@@ -399,13 +404,13 @@ TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
         ]
     })");
     const auto opchain = opk::config::validateOpChainJson(R"({
-        "version": "2.0.0",
+        "version": "3.0.0",
         "name": "roundtrip-opchain",
         "description": "Round-trip a custom operation.",
         "displayName": "Round-trip model",
         "task": "Contract validation",
         "runtime": "CustomRT",
-        "ops": [{"id": "custom/Operation", "attributes": {"nested": [1, true, null]}}]
+        "ops": [{"id": "custom/Operation", "role": "intermediate-process", "attributes": {"nested": [1, true, null]}}]
     })");
 
     ASSERT_TRUE(model) << model.error().toText();
@@ -427,14 +432,16 @@ TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
 }
 
 TEST(ConfigValidator, OpChainDisplayMetadataUsesNonEmptyStrings) {
-    nlohmann::json opchain{
-        {"version", "2.0.0"},
-        {"name", "display-metadata"},
-        {"description", "Validate optional display metadata."},
-        {"displayName", "Display name"},
-        {"task", "Object detection"},
-        {"runtime", "ONNX"},
-        {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
+    nlohmann::json opchain{{"version", "3.0.0"},
+                           {"name", "display-metadata"},
+                           {"description", "Validate optional display metadata."},
+                           {"displayName", "Display name"},
+                           {"task", "Object detection"},
+                           {"runtime", "ONNX"},
+                           {"ops",
+                            {{{"id", "custom/Operation"},
+                              {"role", "intermediate-process"},
+                              {"attributes", nlohmann::json::object()}}}}};
 
     EXPECT_TRUE(opk::config::validateOpChainJson(opchain.dump()));
 
@@ -456,16 +463,19 @@ TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {
         {"dynamicOutput", true},
         {"inputTensors",
          {{{"shape", {1}}, {"dataKind", "RawTensorData"}, {"valueType", "Float32"}}}}};
-    nlohmann::json opchain{
-        {"version", "2.0.0"},
-        {"name", "opchain"},
-        {"description", "Runtime boundary controls."},
-        {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
+    nlohmann::json opchain{{"version", "3.0.0"},
+                           {"name", "opchain"},
+                           {"description", "Runtime boundary controls."},
+                           {"ops",
+                            {{{"id", "custom/Operation"},
+                              {"role", "intermediate-process"},
+                              {"attributes", nlohmann::json::object()}}}}};
 
     const auto modelResult = opk::config::validateModelJson(model.dump());
     opchain["ops"][0]["id"] = "custom/" + embeddedNull;
     const auto opIdResult = opk::config::validateOpChainJson(opchain.dump());
     opchain["ops"][0] = {{"id", "opk-future-ops/Inference"},
+                         {"role", "inference"},
                          {"attributes", {{"modelDescriptor", embeddedNull}}}};
     const auto modelDescriptorResult = opk::config::validateOpChainJson(opchain.dump());
 
@@ -473,8 +483,8 @@ TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {
     ASSERT_FALSE(opIdResult);
     ASSERT_FALSE(modelDescriptorResult);
     EXPECT_TRUE(hasRule(modelResult.error(), "model.v2.model-file-control"));
-    EXPECT_TRUE(hasRule(opIdResult.error(), "opchain.v2.op-id-control"));
-    EXPECT_TRUE(hasRule(modelDescriptorResult.error(), "opchain.v2.model-descriptor-control"));
+    EXPECT_TRUE(hasRule(opIdResult.error(), "opchain.v3.op-id-control"));
+    EXPECT_TRUE(hasRule(modelDescriptorResult.error(), "opchain.v3.model-descriptor-control"));
 }
 
 } // namespace

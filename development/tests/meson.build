@@ -70,7 +70,7 @@ config_validator_tests = executable(
   'config_validator_tests',
   [
     'config_validator_model_v2_test.cpp',
-    'config_validator_opchain_v2_test.cpp',
+    'config_validator_opchain_v3_test.cpp',
     '../config-validator/RepositoryValidator.cpp',
     'config_validator_repository_test.cpp',
     'config_validator_report_test.cpp',
@@ -482,6 +482,13 @@ runtime_pipeline_tests = executable(
   link_with : [opk_runtime, common],
 )
 
+image_preprocess_role_args = []
+image_preprocess_role_dependencies = []
+if gpu_enabled
+  image_preprocess_role_args += ['-DOPK_GPU_OPS="@0@"'.format(gpuops.full_path())]
+  image_preprocess_role_dependencies += [gpuops]
+endif
+
 paddle_ocr_preprocess_tests = executable(
   'paddle_ocr_preprocess_tests',
   ['paddle_ocr_preprocess_test.cpp', '../ops-std/PaddleOcrPreprocessOp.cpp',
@@ -489,6 +496,7 @@ paddle_ocr_preprocess_tests = executable(
   include_directories : [common_include, include_directories('../ops-std')],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
   link_with : [common],
+  cpp_args : image_preprocess_role_args,
 )
 
 paddle_ocr_parser_tests = executable(
@@ -851,7 +859,7 @@ if mlwl_enabled
   )
 endif
 test('image_conversion_oracle_test', image_conversion_oracle_test)
-test('paddle_ocr_preprocess_tests', paddle_ocr_preprocess_tests)
+test('paddle_ocr_preprocess_tests', paddle_ocr_preprocess_tests, depends : image_preprocess_role_dependencies)
 test('paddle_ocr_parser_tests', paddle_ocr_parser_tests)
 test(
   'python_guest_script_executor_tests',

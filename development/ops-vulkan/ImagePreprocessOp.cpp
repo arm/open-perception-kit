@@ -31,9 +31,12 @@ namespace {
 constexpr size_t rgbChannels{3};
 constexpr size_t imageTensorRank{4};
 
-class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreprocess {
+class ImagePreprocessOp final : public op::Op,
+                                public op::OpInterfaceGpuPreprocess,
+                                public op::OpInterfaceImageInputPreprocessor {
   public:
     Result<void> configure(const AttributeMap &attributes) override {
+        inferenceInstance.clear();
         for (const auto &[name, value] : attributes.raw()) {
             if (name != "inputImageSourceName" && name != "inputImageTensorIndex") {
                 return failure("Unknown GPU preprocessing attribute: " + name);
@@ -51,6 +54,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
     }
 
     Result<void> bind(const size_t index, const std::vector<op::Op *> &ops) override {
+        inferenceInstance.clear();
         if (index >= ops.size() || ops.size() - index <= 1) {
             return failure("GPU preprocessing must precede inference");
         }
@@ -65,7 +69,12 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         if (!bytes)
             return tl::unexpected(bytes.error());
         tensorBytes = *bytes;
+        inferenceInstance = ops[index + 1]->instanceId;
         return {};
+    }
+
+    op::InferenceInputBinding getImageInputBinding() const override {
+        return {inferenceInstance, sourceName, std::span<const size_t>(&tensorIndex, 1)};
     }
 
     Result<void> prepareDevice() override {
@@ -237,6 +246,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData, message));
     }
     std::string sourceName;
+    std::string inferenceInstance;
     size_t tensorIndex{InvalidTensorIndex};
     size_t tensorBytes{0};
     Model model;

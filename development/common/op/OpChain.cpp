@@ -270,6 +270,12 @@ opk::Result<void> OpChain::setupFromDescriptor(const opk::op::OpChainDescriptor 
                 ExecutionSelection::operationError(*opRef, configureResult.error()));
         }
 
+        if (!opRef->supportsStageRole(op.role)) {
+            return tl::unexpected(
+                OPK_ERROR(ErrorFlag::InvalidOpChain,
+                          "Declared stage role is not supported by operation: " + op.id));
+        }
+
         add(opRef);
     }
 

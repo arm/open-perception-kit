@@ -234,7 +234,7 @@ opk::Result<std::vector<std::string>> discover_model_files(const std::string &op
     std::vector<std::string> model_files;
 
     for (const auto &op : opchain->ops) {
-        if (!opk::op::isInferenceOpId(op.id) || !op.attributes.contains("modelDescriptor"))
+        if (op.role != opk::op::StageRole::Inference || !op.attributes.contains("modelDescriptor"))
             continue;
 
         auto model = opk::ModelDescriptor::fromFile(op.attributes.getString("modelDescriptor"));

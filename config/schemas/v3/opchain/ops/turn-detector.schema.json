@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:arm:opk:schema:turn-detector-op:v2",
-  "title": "TurnDetector Op v2",
+  "$id": "urn:arm:opk:schema:turn-detector-op:v3",
+  "title": "TurnDetector Op v3",
   "if": {
     "properties": {
       "id": {
@@ -19,12 +19,13 @@
       ]
     },
     "properties": {
+      "role": {"const": "audio-preprocess"},
       "attributes": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "inputAudioSourceName": {
-            "$ref": "urn:arm:opk:schema:opchain-common:v2#/$defs/trimNonEmptyString",
+            "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/trimNonEmptyString",
             "default": "pipelineAudioData"
           },
           "hopSampleCount": {

@@ -16,6 +16,7 @@
  */
 
 #include "GenericAudioPreprocessOp.h"
+#include "op/OpChainDescriptor.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -597,3 +598,11 @@ TEST(GenericAudioPreprocess, BindsGenericMelMajorTensorAndPreservesRawFeatureOrd
     }
 }
 } // namespace
+
+TEST(GenericAudioPreprocessRoles, MatchRuntimeCapabilities) {
+    const opk::stdop::GenericAudioPreprocessOp operation;
+    EXPECT_TRUE(operation.supportsStageRole(opk::op::StageRole::AudioPreprocess));
+    EXPECT_FALSE(operation.supportsStageRole(opk::op::StageRole::ImagePreprocess));
+    EXPECT_FALSE(operation.supportsStageRole(opk::op::StageRole::Inference));
+    EXPECT_FALSE(operation.supportsStageRole(opk::op::StageRole::Controller));
+}

@@ -81,3 +81,23 @@ opk::op::validateInputPreprocessors(const std::span<opk::op::Op *const> operatio
     }
     return {};
 }
+
+bool Op::supportsStageRole(const StageRole role) const {
+    switch (role) {
+    case StageRole::Controller:
+        return as<OpInterfaceController>() != nullptr;
+    case StageRole::Inference:
+        return as<OpInterfaceInference>() != nullptr;
+    case StageRole::AudioPreprocess:
+        return as<OpInterfaceAudioPreprocessor>() != nullptr;
+    case StageRole::ImagePreprocess:
+        return as<OpInterfaceImageInputPreprocessor>() != nullptr;
+    case StageRole::InputPreprocess:
+        return as<OpInterfaceInferenceInputPreprocessor>() != nullptr;
+    case StageRole::Postprocess:
+        return as<OpInterfacePostprocessor>() != nullptr;
+    case StageRole::IntermediateProcess:
+        return true;
+    }
+    return false;
+}

@@ -51,7 +51,7 @@ Json loadSchema(const std::filesystem::path &path) {
 }
 
 TEST(ConfigSchemaResources, AreMetaValidWithUniqueIdsAndResolvableReferences) {
-    const auto schemaRoot = std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/schemas/v1";
+    const auto schemaRoot = std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/schemas";
     std::vector<std::filesystem::path> paths;
     for (const auto &entry : std::filesystem::recursive_directory_iterator(schemaRoot)) {
         if (entry.is_regular_file() && entry.path().filename().string().ends_with(".schema.json"))

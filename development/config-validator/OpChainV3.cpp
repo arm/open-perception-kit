@@ -26,24 +26,16 @@
 namespace opk::config::detail {
 namespace {
 
-constexpr std::string_view Controller = "opk-std-ops/InferenceController";
-constexpr std::string_view Preprocess = "opk-std-ops/GenericImagePreprocess";
-constexpr std::string_view PaddleOcrPreprocess = "opk-std-ops/PaddleOcrPreprocess";
 constexpr std::string_view Postprocess = "opk-std-ops/GenericPostprocess";
-constexpr std::string_view PythonScript = "opk-python-ops/PythonScript";
 using Ops = std::vector<opk::op::OpChainDescriptor::Op>;
+using opk::op::StageRole;
 
-bool isPreprocess(std::string_view id) {
-    return id == Preprocess || id == PaddleOcrPreprocess;
+bool isPreprocess(const opk::op::OpChainDescriptor::Op &op) {
+    return op.role == StageRole::ImagePreprocess;
 }
 
-bool isBuiltInStageOp(std::string_view id) {
-    return id == Controller || isPreprocess(id) || id == Postprocess ||
-           opk::op::isInferenceOpId(id);
-}
-
-bool isTerminalPostprocess(std::string_view id) {
-    return id == Postprocess || id == PythonScript;
+bool isTerminalPostprocess(const opk::op::OpChainDescriptor::Op &op) {
+    return op.role == StageRole::Postprocess;
 }
 
 std::optional<std::string> stringAttribute(const opk::AttributeMap &attributes,
@@ -65,7 +57,7 @@ void addStageIssue(ValidationReport &report,
                    std::string_view source,
                    std::size_t index,
                    std::string message) {
-    report.issues.push_back(makeIssue("opchain.v2.builtin-stage",
+    report.issues.push_back(makeIssue("opchain.v3.builtin-stage",
                                       ValidationPhase::Descriptor,
                                       source,
                                       std::format("/ops/{}", index),
@@ -79,15 +71,15 @@ void validateControlCharacters(ValidationReport &report,
     for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
         const auto &op = descriptor.ops[index];
         const std::string base = std::format("/ops/{}", index);
-        validateControlFreeString(report, op.id, source, base + "/id", "opchain.v2.op-id-control");
-        if (opk::op::isInferenceOpId(op.id)) {
+        validateControlFreeString(report, op.id, source, base + "/id", "opchain.v3.op-id-control");
+        if (op.role == StageRole::Inference) {
             const auto modelDescriptor = stringAttribute(op.attributes, "modelDescriptor");
             if (modelDescriptor.has_value()) {
                 validateControlFreeString(report,
                                           *modelDescriptor,
                                           source,
                                           base + "/attributes/modelDescriptor",
-                                          "opchain.v2.model-descriptor-control");
+                                          "opchain.v3.model-descriptor-control");
             }
         }
         if (op.id == Postprocess &&
@@ -97,7 +89,7 @@ void validateControlCharacters(ValidationReport &report,
                                           *dictionary,
                                           source,
                                           base + "/attributes/dictionaryFile",
-                                          "opchain.v2.dictionary-file-control");
+                                          "opchain.v3.dictionary-file-control");
             }
         }
     }
@@ -118,7 +110,7 @@ void validateLoopGroups(ValidationReport &report,
     for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
         std::optional<std::size_t> loopId = descriptor.ops[index].loopId;
         if (loopId.has_value() && *loopId == 0) {
-            report.issues.push_back(makeIssue("opchain.v2.loop-group",
+            report.issues.push_back(makeIssue("opchain.v3.loop-group",
                                               ValidationPhase::Descriptor,
                                               source,
                                               std::format("/ops/{}/loopId", index),
@@ -133,7 +125,7 @@ void validateLoopGroups(ValidationReport &report,
             auto run = runs.try_emplace(*loopId, Run{index, 0}).first;
             if (closed.contains(*loopId) && loopId != previous) {
                 report.issues.push_back(
-                    makeIssue("opchain.v2.loop-group",
+                    makeIssue("opchain.v3.loop-group",
                               ValidationPhase::Descriptor,
                               source,
                               std::format("/ops/{}/loopId", index),
@@ -148,7 +140,7 @@ void validateLoopGroups(ValidationReport &report,
     for (const auto &[loopId, run] : runs) {
         if (run.count >= 2)
             continue;
-        report.issues.push_back(makeIssue("opchain.v2.loop-group",
+        report.issues.push_back(makeIssue("opchain.v3.loop-group",
                                           ValidationPhase::Descriptor,
                                           source,
                                           std::format("/ops/{}/loopId", run.first),
@@ -175,7 +167,7 @@ void validateInstanceIds(ValidationReport &report,
         if (inserted)
             continue;
         report.issues.push_back(
-            makeIssue("opchain.v2.instance-id",
+            makeIssue("opchain.v3.instance-id",
                       ValidationPhase::Descriptor,
                       source,
                       std::format("/ops/{}/instanceId", index),
@@ -192,7 +184,7 @@ void validateStageStart(ValidationReport &report,
     if (loopId.has_value() && *loopId != 0 && controller > 0 &&
         ops[controller - 1].loopId == loopId) {
         report.issues.push_back(
-            makeIssue("opchain.v2.stage-loop",
+            makeIssue("opchain.v3.stage-loop",
                       ValidationPhase::Descriptor,
                       source,
                       std::format("/ops/{}/loopId", controller),
@@ -210,14 +202,14 @@ bool validateStageShape(ValidationReport &report,
         addStageIssue(report, source, controller, "built-in stage is incomplete");
         return false;
     }
-    if (!isPreprocess(ops[controller + 1].id)) {
+    if (!isPreprocess(ops[controller + 1])) {
         addStageIssue(
             report, source, controller + 1, "built-in stage must begin with preprocessing");
     }
     const auto inferenceOp =
         std::find_if(ops.begin() + static_cast<std::ptrdiff_t>(controller + 2),
                      ops.begin() + static_cast<std::ptrdiff_t>(end),
-                     [](const auto &op) { return opk::op::isInferenceOpId(op.id); });
+                     [](const auto &op) { return op.role == StageRole::Inference; });
     if (inferenceOp == ops.begin() + static_cast<std::ptrdiff_t>(end)) {
         addStageIssue(report, source, controller + 2, "preprocessing must precede inference");
         return false;
@@ -230,7 +222,7 @@ bool validateStageShape(ValidationReport &report,
     if (inference != controller + 2) {
         const auto &image = ops[controller + 1];
         const auto target = stringAttribute(image.attributes, "inferenceInstance");
-        if (image.id != Preprocess || !target || inferenceOp->instanceId != *target) {
+        if (!isPreprocess(image) || !target || inferenceOp->instanceId != *target) {
             addStageIssue(report,
                           source,
                           controller + 1,
@@ -244,7 +236,7 @@ bool validateStageShape(ValidationReport &report,
             }
         }
         for (size_t index = controller + 2; index < inference; ++index) {
-            if (isBuiltInStageOp(ops[index].id)) {
+            if (ops[index].role != StageRole::InputPreprocess) {
                 addStageIssue(report,
                               source,
                               index,
@@ -254,15 +246,15 @@ bool validateStageShape(ValidationReport &report,
         }
         // Concrete input-preprocessor capabilities and bindings are validated at runtime.
     }
-    if (!isTerminalPostprocess(ops[end - 1].id)) {
+    if (!isTerminalPostprocess(ops[end - 1])) {
         addStageIssue(report,
                       source,
                       end - 1,
-                      "built-in stage must end with GenericPostprocess or PythonScript");
+                      "built-in stage must end with a supported terminal postprocessor");
     }
 
     for (std::size_t index = inference + 1; index + 1 < end; ++index) {
-        if (isBuiltInStageOp(ops[index].id)) {
+        if (ops[index].role != StageRole::IntermediateProcess) {
             addStageIssue(report,
                           source,
                           index,
@@ -274,10 +266,10 @@ bool validateStageShape(ValidationReport &report,
     const auto last = ops.begin() + static_cast<std::ptrdiff_t>(end);
     if (const auto count =
             [first, last](const auto &predicate) { return std::count_if(first, last, predicate); };
-        count([](const auto &op) { return isPreprocess(op.id); }) != 1 ||
-        count([](const auto &op) { return opk::op::isInferenceOpId(op.id); }) != 1 ||
-        count([](const auto &op) { return op.id == Postprocess; }) !=
-            (ops[end - 1].id == Postprocess ? 1 : 0)) {
+        count([](const auto &op) { return isPreprocess(op); }) != 1 ||
+        count([](const auto &op) { return op.role == StageRole::Inference; }) != 1 ||
+        count([](const auto &op) { return op.role == StageRole::Postprocess; }) !=
+            (ops[end - 1].role == StageRole::Postprocess ? 1 : 0)) {
         addStageIssue(report,
                       source,
                       controller,
@@ -306,7 +298,7 @@ void validateStageLoop(ValidationReport &report,
         if (loopId.has_value() && *loopId != 0 && ops[index].loopId == loopId)
             continue;
         report.issues.push_back(makeIssue(
-            "opchain.v2.stage-loop",
+            "opchain.v3.stage-loop",
             ValidationPhase::Descriptor,
             source,
             std::format("/ops/{}/loopId", index),
@@ -320,18 +312,18 @@ void validateStages(ValidationReport &report,
                     const opk::op::OpChainDescriptor &descriptor,
                     std::string_view source) {
     const auto &ops = descriptor.ops;
-    if (!ops.empty() && isPreprocess(ops.back().id))
+    if (!ops.empty() && isPreprocess(ops.back()))
         addStageIssue(report, source, ops.size() - 1, "preprocessing must have a successor");
 
     for (std::size_t controller = 0; controller < ops.size(); ++controller) {
-        if (ops[controller].id != Controller)
+        if (ops[controller].role != StageRole::Controller)
             continue;
 
         validateStageStart(report, ops, controller, source);
         const auto nextController =
             std::find_if(ops.begin() + static_cast<std::ptrdiff_t>(controller + 1),
                          ops.end(),
-                         [](const auto &op) { return op.id == Controller; });
+                         [](const auto &op) { return op.role == StageRole::Controller; });
         const auto end = static_cast<std::size_t>(std::distance(ops.begin(), nextController));
         if (!validateStageShape(report, ops, controller, end, source))
             continue;
@@ -350,7 +342,7 @@ void validateOnnxThreadCount(ValidationReport &report,
             if (!op.attributes.contains(name) || op.attributes.at(name).isInt())
                 continue;
             report.issues.push_back(makeIssue(
-                "opchain.v2.onnx-thread-count",
+                "opchain.v3.onnx-thread-count",
                 ValidationPhase::Descriptor,
                 source,
                 std::format("/ops/{}/attributes/{}", index, name),
@@ -374,7 +366,7 @@ void validateTurnDetectorIntegers(ValidationReport &report,
                 continue;
 
             report.issues.push_back(
-                makeIssue("opchain.v2.turn-detector-integer",
+                makeIssue("opchain.v3.turn-detector-integer",
                           ValidationPhase::Descriptor,
                           source,
                           std::format("/ops/{}/attributes/{}", index, attribute),
@@ -417,7 +409,7 @@ void validateThresholds(ValidationReport &report,
         }
 
         report.issues.push_back(
-            makeIssue("opchain.v2.threshold-order",
+            makeIssue("opchain.v3.threshold-order",
                       ValidationPhase::Descriptor,
                       source,
                       std::format("/ops/{}/attributes/thresholdHigh", index),
@@ -441,7 +433,7 @@ void validateAudioParserIntegers(ValidationReport &report,
             if (!op.attributes.contains(attribute) || op.attributes.at(attribute).isInt())
                 continue;
             report.issues.push_back(
-                makeIssue("opchain.v2.audio-parser-integer",
+                makeIssue("opchain.v3.audio-parser-integer",
                           ValidationPhase::Descriptor,
                           source,
                           std::format("/ops/{}/attributes/{}", index, attribute),
@@ -452,7 +444,7 @@ void validateAudioParserIntegers(ValidationReport &report,
 
 } // namespace
 
-ValidationReport validateOpChainV2(const opk::op::OpChainDescriptor &descriptor,
+ValidationReport validateOpChainV3(const opk::op::OpChainDescriptor &descriptor,
                                    std::string_view source) {
     ValidationReport report;
     validateControlCharacters(report, descriptor, source);

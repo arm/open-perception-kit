@@ -59,21 +59,27 @@ TEST(OpkMenuDiscover, FindsUniqueSupportedModelFilesFromOpChain) {
 
     const auto opchain_path = opchain_directory / "opchain.json";
     std::ofstream(opchain_path) << nlohmann::json{
-        {"version", "2.0.0"},
+        {"version", "3.0.0"},
         {"name", "discover"},
         {"description", "Discover model files."},
         {"ops",
          {{{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "../models/onnx/model.json"}}}},
           {{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "../models/pte/model.json"}}}},
           {{"id", "opk-mlwl-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "../models/vgf/model.json"}}}},
           {{"id", "opk-mlwl-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "../models/vgf-uppercase/model.json"}}}},
           {{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "../models/ignored/model.json"}}}},
           {{"id", "opk-future-ops/Inference"},
+           {"role", "inference"},
            {"attributes", {{"modelDescriptor", "../models/onnx/model.json"}}}}}},
     };
 
