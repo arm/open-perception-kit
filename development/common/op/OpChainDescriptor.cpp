@@ -83,9 +83,10 @@ opk::Result<void> resolveDescriptorPaths(OpChainDescriptor &descriptor,
             op.attributes.getStringOrDefault("parser", "") == "PaddleOcrRecognitionParser") {
             resolvePathAttribute(op, "dictionaryFile", descriptorDirectory);
         }
-        if (!isInferenceOpId(op.id))
-            continue;
         resolvePathAttribute(op, "modelDescriptor", descriptorDirectory);
+        if (!isInferenceOpId(op.id)) {
+            continue;
+        }
         modelDirectories.emplace(
             std::filesystem::path(op.attributes.getString("modelDescriptor")).parent_path());
     }

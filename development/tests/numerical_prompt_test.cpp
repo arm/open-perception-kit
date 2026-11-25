@@ -176,6 +176,38 @@ struct BoxFixture {
     }
 };
 
+class SubstituteImagePreprocessor final : public opk::op::Op,
+                                          public opk::op::OpInterfaceImageInputPreprocessor {
+  public:
+    opk::Result<void> configure(const opk::AttributeMap &) override {
+        return {};
+    }
+    opk::Result<void> bind(const size_t, const std::vector<opk::op::Op *> &) override {
+        return {};
+    }
+    opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &) override {
+        return opk::op::OpSignal::Continue;
+    }
+    opk::op::InferenceInputBinding getImageInputBinding() const override {
+        static constexpr std::array<size_t, 1> image{0};
+        return {"mobileSam", "pipelineVideoFrame", image};
+    }
+};
+
+TEST(BoxPromptPreprocess, AcceptsImageCapabilityButRejectsConditioningOnlyWriter) {
+    BoxFixture fixture;
+    SubstituteImagePreprocessor image;
+    ASSERT_TRUE(fixture.box.bind(1, {&image, &fixture.box, &fixture.inference}));
+    ASSERT_TRUE(fixture.box.process(fixture.context));
+    EXPECT_EQ(fixture.inference.boxValues, (std::array<float, 4>{256, 128, 768, 1024}));
+    fixture.context.inferenceInfo.image.letterboxLeft = 1;
+    EXPECT_FALSE(fixture.box.process(fixture.context));
+    EXPECT_FALSE(fixture.context.preparedPrompt);
+    AuxiliaryInputPreprocessor conditioning;
+    conditioning.inputs = {0};
+    EXPECT_FALSE(fixture.box.bind(1, {&conditioning, &fixture.box, &fixture.inference}));
+}
+
 TEST(BoxPromptPreprocess, WritesAllCornersToFreshStorageInModelSpace) {
     BoxFixture fixture;
     const auto processed = fixture.box.process(fixture.context);
@@ -194,6 +226,9 @@ TEST(BoxPromptPreprocess, WritesAllCornersToFreshStorageInModelSpace) {
 class UnsupportedPayload final : public opk::PromptPayload {
   public:
     explicit UnsupportedPayload(const opk::PromptFormat format) : value(format) {}
+    size_t ownedBytes() const override {
+        return sizeof(*this);
+    }
     opk::PromptFormat format() const override {
         return value;
     }

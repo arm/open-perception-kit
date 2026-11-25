@@ -41,6 +41,7 @@ common = shared_library(
     'opk/PromptCodecs.cpp',
 
     'op/Op.cpp',
+    'op/PromptAdapter.cpp',
     'op/OpRef.cpp',
     'op/OpChain.cpp',
     'op/OpChainContext.cpp',

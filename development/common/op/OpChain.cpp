@@ -74,6 +74,25 @@ const std::string &OpChain::getRuntime() const {
     return this->runtime;
 }
 
+std::vector<PromptConsumerCapability>
+OpChain::promptCapabilities(const std::string_view instanceId,
+                            const std::string_view sourceName) const {
+    std::vector<PromptConsumerCapability> result;
+    for (const auto *const operation : opPtrs) {
+        const auto *const consumer = operation->as<OpInterfacePromptConsumer>();
+        if (!consumer) {
+            continue;
+        }
+        for (const auto &capability : consumer->promptCapabilities()) {
+            if (consumer->acceptsPrompt(capability.format, instanceId, sourceName) &&
+                std::find(result.begin(), result.end(), capability) == result.end()) {
+                result.push_back(capability);
+            }
+        }
+    }
+    return result;
+}
+
 bool OpChain::acceptsPrompt(const opk::PromptFormat format,
                             const std::string_view instanceId,
                             const std::string_view sourceName) const {

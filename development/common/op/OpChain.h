@@ -84,6 +84,9 @@ class OpChain {
     getRequiredInputs(const std::string_view inferId,
                       const std::vector<opk::InputBinding> &bindings = {}) const;
     opk::Result<void> validateInputBindings(const std::vector<opk::InputBinding> &bindings) const;
+    /// Copies configured restrictions; contained identifiers have static storage duration.
+    std::vector<PromptConsumerCapability>
+    promptCapabilities(const std::string_view instanceId, const std::string_view sourceName) const;
     bool acceptsPrompt(const opk::PromptFormat format,
                        const std::string_view instanceId,
                        const std::string_view sourceName) const;

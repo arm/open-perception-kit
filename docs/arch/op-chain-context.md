@@ -63,7 +63,7 @@ abort and skipped-inference paths must not retain stale preparation/association.
 which explicitly associates its own produced results with that request.
 The generated request envelope is encapsulated; public accessors expose only
 read-only identity/destination values and serialization uses a detached copy.
-See the [prompt runtime contract](promptable-inputs-proposal.md#runtime-snapshot-and-extension-boundary).
+See the [prompt adapter lifetime contract](prompt-adapters.md#prepared-state-and-compatibility).
 
 ## Loop Control
 

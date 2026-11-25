@@ -16,7 +16,9 @@
  */
 
 #include "op/Op.h"
+#include "op/OpChainDescriptor.h"
 
+#include <array>
 #include <fmt/format.h>
 
 using namespace opk::op;
@@ -31,4 +33,51 @@ Op::producerInfo(std::string_view inferElementId,
                                                          : fmt::format("{}/{}", libName, opName);
     result.implementation = implementation;
     return result;
+}
+
+opk::Result<void>
+opk::op::validateInputPreprocessors(const std::span<opk::op::Op *const> operations,
+                                    const opk::op::InferenceInputBinding &imageBinding,
+                                    const size_t inputCount) {
+    std::array<bool, opk::MaxTensorCount> written{};
+    const auto claimInputs =
+        [&](const opk::op::InferenceInputBinding &binding) -> opk::Result<void> {
+        if (binding.inferenceInstance != imageBinding.inferenceInstance ||
+            binding.sourceName != imageBinding.sourceName || binding.tensorIndices.empty()) {
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                            "Input preprocessors require matching inference/source "
+                                            "bindings and declared inputs"));
+        }
+        for (const size_t tensorIndex : binding.tensorIndices) {
+            if (tensorIndex >= inputCount || tensorIndex >= written.size() ||
+                written[tensorIndex]) {
+                return tl::unexpected(
+                    OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                              "Input preprocessors require valid, nonoverlapping tensor inputs"));
+            }
+            written[tensorIndex] = true;
+        }
+        return {};
+    };
+
+    if (const auto result = claimInputs(imageBinding); !result) {
+        return result;
+    }
+
+    for (const auto *const operation : operations) {
+        const auto *const preprocessor =
+            operation->as<opk::op::OpInterfaceInferenceInputPreprocessor>();
+        if (operation->loopId != 0 || operation->as<opk::op::OpInterfaceInference>() ||
+            !preprocessor) {
+            return tl::unexpected(OPK_ERROR(
+                opk::ErrorFlag::InvalidOpChain,
+                "Explicit image binding permits only unlooped cooperating input preprocessors "
+                "before inference"));
+        }
+        const auto binding = preprocessor->getInputBinding();
+        if (const auto result = claimInputs(binding); !result) {
+            return result;
+        }
+    }
+    return {};
 }

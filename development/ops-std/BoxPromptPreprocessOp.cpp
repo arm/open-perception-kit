@@ -17,7 +17,6 @@
 
 #include "BoxPromptPreprocessOp.h"
 
-#include "GenericImagePreprocessOp.h"
 #include "opk/BoxPromptInputs.h"
 
 #include <algorithm>
@@ -26,19 +25,43 @@
 #include <cstring>
 
 namespace opk::stdop {
+namespace {
+class MobileSamBoxAdapter final : public op::PromptInputAdapter {
+  public:
+    op::InferenceInputBinding getInputBinding() const override;
+    Result<void> configure(const AttributeMap &attributes) override;
+    Result<void>
+    bind(const op::Op &owner, const size_t index, const std::vector<op::Op *> &ops) override;
+    Result<void> writeInputs(op::OpChainContext &context) override;
+    bool acceptsPrompt(const PromptFormat format,
+                       const std::string_view inferenceInstance,
+                       const std::string_view sourceName) const override;
+    std::span<const op::PromptConsumerCapability> promptCapabilities() const override {
+        static constexpr std::array capabilities{
+            op::PromptConsumerCapability{BoxPromptFormat, "mobilesam-box-v1", {1}}};
+        return capabilities;
+    }
 
-opk::op::InferenceInputBinding BoxPromptPreprocessOp::getInputBinding() const {
+  private:
+    std::string inferenceInstanceId;
+    std::string inputImageSourceName;
+    size_t inputBoxTensorIndex{InvalidTensorIndex};
+    const op::OpInterfaceInference *inference{nullptr};
+    op::OpInterfaceSharedInput *sharedInput{nullptr};
+};
+
+opk::op::InferenceInputBinding MobileSamBoxAdapter::getInputBinding() const {
     return {inferenceInstanceId, inputImageSourceName, {&inputBoxTensorIndex, 1}};
 }
 
-bool BoxPromptPreprocessOp::acceptsPrompt(const opk::PromptFormat format,
-                                          const std::string_view inferenceInstance,
-                                          const std::string_view sourceName) const {
+bool MobileSamBoxAdapter::acceptsPrompt(const opk::PromptFormat format,
+                                        const std::string_view inferenceInstance,
+                                        const std::string_view sourceName) const {
     return format == opk::BoxPromptFormat && inference != nullptr &&
            inferenceInstanceId == inferenceInstance && inputImageSourceName == sourceName;
 }
 
-opk::Result<void> BoxPromptPreprocessOp::configure(const opk::AttributeMap &attributes) {
+opk::Result<void> MobileSamBoxAdapter::configure(const opk::AttributeMap &attributes) {
     for (const auto &[name, value] : attributes.raw()) {
         if (name != "inferenceInstance" && name != "inputBoxTensorIndex" &&
             name != "inputImageSourceName") {
@@ -70,34 +93,37 @@ opk::Result<void> BoxPromptPreprocessOp::configure(const opk::AttributeMap &attr
     return {};
 }
 
-opk::Result<void> BoxPromptPreprocessOp::bind(const size_t index,
-                                              const std::vector<opk::op::Op *> &ops) {
-    if (index == 0 || index >= ops.size() || ops.size() - index < 2 || loopId != 0 ||
+opk::Result<void> MobileSamBoxAdapter::bind(const op::Op &owner,
+                                            const size_t index,
+                                            const std::vector<opk::op::Op *> &ops) {
+    if (index == 0 || index >= ops.size() || ops.size() - index < 2 || owner.loopId != 0 ||
         ops[index - 1]->loopId != 0 || ops[index + 1]->loopId != 0) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                       "BoxPromptPreprocess requires an unlooped image/box/inference sequence"));
     }
-    const auto *const image = ops[index - 1]->as<GenericImagePreprocessOp>();
+    const auto *const image = ops[index - 1]->as<op::OpInterfaceImageInputPreprocessor>();
     inference = ops[index + 1]->as<opk::op::OpInterfaceInference>();
     sharedInput = ops[index + 1]->as<opk::op::OpInterfaceSharedInput>();
-    if (!image || !inference || ops[index + 1]->instanceId != inferenceInstanceId ||
-        image->inferenceInstance() != inferenceInstanceId ||
-        image->imageSourceName() != inputImageSourceName ||
-        image->imageTensorIndex() == inputBoxTensorIndex) {
+    const auto imageBinding = image ? image->getImageInputBinding() : op::InferenceInputBinding{};
+    if (!image || imageBinding.tensorIndices.size() != 1 || !inference ||
+        ops[index + 1]->instanceId != inferenceInstanceId ||
+        imageBinding.inferenceInstance != inferenceInstanceId ||
+        imageBinding.sourceName != inputImageSourceName ||
+        imageBinding.tensorIndices[0] == inputBoxTensorIndex) {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                                         "BoxPromptPreprocess needs matching explicit image binding "
                                         "and the configured source"));
     }
     const auto &model = inference->getModel();
     if (model.inputs.size() != 2 || inputBoxTensorIndex >= model.inputs.size() ||
-        image->imageTensorIndex() >= model.inputs.size()) {
+        imageBinding.tensorIndices[0] >= model.inputs.size()) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                       "BoxPromptPreprocess requires distinct image and box inputs"));
     }
     const auto &boxInput = model.inputs[inputBoxTensorIndex];
-    const auto &imageInput = model.inputs[image->imageTensorIndex()];
+    const auto &imageInput = model.inputs[imageBinding.tensorIndices[0]];
     if (boxInput.valueType != opk::Dtype::Float32 || !(boxInput.shape == opk::Shape(1, 1, 2, 2)) ||
         !boxInput.valueInputs.empty() ||
         boxInput.matchShapeOutputIndex != opk::InvalidTensorIndex ||
@@ -115,19 +141,12 @@ opk::Result<void> BoxPromptPreprocessOp::bind(const size_t index,
     return {};
 }
 
-opk::Result<opk::op::OpSignal> BoxPromptPreprocessOp::process(opk::op::OpChainContext &context) {
-    context.preparedPrompt.reset();
-    if (!context.prompt) {
-        return opk::op::OpSignal::AbortChain;
-    }
+opk::Result<void> MobileSamBoxAdapter::writeInputs(opk::op::OpChainContext &context) {
     const auto &prompt = *context.prompt;
     const auto validation =
         opk::validateBoxPrompt(prompt, inferenceInstanceId, inputImageSourceName);
     if (!validation) {
         return tl::unexpected(validation.error());
-    }
-    if (!prompt.payload) {
-        return opk::op::OpSignal::AbortChain;
     }
     const auto &box = static_cast<const opk::BoxPromptPayload &>(*prompt.payload).box;
     const auto *const frame = context.getVideoFrame(inputImageSourceName);
@@ -178,8 +197,12 @@ opk::Result<opk::op::OpSignal> BoxPromptPreprocessOp::process(opk::op::OpChainCo
                                         "BoxPromptPreprocess box input is not writable"));
     }
     std::memcpy(destination, corners.data(), sizeof(corners));
-    context.preparedPrompt = context.prompt;
-    return opk::op::OpSignal::Continue;
+    return {};
 }
+
+} // namespace
+
+BoxPromptPreprocessOp::BoxPromptPreprocessOp()
+    : op::PromptInputOp(std::make_unique<MobileSamBoxAdapter>()) {}
 
 } // namespace opk::stdop

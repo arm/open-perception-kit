@@ -45,12 +45,14 @@ namespace opk::stdop {
  * 2. This operation converts it to the model's input format
  * 3. Downstream inference operation uses the prepared tensor data
  */
-class GenericImagePreprocessOp : public opk::op::Op {
+class GenericImagePreprocessOp : public opk::op::Op,
+                                 public opk::op::OpInterfaceImageInputPreprocessor {
   public:
     /**
      * @brief Constructs a generic image preprocessing operation.
      */
     GenericImagePreprocessOp();
+    opk::op::InferenceInputBinding getImageInputBinding() const override;
     /**
      * @brief Destroys the preprocessing operation and releases resources.
      */

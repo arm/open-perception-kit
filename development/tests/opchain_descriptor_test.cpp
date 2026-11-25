@@ -74,7 +74,7 @@ TEST(OpChainDescriptor, DefaultInstanceIdsUseStablePerOpOccurrences) {
     EXPECT_EQ(opk::op::makeDefaultInstanceId("\xc3\xa9/Operation", 0), "op----Operation-0");
 }
 
-TEST(OpChainDescriptor, DoesNotResolveInferenceLikeCustomOpAttributes) {
+TEST(OpChainDescriptor, ResolvesCustomOpModelDescriptorAttributes) {
     const auto directory = std::filesystem::path("opk_opchain_descriptor_test") / "custom";
     std::filesystem::remove_all(directory.parent_path());
     std::filesystem::create_directories(directory);
@@ -84,7 +84,14 @@ TEST(OpChainDescriptor, DoesNotResolveInferenceLikeCustomOpAttributes) {
     const auto result = opk::op::OpChainDescriptor::fromFile(descriptorPath.string());
 
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->ops[0].attributes.getString("modelDescriptor"), "model.json");
+    EXPECT_EQ(result->ops[0].attributes.getString("modelDescriptor"),
+              (directory / "model.json").string());
+
+    const auto absolute = std::filesystem::absolute("encoder/model.json").string();
+    std::ofstream(descriptorPath) << descriptor(absolute, "custom/PromptPrepare");
+    const auto absoluteResult = opk::op::OpChainDescriptor::fromFile(descriptorPath.string());
+    ASSERT_TRUE(absoluteResult.has_value());
+    EXPECT_EQ(absoluteResult->ops[0].attributes.getString("modelDescriptor"), absolute);
     std::filesystem::remove_all(directory.parent_path());
 }
 
@@ -159,6 +166,8 @@ TEST(OpChainDescriptor, ResolvesPythonScriptPathsRelativeToModelDescriptor) {
             {{"script", "scripts/process.py"},
              {"pythonPaths", {"modules", std::filesystem::absolute("shared").string()}}}}}}},
     };
+    value["ops"].push_back({{"id", "custom/PromptPrepare"},
+                            {"attributes", {{"modelDescriptor", "../encoders/model.json"}}}});
     std::ofstream(descriptorPath) << value;
 
     const auto result = opk::op::OpChainDescriptor::fromFile(descriptorPath.string());

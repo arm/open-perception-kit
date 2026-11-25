@@ -88,6 +88,13 @@ struct InferenceInputBinding {
     std::span<const size_t> tensorIndices;
 };
 
+/// Primary image writer: publishes the actual source/crop/resize/padding in inferenceInfo.image.
+/// The binding identifies the image tensor, unlike a cooperating conditioning-only writer.
+struct OpInterfaceImageInputPreprocessor {
+    virtual ~OpInterfaceImageInputPreprocessor() = default;
+    virtual InferenceInputBinding getImageInputBinding() const = 0;
+};
+
 /// Cooperating input writer between primary image preparation and inference.
 /// Implementations preserve the selected media, crops, image geometry and other input storage.
 /// Only declared tensor inputs may be written; output views and prompt-consumption state may
@@ -98,9 +105,24 @@ struct OpInterfaceInferenceInputPreprocessor {
     virtual InferenceInputBinding getInputBinding() const = 0;
 };
 
+/// Configured model-adapter restrictions, distinct from ingress decoder limits.
+/// Zero numeric limits mean unspecified; an empty capability list means not advertised.
+/// Format and contract strings have static storage duration.
+struct PromptConsumerCapability {
+    opk::PromptFormat format;
+    std::string_view contract;
+    opk::PromptLimits limits;
+    size_t maxTokens = 0;
+    bool operator==(const PromptConsumerCapability &) const = default;
+};
+
 /// Bound capability checked before a buffer's typed prompt enters the chain.
 struct OpInterfacePromptConsumer {
     virtual ~OpInterfacePromptConsumer() = default;
+    /// Borrowed list valid until reconfiguration/destruction; empty means not advertised.
+    virtual std::span<const PromptConsumerCapability> promptCapabilities() const {
+        return {};
+    }
     virtual bool acceptsPrompt(const opk::PromptFormat format,
                                const std::string_view inferenceInstance,
                                const std::string_view sourceName) const = 0;
@@ -234,5 +256,10 @@ struct Op {
         return dynamic_cast<const T *>(this);
     }
 };
+
+/// Checks source/destination agreement and exclusive tensor writers before inference.
+Result<void> validateInputPreprocessors(const std::span<Op *const> operations,
+                                        const InferenceInputBinding &imageBinding,
+                                        const size_t inputCount);
 
 } // namespace opk::op

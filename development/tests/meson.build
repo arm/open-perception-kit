@@ -1116,3 +1116,12 @@ query_prompt_tests = executable(
   link_with : [ common ],
 )
 test('query_prompt_tests', query_prompt_tests)
+
+prompt_adapter_tests = executable(
+  'prompt_adapter_tests',
+  ['prompt_adapter_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('prompt_adapter_tests', prompt_adapter_tests)

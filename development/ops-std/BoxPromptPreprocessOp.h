@@ -16,31 +16,12 @@
  */
 
 #pragma once
-
-#include "op/Op.h"
+#include "op/PromptAdapter.h"
 
 namespace opk::stdop {
-
-/// Writes one normalized full-image box to a dedicated inference input.
-class BoxPromptPreprocessOp : public opk::op::Op,
-                              public opk::op::OpInterfaceCpuPreprocessor,
-                              public opk::op::OpInterfacePromptConsumer,
-                              public opk::op::OpInterfaceInferenceInputPreprocessor {
+/// Qualified MobileSAM box input, using the shared prompt invocation lifecycle.
+class BoxPromptPreprocessOp final : public op::PromptInputOp {
   public:
-    opk::op::InferenceInputBinding getInputBinding() const override;
-    opk::Result<void> configure(const opk::AttributeMap &attributes) override;
-    opk::Result<void> bind(const size_t index, const std::vector<opk::op::Op *> &ops) override;
-    opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &context) override;
-    bool acceptsPrompt(const opk::PromptFormat format,
-                       const std::string_view inferenceInstance,
-                       const std::string_view sourceName) const override;
-
-  private:
-    std::string inferenceInstanceId;
-    std::string inputImageSourceName;
-    size_t inputBoxTensorIndex{opk::InvalidTensorIndex};
-    const opk::op::OpInterfaceInference *inference{nullptr};
-    opk::op::OpInterfaceSharedInput *sharedInput{nullptr};
+    BoxPromptPreprocessOp();
 };
-
 } // namespace opk::stdop

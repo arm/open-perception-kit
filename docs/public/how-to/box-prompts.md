@@ -79,7 +79,8 @@ explicit state commands; missing per-buffer metadata never cancels a request.
 
 Validation is synchronous and never waits for inference. Invalid updates retain
 the previous state. At most 4096 serialized bytes, 4096 distinct IDs per session,
-8 retained revisions and 1024 ended-session tombstones are accepted by an ingress
+8 retained revisions/semantic owners, 64 MiB of retained semantic storage and
+1024 ended-session tombstones are accepted by an ingress
 instance. These bounds include snapshots held by downstream queues. Over-budget
 updates are rejected without evicting paired work. Release old buffers before
 retrying an over-budget update; recreate the ingress after its session-history
@@ -128,3 +129,11 @@ public-interface demonstration; it does not establish end-to-end Cairn support.
 See the [GStreamer event ownership contract](https://gstreamer.freedesktop.org/documentation/gstreamer/gstelement.html#gst_element_send_event),
 [metadata transform contract](https://gstreamer.freedesktop.org/documentation/gstreamer/gstmeta.html)
 and [buffer writability contract](https://gstreamer.freedesktop.org/documentation/gstreamer/gstbuffer.html).
+
+`opkprompt` retains the default `formats=BPRM`, so existing box pipelines keep their
+4096-byte command bound. Text/visual pipelines explicitly select their decoder
+formats; the read-only `capabilities` JSON property describes each enabled decoder's
+limits. These ingress capabilities do not replace the destination chain's prompt
+consumer check. A custom immutable `PromptPayload` reports its transitively owned
+allocation size through `ownedBytes()` so controller admission can account for
+queued and cancelled revisions without charging shared payload owners twice.

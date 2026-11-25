@@ -36,6 +36,10 @@
 
 using namespace opk::stdop;
 
+opk::op::InferenceInputBinding GenericImagePreprocessOp::getImageInputBinding() const {
+    return {inferenceInstance(), imageSourceName(), {&inputImageTensorIndex, 1}};
+}
+
 namespace {
 
 bool isYuvPixelFormat(opk::RawImagePixelFormat format) noexcept {
@@ -105,52 +109,6 @@ opk::Result<opk::ImageOpDesc> sourceImageDescription(const opk::mediaio::VideoFr
     }
 
     return source;
-}
-
-opk::Result<void> validateInputPreprocessors(const std::span<opk::op::Op *const> operations,
-                                             const opk::op::InferenceInputBinding &imageBinding,
-                                             const size_t inputCount) {
-    std::array<bool, opk::MaxTensorCount> written{};
-    const auto claimInputs =
-        [&](const opk::op::InferenceInputBinding &binding) -> opk::Result<void> {
-        if (binding.inferenceInstance != imageBinding.inferenceInstance ||
-            binding.sourceName != imageBinding.sourceName || binding.tensorIndices.empty()) {
-            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                                            "Input preprocessors require matching inference/source "
-                                            "bindings and declared inputs"));
-        }
-        for (const size_t tensorIndex : binding.tensorIndices) {
-            if (tensorIndex >= inputCount || tensorIndex >= written.size() ||
-                written[tensorIndex]) {
-                return tl::unexpected(
-                    OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                              "Input preprocessors require valid, nonoverlapping tensor inputs"));
-            }
-            written[tensorIndex] = true;
-        }
-        return {};
-    };
-
-    if (const auto result = claimInputs(imageBinding); !result) {
-        return result;
-    }
-
-    for (const auto *const operation : operations) {
-        const auto *const preprocessor =
-            operation->as<opk::op::OpInterfaceInferenceInputPreprocessor>();
-        if (operation->loopId != 0 || operation->as<opk::op::OpInterfaceInference>() ||
-            !preprocessor) {
-            return tl::unexpected(OPK_ERROR(
-                opk::ErrorFlag::InvalidOpChain,
-                "Explicit image binding permits only unlooped cooperating input preprocessors "
-                "before inference"));
-        }
-        const auto binding = preprocessor->getInputBinding();
-        if (const auto result = claimInputs(binding); !result) {
-            return result;
-        }
-    }
-    return {};
 }
 
 opk::ImageInferenceMetadata imageMetadata(const opk::PixelRect &cropRect,
@@ -235,7 +193,7 @@ opk::Result<void> GenericImagePreprocessOp::bind(const size_t index,
             inferenceInstanceId, inputImageSourceName, {&inputImageTensorIndex, 1}};
         const std::span<opk::op::Op *const> intermediates{ops.data() + index + 1,
                                                           inferenceIndex - index - 1};
-        return validateInputPreprocessors(
+        return opk::op::validateInputPreprocessors(
             intermediates, imageBinding, upcomingInferenceModel.inputs.size());
     }
     return {};
