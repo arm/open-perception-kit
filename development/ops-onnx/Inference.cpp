@@ -75,6 +75,7 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
     this->api = ApiTensorGlue();
     this->dynamicOutputData.clear();
     this->model = {};
+    this->declaredModel = {};
     std::fill_n(this->outputTensorPointers, opk::MaxTensorCount, nullptr);
     std::fill_n(this->outputTensorFinalShapes, opk::MaxTensorCount, opk::Shape{});
     this->session.reset();
@@ -99,11 +100,11 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
     // this->modelPath = file;
 
     try {
-        // Serialize the opt-out before any ORT call can initialize process-wide telemetry.
+        // All native ORT sessions enter through this shared backend before any ORT call.
         static const int telemetryStatus =
             setenv("ORT_DISABLE_TELEMETRY", "1", 1); // NOLINT(concurrency-mt-unsafe)
         if (telemetryStatus != 0) {
-            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
+            return tl::unexpected(OPK_ERROR(ErrorFlag::InferenceRtStartupError,
                                             "Cannot disable ONNX Runtime telemetry"));
         }
 
@@ -151,6 +152,7 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
             return tl::unexpected{modelResult.error()};
         }
         this->model = *modelResult;
+        declaredModel = model;
 
         // --- build up model
 
@@ -180,26 +182,57 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
 
 opk::Result<void>
 Inference::recreateInputTensor(size_t index, const opk::Shape &shape, opk::Dtype valueType) {
-    if (index >= opk::MaxTensorCount) {
-        opk::log::error(
-            "Input tensor index {} exceeds max supported {}\n", index, opk::MaxTensorCount);
+    if (index >= model.inputs.size()) {
         return tl::unexpected(
-            OPK_ERROR(opk::ErrorFlag::InvalidData, "Input tensor index exceeds max supported"));
+            OPK_ERROR(opk::ErrorFlag::InvalidData, "Input tensor index is invalid"));
     }
-
-    opk::log::info("Recreating input tensor #{} [{}] from {} to {}\n",
-                   index,
-                   this->model.inputs[index].name,
-                   this->model.inputs[index].shape.toString(),
-                   shape.toString());
-
-    api.inputTensors[index] = std::make_unique<onnx::Tensor>(shape, valueType);
-    auto tensorResult = api.inputTensors[index]->createOnnxTensor(*this->memoryInfo);
-    if (!tensorResult) {
-        return tl::unexpected(tensorResult.error());
+    try {
+        auto replacement = std::make_unique<onnx::Tensor>(shape, valueType);
+        auto value = replacement->createOnnxTensor(*memoryInfo);
+        if (!value) {
+            return tl::unexpected(value.error());
+        }
+        api.inputTensorVector[index] = std::move(*value);
+        api.inputTensors[index] = std::move(replacement);
+        model.inputs[index].shape = shape;
+        return {};
+    } catch (const std::exception &error) {
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::TensorError, error.what()));
     }
-    api.inputTensorVector[index] = std::move(*tensorResult);
-    return {};
+}
+
+opk::Result<void> Inference::resizeInputTensor(const size_t index,
+                                               const opk::Shape &shape,
+                                               const opk::Dtype dtype,
+                                               const size_t maxBytes) {
+    if (!setupReady || index >= declaredModel.inputs.size() || shape.rank > 8 || maxBytes == 0) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::TensorError, "Invalid dynamic input request"));
+    }
+    const auto &declared = declaredModel.inputs[index];
+    if (dtype != declared.valueType || shape.rank != declared.shape.rank) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::TensorError, "Input rank/type differs from graph"));
+    }
+    size_t bytes = opk::getValueTypeByteSize(dtype);
+    if (bytes == 0 || bytes > maxBytes) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::TensorError, "Invalid input element byte size"));
+    }
+    for (size_t dimension = 0; dimension < shape.rank; ++dimension) {
+        const int value = shape.dims[dimension];
+        const int expected = declared.shape.dims[dimension];
+        if (value <= 0 || (expected != -1 && value != expected) ||
+            static_cast<size_t>(value) > maxBytes / bytes) {
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::TensorError,
+                                            "Input shape violates graph dimensions or byte bound"));
+        }
+        bytes *= static_cast<size_t>(value);
+    }
+    if (model.inputs[index].shape == shape) {
+        return {};
+    }
+    return recreateInputTensor(index, shape, dtype);
 }
 
 opk::Result<void> Inference::setSharedInputStorage(const size_t index,

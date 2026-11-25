@@ -27,7 +27,8 @@ namespace opk::onnx {
 
 class InferenceOp : public opk::op::Op,
                     public opk::op::OpInterfaceInference,
-                    public opk::op::OpInterfaceSharedInput {
+                    public opk::op::OpInterfaceSharedInput,
+                    public opk::op::OpInterfaceResizableInput {
   public:
     InferenceOp();
     virtual ~InferenceOp();
@@ -39,6 +40,10 @@ class InferenceOp : public opk::op::Op,
                                             const std::span<uint8_t> data,
                                             std::shared_ptr<void> owner) override;
     opk::Result<void> setOwnedInputStorage(const size_t index) override;
+    opk::Result<void> resizeInputTensor(const size_t index,
+                                        const opk::Shape &shape,
+                                        const opk::Dtype dtype,
+                                        const size_t maxBytes) override;
 
     opk::Result<void> configure(const opk::AttributeMap &attributes) override;
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;

@@ -1127,6 +1127,7 @@ COPY --from=opk-cairn-build /opt/opk-deps/onnxruntime/lib/ runtime/
 COPY --from=opk-cairn-build \
   /work/development/build/meson-out/libfmt.so \
   /work/development/build/meson-out/libopk-common.so \
+  /work/development/build/meson-out/libopk-onnx.so \
   /work/development/build/meson-out/libopkinfer.so \
   /work/development/build/meson-out/opk-gpu-ops.so \
   /work/development/build/meson-out/opk-onnx-ops.so \

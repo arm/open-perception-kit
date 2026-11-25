@@ -14,15 +14,32 @@
 # limitations under the License.
 
 
+onnx_backend = shared_library(
+  'opk-onnx',
+  sources : ['Inference.cpp'],
+  include_directories : common_include,
+  dependencies : [opk_deps, onnx_dep],
+  link_with : [common],
+  gnu_symbol_visibility : 'default',
+  install : release_package,
+  install_dir : get_option('libdir') / 'opk',
+  install_rpath : '$ORIGIN',
+)
+
+onnx_backend_dep = declare_dependency(
+  include_directories : include_directories('.'),
+  dependencies : [opk_deps, onnx_dep],
+  link_with : [onnx_backend],
+)
+
 onnxops = shared_module(
   'opk-onnx-ops',
   sources: [
-    'Inference.cpp',
     'InferenceOp.cpp',
     'Plugin.cpp'
   ],
   include_directories: common_include,
-  dependencies: [opk_deps, onnx_dep],
+  dependencies: [onnx_backend_dep],
   link_with: [ common ],
   name_prefix: '',
   gnu_symbol_visibility: 'default',

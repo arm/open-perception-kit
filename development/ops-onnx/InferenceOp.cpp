@@ -130,3 +130,10 @@ opk::Result<void> InferenceOp::setSharedInputStorage(const size_t index,
 opk::Result<void> InferenceOp::setOwnedInputStorage(const size_t index) {
     return inference->setOwnedInputStorage(index);
 }
+
+opk::Result<void> InferenceOp::resizeInputTensor(const size_t index,
+                                                 const opk::Shape &shape,
+                                                 const opk::Dtype dtype,
+                                                 const size_t maxBytes) {
+    return inference->resizeInputTensor(index, shape, dtype, maxBytes);
+}

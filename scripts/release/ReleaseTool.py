@@ -819,9 +819,10 @@ def validate_runtime_files(package_root: Path) -> Path:
     ):
         fail("Packaged OPK runtime library is missing or invalid")
 
-    common_library = private_root / "libopk-common.so"
-    if not is_elf(common_library) or any(private_root.glob("libopk-common.so.*")):
-        fail("Packaged OPK common library is missing or invalid")
+    for library_name in ("libopk-common.so", "libopk-onnx.so"):
+        library = private_root / library_name
+        if not is_elf(library) or any(private_root.glob(f"{library_name}.*")):
+            fail(f"Packaged OPK library {library_name} is missing or invalid")
     python_stub = package_root / "share/opk/python/opk_python_ops.pyi"
     if not python_stub.is_file() or python_stub.is_symlink():
         fail("Packaged PythonScript type stub is missing or invalid")

@@ -196,9 +196,18 @@ struct Inference {
                                             const std::span<uint8_t> data,
                                             std::shared_ptr<void> owner);
     opk::Result<void> setOwnedInputStorage(const size_t index);
+    opk::Result<void> resizeInputTensor(const size_t index,
+                                        const opk::Shape &shape,
+                                        const opk::Dtype dtype,
+                                        const size_t maxBytes);
 
     const opk::Model &getModel() const {
         return this->model;
+    }
+
+    /// Original graph metadata, before descriptor overrides or input resizing.
+    const opk::Model &getDeclaredModel() const {
+        return declaredModel;
     }
 
     uint8_t *getInputTensorDataAddress(size_t index) {
@@ -233,6 +242,7 @@ struct Inference {
 
     opk::ModelDescriptor modelDescriptor;
     opk::Model model;
+    opk::Model declaredModel;
 
     std::vector<Ort::Value> dynamicOutputData;
 

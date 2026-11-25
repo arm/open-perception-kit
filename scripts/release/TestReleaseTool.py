@@ -545,7 +545,7 @@ class ReleaseToolTests(unittest.TestCase):
                 (plugin_root / name).touch()
             for name in release_tool.OP_MODULE_NAMES:
                 (private_root / name).touch()
-            for name in (release_tool.RUNTIME_LIBRARY_NAME, "libopk-common.so"):
+            for name in (release_tool.RUNTIME_LIBRARY_NAME, "libopk-common.so", "libopk-onnx.so"):
                 (private_root / name).touch()
             for name in release_tool.RELEASE_MODEL_NAMES:
                 (root / "share/opk/models" / name).mkdir(parents=True)
@@ -634,7 +634,7 @@ class ReleaseToolTests(unittest.TestCase):
                 path = root / PLUGIN_DIR / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"\x7fELF")
-            for name in release_tool.OP_MODULE_NAMES | {release_tool.RUNTIME_LIBRARY_NAME, "libopk-common.so"}:
+            for name in release_tool.OP_MODULE_NAMES | {release_tool.RUNTIME_LIBRARY_NAME, "libopk-common.so", "libopk-onnx.so"}:
                 path = root / "lib/opk" / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"\x7fELF")
@@ -644,6 +644,12 @@ class ReleaseToolTests(unittest.TestCase):
             stub.parent.mkdir()
             stub.write_text("# PythonScript types\n")
             release_tool.validate_runtime_files(root)
+
+            backend_library = root / "lib/opk/libopk-onnx.so"
+            backend_library.unlink()
+            with self.assertRaisesRegex(RuntimeError, "libopk-onnx.so is missing or invalid"):
+                release_tool.validate_runtime_files(root)
+            backend_library.write_bytes(b"\x7fELF")
 
             microphone_plugin = root / PLUGIN_DIR / "libopksrc.so"
             microphone_plugin.unlink()

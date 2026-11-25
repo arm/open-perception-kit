@@ -63,6 +63,17 @@ struct OpInterfaceInference {
     virtual uint8_t *getTensorDataAddress(size_t index) const = 0;
 };
 
+/// Optional backend capability for graph-declared dynamic input dimensions.
+struct OpInterfaceResizableInput {
+    virtual ~OpInterfaceResizableInput() = default;
+    /// Synchronous between invocations. Preserves binding on failure; successful shape changes
+    /// replace input storage. Callers must reacquire addresses and write every input element.
+    virtual Result<void> resizeInputTensor(const size_t index,
+                                           const opk::Shape &shape,
+                                           const opk::Dtype dtype,
+                                           const size_t maxBytes) = 0;
+};
+
 /// Exposes the scheduled PCM window required by the immediately following inference Op.
 struct OpInterfaceAudioPreprocessor {
     virtual ~OpInterfaceAudioPreprocessor() = default;

@@ -139,7 +139,7 @@ The version is pinned in `requirements/build.json` and recorded in the
 binary's adjacent `.provenance.json` file.
 `libonnxruntime.so.1` is only a symbolic link to that file, not a second
 runtime. The link is required because the runtime's upstream SONAME is recorded
-as `DT_NEEDED=libonnxruntime.so.1` in `opk-onnx-ops.so`; the dynamic loader
+as `DT_NEEDED=libonnxruntime.so.1` in the shared `libopk-onnx.so` backend; the dynamic loader
 looks up that exact name.
 
 For source and licence review, the archive keeps third-party notices under

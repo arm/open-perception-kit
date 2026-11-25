@@ -178,6 +178,7 @@ plugins=(
 )
 private_libraries=(
     libopk-common.so
+    libopk-onnx.so
     opk-runtime.so
     opk-executorch-ops.so
     opk-onnx-ops.so

@@ -1098,3 +1098,12 @@ prompt_codec_tests = executable(
   link_with : [common],
 )
 test('prompt_codec_tests', prompt_codec_tests)
+
+onnx_dynamic_input_tests = executable(
+  'onnx_dynamic_input_tests',
+  ['onnx_dynamic_input_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, onnx_backend_dep],
+  link_with : [common],
+)
+test('onnx_dynamic_input_tests', onnx_dynamic_input_tests, timeout : 180)

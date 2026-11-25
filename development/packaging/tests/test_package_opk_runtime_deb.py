@@ -195,6 +195,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 )
             for name in (
                 "libopk-common.so",
+                "libopk-onnx.so",
                 "opk-runtime.so",
                 "opk-executorch-ops.so",
                 "opk-gpu-ops.so",
