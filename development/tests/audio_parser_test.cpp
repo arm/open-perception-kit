@@ -370,6 +370,16 @@ struct KeywordFixture {
         input.inferenceInfo.parentId = 29;
         input.producerInfo.instance_id = "commands/post";
         input.producerInfo.implementation = "KeywordClassificationParser";
+        auto &audio = input.inferenceInfo.audio;
+        audio.sourceId = "commands/pipelineAudioData";
+        audio.sessionId = "test-session";
+        audio.segmentIndex = 1;
+        audio.sampleRateHz = 16000;
+        audio.hopSampleCount = 256;
+        audio.windowEndSample = 512;
+        audio.windowStartTimestampNs = 0;
+        audio.windowEndTimestampNs = 32'000'000;
+        audio.discontinuity = true;
     }
 };
 
@@ -381,7 +391,7 @@ TEST(KeywordClassificationParser, UsesArbitraryLabelsAndTheSelectedOutput) {
         fixture.scores[winner] = 1010;
         Results results;
         ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
-        EXPECT_EQ(results.size(), winner == 1 ? 0u : 1u);
+        EXPECT_EQ(results.size(), 1u);
         results.for_each<KeywordPayload>([&](const auto &payload) {
             EXPECT_EQ(payload.layer->model, "synthetic-command-scores");
             EXPECT_EQ(payload.layer->infer_element_id, "commands");
@@ -392,7 +402,15 @@ TEST(KeywordClassificationParser, UsesArbitraryLabelsAndTheSelectedOutput) {
             EXPECT_EQ(payload.classifications[0]->kind,
                       open_perception_kit::metadata::ClassificationKind::Categorical);
             EXPECT_EQ(payload.classifications[0]->label_set, "test:commands-v1");
-            EXPECT_EQ(payload.classifications[0]->subject_id, 29u);
+            EXPECT_FALSE(payload.classifications[0]->subject_id);
+            EXPECT_EQ(payload.classifications[0]->object->parent_id, 29u);
+            ASSERT_TRUE(payload.classifications[0]->audio_window);
+            EXPECT_EQ(payload.classifications[0]->audio_window->source_id,
+                      "commands/pipelineAudioData");
+            if (winner == 1) {
+                EXPECT_TRUE(payload.classifications[0]->candidates.empty());
+                return;
+            }
             ASSERT_EQ(payload.classifications[0]->candidates.size(), 1u);
             const auto &candidate = *payload.classifications[0]->candidates[0];
             EXPECT_EQ(candidate.class_id, winner);
@@ -408,7 +426,7 @@ TEST(KeywordClassificationParser, KeepsIgnoredClassesInTheCompetitionAndNormaliz
     fixture.attributes.set("confidenceThreshold", 0.3);
     Results belowThreshold;
     ASSERT_TRUE(fixture.parser.parse(fixture.input, belowThreshold));
-    EXPECT_EQ(belowThreshold.size(), 0u); // All four classes share probability 0.25.
+    ASSERT_EQ(belowThreshold.size(), 1u); // All four classes share probability 0.25.
     fixture.attributes.set("confidenceThreshold", 0.25);
     Results tied;
     ASSERT_TRUE(fixture.parser.parse(fixture.input, tied));
@@ -421,12 +439,88 @@ TEST(KeywordClassificationParser, KeepsIgnoredClassesInTheCompetitionAndNormaliz
     fixture.scores = {0, 5, 4, 0};
     Results ignoredWinner;
     ASSERT_TRUE(fixture.parser.parse(fixture.input, ignoredWinner));
-    EXPECT_EQ(ignoredWinner.size(), 0u);
+    ASSERT_EQ(ignoredWinner.size(), 1u);
     fixture.attributes.setArray("labels", {nullptr, "open", "close", "hold"});
     fixture.scores.fill(0);
     Results ignoredTie;
     ASSERT_TRUE(fixture.parser.parse(fixture.input, ignoredTie));
-    EXPECT_EQ(ignoredTie.size(), 0u);
+    ASSERT_EQ(ignoredTie.size(), 1u);
+    for (const auto *const results : {&belowThreshold, &ignoredWinner, &ignoredTie}) {
+        results->for_each<KeywordPayload>([](const auto &payload) {
+            ASSERT_EQ(payload.classifications.size(), 1u);
+            EXPECT_TRUE(payload.classifications[0]->candidates.empty());
+            ASSERT_TRUE(payload.classifications[0]->audio_window);
+            EXPECT_TRUE(payload.classifications[0]->audio_window->discontinuity);
+        });
+    }
+}
+
+TEST(KeywordClassificationParser, RoundTripsAnalyzedWindowsIncludingEmptyAndResetAssessments) {
+    KeywordFixture fixture;
+    fixture.attributes.set("activation", "none");
+    Results results;
+    fixture.scores = {.9f, .05f, .03f, .02f};
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
+    auto &audio = fixture.input.inferenceInfo.audio;
+    audio.windowStartSample = 256;
+    audio.windowEndSample = 768;
+    audio.windowStartTimestampNs.reset();
+    audio.windowEndTimestampNs.reset();
+    audio.discontinuity = false;
+    fixture.scores.fill(.25f);
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
+    audio.segmentIndex = 2;
+    audio.windowStartSample = 0;
+    audio.windowEndSample = 512;
+    audio.discontinuity = true;
+    ASSERT_TRUE(fixture.parser.parse(fixture.input, results));
+    const auto bytes = results.serialize();
+    const Results decoded{std::span<const uint8_t>(bytes)};
+    size_t count = 0;
+    decoded.for_each<KeywordPayload>([&](const auto &payload) {
+        ASSERT_EQ(payload.classifications.size(), 1u);
+        const auto &assessment = *payload.classifications[0];
+        ASSERT_TRUE(assessment.audio_window);
+        const auto &window = *assessment.audio_window;
+        EXPECT_EQ(window.source_id, "commands/pipelineAudioData");
+        EXPECT_EQ(window.session_id, "test-session");
+        EXPECT_EQ(window.sample_rate_hz, 16000u);
+        EXPECT_EQ(window.segment_index, count == 2 ? 2u : 1u);
+        EXPECT_EQ(window.window_start_sample, count == 1 ? 256u : 0u);
+        EXPECT_EQ(window.window_end_sample, count == 1 ? 768u : 512u);
+        EXPECT_EQ(window.discontinuity, count != 1);
+        EXPECT_EQ(assessment.candidates.size(), count == 0 ? 1u : 0u);
+        EXPECT_EQ(window.window_start_ts_ns.has_value(), count == 0);
+        if (count == 0) {
+            EXPECT_EQ(window.window_start_ts_ns, 0u);
+            EXPECT_EQ(window.window_end_ts_ns, 32'000'000u);
+        } else {
+            EXPECT_FALSE(window.window_end_ts_ns);
+        }
+        ++count;
+    });
+    EXPECT_EQ(count, 3u);
+}
+
+TEST(KeywordClassificationParser, RejectsMissingOrInvalidWindowWithoutPublishingAnEmptySuccess) {
+    KeywordFixture fixture;
+    const auto valid = fixture.input.inferenceInfo.audio;
+    std::array<opk::AudioInferenceMetadata, 8> invalid;
+    invalid.fill(valid);
+    invalid[0].sourceId.clear();
+    invalid[1].sessionId.clear();
+    invalid[2].segmentIndex = 0;
+    invalid[3].sampleRateHz = 0;
+    invalid[4].windowEndSample = 0;
+    invalid[5].windowEndTimestampNs.reset();
+    invalid[6].windowStartTimestampNs.reset();
+    invalid[7].windowEndTimestampNs = 0;
+    for (const auto &audio : invalid) {
+        fixture.input.inferenceInfo.audio = audio;
+        Results results;
+        EXPECT_FALSE(fixture.parser.parse(fixture.input, results));
+        EXPECT_EQ(results.size(), 0u);
+    }
 }
 
 TEST(KeywordClassificationParser, ReadsConfiguredProbabilitiesWithoutRenormalizing) {

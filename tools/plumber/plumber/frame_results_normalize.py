@@ -241,6 +241,15 @@ def _normalize_classification(classification: Any) -> dict[str, Any]:
     data["labelSet"] = _text(classification.labelSet)
     data["kind"] = int(classification.kind)
     data["subjectId"] = None if classification.subjectId is None else int(classification.subjectId)
+    window = classification.audioWindow
+    data["audioWindow"] = None if window is None else {
+        "sourceId": _text(window.sourceId), "sessionId": _text(window.sessionId),
+        "segmentIndex": int(window.segmentIndex), "sampleRateHz": int(window.sampleRateHz),
+        "windowStartSample": int(window.windowStartSample), "windowEndSample": int(window.windowEndSample),
+        "windowStartTsNs": None if window.windowStartTsNs is None else int(window.windowStartTsNs),
+        "windowEndTsNs": None if window.windowEndTsNs is None else int(window.windowEndTsNs),
+        "discontinuity": bool(window.discontinuity),
+    }
     data["candidates"] = [
         _candidate_data(candidate)
         for candidate in classification.candidates or []
@@ -509,6 +518,28 @@ def _resolve_subjects(snapshot: FrameResultsSnapshot) -> None:
                 item["subject_source"] = astuple(key)
 
 
+def _validate_audio_window_addresses(snapshot: FrameResultsSnapshot) -> None:
+    sessions = {}
+    assessments = []
+    for payload in snapshot.payloads.values():
+        windows = {}
+        for item in payload.items:
+            data = item["data"]
+            window = data.get("audioWindow")
+            if window is None:
+                continue
+            assessments.append(data)
+            sessions.setdefault(window["sourceId"], set()).add(window["sessionId"])
+            address = tuple(window[key] for key in (
+                "sourceId", "sessionId", "segmentIndex", "sampleRateHz", "windowStartSample", "windowEndSample"))
+            windows.setdefault(address, []).append(data)
+        for entries in windows.values():
+            for data in entries:
+                data["ambiguousAudioWindow"] = len(entries) != 1
+    for data in assessments:
+        data["ambiguousAudioSession"] = len(sessions[data["audioWindow"]["sourceId"]]) != 1
+
+
 def normalize_frame_results(frame_results: FrameResults, frame_counter: int | None = None) -> FrameResultsSnapshot:
     snapshot = FrameResultsSnapshot(
         frame_counter=frame_counter,
@@ -561,6 +592,7 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         "open_perception_kit.metadata.TrackTraces", "traces", _normalize_track_trace,
     )
     _resolve_subjects(snapshot)
+    _validate_audio_window_addresses(snapshot)
     tracks, traces, sessions = {}, {}, {}
     for payload in snapshot.payloads.values():
         for item in payload.items:

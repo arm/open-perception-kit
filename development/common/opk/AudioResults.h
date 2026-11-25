@@ -16,7 +16,9 @@
  */
 #pragma once
 #include "open_perception_kit.h"
+#include "opk/Types.h"
 #include <cmath>
+#include <memory>
 
 namespace opk::audio_results {
 template <typename Result> bool validWindow(const Result &value) noexcept {
@@ -25,6 +27,32 @@ template <typename Result> bool validWindow(const Result &value) noexcept {
     if (!value.window_start_ts_ns)
         return !value.window_end_ts_ns;
     return value.window_end_ts_ns && *value.window_end_ts_ns > *value.window_start_ts_ns;
+}
+inline bool valid(const open_perception_kit::metadata::AudioWindowT &value) noexcept {
+    return !value.source_id.empty() && !value.session_id.empty() && value.segment_index > 0 &&
+           value.sample_rate_hz > 0 && validWindow(value);
+}
+
+inline std::unique_ptr<open_perception_kit::metadata::AudioWindowT>
+makeWindow(const opk::AudioInferenceMetadata &audio) {
+    auto window = std::make_unique<open_perception_kit::metadata::AudioWindowT>();
+    window->source_id = audio.sourceId;
+    window->session_id = audio.sessionId;
+    window->segment_index = audio.segmentIndex;
+    window->sample_rate_hz = audio.sampleRateHz;
+    window->window_start_sample = audio.windowStartSample;
+    window->window_end_sample = audio.windowEndSample;
+    window->window_start_ts_ns = audio.windowStartTimestampNs;
+    window->window_end_ts_ns = audio.windowEndTimestampNs;
+    window->discontinuity = audio.discontinuity;
+    if (!valid(*window))
+        return nullptr;
+    return window;
+}
+
+inline bool
+validClassificationContext(const open_perception_kit::metadata::ClassificationT &value) noexcept {
+    return !value.audio_window || (!value.subject_id && valid(*value.audio_window));
 }
 inline bool valid(const open_perception_kit::metadata::VoiceActivityDetectionT &value) noexcept {
     return validWindow(value) && value.speech_active.has_value() && value.speech_probability &&

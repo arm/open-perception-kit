@@ -17,6 +17,7 @@
 
 #include "op/Op.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <fstream>
@@ -29,10 +30,13 @@ class AudioWindowOp final : public opk::op::Op, public opk::op::OpInterfaceInfer
     opk::Model model_;
     std::string trace_;
     mutable std::vector<float> input_;
+    bool keyword_ = false;
+    std::array<float, 4> scores_{};
 
   public:
     opk::Result<void> configure(const opk::AttributeMap &attributes) override {
         trace_ = attributes.getString("trace");
+        keyword_ = attributes.getBoolOrDefault("keyword", false);
         opk::ModelInput input;
         input.dataKind = attributes.getBoolOrDefault("logmel", false) ? opk::DataKind::AudioLogMel
                                                                       : opk::DataKind::AudioPcm;
@@ -101,8 +105,22 @@ class AudioWindowOp final : public opk::op::Op, public opk::op::OpInterfaceInfer
               << ' '
               << (context.inferenceInfo.audio.windowEndTimestampNs
                       ? std::to_string(*context.inferenceInfo.audio.windowEndTimestampNs)
-                      : "none")
-              << '\n';
+                      : "none");
+        if (keyword_) {
+            const auto &audio = context.inferenceInfo.audio;
+            trace << ' ' << audio.sourceId << ' ' << audio.sessionId << ' ' << audio.segmentIndex
+                  << ' ' << audio.sampleRateHz;
+            scores_ = {.9f, .05f, .03f, .02f};
+            const auto assessment = window->beginPosition() / audio.hopSampleCount % 3;
+            if (assessment == 1)
+                scores_.fill(.25f); // Valid window with no accepted keyword.
+            if (assessment == 2)
+                scores_ = {.05f, .9f, .03f, .02f}; // Ignored class wins.
+            context.inferenceOutputTensorCount = 1;
+            context.inferenceOutputTensors[0] = opk::TensorView(
+                scores_.data(), sizeof(scores_), opk::Shape(1, 4), opk::Dtype::Float32, 1, 0);
+        }
+        trace << '\n';
         if (!trace)
             return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData, "Cannot write trace"));
         return opk::op::OpSignal::Continue;

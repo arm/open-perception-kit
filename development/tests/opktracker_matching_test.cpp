@@ -156,6 +156,55 @@ TEST(OpkTrackerMatching, EmbeddingModeAcceptsNonOverlappingEmbeddingAssignment) 
     EXPECT_TRUE(result.unmatchedDetections.empty());
 }
 
+TEST(OpkTrackerMatching, IncompatibleEmbeddingsCannotStealMinimumCosineAssignments) {
+    const auto trackA = makeEmbedding();
+    auto trackB = makeEmbedding();
+    trackB.space->id = "test:other-space";
+    auto detectionA = trackA;
+    detectionA.values = {-1, 0};
+    auto detectionB = trackB;
+    detectionB.values = {-1, 0};
+    const auto first = makeDetection(1, 0, 0, 10, 10);
+    const auto second = makeDetection(2, 20, 0, 10, 10);
+    auto config = matchingConfig(opk::tracker::AssociationMode::Embedding);
+    config.minCosineSimilarity = -1;
+    config.useEmbeddings = true;
+
+    // Crossed spaces force compatible pairs off the solver's default diagonal.
+    // Rectangular cases exercise both assignment orientations and missing vectors.
+    for (const auto &dimensions : {std::pair{2, 2}, std::pair{2, 1}, std::pair{1, 2}}) {
+        for (const bool missing : {false, true}) {
+            SCOPED_TRACE(dimensions.first);
+            SCOPED_TRACE(dimensions.second);
+            SCOPED_TRACE(missing);
+            opk::tracker::ActiveTrackMap tracks;
+            tracks.emplace(42, makeTrack(42, first, trackA));
+            if (dimensions.second == 2)
+                tracks.emplace(43, makeTrack(43, second, trackB));
+            opk::tracker::DetectionBatch detections{&first};
+            if (dimensions.first == 2)
+                detections.push_back(&second);
+            opk::tracker::EmbeddingBatch embeddings{{2, &detectionA}};
+            if (!missing)
+                embeddings.emplace(1, &detectionB);
+            const auto result = opk::tracker::matching::associateDetectionsToActiveTracks(
+                detections, embeddings, tracks, 1.0f / 30.0f, config);
+            std::vector<std::pair<size_t, opk::tracker::TrackId>> expected;
+            if (dimensions.second == 2 && !missing)
+                expected.emplace_back(0, 43);
+            if (dimensions.first == 2)
+                expected.emplace_back(1, 42);
+            EXPECT_EQ(result.matches, expected);
+            EXPECT_EQ(result.unmatchedDetections.size(), detections.size() - expected.size());
+            for (const auto &[index, track] : expected) {
+                const auto association = result.associationsByDetection.find(index);
+                ASSERT_NE(association, result.associationsByDetection.end());
+                EXPECT_EQ(association->second.score, -1.0f);
+            }
+        }
+    }
+}
+
 TEST(OpkTrackerMatching, DiagnosticKindDoesNotClaimTheConfiguredMatchingStrategy) {
     const auto embedding = makeEmbedding();
     const auto before = makeDetection(1, 0, 0, 10, 10);

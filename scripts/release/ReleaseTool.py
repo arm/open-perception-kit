@@ -397,9 +397,9 @@ def stage_models(args: argparse.Namespace) -> None:
         if rewritten is not None:
             write_json(destination_path, rewritten)
 
-    source_root = repo_root / "config/schemas/v1"
+    source_root = repo_root / "config/schemas"
     validate_schema_tree(source_root)
-    shutil.copytree(source_root, stage_root / "share/opk/schemas/json/v1")
+    shutil.copytree(source_root, stage_root / "share/opk/schemas/json")
 
     for json_path in (stage_root / "share/opk").rglob(JSON_GLOB):
         content = json_path.read_text(encoding="utf-8")
@@ -511,6 +511,10 @@ def validate_schema_tree(root: Path) -> set[Path]:
     files = payload_files(root)
     if not files:
         fail(f"Descriptor schema directory is missing or empty: {root}")
+    required = {Path("v1/pipeline.schema.json"), Path("v2/model.schema.json"), Path("v2/opchain.schema.json")}
+    missing = required - files
+    if missing:
+        fail(f"Descriptor schema tree is missing required files: {sorted(str(path) for path in missing)}")
     for relative in files:
         path = root / relative
         if path.suffix != ".json":
@@ -626,7 +630,7 @@ def validate_release_payload(package_root: Path, repo_root: Path | None) -> None
     for path in (package_root / "share/opk/models").rglob("*"):
         if path.is_symlink() or (path.is_file() and path.suffix != ".json"):
             fail(f"Packaged model payload must contain only configuration files: {path}")
-    packaged_schema_root = package_root / "share/opk/schemas/json/v1"
+    packaged_schema_root = package_root / "share/opk/schemas/json"
     validate_schema_tree(packaged_schema_root)
     if repo_root is None:
         return
@@ -639,7 +643,7 @@ def validate_release_payload(package_root: Path, repo_root: Path | None) -> None
                 stage_root=str(expected_root),
             )
         )
-        for payload in ("models", "opchains", "schemas/json/v1"):
+        for payload in ("models", "opchains", "schemas/json"):
             expected = expected_root / "share/opk" / payload
             packaged = package_root / "share/opk" / payload
             expected_files = payload_files(expected)

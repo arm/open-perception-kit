@@ -922,7 +922,7 @@ test(
   python,
   args : [files('audio_metadata_pipeline_test.py'), meson.project_build_root() / 'meson-out'],
   env : python_guest_script_test_env,
-  depends : [audio_window_op, gstopkinfer, opkcomm],
+  depends : [audio_window_op, gstopkinfer, opkcomm, stdops],
   timeout : 60,
 )
 
@@ -996,7 +996,7 @@ test('audio_parser_tests', audio_parser_tests)
 voice_pipeline_output_tests = executable(
   'voice_pipeline_output_tests',
   'voice_pipeline_output_test.cpp',
-  include_directories: include_directories('../examples/voice-pipeline'),
+  include_directories: [common_include, include_directories('../examples/voice-pipeline')],
   dependencies: [gtest_main_dep, gtest_dep, fmt_dep, open_perception_kit_dep],
 )
 test('voice_pipeline_output_tests', voice_pipeline_output_tests)

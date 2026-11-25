@@ -16,13 +16,18 @@
  */
 
 import {ClassificationKind} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-kind.js';
+import {validAudioWindow} from './audio-data.js';
 
 export const validProbability = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
-export const validEmptyClassification = value => value.kind === ClassificationKind.Categorical && Boolean(value.labelSet)
-    || value.kind === ClassificationKind.RecognizedText && !value.labelSet;
+export const validClassificationContext = value => value.audioWindow == null
+    || value.subjectUuid == null && validAudioWindow(value.audioWindow);
+export const validEmptyClassification = value => validClassificationContext(value)
+    && (value.kind === ClassificationKind.Categorical && Boolean(value.labelSet)
+        || value.kind === ClassificationKind.RecognizedText && !value.labelSet);
 
 export function validCandidate(classification, candidate) {
-    if (!candidate || (candidate.confidence != null && !validProbability(candidate.confidence))) return false;
+    if (!validClassificationContext(classification) || !candidate
+        || (candidate.confidence != null && !validProbability(candidate.confidence))) return false;
     if (classification.kind === ClassificationKind.Categorical)
         return Boolean(classification.labelSet) && Number.isInteger(candidate.classId) && candidate.classId >= 0;
     if (classification.kind === ClassificationKind.RecognizedText)

@@ -273,6 +273,10 @@ struct AudioInferenceMetadata {
     uint64_t windowEndSample = 0;
     std::optional<uint64_t> windowStartTimestampNs;
     std::optional<uint64_t> windowEndTimestampNs;
+    std::string sourceId;      ///< Logical normalized PCM source, independent of input buffers.
+    std::string sessionId;     ///< Opaque source-binding identity.
+    uint64_t segmentIndex = 0; ///< One-based continuity segment, advanced on reset/execution.
+    uint32_t sampleRateHz = 0; ///< Processing rate; zero means no declared audio context.
 };
 
 /**

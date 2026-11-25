@@ -231,6 +231,33 @@ class AudioWindowTest(unittest.TestCase):
         self.push(512)
         self.assertEqual(self.rows(), [[0, 512, 1023, 1534, 1]])
 
+    def test_window_identity_survives_buffers_and_advances_once_after_resets(self):
+        self.create(hop=256, extra={"keyword": True})
+        self.push(256)
+        self.assertEqual(self.rows(), [])
+        self.push(512)
+        first = [line.split()[8:] for line in self.trace.read_text().splitlines()]
+        self.assertEqual(len(first), 2)
+        self.assertEqual(first[0], first[1])
+        source, session, segment, rate = first[0]
+        self.assertEqual((source, segment, rate), ("infer/pipelineAudioData", "1", "16000"))
+        self.assertTrue(session)
+        # Repeated resets without a complete window do not invent observed segments.
+        self.push(1, discontinuity=True)
+        self.push(1, discontinuity=True)
+        self.push(511)
+        second = self.trace.read_text().splitlines()[-1].split()[8:]
+        self.assertEqual(second, [source, session, "2", rate])
+        infer = self.pipeline.get_by_name("infer")
+        infer.set_property("active", False)
+        self.push(512)
+        self.push(512)
+        infer.set_property("active", True)
+        self.push(512, missing_pts=True)
+        last = self.trace.read_text().splitlines()[-1].split()
+        self.assertEqual(last[6:8], ["none", "none"])
+        self.assertEqual(last[8:], [source, session, "3", rate])
+
     def test_invalid_audio_requirements_fail_negotiation(self):
         for options in [{"hop": 513}, {"window": 0}, {"window": -1},
                         {"extra": {"batch": 2}}, {"extra": {"logmel": True}},

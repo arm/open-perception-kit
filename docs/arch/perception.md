@@ -451,6 +451,58 @@ and class identity within their producer-scoped payload group. Both sides must
 omit `subject_id`; any declared subject still requires normal resolution and
 correspondence. Display text remains a label rather than categorical identity.
 
+### Audio classification windows
+
+`Classification.audio_window` identifies the scheduled real PCM window assessed by
+an audio classifier. It is self-contained and mutually exclusive with the spatial
+`subject_id`. `ObjectMeta.parent_id` remains derivation provenance and is not used
+to recover a window. An original `AudioFrameContext` describes an input buffer;
+one window can span buffers and one buffer can produce several assessments.
+
+The window declares:
+
+- `source_id`: the logical processing source, currently `<infer-id>/pipelineAudioData`.
+- `session_id`: an opaque source-binding token, renewed when the runtime binding is recreated.
+- `segment_index`: a one-based continuity segment within that session. Resets advance
+  it when the next complete window executes; repeated resets without execution coalesce.
+- `sample_rate_hz`: the processing timeline's rate, currently 16000 Hz, independently
+  of the original input rate.
+- Half-open `window_start_sample`/`window_end_sample` positions since the segment
+  origin and optional media-PTS bounds. Both timestamps are absent if unavailable;
+  zero is valid. They retain the scheduler's resampling-delay compensation.
+- `discontinuity`: the first assessment in a segment, including an empty assessment.
+
+These are the scheduler-selected PCM bounds, not a detected keyword's start/end or
+the complete receptive field of a recurrent/contextual model. Prepended model-only
+history and synthetic padding do not alter the scheduled window's identity.
+Missing source/session identity, a zero segment/rate, nonpositive sample spans,
+incomplete or unordered timestamp pairs, and simultaneous spatial/audio subjects
+are invalid. Consumers do not reinterpret a malformed window as an unwindowed result.
+
+The keyword parser emits one categorical assessment for every successfully decoded
+window. A suppressed winning class or a score below threshold leaves its candidates
+empty, preserving window identity and reset information. Invalid tensors or timing
+fail rather than manufacturing an empty success. Console keyword events remain
+limited to accepted candidates. The browser retains audio assessments between
+inference windows; an empty assessment replaces the previous keyword, and normal
+source-stop/reset handling clears retained results.
+Changes of source session/segment also invalidate retained audio results if the
+listener missed the first post-reset assessment carrying the discontinuity flag.
+
+Within each compared packet, Plumber requires matching logical sources, segment indices, rates, sample bounds,
+timestamp availability/values and discontinuity flags before comparing candidates.
+Opaque session tokens may differ between independent recordings, as tracker session
+tokens do; each packet must contain one unambiguous session per logical source.
+Duplicate windows within one producer's payload group are ambiguous. Reordered
+distinct windows can match. Windowed and unwindowed classifications do not match;
+existing unwindowed categorical comparisons retain the EXPKITS-1575 behavior above.
+
+The optional field and nested `AudioWindow` table are additive on the wire and retain
+the `Classifications` root identity. They would require a minor increment after a
+stable release. This work remains in the coordinated, unreleased SDK 1.0 snapshot;
+regenerate/rebuild participants together. The explicit empty-keyword assessment
+behavior is part of that documented development contract, not an old-packet adapter.
+
 ## Gaze measurements
 
 `GazeMeasurements.measurements` contains gaze observations, not generic poses.

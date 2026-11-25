@@ -78,6 +78,8 @@ def _item_context(item: dict) -> dict | None:
         return item if dsm.valid_mask(item) else None
     if item.get("item_type") == "BoxDetection":
         return item if item.get("data", {}).get("spatialValid") else None
+    if item.get("item_type") == "Classification" and item["data"].get("audioWindow") is not None:
+        return item if dc.valid_classification_audio_window(item["data"]) else None
     if dc.is_subjectless_categorical(item):
         # Keyword classifications are scoped by their payload producer, not image geometry.
         return item
@@ -101,6 +103,8 @@ def _process_remaining_items(
 
     gt_parent_item = _item_context(gt_item)
     if gt_parent_item is None:
+        if gt_item.get("item_type") == "Classification" and gt_item["data"].get("audioWindow") is not None:
+            return False, "classification audio window missing identity, ambiguous, invalid or conflicting with subject"
         if gt_item.get("item_type") in dsm.MASK_TYPES:
             return False, "mask has invalid encoding, semantics or image space"
         if gt_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):
@@ -112,6 +116,8 @@ def _process_remaining_items(
     for j, out_item in enumerate(remaining):
         out_parent_item = _item_context(out_item)
         if out_parent_item is None:
+            if out_item.get("item_type") == "Classification" and out_item["data"].get("audioWindow") is not None:
+                return False, "classification audio window missing identity, ambiguous, invalid or conflicting with subject"
             if out_item.get("item_type") in dsm.MASK_TYPES:
                 return False, "mask has invalid encoding, semantics or image space"
             if out_item.get("item_type") in ("Classification", "CameraContact", "PersonPresence", "GazeMeasurement", "ObjectEmbedding"):

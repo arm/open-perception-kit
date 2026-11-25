@@ -17,7 +17,7 @@
 
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
 import {collectOutputs} from './overlay-sources.js';
-import {contactOutcome, validCandidate, validEmptyClassification, presenceOutcome} from './classification-results.js';
+import {contactOutcome, validCandidate, validEmptyClassification, validClassificationContext, presenceOutcome} from './classification-results.js';
 import {validGaze} from './gaze-results.js';
 
 const body = document.getElementById('inferenceOutputBody');
@@ -27,7 +27,18 @@ let latestOutput = null;
 const audioAssessments = new Map();
 let disabledModels = new Set();
 
-const isAudioAssessment = layer => ['VoiceActivityDetections', 'TurnDetections'].includes(layer.payloadType);
+const isAudioAssessment = layer => ['VoiceActivityDetections', 'TurnDetections'].includes(layer.payloadType)
+    || layer.payloadType === 'Classifications' && layer.detections?.some(item => item.data?.audioWindow != null);
+
+const audioEpochs = output => new Set(output.layers.flatMap(layer => layer.detections || [])
+    .filter(item => item.data?.audioWindow != null).map(item => {
+        const window = item.data.audioWindow;
+        return JSON.stringify([window.sourceId, window.sessionId, String(window.segmentIndex)]);
+    }));
+
+const windowDetail = window => `audio ${window.sourceId}; session ${window.sessionId}; segment ${window.segmentIndex}; samples [${window.windowStartSample}, ${window.windowEndSample}) at ${window.sampleRateHz} Hz`
+    + `; PTS [${window.windowStartTsNs ?? 'unavailable'}, ${window.windowEndTsNs ?? 'unavailable'}) ns`
+    + (window.discontinuity ? '; stream reset' : '');
 
 function renderWithAudio(layers) {
     renderInferenceOutput({layers: [
@@ -78,14 +89,17 @@ function detectionSummary(detection) {
     }
 
     if (type === 'Classification') {
+        if (!validClassificationContext(data))
+            return {title: 'Classification unavailable', detail: 'Invalid audio window or conflicting subject', meta: ''};
+        const detail = data.audioWindow ? windowDetail(data.audioWindow) : 'classification';
         const best = Array.isArray(data.candidates) ? data.candidates[0] : null;
         if (!best) return {title: validEmptyClassification(data) ? 'No candidates' : 'Classification unavailable',
-            detail: validEmptyClassification(data) ? 'Empty classification result' : 'Missing classification kind or identity', meta: ''};
+            detail: validEmptyClassification(data) ? `Empty classification result; ${detail}` : 'Missing classification kind or identity', meta: ''};
         if (best && !validCandidate(data, best))
             return {title: 'Classification unavailable', detail: 'Invalid kind, identity or score', meta: ''};
         return {
             title: best?.text || `Class ${best?.classId ?? '-'}`,
-            detail: 'classification',
+            detail,
             meta: number(best?.confidence),
         };
     }
@@ -263,18 +277,29 @@ copyButton?.addEventListener('click', () => {
 window.addEventListener('metadata-message', (event) => {
     const layers = event.detail?.inference_output?.layers;
     if (!Array.isArray(layers)) return;
+    const outputs = collectOutputs({layers});
     if (window.OPK_FEED_PAUSED || event.detail.decode_error) {
         audioAssessments.clear();
     } else {
         const resetElements = new Set(layers.filter(layer =>
-            isAudioAssessment(layer) && layer.detections?.some(item => item.data?.discontinuity))
+            isAudioAssessment(layer) && layer.detections?.some(item =>
+                item.data?.audioWindow?.discontinuity || item.data?.discontinuity))
             .map(layer => layer.inferElementId || ''));
+        // A listener can miss the first post-reset assessment. Explicit epoch
+        // changes still invalidate retained results from the previous timeline.
+        for (const [key, output] of outputs) {
+            const previous = audioAssessments.get(key);
+            if (!previous) continue;
+            const epochs = audioEpochs(previous);
+            if ([...audioEpochs(output)].some(epoch => !epochs.has(epoch)))
+                resetElements.add(output.source.inferElementId);
+        }
         for (const [key, output] of audioAssessments)
             if (resetElements.has(output.source.inferElementId)) audioAssessments.delete(key);
     }
     if (!window.OPK_FEED_PAUSED && !event.detail.decode_error)
-        for (const [key, output] of collectOutputs({layers}))
-            if (isAudioAssessment(output.source) && !disabledModels.has(output.source.inferElementId))
+        for (const [key, output] of outputs)
+            if (output.layers.some(isAudioAssessment) && !disabledModels.has(output.source.inferElementId))
                 audioAssessments.set(key, output);
     renderWithAudio(layers);
 });

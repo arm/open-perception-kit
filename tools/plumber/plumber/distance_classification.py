@@ -22,14 +22,43 @@ from .distance_rect import GEOMETRY_THRESHOLD
 def is_subjectless_categorical(item: dict) -> bool:
     data = item.get("data", {})
     return (item.get("item_type") == "Classification" and data.get("kind") == ClassificationKind.Categorical
-            and data.get("subjectId") is None)
+            and data.get("subjectId") is None and data.get("audioWindow") is None)
+
+
+def valid_classification_audio_window(data: dict) -> bool:
+    window = data.get("audioWindow")
+    if (not window or data.get("subjectId") is not None or data.get("ambiguousAudioWindow")
+            or data.get("ambiguousAudioSession")):
+        return False
+
+    def unsigned(value): return type(value) is int and 0 <= value <= 0xffffffffffffffff
+    if (not isinstance(window.get("sourceId"), str) or not window["sourceId"]
+            or not isinstance(window.get("sessionId"), str) or not window["sessionId"]
+            or not unsigned(window.get("segmentIndex")) or window["segmentIndex"] == 0
+            or not unsigned(window.get("sampleRateHz")) or not 0 < window["sampleRateHz"] <= 0xffffffff
+            or not unsigned(window.get("windowStartSample")) or not unsigned(window.get("windowEndSample"))
+            or window["windowEndSample"] <= window["windowStartSample"]
+            or not isinstance(window.get("discontinuity"), bool)):
+        return False
+    first, last = window.get("windowStartTsNs"), window.get("windowEndTsNs")
+    return first is None and last is None or unsigned(first) and unsigned(last) and first < last
 
 
 def distance_classification(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item) -> float:
     """Compare classification identity, enforcing correspondence for declared subjects."""
     if gt_item["data"].get("invalidCandidates") or out_item["data"].get("invalidCandidates"):
         return 1.0
-    if not (is_subjectless_categorical(gt_item) and is_subjectless_categorical(out_item)):
+    gt_window, out_window = gt_item["data"].get("audioWindow"), out_item["data"].get("audioWindow")
+    if gt_window is not None or out_window is not None:
+        if not all(valid_classification_audio_window(item["data"]) for item in (gt_item, out_item)):
+            return 1.0
+        # Session tokens are run-local. Packet validation requires an unambiguous
+        # session per logical source; continuity-segment indices remain comparable.
+        if any(gt_window[key] != out_window[key] for key in (
+                "sourceId", "segmentIndex", "sampleRateHz", "windowStartSample", "windowEndSample",
+                "windowStartTsNs", "windowEndTsNs", "discontinuity")):
+            return 1.0
+    elif not (is_subjectless_categorical(gt_item) and is_subjectless_categorical(out_item)):
         if distance_subject(gt_item, out_item, _gt_parent_item, _out_parent_item) > GEOMETRY_THRESHOLD:
             return 1.0
 

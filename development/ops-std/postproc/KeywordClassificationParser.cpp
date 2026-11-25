@@ -16,6 +16,7 @@
  */
 
 #include "postproc/KeywordClassificationParser.h"
+#include "opk/AudioResults.h"
 
 #include <cmath>
 #include <span>
@@ -115,9 +116,9 @@ opk::Result<Candidate> decodeCandidate(const opk::TensorParser::Input &input,
     return Candidate{winner, static_cast<float>(1.0 / sum)};
 }
 
-open_perception_kit::metadata::ClassificationsT makeResult(const opk::TensorParser::Input &input,
-                                                           const Candidate &decoded,
-                                                           const std::string &label) {
+open_perception_kit::metadata::ClassificationsT
+makeResult(const opk::TensorParser::Input &input,
+           std::unique_ptr<open_perception_kit::metadata::AudioWindowT> window) {
     open_perception_kit::metadata::ClassificationsT payload;
     payload.layer =
         open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
@@ -127,13 +128,7 @@ open_perception_kit::metadata::ClassificationsT makeResult(const opk::TensorPars
     classification->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
     classification->kind = open_perception_kit::metadata::ClassificationKind::Categorical;
     classification->label_set = input.attributes.getString("labelSet");
-    if (input.inferenceInfo.parentId != 0)
-        classification->subject_id = input.inferenceInfo.parentId;
-    auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
-    candidate->class_id = static_cast<int>(decoded.index);
-    candidate->confidence = decoded.probability;
-    candidate->text = label;
-    classification->candidates.push_back(std::move(candidate));
+    classification->audio_window = std::move(window);
     payload.classifications.push_back(std::move(classification));
     return payload;
 }
@@ -148,11 +143,20 @@ opk::Result<void> KeywordClassificationParser::parse(const opk::TensorParser::In
     const auto candidate = decodeCandidate(input, *configuration);
     if (!candidate)
         return tl::unexpected(candidate.error());
+    auto window = opk::audio_results::makeWindow(input.inferenceInfo.audio);
+    if (!window)
+        return invalidInput("KeywordClassificationParser requires a valid analyzed audio window");
+    auto payload = makeResult(input, std::move(window));
     const auto &label = configuration->labels[candidate->index];
     // Compare in the output score's Float32 domain, including exact threshold equality.
-    if (label.isNull() || candidate->probability < configuration->threshold)
-        return {};
-    results.add(makeResult(input, *candidate, label.asString()));
+    if (!label.isNull() && candidate->probability >= configuration->threshold) {
+        auto accepted = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
+        accepted->class_id = static_cast<uint32_t>(candidate->index);
+        accepted->confidence = candidate->probability;
+        accepted->text = label.asString();
+        payload.classifications.front()->candidates.push_back(std::move(accepted));
+    }
+    results.add(std::move(payload));
     return {};
 }
 

@@ -299,6 +299,23 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
             classification->subject_id ? std::to_string(*classification->subject_id)
                                        : "unspecified"));
         std::size_t candidateIndex = 0U;
+        if (classification->audio_window) {
+            const auto &window = *classification->audio_window;
+            lines.push_back(fmt::format(
+                "    audio: source={} session={} segment={} rate_hz={} samples=[{},{}) pts=[{},{}) "
+                "discontinuity={} valid={}",
+                window.source_id,
+                window.session_id,
+                window.segment_index,
+                window.sample_rate_hz,
+                window.window_start_sample,
+                window.window_end_sample,
+                window.window_start_ts_ns ? std::to_string(*window.window_start_ts_ns)
+                                          : "unavailable",
+                window.window_end_ts_ns ? std::to_string(*window.window_end_ts_ns) : "unavailable",
+                window.discontinuity,
+                opk::audio_results::validClassificationContext(*classification)));
+        }
         for (const auto &candidate : classification->candidates) {
             ++candidateIndex;
             if (!candidate || !opk::classification::validCandidate(*classification, *candidate)) {

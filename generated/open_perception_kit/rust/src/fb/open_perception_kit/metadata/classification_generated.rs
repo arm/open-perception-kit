@@ -48,6 +48,7 @@ impl<'a> Classification<'a> {
     pub const VT_LABEL_SET: flatbuffers::VOffsetT = 8;
     pub const VT_KIND: flatbuffers::VOffsetT = 10;
     pub const VT_SUBJECT_ID: flatbuffers::VOffsetT = 12;
+    pub const VT_AUDIO_WINDOW: flatbuffers::VOffsetT = 14;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -61,6 +62,9 @@ impl<'a> Classification<'a> {
         let mut builder = ClassificationBuilder::new(_fbb);
         if let Some(x) = args.subject_id {
             builder.add_subject_id(x);
+        }
+        if let Some(x) = args.audio_window {
+            builder.add_audio_window(x);
         }
         if let Some(x) = args.label_set {
             builder.add_label_set(x);
@@ -83,12 +87,14 @@ impl<'a> Classification<'a> {
         let label_set = self.label_set().map(|x| x.to_string());
         let kind = self.kind();
         let subject_id = self.subject_id();
+        let audio_window = self.audio_window().map(|x| Box::new(x.unpack()));
         ClassificationT {
             object,
             candidates,
             label_set,
             kind,
             subject_id,
+            audio_window,
         }
     }
 
@@ -147,6 +153,18 @@ impl<'a> Classification<'a> {
         // which contains a valid value in this slot
         unsafe { self._tab.get::<u64>(Classification::VT_SUBJECT_ID, None) }
     }
+    #[inline]
+    pub fn audio_window(&self) -> Option<AudioWindow<'a>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab.get::<flatbuffers::ForwardsUOffset<AudioWindow>>(
+                Classification::VT_AUDIO_WINDOW,
+                None,
+            )
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for Classification<'_> {
@@ -172,6 +190,11 @@ impl flatbuffers::Verifiable for Classification<'_> {
             )?
             .visit_field::<ClassificationKind>("kind", Self::VT_KIND, false)?
             .visit_field::<u64>("subject_id", Self::VT_SUBJECT_ID, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<AudioWindow>>(
+                "audio_window",
+                Self::VT_AUDIO_WINDOW,
+                false,
+            )?
             .finish();
         Ok(())
     }
@@ -186,6 +209,7 @@ pub struct ClassificationArgs<'a> {
     pub label_set: Option<flatbuffers::WIPOffset<&'a str>>,
     pub kind: ClassificationKind,
     pub subject_id: Option<u64>,
+    pub audio_window: Option<flatbuffers::WIPOffset<AudioWindow<'a>>>,
 }
 impl<'a> Default for ClassificationArgs<'a> {
     #[inline]
@@ -196,6 +220,7 @@ impl<'a> Default for ClassificationArgs<'a> {
             label_set: None,
             kind: ClassificationKind::Unspecified,
             subject_id: None,
+            audio_window: None,
         }
     }
 }
@@ -244,6 +269,14 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ClassificationBuilder<'a, 'b, A
             .push_slot_always::<u64>(Classification::VT_SUBJECT_ID, subject_id);
     }
     #[inline]
+    pub fn add_audio_window(&mut self, audio_window: flatbuffers::WIPOffset<AudioWindow<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<AudioWindow>>(
+                Classification::VT_AUDIO_WINDOW,
+                audio_window,
+            );
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> ClassificationBuilder<'a, 'b, A> {
@@ -268,6 +301,7 @@ impl core::fmt::Debug for Classification<'_> {
         ds.field("label_set", &self.label_set());
         ds.field("kind", &self.kind());
         ds.field("subject_id", &self.subject_id());
+        ds.field("audio_window", &self.audio_window());
         ds.finish()
     }
 }
@@ -279,6 +313,7 @@ pub struct ClassificationT {
     pub label_set: Option<String>,
     pub kind: ClassificationKind,
     pub subject_id: Option<u64>,
+    pub audio_window: Option<Box<AudioWindowT>>,
 }
 impl Default for ClassificationT {
     fn default() -> Self {
@@ -288,6 +323,7 @@ impl Default for ClassificationT {
             label_set: None,
             kind: ClassificationKind::Unspecified,
             subject_id: None,
+            audio_window: None,
         }
     }
 }
@@ -304,6 +340,7 @@ impl ClassificationT {
         let label_set = self.label_set.as_ref().map(|x| _fbb.create_string(x));
         let kind = self.kind;
         let subject_id = self.subject_id;
+        let audio_window = self.audio_window.as_ref().map(|x| x.pack(_fbb));
         Classification::create(
             _fbb,
             &ClassificationArgs {
@@ -312,6 +349,7 @@ impl ClassificationT {
                 label_set,
                 kind,
                 subject_id,
+                audio_window,
             },
         )
     }

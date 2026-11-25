@@ -76,3 +76,29 @@ TEST(MetadataTextDisplay, EmbeddingsExposeComparisonSpaceAndExplicitSubject) {
     EXPECT_NE(text.find("subject=7 space=test:space:v1 dimensions=2 metric=Cosine usable=true"),
               std::string::npos);
 }
+
+TEST(MetadataTextDisplay, ClassificationShowsTheAnalyzedAudioWindowWithoutAnInputBuffer) {
+    open_perception_kit::metadata::ClassificationsT payload;
+    auto value = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+    value->kind = open_perception_kit::metadata::ClassificationKind::Categorical;
+    value->label_set = "test:commands";
+    opk::AudioInferenceMetadata audio;
+    audio.sourceId = "audio/pcm";
+    audio.sessionId = "run";
+    audio.segmentIndex = 2;
+    audio.sampleRateHz = 16000;
+    audio.windowEndSample = 512;
+    audio.windowStartTimestampNs = 0;
+    audio.windowEndTimestampNs = 32000000;
+    audio.discontinuity = true;
+    value->audio_window = opk::audio_results::makeWindow(audio);
+    ASSERT_TRUE(value->audio_window);
+    payload.classifications.push_back(std::move(value));
+    const auto text = TextDisplay::formatText(payload);
+    EXPECT_NE(text.find("candidates=0"), std::string::npos);
+    EXPECT_NE(text.find("source=audio/pcm session=run segment=2 rate_hz=16000 samples=[0,512)"),
+              std::string::npos);
+    EXPECT_NE(text.find("pts=[0,32000000) discontinuity=true valid=true"), std::string::npos);
+    payload.classifications[0]->subject_id = 1;
+    EXPECT_NE(TextDisplay::formatText(payload).find("valid=false"), std::string::npos);
+}

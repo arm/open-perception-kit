@@ -156,10 +156,11 @@ IDs remain stable, but public APIs and semantics may change, so review and test
 shared edits as schema-set-wide changes.
 
 `LayerInfo.producer`, when present, identifies the concrete runtime producer.
-Its instance ID is unique within the running pipeline, its component is the
-canonical Op or element type, and its implementation is the configured parser,
-script, or processing implementation. Consumers must use these values for
-provenance and diagnostics only, not for semantic payload routing.
+Its instance ID is unique within the running pipeline and, together with the SDK
+payload type, addresses an output. Its component is the canonical Op or element
+type, and its implementation is the configured parser, script, or processing
+implementation. Component/implementation names provide provenance and diagnostics;
+they do not substitute for payload types or concrete output addresses.
 
 ## Add a New Payload
 

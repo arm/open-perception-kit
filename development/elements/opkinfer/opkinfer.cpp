@@ -57,6 +57,8 @@ struct GstOpkInferMembers {
     bool audioDiscontinuity = true;
     uint64_t audioSourceFrames = 0;
     std::optional<uint64_t> audioOriginTimestampNs;
+    std::string audioSessionId;
+    uint64_t audioSegmentIndex = 0;
 
     void resetAudio() {
         if (pcmAudioBuffer)
@@ -674,6 +676,23 @@ gst_opkinfer_process_audio_window(GstOpkInfer *self,
     context.inferenceInfo.inferElementId = gst_opkinfer_get_effective_inferId(self);
     context.pcmViews.emplace("pipelineAudioData", window);
     auto &audio = context.inferenceInfo.audio;
+    if (members.audioSessionId.empty()) {
+        gchar *const token = g_uuid_string_random();
+        members.audioSessionId = token;
+        g_free(token);
+    }
+    if (members.audioDiscontinuity) {
+        if (members.audioSegmentIndex == G_MAXUINT64) {
+            opChainError = "Audio continuity segment counter exhausted";
+            return GST_FLOW_ERROR;
+        }
+        ++members.audioSegmentIndex;
+    }
+    audio.sourceId =
+        opk::producerInstanceId(context.inferenceInfo.inferElementId, "pipelineAudioData");
+    audio.sessionId = members.audioSessionId;
+    audio.segmentIndex = members.audioSegmentIndex;
+    audio.sampleRateHz = opk::PcmRingBuffer::frequency;
     audio.discontinuity = members.audioDiscontinuity;
     audio.hopSampleCount = members.audioHopSamples;
     audio.windowStartSample = window.beginPosition();

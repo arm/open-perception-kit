@@ -112,6 +112,30 @@ test('invalid instance metadata fails closed; empty masks do not report present 
     assert.match(resolve(largeOutput, [largeVideo, largeOutput]).message, /pixel budget/);
 });
 
+test('instance validation and foreground bounds share one complete pixel traversal', () => {
+    const item = mask();
+    const pixels = item.data.pixels;
+    let reads = 0;
+    item.data.pixels = new Proxy(pixels, {get(target, key, receiver) {
+        // Count both direct indexing and callback-based validation reads.
+        if (key === 'every') return predicate => Array.prototype.every.call(receiver, predicate);
+        if (typeof key === 'string' && /^\d+$/.test(key)) reads++;
+        const value = Reflect.get(target, key, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+    }});
+    const result = resolve(layer([item]));
+    assert.equal(result.state, 'ready');
+    assert.deepEqual(result.items[0].bounds, {left: 1, right: 4, top: 1, bottom: 3});
+    assert.equal(reads, pixels.length);
+
+    reads = 0;
+    pixels[pixels.length - 1] = 2; // Outside the supplied box; still must be validated.
+    const invalid = resolve(layer([item]));
+    assert.equal(invalid.state, 'unsupported');
+    assert.deepEqual(invalid.items, []);
+    assert.equal(reads, pixels.length);
+});
+
 test('aggregate instance budget supports nine full-HD and three UHD masks', () => {
     for (const [width, height, count] of [[1920, 1080, 9], [3840, 2160, 3]]) {
         // Reuse storage in the fixture; the budget must still count every declared mask.

@@ -121,7 +121,8 @@ std::optional<float> computeValidSimilarity(size_t detectionIndex,
 
 float computeAssociationCost(float iou,
                              const std::optional<float> &similarity,
-                             const Config &config) {
+                             const Config &config,
+                             const float unavailableEmbeddingCost) {
     const float iouCost = 1.0f - iou;
 
     if (config.associationMode == AssociationMode::Iou) {
@@ -130,7 +131,7 @@ float computeAssociationCost(float iou,
 
     if (config.associationMode == AssociationMode::Embedding) {
         if (!similarity.has_value()) {
-            return 1.0f;
+            return unavailableEmbeddingCost;
         }
         return 1.0f - (((*similarity) + 1.0f) * 0.5f);
     }
@@ -183,6 +184,10 @@ AssociationMatrices buildAssociationMatrices(
     const EmbeddingBatch &embeddings,
     const ActiveTrackMap &activeTracks,
     const Config &config) {
+    // Each valid cost is in [0,1]. A finite penalty above their maximum total
+    // prevents unavailable pairs from displacing valid matches, even at cosine -1.
+    const float unavailableEmbeddingCost =
+        static_cast<float>(std::min(detections.size(), trackIds.size())) + 1.0f;
     AssociationMatrices matrices{
         .iou = CostMatrix(detections.size(), std::vector<float>(trackIds.size(), 0.0f)),
         .cost = CostMatrix(detections.size(), std::vector<float>(trackIds.size(), 1.0f)),
@@ -199,7 +204,8 @@ AssociationMatrices buildAssociationMatrices(
             const auto similarity = computeValidSimilarity(
                 detIdx, detections, trackIds[trackIdx], embeddings, activeTracks, config);
             matrices.similarity[detIdx][trackIdx] = similarity;
-            matrices.cost[detIdx][trackIdx] = computeAssociationCost(iou, similarity, config);
+            matrices.cost[detIdx][trackIdx] =
+                computeAssociationCost(iou, similarity, config, unavailableEmbeddingCost);
         }
     }
 

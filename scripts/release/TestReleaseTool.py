@@ -109,9 +109,10 @@ def add_model(repo_root: Path, model_id: str, filename: str, op_id: str) -> None
 def add_release_models(repo_root: Path) -> None:
     for model_id, (backend, suffix) in release_tool.RELEASE_MODELS.items():
         add_model(repo_root, model_id, f"model{suffix}", backend)
-    schema_root = repo_root / "config/schemas/v1"
-    schema_root.mkdir(parents=True)
-    (schema_root / "model.schema.json").write_text("{}\n", encoding="utf-8")
+    for relative in ("v1/pipeline.schema.json", "v2/model.schema.json", "v2/opchain.schema.json"):
+        schema = repo_root / "config/schemas" / relative
+        schema.parent.mkdir(parents=True, exist_ok=True)
+        schema.write_text("{}\n", encoding="utf-8")
 
 
 def add_perception_sdk(
@@ -1029,7 +1030,7 @@ class ReleaseToolTests(unittest.TestCase):
             repo_root = root / "source"
             (repo_root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(repo_root)
-            nested_schema = repo_root / "config/schemas/v1/opchain/common.schema.json"
+            nested_schema = repo_root / "config/schemas/v2/opchain/common.schema.json"
             nested_schema.parent.mkdir()
             nested_schema.write_bytes(b'{"title": "common"}\n')
             legacy_schema = repo_root / "metadata/api/perception.schema.json"
@@ -1041,7 +1042,7 @@ class ReleaseToolTests(unittest.TestCase):
                 SimpleNamespace(repo_root=str(repo_root), stage_root=str(package_root))
             )
             packaged_schema = (
-                package_root / "share/opk/schemas/json/v1/opchain/common.schema.json"
+                package_root / "share/opk/schemas/json/v2/opchain/common.schema.json"
             )
             self.assertEqual(packaged_schema.read_bytes(), nested_schema.read_bytes())
             self.assertFalse(
@@ -1049,25 +1050,32 @@ class ReleaseToolTests(unittest.TestCase):
             )
             release_tool.validate_release_payload(package_root, repo_root)
 
+            for relative in ("v1/pipeline.schema.json", "v2/model.schema.json", "v2/opchain.schema.json"):
+                schema = package_root / "share/opk/schemas/json" / relative
+                content = schema.read_bytes()
+                schema.unlink()
+                with self.assertRaisesRegex(RuntimeError, "missing required files"):
+                    release_tool.validate_release_payload(package_root, None)
+                schema.write_bytes(content)
+
             packaged_schema.write_text("{}\n", encoding="utf-8")
             with self.assertRaisesRegex(RuntimeError, "differs from the selected source"):
                 release_tool.validate_release_payload(package_root, repo_root)
             packaged_schema.write_bytes(nested_schema.read_bytes())
             (packaged_schema.parent / "extra.json").write_text("{}\n", encoding="utf-8")
-            with self.assertRaisesRegex(RuntimeError, "schemas/json/v1 payload"):
+            with self.assertRaisesRegex(RuntimeError, "schemas/json payload"):
                 release_tool.validate_release_payload(package_root, repo_root)
             (packaged_schema.parent / "extra.json").unlink()
             packaged_schema.unlink()
-            with self.assertRaisesRegex(RuntimeError, "schemas/json/v1 payload"):
+            with self.assertRaisesRegex(RuntimeError, "schemas/json payload"):
                 release_tool.validate_release_payload(package_root, repo_root)
 
     def test_rejects_unsafe_descriptor_schema_trees(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            schema_root = root / "schemas"
-            schema_root.mkdir()
-            schema = schema_root / "model.schema.json"
-            schema.write_text("{}\n", encoding="utf-8")
+            add_release_models(root)
+            schema_root = root / "config/schemas"
+            schema = schema_root / "v2/model.schema.json"
             release_tool.validate_schema_tree(schema_root)
 
             schema.write_text("{", encoding="utf-8")
