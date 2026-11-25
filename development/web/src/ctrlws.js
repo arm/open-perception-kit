@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {setPlayPause} from "./video-controls.js"
+import {setPipelineState} from "./video-controls.js"
 import {enableAudioButton} from "./audio.js"
 import {enableMicrophoneButton} from "./microphone.js"
 import {modelsManager} from "./models.js"
@@ -27,6 +27,7 @@ const CTRL_PORT = (window.OPK_CONFIG && window.OPK_CONFIG.ctrlPort) ||
                 (location.port || (location.protocol === 'https:' ? 443 : 80));
 
 const CTRL_URL = `${CTRL_PROTO}://${CTRL_HOST}:${CTRL_PORT}/ws`;
+export const MODEL_EDIT_SESSION = 'model_edit_session';
 
 let ctrl = null;
 
@@ -48,37 +49,41 @@ function connectCtrl(manual = false) {
 
     ctrl.onopen = () => {
         ctrlReconnectDelay = 1000;
-        flushQueue();
+
     };
 
     ctrl.onmessage = async (event) => {
         const data = JSON.parse(event.data);
         console.log("ctrl.onmessage: " + event.data);
+        if (data.type === MODEL_EDIT_SESSION) {
+            modelsManager.acceptEditSession(data);
+            return;
+        }
+        if (data.type === 'control_error') {
+            modelsManager.showControlError(data.error);
+            return;
+        }
 
         enableAudioButton(data.pipeline_state.audio);
         enableMicrophoneButton(data.pipeline_state.microphone);
-        setPlayPause(data.pipeline_state.playing);
+        setPipelineState(data.pipeline_state);
+        window.dispatchEvent(new CustomEvent('pipeline-state-change', {detail: data.pipeline_state}));
         window.dispatchEvent(new CustomEvent('models-change', {detail: data.models}));
-        modelsManager.render(data.models);
+        modelsManager.render(data.models, data.model_editor, data.pipeline_state);
     };
 
     ctrl.onerror = () => { ; };
 
     ctrl.onclose = () => {
+        setPipelineState(null);
+        modelsManager.render(modelsManager.serverModels, modelsManager.editor, null);
+        window.dispatchEvent(new CustomEvent('pipeline-state-change', {detail: null}));
         enableMicrophoneButton(false);
         setTimeout(() => {
             ctrlReconnectDelay = Math.min(ctrlReconnectDelay * CTRL_BACKOFF_FACTOR, CTRL_RECONNECT_DELAY_MAX);
             connectCtrl();
         }, ctrlReconnectDelay);
     };
-}
-
-const sendQueue = [];
-
-function flushQueue() {
-    while (ctrl && ctrl.readyState === WebSocket.OPEN && sendQueue.length) {
-        ctrl.send(sendQueue.shift());
-    }
 }
 
 export function ctrlSend(obj) {
@@ -89,9 +94,8 @@ export function ctrlSend(obj) {
         return true;
     }
 
-    sendQueue.push(payload);
     connectCtrl();
-    return false;
+    throw new Error('Control connection lost; reconnect before making changes');
 }
 
 export function ctrlIsOpen() {

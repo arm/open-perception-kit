@@ -252,7 +252,8 @@ static void gst_opkinfer_push_model_registration(GstOpkInfer *self) {
         available.insert(available.end(), outputs.begin(), outputs.end());
     GST_OBJECT_UNLOCK(self);
     opk::result_requirement_event::writeList(structure, "available-inputs", available);
-    gst_pad_push_event(sourcePad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure));
+    // Control updates must not wait for a stream lock held by paused video preroll.
+    gst_pad_push_event(sourcePad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure));
     gst_object_unref(sourcePad);
 }
 
@@ -531,7 +532,7 @@ static gboolean gst_opkinfer_src_event(GstBaseTransform *selfInParentType, GstEv
 
 static gboolean gst_opkinfer_sink_event(GstBaseTransform *selfInParentType, GstEvent *event) {
     const auto eventType = GST_EVENT_TYPE(event);
-    if (eventType == GST_EVENT_CUSTOM_DOWNSTREAM) {
+    if (eventType == GST_EVENT_CUSTOM_DOWNSTREAM_OOB) {
         auto *const self = GST_OPKINFER(selfInParentType);
         const auto *const structure = gst_event_get_structure(event);
         if (structure && gst_structure_has_name(structure, "opk-model-register")) {

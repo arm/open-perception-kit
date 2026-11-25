@@ -72,6 +72,8 @@ test('sidebar and outputs are independent rightmost toggles', async () => {
         const ids = ['clientOsdControlsBtn', 'toggleVideoFeedBtn', 'sidebarVisibilityBtn', 'outputsVisibilityBtn'];
         const positions = ids.map((id) => html.indexOf(`id="${id}"`));
         assert.deepEqual(positions, [...positions].sort((left, right) => left - right));
+        assert.ok(html.indexOf('class="sidebar-section pipeline-controls"')
+            < html.indexOf('class="sidebar-scroll-area"'), 'playback controls stay above the scrolling list');
     } finally {
         for (const name of globals) {
             if (originals[name]) Object.defineProperty(globalThis, name, originals[name]);

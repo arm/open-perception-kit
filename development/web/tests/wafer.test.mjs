@@ -35,6 +35,10 @@ test('WebUI uses published Wafer tokens and complete offline design assets', asy
         const url = new URL(asset, content);
         const stylesheet = await readFile(url, 'utf8');
         for (const [, relative] of stylesheet.matchAll(/url\(["']?([^"')]+)["']?\)/g)) {
+            if (relative.startsWith('data:image/svg+xml;base64,')) {
+                assert.match(Buffer.from(relative.split(',')[1], 'base64').toString(), /<svg[\s>]/);
+                continue;
+            }
             assert.ok(!relative.includes(':'), `Design asset must be local: ${relative}`);
             await access(new URL(relative, url));
         }

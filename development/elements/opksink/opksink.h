@@ -18,6 +18,7 @@
 #ifndef __OPKSINK_H__
 #define __OPKSINK_H__
 
+#include <atomic>
 #include <memory>
 #include <string>
 
@@ -32,9 +33,9 @@
 
 #include "ctrl_ws.h"
 #include "http_server.h"
-#include "model_reg.h"
-#include "status_reporter.h"
 #include "webrtc_ws.h"
+
+class ModelManager;
 
 struct _GstOpkSinkClass {
     GstBinClass parent_class;
@@ -43,24 +44,22 @@ struct _GstOpkSinkClass {
 typedef struct _GstOpkSink GstOpkSink;
 typedef struct _GstOpkSinkClass GstOpkSinkClass;
 
-class PipelineStateReporter : public StatusReporter {
+class PipelineStateReporter {
     GstOpkSink *self_ = nullptr;
 
-    bool has_audio_ = false;
+    std::atomic_bool has_audio_{false};
 
   public:
     explicit PipelineStateReporter(GstOpkSink *self) : self_(self) {}
 
-    inline void set_paused() {
-        trigger_reporting();
-    }
+    void notify_state_change();
 
     inline void set_audio(bool has_audio) {
         has_audio_ = has_audio;
-        trigger_reporting();
+        notify_state_change();
     }
 
-    nlohmann::json report() const override;
+    nlohmann::json report() const;
 };
 
 struct GstOpkPrivate {
@@ -69,8 +68,8 @@ struct GstOpkPrivate {
     std::unique_ptr<WebRtcWebSocket> webrtc_websocket;
     std::unique_ptr<CtrlWebSocket> ctrl_websocket;
 
-    std::shared_ptr<ModelRegistry> model_registry;
-    std::shared_ptr<PipelineStateReporter> pipeline_state_reporter;
+    std::unique_ptr<ModelManager> modelManager;
+    std::unique_ptr<PipelineStateReporter> pipeline_state_reporter;
     bool initialized = false;
     guint resolved_metadata_port = 8002;
     std::string resolved_metadata_endpoint = "/ws";

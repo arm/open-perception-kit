@@ -424,25 +424,31 @@ TEST(RuntimePipelinePlayback, ReportsProgressCallbacksWhileRunning) {
 TEST(RuntimePipelinePlayback, LoopsSeekableMediaWithoutReportingEos) {
     TemporaryWavFile media;
     auto pipelineResult = opk::runtime::Pipeline::fromString(
-        "filesrc location=\"" + media.path.string() + "\" ! wavparse ! fakesink sync=true");
+        "filesrc location=\"" + media.path.string() + "\" ! decodebin ! fakesink sync=true");
     ASSERT_TRUE(pipelineResult.has_value()) << pipelineResult.error().toString();
 
     std::atomic<int> eosCount = 0;
     pipelineResult->onEos([&]() { ++eosCount; });
 
     const opk::runtime::Pipeline::StartOptions options{.loop = true};
-    auto startResult = pipelineResult->start(options);
-    ASSERT_TRUE(startResult.has_value()) << startResult.error().toString();
+    constexpr int playbackCycles = 3;
+    constexpr auto observationTime = std::chrono::milliseconds(500);
+    constexpr auto shutdownTimeout = std::chrono::seconds(2);
+    for (int cycle = 0; cycle < playbackCycles; ++cycle) {
+        SCOPED_TRACE(cycle);
+        const auto startResult = pipelineResult->start(options);
+        ASSERT_TRUE(startResult.has_value()) << startResult.error().toString();
 
-    auto waitFuture = std::async(std::launch::async, [&]() { return pipelineResult->wait(); });
-    EXPECT_EQ(waitFuture.wait_for(std::chrono::milliseconds(500)), std::future_status::timeout);
-    EXPECT_EQ(eosCount.load(), 0);
+        auto waitFuture = std::async(std::launch::async, [&]() { return pipelineResult->wait(); });
+        EXPECT_EQ(waitFuture.wait_for(observationTime), std::future_status::timeout);
+        EXPECT_EQ(eosCount.load(), 0);
 
-    auto stopResult = pipelineResult->stop();
-    EXPECT_TRUE(stopResult.has_value()) << stopResult.error().toString();
-    ASSERT_EQ(waitFuture.wait_for(std::chrono::seconds(2)), std::future_status::ready);
-    auto waitResult = waitFuture.get();
-    EXPECT_TRUE(waitResult.has_value()) << waitResult.error().toString();
+        const auto stopResult = pipelineResult->stop();
+        EXPECT_TRUE(stopResult.has_value()) << stopResult.error().toString();
+        ASSERT_EQ(waitFuture.wait_for(shutdownTimeout), std::future_status::ready);
+        const auto waitResult = waitFuture.get();
+        EXPECT_TRUE(waitResult.has_value()) << waitResult.error().toString();
+    }
 }
 
 TEST(RuntimePipelinePlayback, LoopsFiniteBranchBesideIndependentLiveBranch) {

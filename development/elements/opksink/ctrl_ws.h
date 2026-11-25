@@ -18,11 +18,15 @@
 #ifndef __CTRL_WS_H__
 #define __CTRL_WS_H__
 
+#include <atomic>
+#include <functional>
 #include <glib.h>
 #include <memory>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <set>
 #include <string>
+#include <unordered_map>
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -35,8 +39,6 @@
 #include <websocketpp/frame.hpp>
 #include <websocketpp/server.hpp>
 
-#include "status_reporter.h"
-
 #pragma GCC diagnostic pop
 
 struct _GstOpkSink;
@@ -46,7 +48,7 @@ enum class CtrlSockerError {
 };
 
 using ws_server = websocketpp::server<websocketpp::config::asio>;
-using connection_hdl = websocketpp::connection_hdl;
+using BrowserSessionId = websocketpp::connection_hdl;
 
 class CtrlWebSocket {
 
@@ -55,26 +57,41 @@ class CtrlWebSocket {
     std::thread ws_server_thread;
 
     std::shared_ptr<ws_server> ws = nullptr;
-    std::shared_ptr<GThreadPool> model_toggle_queue;
+    std::shared_ptr<GThreadPool> command_queue;
+    std::shared_ptr<asio::steady_timer> report_timer;
+    std::atomic_bool accepting_commands{false};
+    std::atomic_uint pending_commands{0};
+    mutable std::mutex command_status_mutex;
+    std::string command_error;
+    std::string last_report;
 
-    std::unordered_map<std::string, std::shared_ptr<StatusReporter>> status_reporters;
+    void schedule_report();
+    void enqueue_command(const BrowserSessionId &browserSessionId, const nlohmann::json &message);
+    void execute_command(const BrowserSessionId &browserSessionId, const nlohmann::json &message);
+    void handle_edit_session(const BrowserSessionId &browserSessionId, const bool active);
+    void clear_command_error();
+    static void process_command(gpointer data, gpointer user_data);
 
-    std::unordered_map<std::string, std::function<void(const nlohmann::json &)>> message_types;
+    std::unordered_map<std::string, std::function<void(const nlohmann::json &)>> command_handlers;
 
-    std::set<connection_hdl, std::owner_less<connection_hdl>> hdls;
+    std::set<BrowserSessionId, std::owner_less<BrowserSessionId>> browserSessionIds;
+    BrowserSessionId edit_owner;
 
     mutable std::mutex reporter_lock;
-    mutable std::mutex hdl_lock;
+    mutable std::mutex browserSessionsMutex;
 
-    void play_pause(const nlohmann::json &jsn);
+    void set_pipeline_state(const nlohmann::json &message);
+    void refresh_available_models(const nlohmann::json &message);
+    void edit_models(const nlohmann::json &message);
     void model_toggle(const nlohmann::json &jsn);
     void model_inputs(const nlohmann::json &jsn);
 
     void send_to_all(const std::string &text);
+    void send_to(const BrowserSessionId &browserSessionId, const nlohmann::json &message);
 
-    void on_open(const connection_hdl &hdl);
-    void on_close(const connection_hdl &hdl);
-    void on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg);
+    void on_open(const BrowserSessionId &browserSessionId);
+    void on_close(const BrowserSessionId &browserSessionId);
+    void on_message(const BrowserSessionId &browserSessionId, const ws_server::message_ptr &msg);
 
     CtrlSockerError setup();
 
@@ -85,9 +102,9 @@ class CtrlWebSocket {
     CtrlSockerError start();
     CtrlSockerError stop();
 
-    void register_status_reporter(const std::string &name, std::shared_ptr<StatusReporter> status);
-
     void report();
+    bool available() const;
+    void record_error(const std::string &message);
 };
 
 #endif // !__CTRL_WS_H__

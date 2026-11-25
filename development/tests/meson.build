@@ -139,9 +139,14 @@ gst_video_buffer_tests = executable(
   link_with : [common],
 )
 
-model_registry_tests = executable(
-  'model_registry_tests',
-  ['model_registry_test.cpp', '../elements/opksink/model_reg.cpp'],
+model_manager_tests = executable(
+  'model_manager_tests',
+  [
+    'model_manager_test.cpp',
+    '../elements/opksink/model.cpp',
+    '../elements/opksink/model_group.cpp',
+    '../elements/opksink/model_manager.cpp',
+  ],
   include_directories : [common_include, include_directories('../elements/opksink')],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
   link_with : [common],
@@ -653,7 +658,7 @@ test('model_descriptor_tests', model_descriptor_tests)
 test('base64_tests', base64_tests)
 test('surface_painter_tests', surface_painter_tests)
 test('gst_meta_wrapper_tests', gst_meta_wrapper_tests)
-test('model_registry_tests', model_registry_tests)
+test('model_manager_tests', model_manager_tests)
 test(
   'opchain_display_metadata_tests',
   python,
@@ -762,8 +767,13 @@ foreach endpoint : ['control', 'webrtc']
   test(
     'opksink_websocket_json_' + endpoint,
     gst_python,
-    args : [files('opksink_websocket_json_test.py'), opkinferpre.full_path(), endpoint],
-    depends : opkinferpre,
+    args : [
+      files('opksink_websocket_json_test.py'),
+      opkinferpre.full_path(),
+      endpoint,
+      gstopkinfer.full_path(),
+    ],
+    depends : [opkinferpre, gstopkinfer],
     is_parallel : false,
     timeout : 20,
   )

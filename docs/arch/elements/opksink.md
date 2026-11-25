@@ -67,7 +67,7 @@ serves the same non-blocking role as the video path.
 `opksink` embeds several non-GStreamer services:
 
 - a WebRTC WebSocket server for signaling
-- a control WebSocket for runtime commands and status reporters
+- a control WebSocket for runtime commands and status reports
 - an HTTP server for static browser content
 - a model registry exposed through the control channel
 
@@ -77,9 +77,72 @@ subsequent commands remain usable. Invalid WebRTC message fields remove only the
 affected session.
 Browser diagnostics insert message text as DOM text, preserving HTML-like input literally.
 
+Playback commands use `{"type":"change_pipeline_state","state":"PLAYING"}` with
+`PLAYING`, `PAUSED`, or `READY`. Commands run on one FIFO worker outside the
+WebSocket thread. Reports include the whole pipeline's actual `state`, `pending`
+state, command `busy` status and `error`. The browser disables playback controls
+while disconnected or changing state and does not replay disconnected writes.
+READY releases inference state while retaining the servers; NULL closes them.
+
+The Runtime queries `opk-pipeline-control-available` before treating a GStreamer
+error as terminal. An available controller lets it stop to READY, notify the
+sink with `opk-pipeline-control-error`, and keep watching the bus for a user retry.
+These errors are shown in the browser; terminal errors retain the Runtime error
+callback. Other GStreamer applications retain ownership of their bus error policy.
+
 `opkinfer` emits `opk-model-register` events, and `opksink` records the model
 state and declared required/provided content types for browser-side visibility.
-It also handles unregister events if an upstream component emits them.
+These are out-of-band downstream events so model toggles and input selections
+can report their new state while video is paused.
+
+ModelManager owns ordered model groups and one record for each model. It discovers
+the initial linked graph once, before the first server startup. Contiguous
+opkinfer stages have fixed neighbouring pads in the same bin; other stages
+remain visible with editing disabled. Empty groups retain their boundary pads.
+Only one opksink is allowed per pipeline, including nested bins; startup rejects
+additional instances before starting their servers.
+
+Runtime registrations update each record's metadata and ModelInterface, including
+required inputs, provided outputs and upstream input providers. Configured models
+remain present while the pipeline is stopped. Registrations from other inference
+elements use the same record structure in non-editable groups.
+
+Read-only snapshots pin element references and retain the matching configuration
+ID. Model getters read activation, OpChain paths and selected input bindings from
+the elements. The control boundary serializes those snapshots; the manager does
+not retain JSON reports or a separate registry.
+
+`refresh_available_opchains` rebuilds the selectable model list from
+`config/models/**/opchain.json` below `OPK_PROJECT_ROOT` (the working directory
+when unset). Each refresh rereads every candidate; removed or invalid files
+disappear. Reusable chains in `config/opchains` are not offered.
+Candidates must pass the existing descriptor readers and have every referenced
+inference model file present. Add and Replace revalidate the selected file.
+Backend availability and execution are checked on start.
+No upload, download or file write is performed.
+
+The browser first sends `model_edit_session` with `active: true` in stable READY.
+The server grants ownership to that control WebSocket or replies with an error
+if another connection owns it. The browser enters edit mode only after the grant.
+`active: false` releases ownership on Save or Discard; disconnect and server shutdown
+also release it. The `model_editor.editing` report indicates an occupied editor.
+Only the owner can submit model edits. Playback, model toggles and input changes
+are rejected during editing, and rejected requests are reported only to their sender.
+
+`model_edit` requests carry `action` (`add`, `replace`, `remove`, `move`), `modelGroup`
+and the current `configurationId` from `model_editor`. Existing stages use their `name`
+(element name); Add/Replace use a `path` from `model_editor.availableOpChains`,
+and Move uses a zero-based `position` within its model group. Add optionally accepts
+a zero-based `position` from zero through the group size; omitting it appends the
+model. The serialized worker holds pipeline state locks,
+requires stable READY and rejects stale configuration IDs before mutation. Reports contain
+the resulting model list and model group connectivity. Link errors leave the attempted
+configuration available for correction; there is no rollback. These session edits
+do not modify the pipeline preset. Reordering and replacement preserve element
+identity and activation. Every Replace rereads the descriptor and clears that
+stage's input bindings, including selection of the same path. The next start
+builds a fresh runtime. Reordering and other stages' bindings are untouched.
+Add creates a fresh stage.
 
 The browser receives serialized FrameResults records on the metadata WebSocket.
 Its committed `opk-web.js` bundle contains the generated TypeScript Open Perception Kit
@@ -131,7 +194,7 @@ Both run before the parent state change. Set new ports while in `NULL`, then
 restart the same element to apply them. The services
 remain available while paused; restarting from `NULL` requires the application.
 
-The server objects and their status reporters are retained across restarts.
+The server objects and pipeline state reporter are retained across restarts.
 Pending play/pause commands from a stopped control server are discarded. If a
 service or the `NULL` to `READY` transition fails, partially started services are
 stopped so startup can be retried. Disposal also stops the services, releases

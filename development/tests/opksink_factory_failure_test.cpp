@@ -20,6 +20,38 @@
 #include <glib.h>
 #include <gst/gst.h>
 
+static bool rejectsModelRegistration(GstElement *const sink) {
+    g_autoptr(GstPad) videoPad = gst_element_get_static_pad(sink, "sink");
+    if (!videoPad) {
+        return true;
+    }
+    g_autoptr(GstPad) upstreamPad = gst_pad_new("factory_failure_src", GST_PAD_SRC);
+    gst_pad_set_active(upstreamPad, TRUE);
+    gst_pad_set_active(videoPad, TRUE);
+    if (gst_pad_link(upstreamPad, videoPad) != GST_PAD_LINK_OK) {
+        std::fprintf(stderr, "Failed to link the factory-failure event test pad\n");
+        return false;
+    }
+
+    constexpr auto modelName = "factory-failure-model";
+    auto *const event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB,
+                                             gst_structure_new("opk-model-register",
+                                                               "model-name",
+                                                               G_TYPE_STRING,
+                                                               modelName,
+                                                               "element-name",
+                                                               G_TYPE_STRING,
+                                                               modelName,
+                                                               nullptr));
+    const bool acceptedEvent = gst_pad_push_event(upstreamPad, event);
+    gst_pad_unlink(upstreamPad, videoPad);
+    gst_pad_set_active(upstreamPad, FALSE);
+    if (acceptedEvent) {
+        std::fprintf(stderr, "Partially initialized OpkSink accepted a model event\n");
+    }
+    return !acceptedEvent;
+}
+
 int main(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(
@@ -60,43 +92,11 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    GstPad *video_pad = gst_element_get_static_pad(sink, "sink");
-    if (video_pad) {
-        GstPad *upstream_pad = gst_pad_new("factory_failure_src", GST_PAD_SRC);
-        gst_pad_set_active(upstream_pad, TRUE);
-        gst_pad_set_active(video_pad, TRUE);
-        if (gst_pad_link(upstream_pad, video_pad) != GST_PAD_LINK_OK) {
-            std::fprintf(stderr, "Failed to link the factory-failure event test pad\n");
-            gst_object_unref(upstream_pad);
-            gst_object_unref(video_pad);
-            gst_object_unref(sink);
-            gst_object_unref(plugin);
-            gst_deinit();
-            return 1;
-        }
-
-        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM,
-                                               gst_structure_new("opk-model-unregister",
-                                                                 "element-name",
-                                                                 G_TYPE_STRING,
-                                                                 "factory-failure-model",
-                                                                 nullptr));
-        if (gst_pad_push_event(upstream_pad, event)) {
-            std::fprintf(stderr, "Partially initialized OpkSink accepted a model event\n");
-            gst_pad_unlink(upstream_pad, video_pad);
-            gst_pad_set_active(upstream_pad, FALSE);
-            gst_object_unref(upstream_pad);
-            gst_object_unref(video_pad);
-            gst_object_unref(sink);
-            gst_object_unref(plugin);
-            gst_deinit();
-            return 1;
-        }
-
-        gst_pad_unlink(upstream_pad, video_pad);
-        gst_pad_set_active(upstream_pad, FALSE);
-        gst_object_unref(upstream_pad);
-        gst_object_unref(video_pad);
+    if (!rejectsModelRegistration(sink)) {
+        gst_object_unref(sink);
+        gst_object_unref(plugin);
+        gst_deinit();
+        return 1;
     }
 
     GstPad *audio_pad = gst_element_request_pad_simple(sink, "audiosink");
