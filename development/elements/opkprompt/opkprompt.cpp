@@ -17,7 +17,8 @@
 
 #include "gst/PromptInputsMeta.h"
 #include "gst/PropertyGuard.h"
-#include "opk/BoxPromptCodec.h"
+#include "opk/PromptCodecs.h"
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <cstring>
@@ -38,7 +39,7 @@ G_DECLARE_FINAL_TYPE(GstOpkPrompt, gst_opkprompt, GST, OPKPROMPT, GstBaseTransfo
 struct PromptMembers {
     std::mutex mutex;
     opk::PromptController controller;
-    const opk::PromptCodec &codec = opk::boxPromptCodec();
+    std::string formats = "BPRM";
     std::string inferenceInstance;
     std::string destinationElement;
     std::string sourceName = "pipelineVideoFrame";
@@ -55,9 +56,69 @@ G_DEFINE_TYPE(GstOpkPrompt, gst_opkprompt, GST_TYPE_BASE_TRANSFORM)
 
 namespace {
 
-enum Property : guint { Reserved, InferenceInstance, SourceName, DestinationElement };
+enum Property : guint {
+    Reserved,
+    InferenceInstance,
+    SourceName,
+    DestinationElement,
+    Formats,
+    Capabilities
+};
 constexpr const char *CommandName = "opk-prompt-command-v1";
 constexpr const char *AcknowledgementName = "opk-prompt-ack-v1";
+
+bool includesFormat(const PromptMembers &members, const std::string_view identifier) {
+    size_t offset = 0;
+    while (offset <= members.formats.size()) {
+        const size_t end = members.formats.find(',', offset);
+        const std::string_view item(members.formats.data() + offset,
+                                    (end == std::string::npos ? members.formats.size() : end) -
+                                        offset);
+        if (item == identifier) {
+            return true;
+        }
+        if (end == std::string::npos) {
+            break;
+        }
+        offset = end + 1;
+    }
+    return false;
+}
+
+bool validFormats(const PromptMembers &members) {
+    size_t expectedLength = 0;
+    size_t count = 0;
+    for (const auto &entry : opk::promptCodecCapabilities()) {
+        if (includesFormat(members, entry.format.id)) {
+            expectedLength += entry.format.id.size();
+            ++count;
+        }
+    }
+    // Identifiers are fixed four-character ASCII strings; reject duplicates/unknown entries.
+    return count != 0 && expectedLength + count - 1 == members.formats.size();
+}
+
+std::string capabilities(const PromptMembers &members) {
+    nlohmann::json entries = nlohmann::json::array();
+    for (const auto &entry : opk::promptCodecCapabilities()) {
+        if (!includesFormat(members, entry.format.id)) {
+            continue;
+        }
+        nlohmann::json item;
+        item["format"] = std::string(entry.format.id);
+        item["major"] = entry.format.major;
+        item["minor"] = entry.format.minor;
+        item["maxSerializedBytes"] = entry.maxSerializedBytes;
+        item["maxGroups"] = entry.limits.maxGroups;
+        item["maxReferences"] = entry.limits.maxReferences;
+        item["maxReferenceDimension"] = entry.limits.maxReferenceDimension;
+        item["maxReferenceBytes"] = entry.limits.maxReferenceBytes;
+        item["maxDescriptionBytes"] = entry.limits.maxDescriptionBytes;
+        item["maxGroupNameBytes"] = entry.maxGroupNameBytes;
+        entries.push_back(std::move(item));
+    }
+    return entries.dump();
+}
 
 void acknowledge(GstOpkPrompt *const self,
                  const char *const command,
@@ -127,14 +188,23 @@ opk::Result<void> handleCommand(GstOpkPrompt *const self,
         }
         gsize size = 0;
         const auto *const data = static_cast<const uint8_t *>(g_bytes_get_data(bytes, &size));
-        auto snapshot = members.codec.decode({data, size},
-                                             session,
-                                             members.inferenceInstance,
-                                             members.sourceName,
-                                             requestId,
-                                             revision);
+        const auto *const registration = opk::findPromptCodec(std::span<const uint8_t>{data, size});
+        if (!validFormats(members) || !registration) {
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                            "Prompt format is not enabled for this ingress"));
+        }
+        auto snapshot = registration->codec->decode({data, size},
+                                                    session,
+                                                    members.inferenceInstance,
+                                                    members.sourceName,
+                                                    requestId,
+                                                    revision);
         if (!snapshot) {
             return tl::unexpected(snapshot.error());
+        }
+        if (!includesFormat(members, registration->format.id)) {
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                            "Prompt format is not enabled for this ingress"));
         }
         return members.controller.submit(std::move(*snapshot));
     }
@@ -189,20 +259,24 @@ gboolean start(GstBaseTransform *const transform) {
                    });
         };
         valid = validName(members.inferenceInstance) && validName(members.sourceName) &&
-                validName(members.destinationElement);
+                validName(members.destinationElement) && validFormats(members);
         const auto active = members.controller.snapshot();
         if (valid && active) {
-            valid = members.codec.validate(*active, members.inferenceInstance, members.sourceName)
+            const auto *const registration = opk::findPromptCodec(active->payload->format().id);
+            valid = registration && includesFormat(members, registration->format.id) &&
+                    registration->codec
+                        ->validate(*active, members.inferenceInstance, members.sourceName)
                         .has_value();
         }
     }
     if (!valid) {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          SETTINGS,
-                          ("Prompt binding names must be nonempty, at most 128 bytes, with no "
-                           "whitespace/control characters"),
-                          (nullptr));
+        GST_ELEMENT_ERROR(
+            self,
+            RESOURCE,
+            SETTINGS,
+            ("Prompt binding names must be nonempty, at most 128 bytes, with no "
+             "whitespace/control characters; formats must name registered prompt formats"),
+            (nullptr));
     }
     return valid;
 }
@@ -315,6 +389,9 @@ void setProperty(GObject *const object,
     case SourceName:
         members.sourceName = text ? text : "";
         break;
+    case Formats:
+        members.formats = text ? text : "";
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, id, spec);
     }
@@ -335,6 +412,12 @@ void getProperty(GObject *const object,
         break;
     case SourceName:
         g_value_set_string(value, members.sourceName.c_str());
+        break;
+    case Formats:
+        g_value_set_string(value, members.formats.c_str());
+        break;
+    case Capabilities:
+        g_value_set_string(value, capabilities(members).c_str());
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, id, spec);
@@ -379,6 +462,23 @@ static void gst_opkprompt_class_init(GstOpkPromptClass *const klass) {
                             "Name of the opkinfer element that may consume this branch's prompts",
                             "",
                             flags));
+    g_object_class_install_property(
+        objectClass,
+        Formats,
+        g_param_spec_string("formats",
+                            "Prompt formats",
+                            "Comma-separated enabled ingress formats; destination consumers are "
+                            "checked independently",
+                            "BPRM",
+                            flags));
+    g_object_class_install_property(
+        objectClass,
+        Capabilities,
+        g_param_spec_string("capabilities",
+                            "Prompt capabilities",
+                            "JSON decoder limits for the configured ingress formats",
+                            "[]",
+                            static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
     elementClass->send_event = sendEvent;
     transformClass->start = start;
     transformClass->set_caps = setCaps;
@@ -386,7 +486,7 @@ static void gst_opkprompt_class_init(GstOpkPromptClass *const klass) {
     gst_element_class_set_static_metadata(elementClass,
                                           "OPK prompt ingress",
                                           "Filter/Metadata",
-                                          "Binds continuing box prompts to video buffers",
+                                          "Binds continuing semantic prompts to video buffers",
                                           "Arm");
     GstCaps *const caps = gst_caps_from_string("video/x-raw");
     gst_element_class_add_pad_template(

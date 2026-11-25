@@ -17,6 +17,7 @@
 
 #include "op/Op.h"
 #include "opk/BoxPromptInputs.h"
+#include "opk/QueryPromptInputs.h"
 
 #include <atomic>
 #include <cstdint>
@@ -118,7 +119,8 @@ class PromptProbeInference final : public ProbeInference,
     bool acceptsPrompt(const opk::PromptFormat format,
                        const std::string_view inferenceInstance,
                        const std::string_view sourceName) const override {
-        return (format == opk::BoxPromptFormat || format == opk::PromptFormat{"TEST", 1, 0}) &&
+        return (format == opk::BoxPromptFormat || format == opk::TextPromptFormat ||
+                format == opk::VisualPromptFormat || format == opk::PromptFormat{"TEST", 1, 0}) &&
                inferenceInstance == instanceId && sourceName == "pipelineVideoFrame";
     }
 };

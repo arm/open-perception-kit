@@ -18,6 +18,7 @@
 // SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
 import { LayerInfo, LayerInfoT } from '../../open-perception-kit/metadata/layer-info.js';
+import { PromptObjectMatch, PromptObjectMatchT } from '../../open-perception-kit/metadata/prompt-object-match.js';
 import { RequestEnvelope, RequestEnvelopeT } from '../../open-perception-kit/metadata/request-envelope.js';
 export declare class PromptAssociation implements flatbuffers.IUnpackableObject<PromptAssociationT> {
     bb: flatbuffers.ByteBuffer | null;
@@ -33,6 +34,8 @@ export declare class PromptAssociation implements flatbuffers.IUnpackableObject<
     sessionId(): string | null;
     sessionId(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     parentId(): bigint;
+    matches(index: number, obj?: PromptObjectMatch): PromptObjectMatch | null;
+    matchesLength(): number;
     static startPromptAssociation(builder: flatbuffers.Builder): void;
     static addSchemaMajor(builder: flatbuffers.Builder, schemaMajor: number): void;
     static addSchemaMinor(builder: flatbuffers.Builder, schemaMinor: number): void;
@@ -40,6 +43,9 @@ export declare class PromptAssociation implements flatbuffers.IUnpackableObject<
     static addRequest(builder: flatbuffers.Builder, requestOffset: flatbuffers.Offset): void;
     static addSessionId(builder: flatbuffers.Builder, sessionIdOffset: flatbuffers.Offset): void;
     static addParentId(builder: flatbuffers.Builder, parentId: bigint): void;
+    static addMatches(builder: flatbuffers.Builder, matchesOffset: flatbuffers.Offset): void;
+    static createMatchesVector(builder: flatbuffers.Builder, data: flatbuffers.Offset[]): flatbuffers.Offset;
+    static startMatchesVector(builder: flatbuffers.Builder, numElems: number): void;
     static endPromptAssociation(builder: flatbuffers.Builder): flatbuffers.Offset;
     static finishPromptAssociationBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
     static finishSizePrefixedPromptAssociationBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
@@ -53,6 +59,7 @@ export declare class PromptAssociationT implements flatbuffers.IGeneratedObject 
     request: RequestEnvelopeT | null;
     sessionId: string | Uint8Array | null;
     parentId: bigint;
-    constructor(schemaMajor?: number, schemaMinor?: number, layer?: LayerInfoT | null, request?: RequestEnvelopeT | null, sessionId?: string | Uint8Array | null, parentId?: bigint);
+    matches: (PromptObjectMatchT)[];
+    constructor(schemaMajor?: number, schemaMinor?: number, layer?: LayerInfoT | null, request?: RequestEnvelopeT | null, sessionId?: string | Uint8Array | null, parentId?: bigint, matches?: (PromptObjectMatchT)[]);
     pack(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

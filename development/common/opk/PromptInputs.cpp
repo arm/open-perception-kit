@@ -142,14 +142,62 @@ Result<void> PromptController::submit(PromptSnapshot prompt) {
         }
     }
     std::erase_if(retained, [](const auto &revision) { return revision.expired(); });
+    std::erase_if(retainedPayloads, [](const auto &payload) { return payload.expired(); });
     if (retained.size() >= MaxRetainedRevisions) {
         return invalid("Too many prompt revisions retained by downstream work");
+    }
+    // Charge semantic owners once even if several snapshots share them. Paired buffers
+    // retain snapshots, so their allocations remain charged after replacement/cancellation.
+    size_t retainedBytes = 0;
+    std::set<const PromptPayload *> owners;
+    const auto chargePayload = [&](const std::shared_ptr<const PromptPayload> &payload) {
+        if (payload && owners.insert(payload.get()).second) {
+            const size_t bytes = payload->ownedBytes();
+            if (bytes > MaxRetainedBytes - retainedBytes) {
+                return false;
+            }
+            retainedBytes += bytes;
+        }
+        return true;
+    };
+    const auto chargeSnapshot = [&](const PromptSnapshot &snapshot) {
+        const auto *const binding = snapshot.destination();
+        const size_t bytes =
+            sizeof(PromptSnapshot) + sizeof(open_perception_kit::metadata::RequestEnvelopeT) +
+            sizeof(*binding) + snapshot.sessionId.capacity() + 1 +
+            binding->inference_instance.capacity() + 1 + binding->source_name.capacity() + 1;
+        if (bytes > MaxRetainedBytes - retainedBytes) {
+            return false;
+        }
+        retainedBytes += bytes;
+        return true;
+    };
+    for (const auto &entry : retained) {
+        const auto snapshot = entry.lock();
+        if (snapshot && !chargeSnapshot(*snapshot)) {
+            return invalid("Retained prompt semantic byte budget exceeded");
+        }
+    }
+    for (const auto &payload : retainedPayloads) {
+        if (!chargePayload(payload.lock())) {
+            return invalid("Retained prompt semantic byte budget exceeded");
+        }
+    }
+    const bool newOwner = prompt.payload && !owners.contains(prompt.payload.get());
+    if (newOwner && retainedPayloads.size() >= MaxRetainedRevisions) {
+        return invalid("Too many semantic payload owners retained by downstream work");
+    }
+    if (!chargeSnapshot(prompt) || !chargePayload(prompt.payload)) {
+        return invalid("Retained prompt semantic byte budget exceeded");
     }
     controller = session;
     auto next = std::make_shared<const PromptSnapshot>(std::move(prompt));
     usedRequestIds.insert(next->requestId());
     active = std::move(next);
     retained.emplace_back(active);
+    if (newOwner) {
+        retainedPayloads.emplace_back(active->payload);
+    }
     return {};
 }
 

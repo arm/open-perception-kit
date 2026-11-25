@@ -30,6 +30,7 @@ class BoxPromptPayload final : public PromptPayload {
     explicit BoxPromptPayload(const open_perception_kit::metadata::PromptBoxT &box);
     ~BoxPromptPayload() override;
     PromptFormat format() const override;
+    size_t ownedBytes() const override;
 
     const open_perception_kit::metadata::PromptBoxT box;
 };

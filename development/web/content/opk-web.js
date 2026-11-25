@@ -7502,6 +7502,70 @@ var PersonPresencesT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-object-match.js
+var PromptObjectMatch = class _PromptObjectMatch {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPromptObjectMatch(bb, obj) {
+    return (obj || new _PromptObjectMatch()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPromptObjectMatch(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PromptObjectMatch()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  objectId() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  groupId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  static startPromptObjectMatch(builder) {
+    builder.startObject(2);
+  }
+  static addObjectId(builder, objectId2) {
+    builder.addFieldInt64(0, objectId2, BigInt("0"));
+  }
+  static addGroupId(builder, groupIdOffset) {
+    builder.addFieldOffset(1, groupIdOffset, 0);
+  }
+  static endPromptObjectMatch(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createPromptObjectMatch(builder, objectId2, groupIdOffset) {
+    _PromptObjectMatch.startPromptObjectMatch(builder);
+    _PromptObjectMatch.addObjectId(builder, objectId2);
+    _PromptObjectMatch.addGroupId(builder, groupIdOffset);
+    return _PromptObjectMatch.endPromptObjectMatch(builder);
+  }
+  unpack() {
+    return new PromptObjectMatchT(this.objectId(), this.groupId());
+  }
+  unpackTo(_o) {
+    _o.objectId = this.objectId();
+    _o.groupId = this.groupId();
+  }
+};
+var PromptObjectMatchT = class {
+  constructor(objectId2 = BigInt("0"), groupId = null) {
+    this.objectId = objectId2;
+    this.groupId = groupId;
+  }
+  pack(builder) {
+    const groupId = this.groupId !== null ? builder.createString(this.groupId) : 0;
+    return PromptObjectMatch.createPromptObjectMatch(builder, this.objectId, groupId);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-association.js
 var PromptAssociation = class _PromptAssociation {
   constructor() {
@@ -7547,8 +7611,16 @@ var PromptAssociation = class _PromptAssociation {
     const offset = this.bb.__offset(this.bb_pos, 14);
     return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
   }
+  matches(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? (obj || new PromptObjectMatch()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  matchesLength() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
   static startPromptAssociation(builder) {
-    builder.startObject(6);
+    builder.startObject(7);
   }
   static addSchemaMajor(builder, schemaMajor) {
     builder.addFieldInt16(0, schemaMajor, 1);
@@ -7568,6 +7640,19 @@ var PromptAssociation = class _PromptAssociation {
   static addParentId(builder, parentId) {
     builder.addFieldInt64(5, parentId, BigInt("0"));
   }
+  static addMatches(builder, matchesOffset) {
+    builder.addFieldOffset(6, matchesOffset, 0);
+  }
+  static createMatchesVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startMatchesVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
   static endPromptAssociation(builder) {
     const offset = builder.endObject();
     return offset;
@@ -7579,7 +7664,7 @@ var PromptAssociation = class _PromptAssociation {
     builder.finish(offset, "PRAS", true);
   }
   unpack() {
-    return new PromptAssociationT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.request() !== null ? this.request().unpack() : null, this.sessionId(), this.parentId());
+    return new PromptAssociationT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.request() !== null ? this.request().unpack() : null, this.sessionId(), this.parentId(), this.bb.createObjList(this.matches.bind(this), this.matchesLength()));
   }
   unpackTo(_o) {
     _o.schemaMajor = this.schemaMajor();
@@ -7588,21 +7673,24 @@ var PromptAssociation = class _PromptAssociation {
     _o.request = this.request() !== null ? this.request().unpack() : null;
     _o.sessionId = this.sessionId();
     _o.parentId = this.parentId();
+    _o.matches = this.bb.createObjList(this.matches.bind(this), this.matchesLength());
   }
 };
 var PromptAssociationT = class {
-  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, request = null, sessionId = null, parentId = BigInt("0")) {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, request = null, sessionId = null, parentId = BigInt("0"), matches = []) {
     this.schemaMajor = schemaMajor;
     this.schemaMinor = schemaMinor;
     this.layer = layer2;
     this.request = request;
     this.sessionId = sessionId;
     this.parentId = parentId;
+    this.matches = matches;
   }
   pack(builder) {
     const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
     const request = this.request !== null ? this.request.pack(builder) : 0;
     const sessionId = this.sessionId !== null ? builder.createString(this.sessionId) : 0;
+    const matches = PromptAssociation.createMatchesVector(builder, builder.createObjectOffsetList(this.matches));
     PromptAssociation.startPromptAssociation(builder);
     PromptAssociation.addSchemaMajor(builder, this.schemaMajor);
     PromptAssociation.addSchemaMinor(builder, this.schemaMinor);
@@ -7610,6 +7698,7 @@ var PromptAssociationT = class {
     PromptAssociation.addRequest(builder, request);
     PromptAssociation.addSessionId(builder, sessionId);
     PromptAssociation.addParentId(builder, this.parentId);
+    PromptAssociation.addMatches(builder, matches);
     return PromptAssociation.endPromptAssociation(builder);
   }
 };
@@ -7985,6 +8074,241 @@ var SemanticSegmentationMasksT = class {
     SemanticSegmentationMasks.addLayer(builder, layer2);
     SemanticSegmentationMasks.addMasks(builder, masks);
     return SemanticSegmentationMasks.endSemanticSegmentationMasks(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-group.js
+var TextPromptGroup = class _TextPromptGroup {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTextPromptGroup(bb, obj) {
+    return (obj || new _TextPromptGroup()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTextPromptGroup(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TextPromptGroup()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  groupId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  description(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  displayName(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  static startTextPromptGroup(builder) {
+    builder.startObject(3);
+  }
+  static addGroupId(builder, groupIdOffset) {
+    builder.addFieldOffset(0, groupIdOffset, 0);
+  }
+  static addDescription(builder, descriptionOffset) {
+    builder.addFieldOffset(1, descriptionOffset, 0);
+  }
+  static addDisplayName(builder, displayNameOffset) {
+    builder.addFieldOffset(2, displayNameOffset, 0);
+  }
+  static endTextPromptGroup(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTextPromptGroup(builder, groupIdOffset, descriptionOffset, displayNameOffset) {
+    _TextPromptGroup.startTextPromptGroup(builder);
+    _TextPromptGroup.addGroupId(builder, groupIdOffset);
+    _TextPromptGroup.addDescription(builder, descriptionOffset);
+    _TextPromptGroup.addDisplayName(builder, displayNameOffset);
+    return _TextPromptGroup.endTextPromptGroup(builder);
+  }
+  unpack() {
+    return new TextPromptGroupT(this.groupId(), this.description(), this.displayName());
+  }
+  unpackTo(_o) {
+    _o.groupId = this.groupId();
+    _o.description = this.description();
+    _o.displayName = this.displayName();
+  }
+};
+var TextPromptGroupT = class {
+  constructor(groupId = null, description = null, displayName = null) {
+    this.groupId = groupId;
+    this.description = description;
+    this.displayName = displayName;
+  }
+  pack(builder) {
+    const groupId = this.groupId !== null ? builder.createString(this.groupId) : 0;
+    const description = this.description !== null ? builder.createString(this.description) : 0;
+    const displayName = this.displayName !== null ? builder.createString(this.displayName) : 0;
+    return TextPromptGroup.createTextPromptGroup(builder, groupId, description, displayName);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-payload.js
+var TextPromptPayload = class _TextPromptPayload {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTextPromptPayload(bb, obj) {
+    return (obj || new _TextPromptPayload()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTextPromptPayload(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TextPromptPayload()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  groups(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new TextPromptGroup()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  groupsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startTextPromptPayload(builder) {
+    builder.startObject(1);
+  }
+  static addGroups(builder, groupsOffset) {
+    builder.addFieldOffset(0, groupsOffset, 0);
+  }
+  static createGroupsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startGroupsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endTextPromptPayload(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTextPromptPayload(builder, groupsOffset) {
+    _TextPromptPayload.startTextPromptPayload(builder);
+    _TextPromptPayload.addGroups(builder, groupsOffset);
+    return _TextPromptPayload.endTextPromptPayload(builder);
+  }
+  unpack() {
+    return new TextPromptPayloadT(this.bb.createObjList(this.groups.bind(this), this.groupsLength()));
+  }
+  unpackTo(_o) {
+    _o.groups = this.bb.createObjList(this.groups.bind(this), this.groupsLength());
+  }
+};
+var TextPromptPayloadT = class {
+  constructor(groups = []) {
+    this.groups = groups;
+  }
+  pack(builder) {
+    const groups = TextPromptPayload.createGroupsVector(builder, builder.createObjectOffsetList(this.groups));
+    return TextPromptPayload.createTextPromptPayload(builder, groups);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-inputs.js
+var TextPromptInputs = class _TextPromptInputs {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTextPromptInputs(bb, obj) {
+    return (obj || new _TextPromptInputs()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTextPromptInputs(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TextPromptInputs()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("TPRM");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  request(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new RequestEnvelope()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  payload(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new TextPromptPayload()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startTextPromptInputs(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addRequest(builder, requestOffset) {
+    builder.addFieldOffset(2, requestOffset, 0);
+  }
+  static addPayload(builder, payloadOffset) {
+    builder.addFieldOffset(3, payloadOffset, 0);
+  }
+  static endTextPromptInputs(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishTextPromptInputsBuffer(builder, offset) {
+    builder.finish(offset, "TPRM");
+  }
+  static finishSizePrefixedTextPromptInputsBuffer(builder, offset) {
+    builder.finish(offset, "TPRM", true);
+  }
+  unpack() {
+    return new TextPromptInputsT(this.schemaMajor(), this.schemaMinor(), this.request() !== null ? this.request().unpack() : null, this.payload() !== null ? this.payload().unpack() : null);
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.request = this.request() !== null ? this.request().unpack() : null;
+    _o.payload = this.payload() !== null ? this.payload().unpack() : null;
+  }
+};
+var TextPromptInputsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, request = null, payload = null) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.request = request;
+    this.payload = payload;
+  }
+  pack(builder) {
+    const request = this.request !== null ? this.request.pack(builder) : 0;
+    const payload = this.payload !== null ? this.payload.pack(builder) : 0;
+    TextPromptInputs.startTextPromptInputs(builder);
+    TextPromptInputs.addSchemaMajor(builder, this.schemaMajor);
+    TextPromptInputs.addSchemaMinor(builder, this.schemaMinor);
+    TextPromptInputs.addRequest(builder, request);
+    TextPromptInputs.addPayload(builder, payload);
+    return TextPromptInputs.endTextPromptInputs(builder);
   }
 };
 
@@ -8495,6 +8819,465 @@ var TurnDetectionsT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-encoding.js
+var PromptReferenceEncoding;
+(function(PromptReferenceEncoding2) {
+  PromptReferenceEncoding2[PromptReferenceEncoding2["Unknown"] = 0] = "Unknown";
+  PromptReferenceEncoding2[PromptReferenceEncoding2["RGB8"] = 1] = "RGB8";
+})(PromptReferenceEncoding || (PromptReferenceEncoding = {}));
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-image.js
+var PromptReferenceImage = class _PromptReferenceImage {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPromptReferenceImage(bb, obj) {
+    return (obj || new _PromptReferenceImage()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPromptReferenceImage(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PromptReferenceImage()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  width() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  height() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  encoding() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint8(this.bb_pos + offset) : PromptReferenceEncoding.Unknown;
+  }
+  pixels(index) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint8(this.bb.__vector(this.bb_pos + offset) + index) : 0;
+  }
+  pixelsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  pixelsArray() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? new Uint8Array(this.bb.bytes().buffer, this.bb.bytes().byteOffset + this.bb.__vector(this.bb_pos + offset), this.bb.__vector_len(this.bb_pos + offset)) : null;
+  }
+  static startPromptReferenceImage(builder) {
+    builder.startObject(4);
+  }
+  static addWidth(builder, width) {
+    builder.addFieldInt32(0, width, 0);
+  }
+  static addHeight(builder, height) {
+    builder.addFieldInt32(1, height, 0);
+  }
+  static addEncoding(builder, encoding) {
+    builder.addFieldInt8(2, encoding, PromptReferenceEncoding.Unknown);
+  }
+  static addPixels(builder, pixelsOffset) {
+    builder.addFieldOffset(3, pixelsOffset, 0);
+  }
+  static createPixelsVector(builder, data) {
+    builder.startVector(1, data.length, 1);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addInt8(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startPixelsVector(builder, numElems) {
+    builder.startVector(1, numElems, 1);
+  }
+  static endPromptReferenceImage(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createPromptReferenceImage(builder, width, height, encoding, pixelsOffset) {
+    _PromptReferenceImage.startPromptReferenceImage(builder);
+    _PromptReferenceImage.addWidth(builder, width);
+    _PromptReferenceImage.addHeight(builder, height);
+    _PromptReferenceImage.addEncoding(builder, encoding);
+    _PromptReferenceImage.addPixels(builder, pixelsOffset);
+    return _PromptReferenceImage.endPromptReferenceImage(builder);
+  }
+  unpack() {
+    return new PromptReferenceImageT(this.width(), this.height(), this.encoding(), this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength()));
+  }
+  unpackTo(_o) {
+    _o.width = this.width();
+    _o.height = this.height();
+    _o.encoding = this.encoding();
+    _o.pixels = this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength());
+  }
+};
+var PromptReferenceImageT = class {
+  constructor(width = 0, height = 0, encoding = PromptReferenceEncoding.Unknown, pixels = []) {
+    this.width = width;
+    this.height = height;
+    this.encoding = encoding;
+    this.pixels = pixels;
+  }
+  pack(builder) {
+    const pixels = PromptReferenceImage.createPixelsVector(builder, this.pixels);
+    return PromptReferenceImage.createPromptReferenceImage(builder, this.width, this.height, this.encoding, pixels);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-box.js
+var VisualPromptBox = class _VisualPromptBox {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsVisualPromptBox(bb, obj) {
+    return (obj || new _VisualPromptBox()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsVisualPromptBox(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _VisualPromptBox()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  left() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  top() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  right() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  bottom() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readFloat64(this.bb_pos + offset) : 0;
+  }
+  static startVisualPromptBox(builder) {
+    builder.startObject(4);
+  }
+  static addLeft(builder, left) {
+    builder.addFieldFloat64(0, left, 0);
+  }
+  static addTop(builder, top) {
+    builder.addFieldFloat64(1, top, 0);
+  }
+  static addRight(builder, right) {
+    builder.addFieldFloat64(2, right, 0);
+  }
+  static addBottom(builder, bottom) {
+    builder.addFieldFloat64(3, bottom, 0);
+  }
+  static endVisualPromptBox(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createVisualPromptBox(builder, left, top, right, bottom) {
+    _VisualPromptBox.startVisualPromptBox(builder);
+    _VisualPromptBox.addLeft(builder, left);
+    _VisualPromptBox.addTop(builder, top);
+    _VisualPromptBox.addRight(builder, right);
+    _VisualPromptBox.addBottom(builder, bottom);
+    return _VisualPromptBox.endVisualPromptBox(builder);
+  }
+  unpack() {
+    return new VisualPromptBoxT(this.left(), this.top(), this.right(), this.bottom());
+  }
+  unpackTo(_o) {
+    _o.left = this.left();
+    _o.top = this.top();
+    _o.right = this.right();
+    _o.bottom = this.bottom();
+  }
+};
+var VisualPromptBoxT = class {
+  constructor(left = 0, top = 0, right = 0, bottom = 0) {
+    this.left = left;
+    this.top = top;
+    this.right = right;
+    this.bottom = bottom;
+  }
+  pack(builder) {
+    return VisualPromptBox.createVisualPromptBox(builder, this.left, this.top, this.right, this.bottom);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-group.js
+var VisualPromptGroup = class _VisualPromptGroup {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsVisualPromptGroup(bb, obj) {
+    return (obj || new _VisualPromptGroup()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsVisualPromptGroup(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _VisualPromptGroup()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  groupId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  displayName(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  referenceIndex() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  box(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new VisualPromptBox()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startVisualPromptGroup(builder) {
+    builder.startObject(4);
+  }
+  static addGroupId(builder, groupIdOffset) {
+    builder.addFieldOffset(0, groupIdOffset, 0);
+  }
+  static addDisplayName(builder, displayNameOffset) {
+    builder.addFieldOffset(1, displayNameOffset, 0);
+  }
+  static addReferenceIndex(builder, referenceIndex) {
+    builder.addFieldInt32(2, referenceIndex, 0);
+  }
+  static addBox(builder, boxOffset) {
+    builder.addFieldOffset(3, boxOffset, 0);
+  }
+  static endVisualPromptGroup(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new VisualPromptGroupT(this.groupId(), this.displayName(), this.referenceIndex(), this.box() !== null ? this.box().unpack() : null);
+  }
+  unpackTo(_o) {
+    _o.groupId = this.groupId();
+    _o.displayName = this.displayName();
+    _o.referenceIndex = this.referenceIndex();
+    _o.box = this.box() !== null ? this.box().unpack() : null;
+  }
+};
+var VisualPromptGroupT = class {
+  constructor(groupId = null, displayName = null, referenceIndex = 0, box = null) {
+    this.groupId = groupId;
+    this.displayName = displayName;
+    this.referenceIndex = referenceIndex;
+    this.box = box;
+  }
+  pack(builder) {
+    const groupId = this.groupId !== null ? builder.createString(this.groupId) : 0;
+    const displayName = this.displayName !== null ? builder.createString(this.displayName) : 0;
+    const box = this.box !== null ? this.box.pack(builder) : 0;
+    VisualPromptGroup.startVisualPromptGroup(builder);
+    VisualPromptGroup.addGroupId(builder, groupId);
+    VisualPromptGroup.addDisplayName(builder, displayName);
+    VisualPromptGroup.addReferenceIndex(builder, this.referenceIndex);
+    VisualPromptGroup.addBox(builder, box);
+    return VisualPromptGroup.endVisualPromptGroup(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-payload.js
+var VisualPromptPayload = class _VisualPromptPayload {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsVisualPromptPayload(bb, obj) {
+    return (obj || new _VisualPromptPayload()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsVisualPromptPayload(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _VisualPromptPayload()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  references(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new PromptReferenceImage()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  referencesLength() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  groups(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? (obj || new VisualPromptGroup()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  groupsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startVisualPromptPayload(builder) {
+    builder.startObject(2);
+  }
+  static addReferences(builder, referencesOffset) {
+    builder.addFieldOffset(0, referencesOffset, 0);
+  }
+  static createReferencesVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startReferencesVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static addGroups(builder, groupsOffset) {
+    builder.addFieldOffset(1, groupsOffset, 0);
+  }
+  static createGroupsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startGroupsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endVisualPromptPayload(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createVisualPromptPayload(builder, referencesOffset, groupsOffset) {
+    _VisualPromptPayload.startVisualPromptPayload(builder);
+    _VisualPromptPayload.addReferences(builder, referencesOffset);
+    _VisualPromptPayload.addGroups(builder, groupsOffset);
+    return _VisualPromptPayload.endVisualPromptPayload(builder);
+  }
+  unpack() {
+    return new VisualPromptPayloadT(this.bb.createObjList(this.references.bind(this), this.referencesLength()), this.bb.createObjList(this.groups.bind(this), this.groupsLength()));
+  }
+  unpackTo(_o) {
+    _o.references = this.bb.createObjList(this.references.bind(this), this.referencesLength());
+    _o.groups = this.bb.createObjList(this.groups.bind(this), this.groupsLength());
+  }
+};
+var VisualPromptPayloadT = class {
+  constructor(references = [], groups = []) {
+    this.references = references;
+    this.groups = groups;
+  }
+  pack(builder) {
+    const references = VisualPromptPayload.createReferencesVector(builder, builder.createObjectOffsetList(this.references));
+    const groups = VisualPromptPayload.createGroupsVector(builder, builder.createObjectOffsetList(this.groups));
+    return VisualPromptPayload.createVisualPromptPayload(builder, references, groups);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-inputs.js
+var VisualPromptInputs = class _VisualPromptInputs {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsVisualPromptInputs(bb, obj) {
+    return (obj || new _VisualPromptInputs()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsVisualPromptInputs(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _VisualPromptInputs()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("VPRM");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  request(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new RequestEnvelope()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  payload(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new VisualPromptPayload()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startVisualPromptInputs(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addRequest(builder, requestOffset) {
+    builder.addFieldOffset(2, requestOffset, 0);
+  }
+  static addPayload(builder, payloadOffset) {
+    builder.addFieldOffset(3, payloadOffset, 0);
+  }
+  static endVisualPromptInputs(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishVisualPromptInputsBuffer(builder, offset) {
+    builder.finish(offset, "VPRM");
+  }
+  static finishSizePrefixedVisualPromptInputsBuffer(builder, offset) {
+    builder.finish(offset, "VPRM", true);
+  }
+  unpack() {
+    return new VisualPromptInputsT(this.schemaMajor(), this.schemaMinor(), this.request() !== null ? this.request().unpack() : null, this.payload() !== null ? this.payload().unpack() : null);
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.request = this.request() !== null ? this.request().unpack() : null;
+    _o.payload = this.payload() !== null ? this.payload().unpack() : null;
+  }
+};
+var VisualPromptInputsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, request = null, payload = null) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.request = request;
+    this.payload = payload;
+  }
+  pack(builder) {
+    const request = this.request !== null ? this.request.pack(builder) : 0;
+    const payload = this.payload !== null ? this.payload.pack(builder) : 0;
+    VisualPromptInputs.startVisualPromptInputs(builder);
+    VisualPromptInputs.addSchemaMajor(builder, this.schemaMajor);
+    VisualPromptInputs.addSchemaMinor(builder, this.schemaMinor);
+    VisualPromptInputs.addRequest(builder, request);
+    VisualPromptInputs.addPayload(builder, payload);
+    return VisualPromptInputs.endVisualPromptInputs(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.js
 var VoiceActivityDetection = class _VoiceActivityDetection {
   constructor() {
@@ -8757,10 +9540,14 @@ var decode_3128408959875976772 = (blob) => SegmentationMasks.getRootAsSegmentati
 var verify_3128408959875976772 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_133049182594848948 = (blob) => SemanticSegmentationMasks.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
 var verify_133049182594848948 = (blob) => SemanticSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7676226797863811345 = (blob) => TextPromptInputs.getRootAsTextPromptInputs(new ByteBuffer(blob)).unpack();
+var verify_7676226797863811345 = (blob) => TextPromptInputs.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_7618457940451616939 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
 var verify_7618457940451616939 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_7194963704333257544 = (blob) => TurnDetections.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
 var verify_7194963704333257544 = (blob) => TurnDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_1751078931098357144 = (blob) => VisualPromptInputs.getRootAsVisualPromptInputs(new ByteBuffer(blob)).unpack();
+var verify_1751078931098357144 = (blob) => VisualPromptInputs.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_4750671262425495264 = (blob) => VoiceActivityDetections.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
 var verify_4750671262425495264 = (blob) => VoiceActivityDetections.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
@@ -8876,6 +9663,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_133049182594848948,
     verify: verify_133049182594848948
   }],
+  [7676226797863811345n, {
+    name: "open_perception_kit::metadata::TextPromptInputs",
+    root_type: "TextPromptInputs",
+    qualified_root_type: "open_perception_kit.metadata.TextPromptInputs",
+    file_identifier: "TPRM",
+    decode: decode_7676226797863811345,
+    verify: verify_7676226797863811345
+  }],
   [7618457940451616939n, {
     name: "open_perception_kit::metadata::TrackTraces",
     root_type: "TrackTraces",
@@ -8891,6 +9686,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     file_identifier: "TURN",
     decode: decode_7194963704333257544,
     verify: verify_7194963704333257544
+  }],
+  [1751078931098357144n, {
+    name: "open_perception_kit::metadata::VisualPromptInputs",
+    root_type: "VisualPromptInputs",
+    qualified_root_type: "open_perception_kit.metadata.VisualPromptInputs",
+    file_identifier: "VPRM",
+    decode: decode_1751078931098357144,
+    verify: verify_1751078931098357144
   }],
   [4750671262425495264n, {
     name: "open_perception_kit::metadata::VoiceActivityDetections",
@@ -8916,8 +9719,10 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [PromptAssociationT, 5708111647489290303n],
   [SegmentationMasksT, 3128408959875976772n],
   [SemanticSegmentationMasksT, 133049182594848948n],
+  [TextPromptInputsT, 7676226797863811345n],
   [TrackTracesT, 7618457940451616939n],
   [TurnDetectionsT, 7194963704333257544n],
+  [VisualPromptInputsT, 1751078931098357144n],
   [VoiceActivityDetectionsT, 4750671262425495264n]
 ]);
 
@@ -8936,7 +9741,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "97afd93a5a52f21f8578c5d3e733cace8d11cc230b9fe9e6b040d46d119d39dd";
+var SCHEMA_SET_SHA256 = "b133f714ba35b4176ffff7899596b12d940123359ea93872cca6c622f646e552";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");

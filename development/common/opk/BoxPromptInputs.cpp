@@ -47,6 +47,10 @@ PromptFormat BoxPromptPayload::format() const {
     return BoxPromptFormat;
 }
 
+size_t BoxPromptPayload::ownedBytes() const {
+    return sizeof(*this);
+}
+
 Result<open_perception_kit::metadata::BoxPromptInputsT>
 decodeBoxPrompt(const std::span<const uint8_t> bytes) {
     if (bytes.empty() || bytes.size() > MaxBoxPromptRequestBytes) {

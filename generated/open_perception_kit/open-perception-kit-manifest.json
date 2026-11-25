@@ -90,8 +90,8 @@
     },
     {
       "path": "cpp/fb/prompt_association_generated.h",
-      "sha256": "b6bd8988695680cf1ff2fe12d0a8b7886dd30c0e8c805b4594263501eb4ebbf3",
-      "size": 13624
+      "sha256": "b18bf725b6bd37565342ea4f3dec07603852e956e4297fc8c2b22f1c944d3e03",
+      "size": 21306
     },
     {
       "path": "cpp/fb/request_generated.h",
@@ -109,6 +109,11 @@
       "size": 22943
     },
     {
+      "path": "cpp/fb/text_prompt_inputs_generated.h",
+      "sha256": "2dabb407ee60736626d3a0373772b2de301fa80a9ea161343af682ec48bec3da",
+      "size": 24376
+    },
+    {
       "path": "cpp/fb/track_traces_generated.h",
       "sha256": "1732b33e29df31a97edcae9f8dd71a0a3486be0bc310644866836c317edc7552",
       "size": 22743
@@ -122,6 +127,11 @@
       "path": "cpp/fb/turn_detections_generated.h",
       "sha256": "dda7ce271b03a72f10c766735211e61dd167c2c0b1c9c700077c757d01f6c55a",
       "size": 24264
+    },
+    {
+      "path": "cpp/fb/visual_prompt_inputs_generated.h",
+      "sha256": "5fa010d9329d3cca45c3c80c3a35325f5c4f8ba7128cf73c7cf58f7e2f90b88a",
+      "size": 41969
     },
     {
       "path": "cpp/fb/voice_activity_detections_generated.h",
@@ -140,13 +150,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "f6ca77a224c5b516b2e8ae3a38b9b851e797df75af1156acb98f310d3a7f2de3",
-      "size": 38730
+      "sha256": "be16768c803ce9cb6c0134531bfdc97158a938c796e22422ff7bbd653785c830",
+      "size": 40342
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "b5251e0826afa1f064358ba7718abaefbc5690afda3c06a8157e2e509eab2e44",
-      "size": 486363
+      "sha256": "aa0772ca1286197e12d653dba21fed7006c37f3dc3798176f600b1687c03b17f",
+      "size": 561338
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -170,7 +180,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "9877676e2616587884f2004d6c0ef1369b83213f5a06067a6fe6e3833dfc1003",
+      "sha256": "eda15742ef2158f5f8081a30ab0be4c10f9bd2580e0af625181afeafc5263a4b",
       "size": 1166
     },
     {
@@ -375,13 +385,28 @@
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PromptAssociation.py",
-      "sha256": "4311c1c3330574d3ab638585023e8dbce66dda23c8d88c1e5fbf6222c540e5cf",
-      "size": 8185
+      "sha256": "5f7b0fcfd146dd0d133027623b1bcfbc2ccd3642494362ed4e13d771ebe8bdb4",
+      "size": 10842
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PromptBox.py",
       "sha256": "ecd9a61be3e323488cdf524d7436037406d3e0416ad47dbe61615ac3cdf5ffba",
       "size": 4776
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PromptObjectMatch.py",
+      "sha256": "6cee496660b61980df5a76f64e5aecc1cb63ebb8335fc8042829dc9a86c96399",
+      "size": 4215
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PromptReferenceEncoding.py",
+      "sha256": "4fd0ae72c4543d0c92b157ad2584f93b355ee4d9b2284e72b2a1dd0c097d6205",
+      "size": 822
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PromptReferenceImage.py",
+      "sha256": "f81b7fea83ef876a10ab31fcfd0c6f1086e0ac7f1cca825e34d36d6397a88c00",
+      "size": 7157
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/RequestApplication.py",
@@ -422,6 +447,21 @@
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/SemanticSegmentationMasks.py",
       "sha256": "9468a53f7c90c0dbadc8cc5317a9270c298b7d6498d5f27587adcfb75d8ac1c9",
       "size": 8520
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TextPromptGroup.py",
+      "sha256": "99b5d0abe91811e7b6fbf16b5a445f7d84b05a5ad7e7c13890ba1c407710c291",
+      "size": 5219
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TextPromptInputs.py",
+      "sha256": "8b0db5ba8914069353562188fc1730db7db2ad41bb5c3298ec28ee6a5540014f",
+      "size": 6802
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TextPromptPayload.py",
+      "sha256": "93217eaf2bba9ad15c43ed7904d65afdd243651eb85fe5fc0f45abda3b977d45",
+      "size": 5453
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TrackAssociation.py",
@@ -484,6 +524,26 @@
       "size": 6301
     },
     {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VisualPromptBox.py",
+      "sha256": "990fa7747f440b604063c7054e1f4c9f9a112fe2be9e9c719e888ed9de5c1674",
+      "size": 5052
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VisualPromptGroup.py",
+      "sha256": "70bdd7872b35e388014c73874b79e37fb4067f871e2842bc534f54a55c12785b",
+      "size": 6451
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VisualPromptInputs.py",
+      "sha256": "f85a799aa7e9bc53955b754a2291919ab89da7853142aa870b7507bb8b7cacbc",
+      "size": 6914
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VisualPromptPayload.py",
+      "sha256": "8b4f45a70a592656887b5d6821cbe28bbaa02f107d47bcb40f7eb9c1ece82ed3",
+      "size": 8363
+    },
+    {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetection.py",
       "sha256": "a4be8d1b0ebc87593d650f027c0e137520b56673f8a04255629ca5dd3673f7ea",
       "size": 9624
@@ -535,12 +595,12 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "4942694682b478672dfff697907d2ccabad52747dbab1bfa6aa4c65b84ce85dc",
-      "size": 7490
+      "sha256": "0ee404d63761328abcb7df498927ce6dd9d206897b82ec61a5764c3b99953152",
+      "size": 8282
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "0eaaf0915e547f349cac12a9c3a4a6dae9a02dc6a412d6eed0df0d8c94afc3f4",
+      "sha256": "57521879ac5f629286f34f0de58ee66d4975792a35805e29a7f2e843b4e1ea24",
       "size": 15484
     },
     {
@@ -700,8 +760,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "e181bba59790dc9e2ee980de77575aecc3540a170e78274032a1ea04cda6e1d5",
-      "size": 5551
+      "sha256": "36c9a61d3db8dfa434efee2081129ab23bf5b5acd365ebd97ab5766a9a03f8d8",
+      "size": 6395
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -760,13 +820,28 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/prompt_association_generated.rs",
-      "sha256": "8751e7c6e9d2eb8ceeb22542180d7bbff51eb4788c549d333e3fe461a3317fd2",
-      "size": 15001
+      "sha256": "fd8aae9b50e95260dc727c16923826fc6724a697219f920a7d53fcba6ccf2325",
+      "size": 16817
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/prompt_box_generated.rs",
       "sha256": "9483ee70c96140672021bc2ca4c2035f75f257edb3324fc43bc056394e724751",
       "size": 7064
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/prompt_object_match_generated.rs",
+      "sha256": "56257ce967ddcb51907880e7e14e0eed10cd76d6ad85eff9809607ccd4af6a43",
+      "size": 6324
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/prompt_reference_encoding_generated.rs",
+      "sha256": "80035c4591f2fec091d2faaab99b43b3e579af8e4c0cc6f2004011e9939d8cd9",
+      "size": 3869
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/prompt_reference_image_generated.rs",
+      "sha256": "4a9811598e02040c04174b49c444f62df3c66f1057c1301cc298247637cbc821",
+      "size": 8620
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/request_application_generated.rs",
@@ -807,6 +882,21 @@
       "path": "rust/src/fb/open_perception_kit/metadata/semantic_segmentation_masks_generated.rs",
       "sha256": "c152ecc64beb2cf886bd8286150fe2ea018a9ff8e1008df4092b1193b469e762",
       "size": 13813
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/text_prompt_group_generated.rs",
+      "sha256": "b263d2d487d77e84e29b1f3033abcdc6160ca2a104206150d4addfb0c4fd7112",
+      "size": 7988
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/text_prompt_inputs_generated.rs",
+      "sha256": "10a16325f714c419a2bd50dd5cfb56096d4c2f9abd1964ca291b0c2e9f858c1d",
+      "size": 12893
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/text_prompt_payload_generated.rs",
+      "sha256": "5f7277ae51abb49dabcaf2b7047e42f41aec655398953dfe8fe8136400ef91d0",
+      "size": 5751
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/track_association_generated.rs",
@@ -869,6 +959,26 @@
       "size": 8768
     },
     {
+      "path": "rust/src/fb/open_perception_kit/metadata/visual_prompt_box_generated.rs",
+      "sha256": "fb52511a58162cee7fc189d1bbdcfe4606a599f955da21114c92c5ce6738ec66",
+      "size": 7442
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/visual_prompt_group_generated.rs",
+      "sha256": "1b142ffc5b321790df93000e6815c46301e5747ac42a09316c569f6f07a5f1b1",
+      "size": 9178
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/visual_prompt_inputs_generated.rs",
+      "sha256": "26948681d14ad89ec35abde91d40ea7bd3ea2c55fb6fe64994ceb2ac10293620",
+      "size": 13068
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/visual_prompt_payload_generated.rs",
+      "sha256": "2290a3f93aa43dca31dc83fc75205c4d6ada7d48ae8b814fa85de6a549218435",
+      "size": 7769
+    },
+    {
       "path": "rust/src/fb/open_perception_kit/metadata/voice_activity_detection_generated.rs",
       "sha256": "c6b192a6b24ce4a3b8c3f3cd262f5475c0ab10455c027a4db5938e5144ea482b",
       "size": 13889
@@ -905,12 +1015,12 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "6a8730a8beace55a92913a6aef5572df89b73356ed1efedbb2197246fb7aeb6e",
-      "size": 62889
+      "sha256": "1059344885049a6b30a31ec02a967e5234cd645939baf4dc9300a71c56f6a80e",
+      "size": 67172
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
-      "sha256": "7ac8f82380c92eefa600bef9f6d02aad34642ddebbb82dcb81219a8d85884d5a",
+      "sha256": "40a1527a723e6b31ee826b8b32ea7192a83e774eab7886bc626690bdcfd69459",
       "size": 1025
     },
     {
@@ -930,12 +1040,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "bb0f876e859d1237c675e022841f92283e33592d188c11ea0b8dd8a5d584605c",
+      "sha256": "de7e74e8809c086d89201cedefeb5d291989cc47bc82fe7ac981b4408c47cad7",
       "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "a78581cf0d84d8aeb1b50ba07ba8499fc2b7383811eb12e17880b9e8f4f456e9",
+      "sha256": "f977c8c2e30247e60a457c921e1b460de895e3f9325ca42deb14ef515d75a379",
       "size": 14047
     },
     {
@@ -1350,13 +1460,13 @@
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-association.d.ts",
-      "sha256": "e645a87195fd7e13dd83fb10bf682cdd139317a81410a14191adf15ea860c183",
-      "size": 3360
+      "sha256": "6834302efa555ca88be59a38612bc0aec4c8d49de2c0232516c585a5dc8945c6",
+      "size": 3943
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-association.js",
-      "sha256": "3602ce120637227dd74a82e39e764cb1f6e055cce4e1e86292c6a2f4e801064e",
-      "size": 5663
+      "sha256": "dbf759de73b2d63e8895f5147acb1e7aaa486a1e58faba32e78bde544c64be86",
+      "size": 6990
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-box.d.ts",
@@ -1367,6 +1477,36 @@
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-box.js",
       "sha256": "584979b6a8ef7d5e1ed03cf1674addd170635812a82c0578f83c3d3ef66d92a2",
       "size": 3565
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-object-match.d.ts",
+      "sha256": "652148fa68a5b915adfb0388bb4ffaa2a5e3c93b2d1bf405f2f07fefa8d4d43a",
+      "size": 2260
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-object-match.js",
+      "sha256": "8ef07b8edc578df0993c8cbfeab72ea23a5e3ee30c44080796fd8a8370e91c6a",
+      "size": 3180
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-encoding.d.ts",
+      "sha256": "16b9d27005f569580307f30e278656187ffc6ce92df158ddf290020045aec3aa",
+      "size": 868
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-encoding.js",
+      "sha256": "ce674256d50de78c63899b16b49e4cb98cf1b4cbb3918165be52b84593828ce3",
+      "size": 1177
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-image.d.ts",
+      "sha256": "0093cb5f7411c6a91c79c5829a38a6ea9557ea168c40af72becdc519070eb2f2",
+      "size": 2943
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-image.js",
+      "sha256": "1e01d00f4463fd23f2314c3e9c11a963153f9c9a7d28791c4041d27f8ce9e5c5",
+      "size": 5055
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/request-application.d.ts",
@@ -1447,6 +1587,36 @@
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js",
       "sha256": "5dc084e37e86896efc8649bfadbb4913c619b2f6f3a74c541638a224e48c37bc",
       "size": 5389
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-group.d.ts",
+      "sha256": "122b5f1970323f994e28f4943c0998215758e8efcb2a97465962575c2e192f7c",
+      "size": 2763
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-group.js",
+      "sha256": "0951ffe505d8fcd455ad1e8b3cd2f9cd31dd74db011c80838ae43dd2523261f6",
+      "size": 3950
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-inputs.d.ts",
+      "sha256": "bb37cd07f7ebd07e1970bf11c591e9224e0af77b30debaf687988fca144a0670",
+      "size": 2972
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-inputs.js",
+      "sha256": "91c28591fc60756ca15b064c5264deffb5f6585f5fffa70c1761a6812df71691",
+      "size": 4689
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-payload.d.ts",
+      "sha256": "3c7b154a9bd8bdd03476e8921b450c49197831b0237adc3e2ce02e5400bcdb92",
+      "size": 2375
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-payload.js",
+      "sha256": "94f54938602d169f17934afc19ac05a070a4a1ce150284ce350d34660d74cf0f",
+      "size": 3475
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-association-kind.d.ts",
@@ -1569,6 +1739,46 @@
       "size": 4552
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-box.d.ts",
+      "sha256": "ec3c3ee9fa853f72432fdf8a2699ad46e2d93f1492c357747862ea900410429a",
+      "size": 2310
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-box.js",
+      "sha256": "ba95144f7a95a7c1674912f38998d53952aa67c13c0414d3becd3c1a2f07fbbc",
+      "size": 3685
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-group.d.ts",
+      "sha256": "3e41dc3b256bed9e0b604b97c69e9c68e8d94850ff64831c5383c0e91aad92b7",
+      "size": 2775
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-group.js",
+      "sha256": "29d9357e59d27eb6b35566b5e3ca958546275d534f5e0bb7dff6eed807aa93fc",
+      "size": 4312
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-inputs.d.ts",
+      "sha256": "146a7e80640cdaa3b5f6383939bed5a7fd9bc12ed00ed252b8a07ce12885dfc1",
+      "size": 3018
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-inputs.js",
+      "sha256": "dbd9be2a8b75b2ec43e8f86b0c79e80f5feacd50b3f7add6fa7e4d17bedd500e",
+      "size": 4733
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-payload.d.ts",
+      "sha256": "1da13e19392dcf343cfd1e86a662710b1572aa9fc891e65dfa81f111dc1aa29f",
+      "size": 3085
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-payload.js",
+      "sha256": "dd0f2b83b3638db941fcb3f7e63b6abc8e64eaa669ddb3bbf6a1f134b9673181",
+      "size": 4951
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.d.ts",
       "sha256": "ec53805aa8f8961609dc5cbbefd3292b27d47f27039e773b83f9aceb1604b623",
       "size": 3709
@@ -1600,12 +1810,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "ab4f6c4ca9ab9d793bc50b82ca9c06f2bda311b88543791a76877fe1ae45cd7b",
+      "sha256": "a7e6cac47faa98be9910a30b00417eaccfdd110baa3ce64ec1a1b3ad4d0804c8",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "bc2b810376a2face040dcc0e63c88366ab1819f2cacc3924923d33bca4629082",
+      "sha256": "35df713df269c792341cc1211b30b3523ae2c26a9b46c3b077af6595df5fcb36",
       "size": 1203
     },
     {
@@ -1615,8 +1825,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "a42e3b3a8bfc3e55c107746a1d885af907ae9c06c45ef89deca8cbcb7963e3cc",
-      "size": 16189
+      "sha256": "6d9b3e8b2777b7b0388aa06eb8cb3b8e656692644c1624e132c490a3f81ced16",
+      "size": 17997
     },
     {
       "path": "ts/package.json",
@@ -1625,7 +1835,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "842d73efa9352c682082f2cdc563f53003c413d199cee7e07d0ee4664dc0c722",
+      "sha256": "ccdcd361ced15000f86b21527e1f219e177a6a4cad885e7e9d01e289a7de8447",
       "size": 12726
     },
     {
@@ -1835,13 +2045,28 @@
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/prompt-association.ts",
-      "sha256": "62aba3f5d28cb9fe359f11e6389b3db4abfa9955ba264f225dd80f5acddae12b",
-      "size": 6140
+      "sha256": "193cc73bdb16d079f6c66451147e33b93de4b9ac64f0937fd3629e73c2698bdd",
+      "size": 7641
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/prompt-box.ts",
       "sha256": "2aad8227bee3f9316adfe44997b8cbd64315452d28351984eba8d26938104b32",
       "size": 3790
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/prompt-object-match.ts",
+      "sha256": "321824070befb94ba0dfe514e2ab98084dd83ab0c71f3ab28524cd5542524ecb",
+      "size": 3612
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-encoding.ts",
+      "sha256": "9e2e3a0482bdc032354166440962de305738853fd50a903c3f00f9c14c3ed6a9",
+      "size": 952
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-image.ts",
+      "sha256": "9917c50eb5b3889dfa4d1fc2fc88eb726bc583fed0cf28fb8f3e4473f71f03b3",
+      "size": 5504
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/request-application.ts",
@@ -1882,6 +2107,21 @@
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.ts",
       "sha256": "e409187518964199ce6e1aeada59bde70c4f2a3530ade7aa038f6dc2a1829069",
       "size": 6013
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-group.ts",
+      "sha256": "b399936c4f4da2af875cf01bf3084d17fd043fc1521c9bc15982375757f0d047",
+      "size": 4656
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-inputs.ts",
+      "sha256": "d3d3d67dda5c48716f34d7972a74c25b2f2de47b1636768d97ccd720b9324a6f",
+      "size": 5090
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-payload.ts",
+      "sha256": "40194da87c433ff204384e08a51d38305722217078c52c28d4fcf2fdae1f9f9f",
+      "size": 3960
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/track-association-kind.ts",
@@ -1944,6 +2184,26 @@
       "size": 4853
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-box.ts",
+      "sha256": "aff67ea45ff858cf417e9e19bfb6ae799ea86bf6925581061f30993840b13a46",
+      "size": 3958
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-group.ts",
+      "sha256": "16843efff35f05a0d2d7a7e76f8c4877df9efaa851b46d8755f33347bd9743c6",
+      "size": 4851
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-inputs.ts",
+      "sha256": "75963d5f7c9e36b05ee0bb20dc91b3094166e0e224cd83b8e3c3a4e66815b9bf",
+      "size": 5158
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-payload.ts",
+      "sha256": "b94ade40524ee727fbcb5488c2745edb01e1c36b49f494dba0fa37cc063488b7",
+      "size": 5683
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.ts",
       "sha256": "45bff4f0fdc928724439f9b01b9ade67a16ea50a2827b6335661daf63d23ce8d",
       "size": 7231
@@ -1960,13 +2220,13 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "7f581f451e9156dc6b90041ab87d05b39fed7921a79931db8098194572063fc1",
+      "sha256": "f40f82dd1ef6bb71d6c8dec52e39bb85bd7853fb1bad104a145bd81a5d6ad341",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "85fd8e4a3440c8729adff3a92534755612e10189ef57afc2f581469b54d17b99",
-      "size": 16235
+      "sha256": "ed98328600d8e6ab2761362121bf5ea7eb5ad8a004623c2abfb73a45518fa522",
+      "size": 18011
     },
     {
       "path": "ts/tsconfig.json",
@@ -2354,8 +2614,8 @@
         },
         {
           "path": "fb/prompt_association_generated.h",
-          "sha256": "76dfbf62433010f3e6d59e017b87d4525707ae19921f0da1e14d0d0953d19eea",
-          "size": 12100
+          "sha256": "9207b84108ca33020bd21991c0601c597790bb0db211f73fcb336e73275cf8a2",
+          "size": 18700
         },
         {
           "path": "fb/request_generated.h",
@@ -2373,6 +2633,11 @@
           "size": 20225
         },
         {
+          "path": "fb/text_prompt_inputs_generated.h",
+          "sha256": "f84fbc19bcd039e1a4b8ab1af0f7f336a1b50b093d8892dbf3edbb010d52dda8",
+          "size": 21381
+        },
+        {
           "path": "fb/track_traces_generated.h",
           "sha256": "bd791ba52f9e9cb543c0b949b58a9e9287850da90677473c642fe8b051a2962c",
           "size": 19591
@@ -2386,6 +2651,11 @@
           "path": "fb/turn_detections_generated.h",
           "sha256": "777533596c5cd09386bf8a87a4f92bcbe7b7f1c13edcbb638706a9706258f58f",
           "size": 20978
+        },
+        {
+          "path": "fb/visual_prompt_inputs_generated.h",
+          "sha256": "cb3ed43eeae3646f71211c72d822cf70c4341319713b98dded576969a08bdebe",
+          "size": 37113
         },
         {
           "path": "fb/voice_activity_detections_generated.h",
@@ -2404,13 +2674,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "89f518cdc64302a37cb86d888d9608cb91b34996723d552fb2d361f23935b4a6",
-          "size": 37275
+          "sha256": "f9c84f6b2a2802d4b657b240c8610a877713f915238de4437859ba81f025e53b",
+          "size": 38819
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "37e7333a4cb1fe851b1c2d5cb193db9f0929415b1610bf1cd447b47f04a4bfef",
-          "size": 462269
+          "sha256": "49b40ce89d90a82b0c016e95be33f2cf9948c993cb9a9c7a42e3afbc49850115",
+          "size": 533142
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -2533,6 +2803,12 @@
           "schema": "semantic_segmentation_masks.fbs"
         },
         {
+          "file_identifier": "TPRM",
+          "payload_id": "0x6a876f9a2e01b911",
+          "qualified_root_type": "open_perception_kit.metadata.TextPromptInputs",
+          "schema": "text_prompt_inputs.fbs"
+        },
+        {
           "file_identifier": "TRCE",
           "payload_id": "0x69ba3321ecdf68ab",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
@@ -2543,6 +2819,12 @@
           "payload_id": "0x63d9a55e589ccb48",
           "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
           "schema": "turn_detections.fbs"
+        },
+        {
+          "file_identifier": "VPRM",
+          "payload_id": "0x184d15029dc9cd98",
+          "qualified_root_type": "open_perception_kit.metadata.VisualPromptInputs",
+          "schema": "visual_prompt_inputs.fbs"
         },
         {
           "file_identifier": "VACT",
@@ -2623,8 +2905,8 @@
         },
         {
           "path": "prompt_association.fbs",
-          "sha256": "8bb15ac0511903a1152d0b6d82b7265bf06a8fde439afe3744e5a30013c5ff79",
-          "size": 548
+          "sha256": "8252d36a9e85ae532170a2fee1cd81dce0312ec00926551fa163570f6054d858",
+          "size": 924
         },
         {
           "path": "request.fbs",
@@ -2642,6 +2924,11 @@
           "size": 759
         },
         {
+          "path": "text_prompt_inputs.fbs",
+          "sha256": "41325dbef3bcb6ccd8febbda9d3f82c225e541cc74aabb9b92fab9a58e6af44b",
+          "size": 643
+        },
+        {
           "path": "track_traces.fbs",
           "sha256": "5cd59ab13515b69368c1b80cc6641fe8780e7de4b6b84f47336d343b98762845",
           "size": 714
@@ -2657,12 +2944,17 @@
           "size": 1152
         },
         {
+          "path": "visual_prompt_inputs.fbs",
+          "sha256": "2e1b2779f5bd46942581143e2d252d432ad41b107ac77f697e65de4ea05eefc5",
+          "size": 1173
+        },
+        {
           "path": "voice_activity_detections.fbs",
           "sha256": "56fc3fef8fa4f38b22162515fd18e4a22b16158f922f26d9113e18873e7bebe5",
           "size": 1082
         }
       ],
-      "schema_set_sha256": "97afd93a5a52f21f8578c5d3e733cace8d11cc230b9fe9e6b040d46d119d39dd",
+      "schema_set_sha256": "b133f714ba35b4176ffff7899596b12d940123359ea93872cca6c622f646e552",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -2677,7 +2969,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "2203f9c47d6b88ed817ffef0ad7c43cb7545635b8e3c128a0e324c9f2e6c5765",
+          "sha256": "cf804ecf46b6e01b8ca471b2e5c74389b8d4bbb5e41eb01a3f76513b5f3d8d90",
           "size": 506
         },
         {
@@ -2882,13 +3174,28 @@
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PromptAssociation.py",
-          "sha256": "01ac4bebe6ab6ac0947ac8ea32e35525f58c1bcc9476300183a2701a4269f79c",
-          "size": 7475
+          "sha256": "77945259bb218a45491acb629eb5dfeaf50676b8bbe1903670a1e022030b01e9",
+          "size": 10098
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PromptBox.py",
           "sha256": "3b88332051eecd500136600db6867fc899a4df381f4c292e1c90f391fbb9702b",
           "size": 4109
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PromptObjectMatch.py",
+          "sha256": "296a0afa483bdf318dc76dc232d6ab40d7f2857ae06c558e1033383763bc835a",
+          "size": 3548
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PromptReferenceEncoding.py",
+          "sha256": "4e66b5c36a614478cd033e35e0867179b45ad2af58f3e1fcb460b38529463f96",
+          "size": 161
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PromptReferenceImage.py",
+          "sha256": "0b1b7733c314bbe6c66454af40bb07465e586ec9fcf495a94bb41062111c6ed2",
+          "size": 6486
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/RequestApplication.py",
@@ -2929,6 +3236,21 @@
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/SemanticSegmentationMasks.py",
           "sha256": "7f394eb0ea965220476c295334cceb6403cf0c70d0987897828b681089d98a8b",
           "size": 7800
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TextPromptGroup.py",
+          "sha256": "44a024c90f3ca42055e43b18b6d3ff5863449f009f0a3d18eef9f346373bace1",
+          "size": 4552
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TextPromptInputs.py",
+          "sha256": "9e8de60c442e60d9fa04b62743742d1be1dd1f3e394cc664ef8a90a4ae809879",
+          "size": 6085
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TextPromptPayload.py",
+          "sha256": "6241ce637948b9c414acbaf369908825cf6305aa2d15d0610b86c6ab0e06caf1",
+          "size": 4750
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TrackAssociation.py",
@@ -2991,6 +3313,26 @@
           "size": 5608
         },
         {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VisualPromptBox.py",
+          "sha256": "bd83a162bdcb40b34477ff1d731acffd5f4c19198d946a7b48e6d9e8a0b50dd9",
+          "size": 4385
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VisualPromptGroup.py",
+          "sha256": "583b96240a52ac130d2550718c40b5c65b2882402f5509c26e4765a021973da8",
+          "size": 5758
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VisualPromptInputs.py",
+          "sha256": "39309d22f93c7b3940f959770b36790c34f6014b9151fa419ae5e74c90fb69e0",
+          "size": 6197
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VisualPromptPayload.py",
+          "sha256": "3e3ca3abc9ae7c21715c3638acd013bf5ffdcbba8c008ce721db443e85a05a96",
+          "size": 7626
+        },
+        {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetection.py",
           "sha256": "e5cfba521510aabd0102c97f572b17bcf792f16d3a19ebb40770906e611a1eba",
           "size": 8931
@@ -3042,12 +3384,12 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "2acffca75b0b79ba39ea437e1220535d99c9720719d49dd7de685d1cc924bb1c",
-          "size": 6829
+          "sha256": "4ba3281516328df51214e47616afe78eb8f44af6090333f0d02b105811ed0982",
+          "size": 7621
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "c209eb99f967aa05fff66207f2f4c491f72271164acc28ea599bd3dea9932df5",
+          "sha256": "df39e62508cb98391dca67df589ba0086adc375cd6e6dc449ad2cd1fb6353de1",
           "size": 14823
         }
       ],
@@ -3158,6 +3500,12 @@
           "schema": "semantic_segmentation_masks.fbs"
         },
         {
+          "file_identifier": "TPRM",
+          "payload_id": "0x6a876f9a2e01b911",
+          "qualified_root_type": "open_perception_kit.metadata.TextPromptInputs",
+          "schema": "text_prompt_inputs.fbs"
+        },
+        {
           "file_identifier": "TRCE",
           "payload_id": "0x69ba3321ecdf68ab",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
@@ -3168,6 +3516,12 @@
           "payload_id": "0x63d9a55e589ccb48",
           "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
           "schema": "turn_detections.fbs"
+        },
+        {
+          "file_identifier": "VPRM",
+          "payload_id": "0x184d15029dc9cd98",
+          "qualified_root_type": "open_perception_kit.metadata.VisualPromptInputs",
+          "schema": "visual_prompt_inputs.fbs"
         },
         {
           "file_identifier": "VACT",
@@ -3254,8 +3608,8 @@
         },
         {
           "path": "prompt_association.fbs",
-          "sha256": "8bb15ac0511903a1152d0b6d82b7265bf06a8fde439afe3744e5a30013c5ff79",
-          "size": 548
+          "sha256": "8252d36a9e85ae532170a2fee1cd81dce0312ec00926551fa163570f6054d858",
+          "size": 924
         },
         {
           "path": "request.fbs",
@@ -3273,6 +3627,11 @@
           "size": 759
         },
         {
+          "path": "text_prompt_inputs.fbs",
+          "sha256": "41325dbef3bcb6ccd8febbda9d3f82c225e541cc74aabb9b92fab9a58e6af44b",
+          "size": 643
+        },
+        {
           "path": "track_traces.fbs",
           "sha256": "5cd59ab13515b69368c1b80cc6641fe8780e7de4b6b84f47336d343b98762845",
           "size": 714
@@ -3288,12 +3647,17 @@
           "size": 1152
         },
         {
+          "path": "visual_prompt_inputs.fbs",
+          "sha256": "2e1b2779f5bd46942581143e2d252d432ad41b107ac77f697e65de4ea05eefc5",
+          "size": 1173
+        },
+        {
           "path": "voice_activity_detections.fbs",
           "sha256": "56fc3fef8fa4f38b22162515fd18e4a22b16158f922f26d9113e18873e7bebe5",
           "size": 1082
         }
       ],
-      "schema_set_sha256": "97afd93a5a52f21f8578c5d3e733cace8d11cc230b9fe9e6b040d46d119d39dd",
+      "schema_set_sha256": "b133f714ba35b4176ffff7899596b12d940123359ea93872cca6c622f646e552",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3448,8 +3812,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "c32d7bdabbcb1e29c3f8cb9c28a8b95809933520bdea1f0855f950ecac46ac12",
-          "size": 4870
+          "sha256": "600c2ee8861c1c0722faa958620c53f511f8b636b4ac7fbcee370aad1f7f6481",
+          "size": 5714
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -3508,13 +3872,28 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/prompt_association_generated.rs",
-          "sha256": "35a0d1f3082d67e2a0f602d87f1c604dea3bf656dfec40d82f60a3be136be704",
-          "size": 14320
+          "sha256": "3933ea3d47e103ade7b8075480d080546ebd55d07388af5388c0b15353c82c08",
+          "size": 16136
         },
         {
           "path": "src/fb/open_perception_kit/metadata/prompt_box_generated.rs",
           "sha256": "18e58c256f86b08aa5a3b3e3f45caec8022595f7c2b5638233f0df0ce74d49a6",
           "size": 6383
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/prompt_object_match_generated.rs",
+          "sha256": "0af2f7619dc6120af43c86c8d3f4812dc53a4d3e11b712313f49fec69c92d6ea",
+          "size": 5643
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/prompt_reference_encoding_generated.rs",
+          "sha256": "57e32490c7d99d203a6effb4074716b71f329e1c57a736972350213491b7e657",
+          "size": 3188
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/prompt_reference_image_generated.rs",
+          "sha256": "335192231efb8c886617bbcc2d37a6021c14ee079f545e28435a9c2259c97062",
+          "size": 7939
         },
         {
           "path": "src/fb/open_perception_kit/metadata/request_application_generated.rs",
@@ -3555,6 +3934,21 @@
           "path": "src/fb/open_perception_kit/metadata/semantic_segmentation_masks_generated.rs",
           "sha256": "b41a69c8a8f00d38357bbb53b335d61d8b2859ed2e088f4aeee501167af6b68a",
           "size": 13132
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/text_prompt_group_generated.rs",
+          "sha256": "fd7f9eb5c270b3e9cf2d14ea9f80b6d47151cb06e6bf4a183c7e50542a0acd86",
+          "size": 7307
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/text_prompt_inputs_generated.rs",
+          "sha256": "0c4ae0cd732bd42fd161e4c38449c2c42277d051bda9759dbd5158986a2b7c78",
+          "size": 12212
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/text_prompt_payload_generated.rs",
+          "sha256": "916527bc309281841f2eb7768c83e417a11df9efaa5fdcdc3f71f2fc0681f220",
+          "size": 5070
         },
         {
           "path": "src/fb/open_perception_kit/metadata/track_association_generated.rs",
@@ -3617,6 +4011,26 @@
           "size": 8087
         },
         {
+          "path": "src/fb/open_perception_kit/metadata/visual_prompt_box_generated.rs",
+          "sha256": "51ec1d07218ed167576839d7e947ab002c5e02130aa22eec5f23bc79df2b07a6",
+          "size": 6761
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/visual_prompt_group_generated.rs",
+          "sha256": "ad1d8acd5bfb74acd7ca05c84b2e5cf73080e9a3627919b1f076a61999732f30",
+          "size": 8497
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/visual_prompt_inputs_generated.rs",
+          "sha256": "d02578e1667840a6d6a4a1de254155d8a9f81a95a3b4c9814d3c8ee76ac29bd6",
+          "size": 12387
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/visual_prompt_payload_generated.rs",
+          "sha256": "48a3349c6e7bdac22292b06117e6e9d979761adcdf930b6e78bc597cad09983f",
+          "size": 7088
+        },
+        {
           "path": "src/fb/open_perception_kit/metadata/voice_activity_detection_generated.rs",
           "sha256": "4871d0fb94123fb90a35b495a337218255847fe0350e4b2cb08a740b8496b396",
           "size": 13208
@@ -3653,8 +4067,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "ef18d27698b396c2e2aec2519b23dfd8ede41450f1a925fe2f75431415d2fe87",
-          "size": 62208
+          "sha256": "bedbaa74bc0b5a7dad4a4d8bcc6003c97ad5267b681be8c3ffb2113d45defa3e",
+          "size": 66491
         }
       ],
       "flatbuffers_runtimes": [
@@ -3764,6 +4178,12 @@
           "schema": "semantic_segmentation_masks.fbs"
         },
         {
+          "file_identifier": "TPRM",
+          "payload_id": "0x6a876f9a2e01b911",
+          "qualified_root_type": "open_perception_kit.metadata.TextPromptInputs",
+          "schema": "text_prompt_inputs.fbs"
+        },
+        {
           "file_identifier": "TRCE",
           "payload_id": "0x69ba3321ecdf68ab",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
@@ -3774,6 +4194,12 @@
           "payload_id": "0x63d9a55e589ccb48",
           "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
           "schema": "turn_detections.fbs"
+        },
+        {
+          "file_identifier": "VPRM",
+          "payload_id": "0x184d15029dc9cd98",
+          "qualified_root_type": "open_perception_kit.metadata.VisualPromptInputs",
+          "schema": "visual_prompt_inputs.fbs"
         },
         {
           "file_identifier": "VACT",
@@ -3845,8 +4271,8 @@
         },
         {
           "path": "prompt_association.fbs",
-          "sha256": "8bb15ac0511903a1152d0b6d82b7265bf06a8fde439afe3744e5a30013c5ff79",
-          "size": 548
+          "sha256": "8252d36a9e85ae532170a2fee1cd81dce0312ec00926551fa163570f6054d858",
+          "size": 924
         },
         {
           "path": "request.fbs",
@@ -3864,6 +4290,11 @@
           "size": 759
         },
         {
+          "path": "text_prompt_inputs.fbs",
+          "sha256": "41325dbef3bcb6ccd8febbda9d3f82c225e541cc74aabb9b92fab9a58e6af44b",
+          "size": 643
+        },
+        {
           "path": "track_traces.fbs",
           "sha256": "5cd59ab13515b69368c1b80cc6641fe8780e7de4b6b84f47336d343b98762845",
           "size": 714
@@ -3879,12 +4310,17 @@
           "size": 1152
         },
         {
+          "path": "visual_prompt_inputs.fbs",
+          "sha256": "2e1b2779f5bd46942581143e2d252d432ad41b107ac77f697e65de4ea05eefc5",
+          "size": 1173
+        },
+        {
           "path": "voice_activity_detections.fbs",
           "sha256": "56fc3fef8fa4f38b22162515fd18e4a22b16158f922f26d9113e18873e7bebe5",
           "size": 1082
         }
       ],
-      "schema_set_sha256": "97afd93a5a52f21f8578c5d3e733cace8d11cc230b9fe9e6b040d46d119d39dd",
+      "schema_set_sha256": "b133f714ba35b4176ffff7899596b12d940123359ea93872cca6c622f646e552",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"
@@ -3899,7 +4335,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "794170783438bf130a837cba4db09ab10ea1ab86daf8682fbb0000754f431aea",
+          "sha256": "67e5869484f1f01a8024c3f56826f483ff19dc8ab636d42c033b79a806ef9c35",
           "size": 12045
         },
         {
@@ -4114,13 +4550,28 @@
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/prompt-association.ts",
-          "sha256": "eb0117722d0cabd9404b10becf915486ce3256f696fd6ac80a1d72da3780cd5b",
-          "size": 5459
+          "sha256": "6085ea28e06ba1e3222d45657c2aa9c72bb55b1ab4452717fc78e11709a885fe",
+          "size": 6960
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/prompt-box.ts",
           "sha256": "4f6e4b88d133fd3dc65ae81c57adab8f6bd920373ee5a1740d9edec6a0be3791",
           "size": 3109
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/prompt-object-match.ts",
+          "sha256": "470fc9662e1f8de8393938535bc22c0f6ab9d4def07df1a6f1f822602f5de2c7",
+          "size": 2931
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-encoding.ts",
+          "sha256": "d25d6aa9b9a22d27e39de9eea903a3b26e40e765c43e15489765b7e5a7d474ce",
+          "size": 271
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-image.ts",
+          "sha256": "5d0ec1276578c0e907274df0c5771bba34fb1fc37ab8202a04558065fc64a434",
+          "size": 4823
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/request-application.ts",
@@ -4161,6 +4612,21 @@
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.ts",
           "sha256": "3555eccd7da05a461971c4b1b89200fc4883f388ea5f8aeb9d04fbcce3bd9963",
           "size": 5332
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-group.ts",
+          "sha256": "481c985d10022334f293871a5c5881b589faa0f5895da3899ae19642e77bc31c",
+          "size": 3975
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-inputs.ts",
+          "sha256": "2e62cf5018637805894f061c1ffdb04d4db6593b09aea04a013eb42c082d987e",
+          "size": 4409
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-payload.ts",
+          "sha256": "2d3de5831987c4661732bfa4cf9cec6d2a19382909afc34c6ccdd34fb246b1d5",
+          "size": 3279
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/track-association-kind.ts",
@@ -4223,6 +4689,26 @@
           "size": 4172
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-box.ts",
+          "sha256": "c5723d778c66b7c13b113341c5ef7e5faf502c8d1885958223c180a410bdb004",
+          "size": 3277
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-group.ts",
+          "sha256": "7b201bbc39d8cb89cd0e81ba85f1282c42e96e4c9482a014a5aaa393c87f28e6",
+          "size": 4170
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-inputs.ts",
+          "sha256": "543862f5045a20686ba8f783300853f527440ee1c07bfdd349d1844549b7bd4b",
+          "size": 4477
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-payload.ts",
+          "sha256": "3e72be6994c59388b27cfdc00b2eea896127212c8b1ea8ce16fff3f12623048d",
+          "size": 5002
+        },
+        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.ts",
           "sha256": "75ec3135458659e9bc50e149cd24e38c6071a9eb0e3f6d5502fd4a71c9f69c56",
           "size": 6550
@@ -4234,13 +4720,13 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "69d48094f9162d6d039a5ec27bc59d4bd595ebcdc988993f06c7b718b0ff4fb3",
+          "sha256": "82148166bb14cceb86aab1d3826c45f5b04d1c9e5f0eb710aaf32172529c75be",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "8d6c5499677150a3e1df47e4aee1612ec762c9f9ae45e170dd6dbff77fc0b0d7",
-          "size": 15554
+          "sha256": "a06465002dfe8ac4a6356f6094c358d7f0840d3fca0f2b29a5e623a896359e25",
+          "size": 17330
         },
         {
           "path": "tsconfig.json",
@@ -4355,6 +4841,12 @@
           "schema": "semantic_segmentation_masks.fbs"
         },
         {
+          "file_identifier": "TPRM",
+          "payload_id": "0x6a876f9a2e01b911",
+          "qualified_root_type": "open_perception_kit.metadata.TextPromptInputs",
+          "schema": "text_prompt_inputs.fbs"
+        },
+        {
           "file_identifier": "TRCE",
           "payload_id": "0x69ba3321ecdf68ab",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
@@ -4365,6 +4857,12 @@
           "payload_id": "0x63d9a55e589ccb48",
           "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
           "schema": "turn_detections.fbs"
+        },
+        {
+          "file_identifier": "VPRM",
+          "payload_id": "0x184d15029dc9cd98",
+          "qualified_root_type": "open_perception_kit.metadata.VisualPromptInputs",
+          "schema": "visual_prompt_inputs.fbs"
         },
         {
           "file_identifier": "VACT",
@@ -4436,8 +4934,8 @@
         },
         {
           "path": "prompt_association.fbs",
-          "sha256": "8bb15ac0511903a1152d0b6d82b7265bf06a8fde439afe3744e5a30013c5ff79",
-          "size": 548
+          "sha256": "8252d36a9e85ae532170a2fee1cd81dce0312ec00926551fa163570f6054d858",
+          "size": 924
         },
         {
           "path": "request.fbs",
@@ -4455,6 +4953,11 @@
           "size": 759
         },
         {
+          "path": "text_prompt_inputs.fbs",
+          "sha256": "41325dbef3bcb6ccd8febbda9d3f82c225e541cc74aabb9b92fab9a58e6af44b",
+          "size": 643
+        },
+        {
           "path": "track_traces.fbs",
           "sha256": "5cd59ab13515b69368c1b80cc6641fe8780e7de4b6b84f47336d343b98762845",
           "size": 714
@@ -4470,12 +4973,17 @@
           "size": 1152
         },
         {
+          "path": "visual_prompt_inputs.fbs",
+          "sha256": "2e1b2779f5bd46942581143e2d252d432ad41b107ac77f697e65de4ea05eefc5",
+          "size": 1173
+        },
+        {
           "path": "voice_activity_detections.fbs",
           "sha256": "56fc3fef8fa4f38b22162515fd18e4a22b16158f922f26d9113e18873e7bebe5",
           "size": 1082
         }
       ],
-      "schema_set_sha256": "97afd93a5a52f21f8578c5d3e733cace8d11cc230b9fe9e6b040d46d119d39dd",
+      "schema_set_sha256": "b133f714ba35b4176ffff7899596b12d940123359ea93872cca6c622f646e552",
       "sdk": {
         "name": "open_perception_kit",
         "version": "1.0.0"

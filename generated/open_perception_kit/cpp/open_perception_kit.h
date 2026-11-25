@@ -49,8 +49,10 @@
 #include "fb/prompt_association_generated.h"
 #include "fb/segmentation_masks_generated.h"
 #include "fb/semantic_segmentation_masks_generated.h"
+#include "fb/text_prompt_inputs_generated.h"
 #include "fb/track_traces_generated.h"
 #include "fb/turn_detections_generated.h"
+#include "fb/visual_prompt_inputs_generated.h"
 #include "fb/voice_activity_detections_generated.h"
 #include "flatbuffers/flatbuffers.h"
 
@@ -59,7 +61,7 @@ namespace open_perception_kit {
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "1.0.0";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "97afd93a5a52f21f8578c5d3e733cace8d11cc230b9fe9e6b040d46d119d39dd";
+    "b133f714ba35b4176ffff7899596b12d940123359ea93872cca6c622f646e552";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -306,6 +308,23 @@ template <> struct native_traits<open_perception_kit::metadata::SemanticSegmenta
     }
 };
 
+template <> struct native_traits<open_perception_kit::metadata::TextPromptInputsT> {
+    using table_type = open_perception_kit::metadata::TextPromptInputs;
+    using native_type = open_perception_kit::metadata::TextPromptInputsT;
+
+    static constexpr id_t id = 7676226797863811345ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.TextPromptInputs";
+
+    static constexpr const char *file_identifier() {
+        return "TPRM";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreateTextPromptInputs(builder, obj);
+    }
+};
+
 template <> struct native_traits<open_perception_kit::metadata::TrackTracesT> {
     using table_type = open_perception_kit::metadata::TrackTraces;
     using native_type = open_perception_kit::metadata::TrackTracesT;
@@ -337,6 +356,23 @@ template <> struct native_traits<open_perception_kit::metadata::TurnDetectionsT>
 
     static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
         return open_perception_kit::metadata::CreateTurnDetections(builder, obj);
+    }
+};
+
+template <> struct native_traits<open_perception_kit::metadata::VisualPromptInputsT> {
+    using table_type = open_perception_kit::metadata::VisualPromptInputs;
+    using native_type = open_perception_kit::metadata::VisualPromptInputsT;
+
+    static constexpr id_t id = 1751078931098357144ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.VisualPromptInputs";
+
+    static constexpr const char *file_identifier() {
+        return "VPRM";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreateVisualPromptInputs(builder, obj);
     }
 };
 
@@ -376,8 +412,10 @@ using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::PromptAssociationT,
                                   open_perception_kit::metadata::SegmentationMasksT,
                                   open_perception_kit::metadata::SemanticSegmentationMasksT,
+                                  open_perception_kit::metadata::TextPromptInputsT,
                                   open_perception_kit::metadata::TrackTracesT,
                                   open_perception_kit::metadata::TurnDetectionsT,
+                                  open_perception_kit::metadata::VisualPromptInputsT,
                                   open_perception_kit::metadata::VoiceActivityDetectionsT>;
 
 struct payload_entry {

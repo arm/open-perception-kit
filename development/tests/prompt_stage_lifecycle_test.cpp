@@ -33,6 +33,9 @@ namespace {
 
 class StagePayload final : public opk::PromptPayload {
   public:
+    size_t ownedBytes() const override {
+        return sizeof(*this);
+    }
     opk::PromptFormat format() const override {
         return {"TEST", 1, 0};
     }

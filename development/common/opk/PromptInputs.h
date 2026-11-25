@@ -40,10 +40,24 @@ struct PromptFormat {
     bool operator==(const PromptFormat &) const = default;
 };
 
+/// Advertised semantic limits; zero means unspecified, not unlimited.
+/// Codecs and model consumers own independent values and validate their own boundaries.
+struct PromptLimits {
+    size_t maxGroups = 0;
+    size_t maxReferences = 0;
+    size_t maxReferenceDimension = 0;
+    size_t maxReferenceBytes = 0;
+    size_t maxDescriptionBytes = 0;
+
+    bool operator==(const PromptLimits &) const = default;
+};
+
 /// Immutable semantic input. Concrete implementations own any referenced media.
 struct PromptPayload {
     virtual ~PromptPayload();
     virtual PromptFormat format() const = 0;
+    /// Bytes owned by this payload, including transitively retained semantic storage.
+    virtual size_t ownedBytes() const = 0;
 };
 
 class PromptSnapshot {
@@ -84,6 +98,7 @@ class PromptController {
     static constexpr size_t MaxRequestsPerSession = 4096;
     static constexpr size_t MaxEndedSessions = 1024;
     static constexpr size_t MaxRetainedRevisions = 8;
+    static constexpr size_t MaxRetainedBytes = 64 * 1024 * 1024;
 
     Result<void> submit(PromptSnapshot prompt);
     Result<void>
@@ -98,6 +113,7 @@ class PromptController {
     std::set<uint64_t> usedRequestIds;
     std::shared_ptr<const PromptSnapshot> active;
     std::vector<std::weak_ptr<const PromptSnapshot>> retained;
+    std::vector<std::weak_ptr<const PromptPayload>> retainedPayloads;
 };
 
 } // namespace opk

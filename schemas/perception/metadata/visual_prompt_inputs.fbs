@@ -1,0 +1,44 @@
+include "request.fbs";
+
+namespace open_perception_kit.metadata;
+
+// Continuous normalized geometry in an included reference, independent of target geometry.
+table VisualPromptBox {
+  left:double;
+  top:double;
+  right:double;
+  bottom:double;
+}
+
+enum PromptReferenceEncoding:ubyte { Unknown = 0, RGB8 = 1 }
+
+// Complete owned upright, unmirrored pixels. No URI or historical target-frame ID.
+table PromptReferenceImage {
+  width:uint;
+  height:uint;
+  encoding:open_perception_kit.metadata.PromptReferenceEncoding;
+  pixels:[ubyte];
+}
+
+table VisualPromptGroup {
+  group_id:string;
+  display_name:string;
+  reference_index:uint;
+  // Normalized continuous coordinates in the referenced image, not the target.
+  box:open_perception_kit.metadata.VisualPromptBox;
+}
+
+table VisualPromptPayload {
+  references:[open_perception_kit.metadata.PromptReferenceImage];
+  groups:[open_perception_kit.metadata.VisualPromptGroup];
+}
+
+table VisualPromptInputs {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  request:open_perception_kit.metadata.RequestEnvelope;
+  payload:open_perception_kit.metadata.VisualPromptPayload;
+}
+
+root_type VisualPromptInputs;
+file_identifier "VPRM";

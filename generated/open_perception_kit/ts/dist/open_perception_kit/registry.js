@@ -31,8 +31,10 @@ import { PersonPresences as PersonPresences_7550522492754457054, PersonPresences
 import { PromptAssociation as PromptAssociation_5708111647489290303, PromptAssociationT as PromptAssociationT_5708111647489290303 } from './fb/open-perception-kit/metadata/prompt-association.js';
 import { SegmentationMasks as SegmentationMasks_3128408959875976772, SegmentationMasksT as SegmentationMasksT_3128408959875976772 } from './fb/open-perception-kit/metadata/segmentation-masks.js';
 import { SemanticSegmentationMasks as SemanticSegmentationMasks_133049182594848948, SemanticSegmentationMasksT as SemanticSegmentationMasksT_133049182594848948 } from './fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
+import { TextPromptInputs as TextPromptInputs_7676226797863811345, TextPromptInputsT as TextPromptInputsT_7676226797863811345 } from './fb/open-perception-kit/metadata/text-prompt-inputs.js';
 import { TrackTraces as TrackTraces_7618457940451616939, TrackTracesT as TrackTracesT_7618457940451616939 } from './fb/open-perception-kit/metadata/track-traces.js';
 import { TurnDetections as TurnDetections_7194963704333257544, TurnDetectionsT as TurnDetectionsT_7194963704333257544 } from './fb/open-perception-kit/metadata/turn-detections.js';
+import { VisualPromptInputs as VisualPromptInputs_1751078931098357144, VisualPromptInputsT as VisualPromptInputsT_1751078931098357144 } from './fb/open-perception-kit/metadata/visual-prompt-inputs.js';
 import { VoiceActivityDetections as VoiceActivityDetections_4750671262425495264, VoiceActivityDetectionsT as VoiceActivityDetectionsT_4750671262425495264 } from './fb/open-perception-kit/metadata/voice-activity-detections.js';
 const decode_3248104387212218840 = (blob) => BoxDetections_3248104387212218840.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
 const verify_3248104387212218840 = (blob) => BoxDetections_3248104387212218840.bufferHasIdentifier(new ByteBuffer(blob));
@@ -62,10 +64,14 @@ const decode_3128408959875976772 = (blob) => SegmentationMasks_31284089598759767
 const verify_3128408959875976772 = (blob) => SegmentationMasks_3128408959875976772.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_133049182594848948 = (blob) => SemanticSegmentationMasks_133049182594848948.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
 const verify_133049182594848948 = (blob) => SemanticSegmentationMasks_133049182594848948.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_7676226797863811345 = (blob) => TextPromptInputs_7676226797863811345.getRootAsTextPromptInputs(new ByteBuffer(blob)).unpack();
+const verify_7676226797863811345 = (blob) => TextPromptInputs_7676226797863811345.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_7618457940451616939 = (blob) => TrackTraces_7618457940451616939.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
 const verify_7618457940451616939 = (blob) => TrackTraces_7618457940451616939.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_7194963704333257544 = (blob) => TurnDetections_7194963704333257544.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
 const verify_7194963704333257544 = (blob) => TurnDetections_7194963704333257544.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_1751078931098357144 = (blob) => VisualPromptInputs_1751078931098357144.getRootAsVisualPromptInputs(new ByteBuffer(blob)).unpack();
+const verify_1751078931098357144 = (blob) => VisualPromptInputs_1751078931098357144.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_4750671262425495264 = (blob) => VoiceActivityDetections_4750671262425495264.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
 const verify_4750671262425495264 = (blob) => VoiceActivityDetections_4750671262425495264.bufferHasIdentifier(new ByteBuffer(blob));
 export const _TYPE_REGISTRY = new Map([
@@ -181,6 +187,14 @@ export const _TYPE_REGISTRY = new Map([
             decode: decode_133049182594848948,
             verify: verify_133049182594848948,
         }],
+    [7676226797863811345n, {
+            name: 'open_perception_kit::metadata::TextPromptInputs',
+            root_type: 'TextPromptInputs',
+            qualified_root_type: 'open_perception_kit.metadata.TextPromptInputs',
+            file_identifier: 'TPRM',
+            decode: decode_7676226797863811345,
+            verify: verify_7676226797863811345,
+        }],
     [7618457940451616939n, {
             name: 'open_perception_kit::metadata::TrackTraces',
             root_type: 'TrackTraces',
@@ -196,6 +210,14 @@ export const _TYPE_REGISTRY = new Map([
             file_identifier: 'TURN',
             decode: decode_7194963704333257544,
             verify: verify_7194963704333257544,
+        }],
+    [1751078931098357144n, {
+            name: 'open_perception_kit::metadata::VisualPromptInputs',
+            root_type: 'VisualPromptInputs',
+            qualified_root_type: 'open_perception_kit.metadata.VisualPromptInputs',
+            file_identifier: 'VPRM',
+            decode: decode_1751078931098357144,
+            verify: verify_1751078931098357144,
         }],
     [4750671262425495264n, {
             name: 'open_perception_kit::metadata::VoiceActivityDetections',
@@ -221,7 +243,9 @@ export const _CLASS_TO_ID = new Map([
     [PromptAssociationT_5708111647489290303, 5708111647489290303n],
     [SegmentationMasksT_3128408959875976772, 3128408959875976772n],
     [SemanticSegmentationMasksT_133049182594848948, 133049182594848948n],
+    [TextPromptInputsT_7676226797863811345, 7676226797863811345n],
     [TrackTracesT_7618457940451616939, 7618457940451616939n],
     [TurnDetectionsT_7194963704333257544, 7194963704333257544n],
+    [VisualPromptInputsT_1751078931098357144, 1751078931098357144n],
     [VoiceActivityDetectionsT_4750671262425495264, 4750671262425495264n],
 ]);

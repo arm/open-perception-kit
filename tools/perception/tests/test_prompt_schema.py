@@ -84,6 +84,61 @@ class PromptSchemaTests(unittest.TestCase):
         self.assertEqual(decoded_association.parentId, 0x8000000000000001)
         self.assertIn(decoded_association.sessionId, ("session-a", b"session-a"))
 
+    def test_python_query_groups_and_owned_references(self) -> None:
+        request = native("RequestEnvelope")(
+            requestId=0xFFFFFFFFFFFFFFFF, revision=0xFFFFFFFFFFFFFFFF,
+            destination=native("RequestDestination")(
+                inferenceInstance="query", sourceName="pipelineVideoFrame"))
+        text = native("TextPromptInputs")(request=request, payload=native("TextPromptPayload")(
+            groups=[native("TextPromptGroup")(groupId="people", description="person"),
+                    native("TextPromptGroup")(groupId="vehicles", description="bus")]))
+        visual = native("VisualPromptInputs")(request=request, payload=native("VisualPromptPayload")(
+            references=[native("PromptReferenceImage")(
+                width=2, height=1, encoding=1, pixels=[1, 2, 3, 4, 5, 6])],
+            groups=[native("VisualPromptGroup")(groupId="sample", referenceIndex=0,
+                                                box=native("VisualPromptBox")(left=0.25, top=0.0, right=1.0, bottom=1.0))]))
+        association = native("PromptAssociation")(request=request, matches=[
+            native("PromptObjectMatch")(objectId=0xFFFFFFFFFFFFFFFF, groupId="people")])
+        envelope = Envelope()
+        for item in (text, visual, association):
+            envelope.add(item)
+        result = Envelope(envelope.serialize())
+        self.assertEqual(result.get(native("TextPromptInputs")).request.requestId, 0xFFFFFFFFFFFFFFFF)
+        self.assertEqual(len(result.get(native("TextPromptInputs")).payload.groups), 2)
+        self.assertEqual(list(result.get(native("VisualPromptInputs")
+                                         ).payload.references[0].pixels), [1, 2, 3, 4, 5, 6])
+        self.assertEqual(result.get(native("VisualPromptInputs")).payload.groups[0].box.left, 0.25)
+        self.assertEqual(result.get(native("PromptAssociation")).matches[0].objectId, 0xFFFFFFFFFFFFFFFF)
+
+    def test_prompt_association_old_new_readers(self) -> None:
+        import flatbuffers
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "prompt_association_v1", FIXTURES / "prompt_association_v1.py")
+        old = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(old)
+        new_module = importlib.import_module(
+            "open_perception_kit.fb.open_perception_kit.metadata.PromptAssociation")
+
+        def serialize(value):
+            builder = flatbuffers.Builder(256)
+            builder.Finish(value.Pack(builder), file_identifier=b"PRAS")
+            return bytes(builder.Output())
+        previous = old.PromptAssociationT(sessionId="old", parentId=0xFFFFFFFFFFFFFFFF)
+        new_reader = new_module.PromptAssociationT.InitFromObj(
+            new_module.PromptAssociation.GetRootAs(serialize(previous)))
+        self.assertEqual(new_reader.parentId, 0xFFFFFFFFFFFFFFFF)
+        self.assertFalse(new_reader.matches)
+        current = native("PromptAssociation")(sessionId="new", parentId=7, matches=[
+            native("PromptObjectMatch")(objectId=11, groupId="people")])
+        old_reader = old.PromptAssociationT.InitFromObj(
+            old.PromptAssociation.GetRootAs(serialize(current)))
+        self.assertEqual(old_reader.parentId, 7)
+        self.assertIn(old_reader.sessionId, ("new", b"new"))
+        repacked = new_module.PromptAssociationT.InitFromObj(
+            new_module.PromptAssociation.GetRootAs(serialize(old_reader)))
+        self.assertFalse(repacked.matches)  # Old decode/repack does not preserve new fields.
+
     def test_cpp_optional_payload_and_unsigned_ids(self) -> None:
         with tempfile.TemporaryDirectory(prefix="opk-prompt-cpp-") as temp:
             binary = Path(temp) / "prompt-schema-test"

@@ -3,6 +3,12 @@ include "request.fbs";
 
 namespace open_perception_kit.metadata;
 
+// Instance identity in this producer layer; group identity in the consumed revision.
+table PromptObjectMatch {
+  object_id:ulong;
+  group_id:string;
+}
+
 // Associates this producer's results on parent_id media with the snapshot actually used.
 // Session identity distinguishes late results after a new controller reuses a numeric ID.
 table PromptAssociation {
@@ -12,6 +18,9 @@ table PromptAssociation {
   request:open_perception_kit.metadata.RequestEnvelope;
   session_id:string;
   parent_id:ulong;
+  // Both box and mask objects are mapped explicitly when both are emitted.
+  // Empty is valid for successful zero-result inference; old readers lack this field.
+  matches:[open_perception_kit.metadata.PromptObjectMatch];
 }
 
 root_type PromptAssociation;

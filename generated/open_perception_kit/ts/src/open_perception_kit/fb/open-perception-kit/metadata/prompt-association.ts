@@ -21,6 +21,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { LayerInfo, LayerInfoT } from '../../open-perception-kit/metadata/layer-info.js';
+import { PromptObjectMatch, PromptObjectMatchT } from '../../open-perception-kit/metadata/prompt-object-match.js';
 import { RequestEnvelope, RequestEnvelopeT } from '../../open-perception-kit/metadata/request-envelope.js';
 
 
@@ -78,8 +79,18 @@ parentId():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+matches(index: number, obj?:PromptObjectMatch):PromptObjectMatch|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? (obj || new PromptObjectMatch()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+matchesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPromptAssociation(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(7);
 }
 
 static addSchemaMajor(builder:flatbuffers.Builder, schemaMajor:number) {
@@ -106,6 +117,22 @@ static addParentId(builder:flatbuffers.Builder, parentId:bigint) {
   builder.addFieldInt64(5, parentId, BigInt('0'));
 }
 
+static addMatches(builder:flatbuffers.Builder, matchesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(6, matchesOffset, 0);
+}
+
+static createMatchesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startMatchesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endPromptAssociation(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
@@ -127,7 +154,8 @@ unpack(): PromptAssociationT {
     (this.layer() !== null ? this.layer()!.unpack() : null),
     (this.request() !== null ? this.request()!.unpack() : null),
     this.sessionId(),
-    this.parentId()
+    this.parentId(),
+    this.bb!.createObjList<PromptObjectMatch, PromptObjectMatchT>(this.matches.bind(this), this.matchesLength())
   );
 }
 
@@ -139,6 +167,7 @@ unpackTo(_o: PromptAssociationT): void {
   _o.request = (this.request() !== null ? this.request()!.unpack() : null);
   _o.sessionId = this.sessionId();
   _o.parentId = this.parentId();
+  _o.matches = this.bb!.createObjList<PromptObjectMatch, PromptObjectMatchT>(this.matches.bind(this), this.matchesLength());
 }
 }
 
@@ -149,7 +178,8 @@ constructor(
   public layer: LayerInfoT|null = null,
   public request: RequestEnvelopeT|null = null,
   public sessionId: string|Uint8Array|null = null,
-  public parentId: bigint = BigInt('0')
+  public parentId: bigint = BigInt('0'),
+  public matches: (PromptObjectMatchT)[] = []
 ){}
 
 
@@ -157,6 +187,7 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const layer = (this.layer !== null ? this.layer!.pack(builder) : 0);
   const request = (this.request !== null ? this.request!.pack(builder) : 0);
   const sessionId = (this.sessionId !== null ? builder.createString(this.sessionId!) : 0);
+  const matches = PromptAssociation.createMatchesVector(builder, builder.createObjectOffsetList(this.matches));
 
   PromptAssociation.startPromptAssociation(builder);
   PromptAssociation.addSchemaMajor(builder, this.schemaMajor);
@@ -165,6 +196,7 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   PromptAssociation.addRequest(builder, request);
   PromptAssociation.addSessionId(builder, sessionId);
   PromptAssociation.addParentId(builder, this.parentId);
+  PromptAssociation.addMatches(builder, matches);
 
   return PromptAssociation.endPromptAssociation(builder);
 }

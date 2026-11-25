@@ -18,6 +18,7 @@
 #include "gst/FrameResultsMeta.h"
 #include "gst/PromptInputsMeta.h"
 #include "opk/BoxPromptInputs.h"
+#include "opk/QueryPromptInputs.h"
 
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
@@ -29,11 +30,13 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -141,11 +144,13 @@ class PromptInference : public ::testing::Test {
                const bool withIngress = false,
                const bool withDownstream = false,
                const bool active = true,
-               const std::string &bridge = "") {
+               const std::string &bridge = "",
+               const std::string &formats = "BPRM") {
         std::string description = "appsrc name=source format=time ! ";
         if (withIngress) {
             description +=
-                "opkprompt name=prompts inference-instance=sam destination-element=infer ! ";
+                "opkprompt name=prompts inference-instance=sam destination-element=infer formats=" +
+                formats + " ! ";
         }
         description += bridge;
         description += "opkinfer name=infer opchain-path=" + chain(supported, 0).string() + " ";
@@ -216,7 +221,11 @@ class PromptInference : public ::testing::Test {
         wire.payload->box = std::make_unique<PromptBoxT>(box);
         flatbuffers::FlatBufferBuilder builder;
         FinishBoxPromptInputsBuffer(builder, BoxPromptInputs::Pack(builder, &wire));
-        GBytes *const bytes = g_bytes_new(builder.GetBufferPointer(), builder.GetSize());
+        return submitBytes(session, {builder.GetBufferPointer(), builder.GetSize()});
+    }
+
+    bool submitBytes(const char *const session, const std::span<const uint8_t> payload) {
+        GBytes *const bytes = g_bytes_new(payload.data(), payload.size());
         GstStructure *const structure = gst_structure_new("opk-prompt-command-v1",
                                                           "command",
                                                           G_TYPE_STRING,
@@ -231,6 +240,42 @@ class PromptInference : public ::testing::Test {
         g_bytes_unref(bytes);
         return gst_element_send_event(
             ingress, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure));
+    }
+
+    bool submitQuery(const bool visual,
+                     const uint64_t revision,
+                     const bool valid = true,
+                     const char *const session = "first") {
+        const auto identity = snapshot(revision)->copyRequest();
+        flatbuffers::FlatBufferBuilder builder;
+        if (visual) {
+            VisualPromptInputsT wire;
+            wire.request = std::make_unique<RequestEnvelopeT>(identity);
+            wire.payload = std::make_unique<VisualPromptPayloadT>();
+            auto reference = std::make_unique<PromptReferenceImageT>();
+            reference->width = 1;
+            reference->height = 1;
+            reference->encoding = PromptReferenceEncoding::RGB8;
+            reference->pixels = {10, 20, 30};
+            wire.payload->references.push_back(std::move(reference));
+            auto group = std::make_unique<VisualPromptGroupT>();
+            group->group_id = "example";
+            group->box = std::make_unique<VisualPromptBoxT>();
+            group->box->right = valid ? 1 : -1;
+            group->box->bottom = 1;
+            wire.payload->groups.push_back(std::move(group));
+            FinishVisualPromptInputsBuffer(builder, VisualPromptInputs::Pack(builder, &wire));
+        } else {
+            TextPromptInputsT wire;
+            wire.request = std::make_unique<RequestEnvelopeT>(identity);
+            wire.payload = std::make_unique<TextPromptPayloadT>();
+            auto group = std::make_unique<TextPromptGroupT>();
+            group->group_id = "people";
+            group->description = valid ? "person" : "";
+            wire.payload->groups.push_back(std::move(group));
+            FinishTextPromptInputsBuffer(builder, TextPromptInputs::Pack(builder, &wire));
+        }
+        return submitBytes(session, {builder.GetBufferPointer(), builder.GetSize()});
     }
 
     bool command(const char *const operation, const char *const session, const uint64_t revision) {
@@ -327,6 +372,9 @@ class PromptInference : public ::testing::Test {
 class TestPayload final : public opk::PromptPayload {
   public:
     explicit TestPayload(const opk::PromptFormat format) : value(format) {}
+    size_t ownedBytes() const override {
+        return sizeof(*this);
+    }
     opk::PromptFormat format() const override {
         return value;
     }
@@ -447,6 +495,49 @@ TEST_F(PromptInference, QosSkippedTargetConsumesAndReleasesPromptBeforeUnrelated
     EXPECT_EQ(GST_MESSAGE_SRC(message.get()), GST_OBJECT(infer));
     finishStream();
     EXPECT_TRUE(lifetime.expired());
+}
+
+TEST_F(PromptInference, QueryIngressCopiesOwnedPixelsAndPreservesInvalidReplacement) {
+    ASSERT_TRUE(start(true, true, false, true, "identity ! queue ! ", "TPRM,VPRM"));
+    captureBeforeConsumption();
+    gchar *capabilityText = nullptr;
+    g_object_get(ingress, "capabilities", &capabilityText, nullptr);
+    ASSERT_NE(capabilityText, nullptr);
+    const auto capabilities = nlohmann::json::parse(capabilityText);
+    g_free(capabilityText);
+    ASSERT_EQ(capabilities.size(), 2);
+    EXPECT_EQ(capabilities[0]["format"], "TPRM");
+    EXPECT_EQ(capabilities[1]["maxReferenceBytes"], opk::MaxPromptReferenceBytes);
+    ASSERT_TRUE(submitQuery(false, 1));
+    EXPECT_FALSE(submitQuery(false, 2, false));
+    EXPECT_FALSE(submit("first", 2)); // BPRM is not enabled on this ingress.
+    ASSERT_TRUE(push());
+    ASSERT_TRUE(pull());
+    ASSERT_TRUE(bound(0));
+    EXPECT_EQ(bound(0)->revision(), 1);
+    EXPECT_EQ(bound(0)->payload->format(), opk::TextPromptFormat);
+    ASSERT_TRUE(submitQuery(true, 2));
+    EXPECT_FALSE(submitQuery(true, 3, false));
+    ASSERT_TRUE(push(GST_SECOND));
+    ASSERT_TRUE(pull());
+    ASSERT_TRUE(bound(1));
+    EXPECT_EQ(bound(1)->revision(), 2);
+    const auto owner = std::dynamic_pointer_cast<const opk::VisualPromptPayload>(bound(1)->payload);
+    ASSERT_TRUE(owner);
+    EXPECT_EQ(owner->value().references()->Get(0)->pixels()->Get(2), 30);
+}
+
+TEST_F(PromptInference, BoxIngressRejectsQueryFormatWithoutReplacingActiveState) {
+    ASSERT_TRUE(start(true, true));
+    captureBeforeConsumption();
+    ASSERT_TRUE(submit("first", 1));
+    EXPECT_FALSE(submitQuery(false, 2));
+    EXPECT_FALSE(submitQuery(true, 2));
+    ASSERT_TRUE(push());
+    ASSERT_TRUE(pull());
+    ASSERT_TRUE(bound(0));
+    EXPECT_EQ(bound(0)->revision(), 1);
+    EXPECT_EQ(bound(0)->payload->format(), opk::BoxPromptFormat);
 }
 
 TEST_F(PromptInference, IdentityAndQueuePreservePromptToNamedInference) {

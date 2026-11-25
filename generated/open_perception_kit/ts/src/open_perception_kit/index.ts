@@ -19,7 +19,7 @@
 
 export const OPEN_PERCEPTION_KIT_VERSION = '1.0.0';
 export const OPEN_PERCEPTION_KIT_NAME = 'open_perception_kit';
-export const SCHEMA_SET_SHA256 = '97afd93a5a52f21f8578c5d3e733cace8d11cc230b9fe9e6b040d46d119d39dd';
+export const SCHEMA_SET_SHA256 = 'b133f714ba35b4176ffff7899596b12d940123359ea93872cca6c622f646e552';
 export const FLATBUFFERS_VERSION_REQUIREMENT = '>=24.3.25 <26.0.0';
 export {
   Envelope,

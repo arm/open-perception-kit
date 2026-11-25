@@ -80,3 +80,59 @@ fn preserves_optional_payload_and_unsigned_ids() {
     assert_eq!(associated.session_id.as_deref(), Some("session-a"));
     assert_eq!(associated.parent_id, 0x8000000000000001);
 }
+
+#[test]
+fn preserves_query_groups_and_owned_references() {
+    use open_perception_kit::fb::open_perception_kit::metadata::*;
+    let mut request = RequestEnvelopeT::default();
+    request.request_id = u64::MAX;
+    request.revision = u64::MAX;
+    let mut text = TextPromptInputsT::default();
+    text.request = Some(Box::new(request.clone()));
+    let mut text_payload = TextPromptPayloadT::default();
+    text_payload.groups = Some(["people", "vehicles"].iter().map(|name| {
+        let mut group = TextPromptGroupT::default();
+        group.group_id = Some((*name).into());
+        group.description = Some((*name).into());
+        group
+    }).collect());
+    text.payload = Some(Box::new(text_payload));
+    let mut reference = PromptReferenceImageT::default();
+    reference.width = 2;
+    reference.height = 1;
+    reference.encoding = PromptReferenceEncoding::RGB8;
+    reference.pixels = Some(vec![1, 2, 3, 4, 5, 6]);
+    let mut geometry = VisualPromptBoxT::default();
+    geometry.left = 0.25;
+    geometry.right = 1.0;
+    geometry.bottom = 1.0;
+    let mut group = VisualPromptGroupT::default();
+    group.group_id = Some("sample".into());
+    group.box_ = Some(Box::new(geometry));
+    let mut visual_payload = VisualPromptPayloadT::default();
+    visual_payload.references = Some(vec![reference]);
+    visual_payload.groups = Some(vec![group]);
+    let mut visual = VisualPromptInputsT::default();
+    visual.request = Some(Box::new(request));
+    visual.payload = Some(Box::new(visual_payload));
+    let mut matched = PromptAssociationT::default();
+    let mut object_match = PromptObjectMatchT::default();
+    object_match.object_id = u64::MAX;
+    object_match.group_id = Some("people".into());
+    matched.matches = Some(vec![object_match]);
+    let mut envelope = Envelope::new();
+    envelope.add(text);
+    envelope.add(visual);
+    envelope.add(matched);
+    let result = Envelope::decode(envelope.serialize()).unwrap();
+    let text = result.get(payload::<TextPromptInputsT>(), 0).unwrap();
+    assert_eq!(text.request.as_ref().unwrap().request_id, u64::MAX);
+    assert_eq!(text.request.as_ref().unwrap().revision, u64::MAX);
+    assert_eq!(text.payload.as_ref().unwrap().groups.as_ref().unwrap().len(), 2);
+    let visual = result.get(payload::<VisualPromptInputsT>(), 0).unwrap();
+    let data = visual.payload.as_ref().unwrap();
+    assert_eq!(data.references.as_ref().unwrap()[0].pixels.as_ref().unwrap(), &vec![1, 2, 3, 4, 5, 6]);
+    assert_eq!(data.groups.as_ref().unwrap()[0].box_.as_ref().unwrap().left, 0.25);
+    let association = result.get(payload::<PromptAssociationT>(), 0).unwrap();
+    assert_eq!(association.matches.as_ref().unwrap()[0].object_id, u64::MAX);
+}

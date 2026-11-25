@@ -36,7 +36,9 @@ common = shared_library(
     'opk/FrameResults.cpp',
     'opk/PromptInputs.cpp',
     'opk/BoxPromptInputs.cpp',
+    'opk/QueryPromptInputs.cpp',
     'opk/BoxPromptCodec.cpp',
+    'opk/PromptCodecs.cpp',
 
     'op/Op.cpp',
     'op/OpRef.cpp',

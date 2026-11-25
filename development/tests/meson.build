@@ -1107,3 +1107,12 @@ onnx_dynamic_input_tests = executable(
   link_with : [common],
 )
 test('onnx_dynamic_input_tests', onnx_dynamic_input_tests, timeout : 180)
+
+query_prompt_tests = executable(
+  'query_prompt_tests',
+  ['query_prompt_test.cpp'],
+  include_directories : [ common_include ],
+  dependencies : [ opk_deps, gtest_dep, gtest_main_dep ],
+  link_with : [ common ],
+)
+test('query_prompt_tests', query_prompt_tests)

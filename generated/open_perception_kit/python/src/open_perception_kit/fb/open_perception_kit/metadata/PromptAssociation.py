@@ -19,6 +19,7 @@
 
 import open_perception_kit.fb.open_perception_kit.metadata.LayerInfo
 import open_perception_kit.fb.open_perception_kit.metadata.RequestEnvelope
+import open_perception_kit.fb.open_perception_kit.metadata.PromptObjectMatch
 import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
@@ -97,9 +98,34 @@ class PromptAssociation(object):
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
+    # PromptAssociation
+    def Matches(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
+            x = self._tab.Indirect(x)
+            from open_perception_kit.fb.open_perception_kit.metadata.PromptObjectMatch import PromptObjectMatch
+            obj = PromptObjectMatch()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # PromptAssociation
+    def MatchesLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # PromptAssociation
+    def MatchesIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        return o == 0
+
 
 def PromptAssociationStart(builder):
-    builder.StartObject(6)
+    builder.StartObject(7)
 
 
 def Start(builder):
@@ -154,6 +180,22 @@ def AddParentId(builder, parentId):
     PromptAssociationAddParentId(builder, parentId)
 
 
+def PromptAssociationAddMatches(builder, matches):
+    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(matches), 0)
+
+
+def AddMatches(builder, matches):
+    PromptAssociationAddMatches(builder, matches)
+
+
+def PromptAssociationStartMatchesVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+
+def StartMatchesVector(builder, numElems):
+    return PromptAssociationStartMatchesVector(builder, numElems)
+
+
 def PromptAssociationEnd(builder):
     return builder.EndObject()
 
@@ -163,7 +205,7 @@ def End(builder):
 
 
 try:
-    from typing import Optional
+    from typing import List, Optional
 except:
     pass
 
@@ -179,6 +221,7 @@ class PromptAssociationT(object):
         request=None,
         sessionId=None,
         parentId=0,
+        matches=None,
     ):
         self.schemaMajor = schemaMajor  # type: int
         self.schemaMinor = schemaMinor  # type: int
@@ -187,6 +230,8 @@ class PromptAssociationT(object):
         self.request = request
         self.sessionId = sessionId  # type: Optional[str]
         self.parentId = parentId  # type: int
+        # type: Optional[List[open_perception_kit.fb.open_perception_kit.metadata.PromptObjectMatch.PromptObjectMatchT]]
+        self.matches = matches
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -219,6 +264,15 @@ class PromptAssociationT(object):
                 promptAssociation.Request())
         self.sessionId = promptAssociation.SessionId()
         self.parentId = promptAssociation.ParentId()
+        if not promptAssociation.MatchesIsNone():
+            self.matches = []
+            for i in range(promptAssociation.MatchesLength()):
+                if promptAssociation.Matches(i) is None:
+                    self.matches.append(None)
+                else:
+                    promptObjectMatch_ = open_perception_kit.fb.open_perception_kit.metadata.PromptObjectMatch.PromptObjectMatchT.InitFromObj(
+                        promptAssociation.Matches(i))
+                    self.matches.append(promptObjectMatch_)
 
     # PromptAssociationT
     def Pack(self, builder):
@@ -228,6 +282,14 @@ class PromptAssociationT(object):
             request = self.request.Pack(builder)
         if self.sessionId is not None:
             sessionId = builder.CreateString(self.sessionId)
+        if self.matches is not None:
+            matcheslist = []
+            for i in range(len(self.matches)):
+                matcheslist.append(self.matches[i].Pack(builder))
+            PromptAssociationStartMatchesVector(builder, len(self.matches))
+            for i in reversed(range(len(self.matches))):
+                builder.PrependUOffsetTRelative(matcheslist[i])
+            matches = builder.EndVector()
         PromptAssociationStart(builder)
         PromptAssociationAddSchemaMajor(builder, self.schemaMajor)
         PromptAssociationAddSchemaMinor(builder, self.schemaMinor)
@@ -238,5 +300,7 @@ class PromptAssociationT(object):
         if self.sessionId is not None:
             PromptAssociationAddSessionId(builder, sessionId)
         PromptAssociationAddParentId(builder, self.parentId)
+        if self.matches is not None:
+            PromptAssociationAddMatches(builder, matches)
         promptAssociation = PromptAssociationEnd(builder)
         return promptAssociation

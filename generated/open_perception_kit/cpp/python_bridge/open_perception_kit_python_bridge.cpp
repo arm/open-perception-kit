@@ -514,6 +514,16 @@ make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e5072
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_proxy(
+    const open_perception_kit::metadata::PromptObjectMatchT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
 pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e() {
     static PyTypeObject type = make_py_type_object();
     return type;
@@ -581,6 +591,36 @@ pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469
 PyObject *
 make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73_proxy(
     const open_perception_kit::metadata::SemanticSegmentationMasksT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_proxy(
+    const open_perception_kit::metadata::TextPromptGroupT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164_proxy(
+    const open_perception_kit::metadata::TextPromptPayloadT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_proxy(
+    const open_perception_kit::metadata::TextPromptInputsT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &
@@ -661,6 +701,56 @@ pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574
 PyObject *
 make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73_proxy(
     const open_perception_kit::metadata::TurnDetectionsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_proxy(
+    const open_perception_kit::metadata::VisualPromptBoxT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_proxy(
+    const open_perception_kit::metadata::PromptReferenceImageT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_proxy(
+    const open_perception_kit::metadata::VisualPromptGroupT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_proxy(
+    const open_perception_kit::metadata::VisualPromptPayloadT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_proxy(
+    const open_perception_kit::metadata::VisualPromptInputsT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &
@@ -816,6 +906,17 @@ pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50
 }
 
 PySequenceMethods &
+seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
+PySequenceMethods &
 seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72() {
     static PySequenceMethods methods = {};
     return methods;
@@ -833,6 +934,17 @@ seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635
 }
 PyTypeObject &
 pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
+PySequenceMethods &
+seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72() {
     static PyTypeObject type = make_py_type_object();
     return type;
 }
@@ -866,6 +978,39 @@ seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656
 }
 PyTypeObject &
 pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e732e646574656374696f6e732e766563746f72() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
+PySequenceMethods &
+seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
+PySequenceMethods &
+seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
+PySequenceMethods &
+seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &
+pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72() {
     static PyTypeObject type = make_py_type_object();
     return type;
 }
@@ -1092,8 +1237,10 @@ enum class known_payload_kind {
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b73,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73,
+    kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b547261636573,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73,
+    kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473,
     kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e73,
 };
 
@@ -1277,6 +1424,12 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
             kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73;
     }
     if (py_type_matches(type_object,
+                        "open_perception_kit.fb.open_perception_kit.metadata.TextPromptInputs",
+                        "TextPromptInputsT")) {
+        return known_payload_kind::
+            kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473;
+    }
+    if (py_type_matches(type_object,
                         "open_perception_kit.fb.open_perception_kit.metadata.TrackTraces",
                         "TrackTracesT")) {
         return known_payload_kind::
@@ -1287,6 +1440,12 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
                         "TurnDetectionsT")) {
         return known_payload_kind::
             kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73;
+    }
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.open_perception_kit.metadata.VisualPromptInputs",
+                        "VisualPromptInputsT")) {
+        return known_payload_kind::
+            kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473;
     }
     if (py_type_matches(
             type_object,
@@ -1397,6 +1556,13 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
         return known_payload_kind::
             kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73;
     }
+    if (py_object_type_matches(
+            value,
+            "open_perception_kit.fb.open_perception_kit.metadata.TextPromptInputs",
+            "TextPromptInputsT")) {
+        return known_payload_kind::
+            kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473;
+    }
     if (py_object_type_matches(value,
                                "open_perception_kit.fb.open_perception_kit.metadata.TrackTraces",
                                "TrackTracesT")) {
@@ -1408,6 +1574,13 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
                                "TurnDetectionsT")) {
         return known_payload_kind::
             kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73;
+    }
+    if (py_object_type_matches(
+            value,
+            "open_perception_kit.fb.open_perception_kit.metadata.VisualPromptInputs",
+            "VisualPromptInputsT")) {
+        return known_payload_kind::
+            kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473;
     }
     if (py_object_type_matches(
             value,
@@ -1638,6 +1811,10 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::SemanticSegmentationMasksT>());
     case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473:
+        return PyLong_FromSize_t(
+            live->envelope->count<open_perception_kit::metadata::TextPromptInputsT>());
+    case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b547261636573:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::TrackTracesT>());
@@ -1645,6 +1822,10 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::TurnDetectionsT>());
+    case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473:
+        return PyLong_FromSize_t(
+            live->envelope->count<open_perception_kit::metadata::VisualPromptInputsT>());
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e73:
         return PyLong_FromSize_t(
@@ -1767,6 +1948,12 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
         }
         Py_RETURN_FALSE;
     case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473:
+        if (live->envelope->contains<open_perception_kit::metadata::TextPromptInputsT>()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
+    case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b547261636573:
         if (live->envelope->contains<open_perception_kit::metadata::TrackTracesT>()) {
             Py_RETURN_TRUE;
@@ -1775,6 +1962,12 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73:
         if (live->envelope->contains<open_perception_kit::metadata::TurnDetectionsT>()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
+    case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473:
+        if (live->envelope->contains<open_perception_kit::metadata::VisualPromptInputsT>()) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
@@ -1910,6 +2103,12 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73(),
             index);
     case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473:
+        return get_known_payload<open_perception_kit::metadata::TextPromptInputsT>(
+            *live->envelope,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473(),
+            index);
+    case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b547261636573:
         return get_known_payload<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope,
@@ -1920,6 +2119,12 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
         return get_known_payload<open_perception_kit::metadata::TurnDetectionsT>(
             *live->envelope,
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73(),
+            index);
+    case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473:
+        return get_known_payload<open_perception_kit::metadata::VisualPromptInputsT>(
+            *live->envelope,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473(),
             index);
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e73:
@@ -2052,6 +2257,11 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
             *live->envelope,
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73());
     case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473:
+        return list_known_payloads<open_perception_kit::metadata::TextPromptInputsT>(
+            *live->envelope,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473());
+    case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b547261636573:
         return list_known_payloads<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope,
@@ -2061,6 +2271,11 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
         return list_known_payloads<open_perception_kit::metadata::TurnDetectionsT>(
             *live->envelope,
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73());
+    case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473:
+        return list_known_payloads<open_perception_kit::metadata::VisualPromptInputsT>(
+            *live->envelope,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473());
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e73:
         return list_known_payloads<open_perception_kit::metadata::VoiceActivityDetectionsT>(
@@ -2186,6 +2401,10 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
         return add_known_payload<open_perception_kit::metadata::SemanticSegmentationMasksT>(
             *live->envelope, value, "SSGM");
     case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473:
+        return add_known_payload<open_perception_kit::metadata::TextPromptInputsT>(
+            *live->envelope, value, "TPRM");
+    case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b547261636573:
         return add_known_payload<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope, value, "TRCE");
@@ -2193,6 +2412,10 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73:
         return add_known_payload<open_perception_kit::metadata::TurnDetectionsT>(
             *live->envelope, value, "TURN");
+    case known_payload_kind::
+        kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473:
+        return add_known_payload<open_perception_kit::metadata::VisualPromptInputsT>(
+            *live->envelope, value, "VPRM");
     case known_payload_kind::
         kind_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e73:
         return add_known_payload<open_perception_kit::metadata::VoiceActivityDetectionsT>(
@@ -3003,6 +3226,74 @@ bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736
 }
 
 Py_ssize_t
+len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72(
+    PyObject *self) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::PromptObjectMatchT>>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *
+item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72(
+    PyObject *self, Py_ssize_t index) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::PromptObjectMatchT>>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_proxy(
+        item.get(),
+        proxy_anchor<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::PromptObjectMatchT>>>(self));
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72();
+    auto &sequence =
+        seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length =
+            len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72;
+        sequence.sq_item =
+            item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72;
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173"
+                       "736f63696174696f6e2e6d6174636865732e766563746f72";
+        type.tp_basicsize = sizeof(
+            native_proxy_object<
+                std::vector<std::unique_ptr<open_perception_kit::metadata::PromptObjectMatchT>>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::PromptObjectMatchT>>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t
 len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72(
     PyObject *self) {
     const auto *proxy = reinterpret_cast<const native_proxy_object<
@@ -3128,6 +3419,74 @@ bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616
         type.tp_itemsize = 0;
         type.tp_dealloc = native_proxy_dealloc<
             std::vector<std::unique_ptr<open_perception_kit::metadata::SemanticSegmentationMaskT>>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t
+len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72(
+    PyObject *self) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::TextPromptGroupT>>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *
+item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72(
+    PyObject *self, Py_ssize_t index) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::TextPromptGroupT>>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_proxy(
+        item.get(),
+        proxy_anchor<std::vector<std::unique_ptr<open_perception_kit::metadata::TextPromptGroupT>>>(
+            self));
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72();
+    auto &sequence =
+        seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length =
+            len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72;
+        sequence.sq_item =
+            item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72;
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d"
+                       "70745061796c6f61642e67726f7570732e766563746f72";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<
+                   std::vector<std::unique_ptr<open_perception_kit::metadata::TextPromptGroupT>>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::TextPromptGroupT>>>;
         type.tp_as_sequence = &sequence;
         type.tp_flags = Py_TPFLAGS_DEFAULT;
         type.tp_doc = "open_perception_kit read-only live vector proxy";
@@ -3332,6 +3691,203 @@ bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e4
         type.tp_itemsize = 0;
         type.tp_dealloc = native_proxy_dealloc<
             std::vector<std::unique_ptr<open_perception_kit::metadata::TurnDetectionT>>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t
+len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72(
+    PyObject *self) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<std::vector<std::uint8_t>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *
+item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72(
+    PyObject *self, Py_ssize_t index) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<std::vector<std::uint8_t>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    return py_long_from_unsigned((*vector)[static_cast<std::size_t>(index)]);
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72();
+    auto &sequence =
+        seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length =
+            len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72;
+        sequence.sq_item =
+            item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72;
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265"
+                       "666572656e6365496d6167652e706978656c732e766563746f72";
+        type.tp_basicsize = sizeof(native_proxy_object<std::vector<std::uint8_t>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<std::vector<std::uint8_t>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t
+len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72(
+    PyObject *self) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::PromptReferenceImageT>>> *>(
+        self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *
+item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72(
+    PyObject *self, Py_ssize_t index) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::PromptReferenceImageT>>> *>(
+        self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_proxy(
+        item.get(),
+        proxy_anchor<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::PromptReferenceImageT>>>(
+            self));
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72();
+    auto &sequence =
+        seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length =
+            len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72;
+        sequence.sq_item =
+            item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72;
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c5072"
+                       "6f6d70745061796c6f61642e7265666572656e6365732e766563746f72";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<std::vector<
+                       std::unique_ptr<open_perception_kit::metadata::PromptReferenceImageT>>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::PromptReferenceImageT>>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t
+len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72(
+    PyObject *self) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::VisualPromptGroupT>>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *
+item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72(
+    PyObject *self, Py_ssize_t index) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::VisualPromptGroupT>>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_proxy(
+        item.get(),
+        proxy_anchor<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::VisualPromptGroupT>>>(self));
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72();
+    auto &sequence =
+        seq_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length =
+            len_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72;
+        sequence.sq_item =
+            item_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72;
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c5072"
+                       "6f6d70745061796c6f61642e67726f7570732e766563746f72";
+        type.tp_basicsize = sizeof(
+            native_proxy_object<
+                std::vector<std::unique_ptr<open_perception_kit::metadata::VisualPromptGroupT>>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::VisualPromptGroupT>>>;
         type.tp_as_sequence = &sequence;
         type.tp_flags = Py_TPFLAGS_DEFAULT;
         type.tp_doc = "open_perception_kit read-only live vector proxy";
@@ -8285,6 +8841,87 @@ make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e5072
 }
 
 PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_n6f626a6563745f6964(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptObjectMatchT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->object_id);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_n67726f75705f6964(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptObjectMatchT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->group_id);
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368() {
+    static PyGetSetDef definitions[] = {
+        {"objectId",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_n6f626a6563745f6964),
+         nullptr,
+         "read-only object_id",
+         nullptr},
+        {"groupId",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_n67726f75705f6964),
+         nullptr,
+         "read-only group_id",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f62"
+                       "6a6563744d61746368";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::PromptObjectMatchT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::PromptObjectMatchT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_proxy(
+    const open_perception_kit::metadata::PromptObjectMatchT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::PromptObjectMatchT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
 get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e_n736368656d615f6d616a6f72(
     PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
@@ -8372,6 +9009,23 @@ get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d707441737
     return py_long_from_unsigned(value->parent_id);
 }
 
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e_n6d617463686573(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptAssociationT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::PromptObjectMatchT>>>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72(),
+        std::addressof(value->matches),
+        proxy_anchor<open_perception_kit::metadata::PromptAssociationT>(self));
+}
+
 PyGetSetDef *
 getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e() {
     static PyGetSetDef definitions[] = {
@@ -8410,6 +9064,12 @@ getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744
              get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e_n706172656e745f6964),
          nullptr,
          "read-only parent_id",
+         nullptr},
+        {"matches",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e_n6d617463686573),
+         nullptr,
+         "read-only matches",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };
@@ -9160,6 +9820,301 @@ make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e746963
     std::shared_ptr<const native_proxy_anchor> anchor) {
     return make_native_proxy<open_perception_kit::metadata::SemanticSegmentationMasksT>(
         pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_n67726f75705f6964(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TextPromptGroupT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->group_id);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_n6465736372697074696f6e(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TextPromptGroupT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->description);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_n646973706c61795f6e616d65(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TextPromptGroupT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->display_name);
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570() {
+    static PyGetSetDef definitions[] = {
+        {"groupId",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_n67726f75705f6964),
+         nullptr,
+         "read-only group_id",
+         nullptr},
+        {"description",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_n6465736372697074696f6e),
+         nullptr,
+         "read-only description",
+         nullptr},
+        {"displayName",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_n646973706c61795f6e616d65),
+         nullptr,
+         "read-only display_name",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d"
+                       "707447726f7570";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::TextPromptGroupT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::TextPromptGroupT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_proxy(
+    const open_perception_kit::metadata::TextPromptGroupT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::TextPromptGroupT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164_n67726f757073(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TextPromptPayloadT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::TextPromptGroupT>>>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72(),
+        std::addressof(value->groups),
+        proxy_anchor<open_perception_kit::metadata::TextPromptPayloadT>(self));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164() {
+    static PyGetSetDef definitions[] = {
+        {"groups",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164_n67726f757073),
+         nullptr,
+         "read-only groups",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d"
+                       "70745061796c6f6164";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::TextPromptPayloadT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::TextPromptPayloadT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164_proxy(
+    const open_perception_kit::metadata::TextPromptPayloadT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::TextPromptPayloadT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_n736368656d615f6d616a6f72(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TextPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_n736368656d615f6d696e6f72(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TextPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_n72657175657374(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TextPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->request.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e52657175657374456e76656c6f7065_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::TextPromptInputsT>(self));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_n7061796c6f6164(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TextPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->payload.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::TextPromptInputsT>(self));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_n736368656d615f6d616a6f72),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_n736368656d615f6d696e6f72),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"request",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_n72657175657374),
+         nullptr,
+         "read-only request",
+         nullptr},
+        {"payload",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_n7061796c6f6164),
+         nullptr,
+         "read-only payload",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d"
+                       "7074496e70757473";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::TextPromptInputsT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::TextPromptInputsT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_proxy(
+    const open_perception_kit::metadata::TextPromptInputsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::TextPromptInputsT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473(),
         value,
         std::move(anchor));
 }
@@ -10192,6 +11147,590 @@ make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e44657465
 }
 
 PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_n6c656674(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->left));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_n746f70(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->top));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_n7269676874(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->right));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_n626f74746f6d(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->bottom));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78() {
+    static PyGetSetDef definitions[] = {
+        {"left",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_n6c656674),
+         nullptr,
+         "read-only left",
+         nullptr},
+        {"top",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_n746f70),
+         nullptr,
+         "read-only top",
+         nullptr},
+        {"right",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_n7269676874),
+         nullptr,
+         "read-only right",
+         nullptr},
+        {"bottom",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_n626f74746f6d),
+         nullptr,
+         "read-only bottom",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c5072"
+                       "6f6d7074426f78";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::VisualPromptBoxT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::VisualPromptBoxT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_proxy(
+    const open_perception_kit::metadata::VisualPromptBoxT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::VisualPromptBoxT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_n7769647468(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptReferenceImageT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->width);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_n686569676874(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptReferenceImageT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->height);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_n656e636f64696e67(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptReferenceImageT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_enum(value->encoding);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_n706978656c73(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::PromptReferenceImageT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<std::vector<std::uint8_t>>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72(),
+        std::addressof(value->pixels),
+        proxy_anchor<open_perception_kit::metadata::PromptReferenceImageT>(self));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765() {
+    static PyGetSetDef definitions[] = {
+        {"width",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_n7769647468),
+         nullptr,
+         "read-only width",
+         nullptr},
+        {"height",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_n686569676874),
+         nullptr,
+         "read-only height",
+         nullptr},
+        {"encoding",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_n656e636f64696e67),
+         nullptr,
+         "read-only encoding",
+         nullptr},
+        {"pixels",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_n706978656c73),
+         nullptr,
+         "read-only pixels",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265"
+                       "666572656e6365496d616765";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::PromptReferenceImageT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc =
+            native_proxy_dealloc<open_perception_kit::metadata::PromptReferenceImageT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_proxy(
+    const open_perception_kit::metadata::PromptReferenceImageT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::PromptReferenceImageT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_n67726f75705f6964(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptGroupT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->group_id);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_n646973706c61795f6e616d65(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptGroupT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->display_name);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_n7265666572656e63655f696e646578(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptGroupT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->reference_index);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_n626f78(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptGroupT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->box.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::VisualPromptGroupT>(self));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570() {
+    static PyGetSetDef definitions[] = {
+        {"groupId",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_n67726f75705f6964),
+         nullptr,
+         "read-only group_id",
+         nullptr},
+        {"displayName",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_n646973706c61795f6e616d65),
+         nullptr,
+         "read-only display_name",
+         nullptr},
+        {"referenceIndex",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_n7265666572656e63655f696e646578),
+         nullptr,
+         "read-only reference_index",
+         nullptr},
+        {"box",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_n626f78),
+         nullptr,
+         "read-only box",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c5072"
+                       "6f6d707447726f7570";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::VisualPromptGroupT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::VisualPromptGroupT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_proxy(
+    const open_perception_kit::metadata::VisualPromptGroupT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::VisualPromptGroupT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_n7265666572656e636573(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptPayloadT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::PromptReferenceImageT>>>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72(),
+        std::addressof(value->references),
+        proxy_anchor<open_perception_kit::metadata::VisualPromptPayloadT>(self));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_n67726f757073(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptPayloadT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::VisualPromptGroupT>>>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72(),
+        std::addressof(value->groups),
+        proxy_anchor<open_perception_kit::metadata::VisualPromptPayloadT>(self));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164() {
+    static PyGetSetDef definitions[] = {
+        {"references",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_n7265666572656e636573),
+         nullptr,
+         "read-only references",
+         nullptr},
+        {"groups",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_n67726f757073),
+         nullptr,
+         "read-only groups",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c5072"
+                       "6f6d70745061796c6f6164";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::VisualPromptPayloadT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::VisualPromptPayloadT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_proxy(
+    const open_perception_kit::metadata::VisualPromptPayloadT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::VisualPromptPayloadT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_n736368656d615f6d616a6f72(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_n736368656d615f6d696e6f72(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_n72657175657374(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->request.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e52657175657374456e76656c6f7065_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::VisualPromptInputsT>(self));
+}
+
+PyObject *
+get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_n7061796c6f6164(
+    PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::VisualPromptInputsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->payload.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::VisualPromptInputsT>(self));
+}
+
+PyGetSetDef *
+getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_n736368656d615f6d616a6f72),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_n736368656d615f6d696e6f72),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"request",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_n72657175657374),
+         nullptr,
+         "read-only request",
+         nullptr},
+        {"payload",
+         reinterpret_cast<getter>(
+             get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_n7061796c6f6164),
+         nullptr,
+         "read-only payload",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_type() {
+    auto &type =
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge."
+                       "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c5072"
+                       "6f6d7074496e70757473";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::VisualPromptInputsT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::VisualPromptInputsT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset =
+            getsets_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_proxy(
+    const open_perception_kit::metadata::VisualPromptInputsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::VisualPromptInputsT>(
+        pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473(),
+        value,
+        std::move(anchor));
+}
+
+PyObject *
 get_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e_n6f626a656374(
     PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
@@ -10552,16 +12091,40 @@ bool ensure_known_proxy_types() {
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b732e747261636b732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e74732e74696d696e67732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365732e70726573656e6365732e766563746f72_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e2e6d6174636865732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b732e6d61736b732e766563746f72_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f61642e67726f7570732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b54726163652e706f696e74732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b5472616365732e7472616365732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e732e646574656374696f6e732e766563746f72_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e732e646574656374696f6e732e766563746f72_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d6167652e706978656c732e766563746f72_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e7265666572656e6365732e766563746f72_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f61642e67726f7570732e766563746f72_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e732e646574656374696f6e732e766563746f72_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f78446574656374696f6e73_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d7074426f78_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f7850726f6d70745061796c6f6164_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f7850726f6d7074496e70757473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e74616374526573756c74_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e74616374_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e7461637473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e43616e646964617465_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a6563744d657461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6475636572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496d6167655370616365_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f756e64696e67426f78_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566964656f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d65436f6e74657874_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a65416e676c6573_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a654d6561737572656d656e74_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a654d6561737572656d656e7473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f7850726f6d70745061796c6f6164_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f7850726f6d7074496e70757473_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e74616374526573756c74_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e74616374_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e43616d657261436f6e7461637473_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e43616e646964617465_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e436c617373696669636174696f6e73_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a6563744d657461_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6475636572496e666f_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4c61796572496e666f_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496d6167655370616365_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e426f756e64696e67426f78_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4269746d617044617461_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566964656f4672616d65436f6e74657874_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e417564696f4672616d65436f6e74657874_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d65436f6e74657874_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a65416e676c6573_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a654d6561737572656d656e74_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e47617a654d6561737572656d656e7473_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e496e7374616e63655365676d656e746174696f6e4d61736b73_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e456d62656464696e675370616365_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374456d62656464696e67_type() ||
@@ -10569,12 +12132,35 @@ bool ensure_known_proxy_types() {
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4f626a656374547261636b73_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53636f706554696d696e67_type() ||
-        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365526573756c74_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e636573_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5265717565737444657374696e6174696f6e_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e52657175657374456e76656c6f7065_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b5472616365_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b547261636573_type() || !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b4964656e74697479_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e4672616d6552617465_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572666f726d616e63654d6561737572656d656e7473_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365526573756c74_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e6365_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e506572736f6e50726573656e636573_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5265717565737444657374696e6174696f6e_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e52657175657374456e76656c6f7065_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5365676d656e746174696f6e4d61736b73_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b5472616365_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b547261636573_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b4964656e74697479_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b4173736f63696174696f6e_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b696e6753616d706c65_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e547261636b5472616365506f696e74_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164_type() ||
+        !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e_type() ||
         !ensure_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e566f6963654163746976697479446574656374696f6e73_type()) {
         return false;
@@ -10836,6 +12422,13 @@ bool add_known_proxy_types(PyObject *python_module) {
     }
     if (!add_python_type(
             python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d61746368(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744f626a6563744d6"
+            "1746368")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f63696174696f6e(),
             "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70744173736f6369617"
             "4696f6e")) {
@@ -10881,6 +12474,27 @@ bool add_known_proxy_types(PyObject *python_module) {
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656e746174696f6e4d61736b73(),
             "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e53656d616e7469635365676d656"
             "e746174696f6e4d61736b73")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7570(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d707447726f7"
+            "570")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796c6f6164(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d70745061796"
+            "c6f6164")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e70757473(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5465787450726f6d7074496e707"
+            "57473")) {
         return false;
     }
     if (!add_python_type(
@@ -10935,6 +12549,41 @@ bool add_known_proxy_types(PyObject *python_module) {
             pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e73(),
             "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e5475726e446574656374696f6e7"
             "3")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426f78(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074426"
+            "f78")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6365496d616765(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e50726f6d70745265666572656e6"
+            "365496d616765")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d707447726f7570(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074477"
+            "26f7570")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d70745061796c6f6164(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074506"
+            "1796c6f6164")) {
+        return false;
+    }
+    if (!add_python_type(
+            python_module,
+            pytype_n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496e70757473(),
+            "n6f70656e5f70657263657074696f6e5f6b69742e6d657461646174612e56697375616c50726f6d7074496"
+            "e70757473")) {
         return false;
     }
     if (!add_python_type(

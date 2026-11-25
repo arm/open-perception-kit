@@ -34,9 +34,89 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 
 namespace open_perception_kit {
 namespace metadata {
 
+struct PromptObjectMatch;
+struct PromptObjectMatchBuilder;
+struct PromptObjectMatchT;
+
 struct PromptAssociation;
 struct PromptAssociationBuilder;
 struct PromptAssociationT;
+
+struct PromptObjectMatchT : public ::flatbuffers::NativeTable {
+    typedef PromptObjectMatch TableType;
+    uint64_t object_id = 0;
+    std::string group_id{};
+};
+
+struct PromptObjectMatch FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+    typedef PromptObjectMatchT NativeTableType;
+    typedef PromptObjectMatchBuilder Builder;
+    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+        VT_OBJECT_ID = 4,
+        VT_GROUP_ID = 6
+    };
+    uint64_t object_id() const {
+        return GetField<uint64_t>(VT_OBJECT_ID, 0);
+    }
+    const ::flatbuffers::String *group_id() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_GROUP_ID);
+    }
+    bool Verify(::flatbuffers::Verifier &verifier) const {
+        return VerifyTableStart(verifier) && VerifyField<uint64_t>(verifier, VT_OBJECT_ID, 8) &&
+               VerifyOffset(verifier, VT_GROUP_ID) && verifier.VerifyString(group_id()) &&
+               verifier.EndTable();
+    }
+    PromptObjectMatchT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    void UnPackTo(PromptObjectMatchT *_o,
+                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    static ::flatbuffers::Offset<PromptObjectMatch>
+    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+         const PromptObjectMatchT *_o,
+         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct PromptObjectMatchBuilder {
+    typedef PromptObjectMatch Table;
+    ::flatbuffers::FlatBufferBuilder &fbb_;
+    ::flatbuffers::uoffset_t start_;
+    void add_object_id(uint64_t object_id) {
+        fbb_.AddElement<uint64_t>(PromptObjectMatch::VT_OBJECT_ID, object_id, 0);
+    }
+    void add_group_id(::flatbuffers::Offset<::flatbuffers::String> group_id) {
+        fbb_.AddOffset(PromptObjectMatch::VT_GROUP_ID, group_id);
+    }
+    explicit PromptObjectMatchBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+        start_ = fbb_.StartTable();
+    }
+    ::flatbuffers::Offset<PromptObjectMatch> Finish() {
+        const auto end = fbb_.EndTable(start_);
+        auto o = ::flatbuffers::Offset<PromptObjectMatch>(end);
+        return o;
+    }
+};
+
+inline ::flatbuffers::Offset<PromptObjectMatch>
+CreatePromptObjectMatch(::flatbuffers::FlatBufferBuilder &_fbb,
+                        uint64_t object_id = 0,
+                        ::flatbuffers::Offset<::flatbuffers::String> group_id = 0) {
+    PromptObjectMatchBuilder builder_(_fbb);
+    builder_.add_object_id(object_id);
+    builder_.add_group_id(group_id);
+    return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<PromptObjectMatch>
+CreatePromptObjectMatchDirect(::flatbuffers::FlatBufferBuilder &_fbb,
+                              uint64_t object_id = 0,
+                              const char *group_id = nullptr) {
+    auto group_id__ = group_id ? _fbb.CreateString(group_id) : 0;
+    return open_perception_kit::metadata::CreatePromptObjectMatch(_fbb, object_id, group_id__);
+}
+
+::flatbuffers::Offset<PromptObjectMatch>
+CreatePromptObjectMatch(::flatbuffers::FlatBufferBuilder &_fbb,
+                        const PromptObjectMatchT *_o,
+                        const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct PromptAssociationT : public ::flatbuffers::NativeTable {
     typedef PromptAssociation TableType;
@@ -46,6 +126,7 @@ struct PromptAssociationT : public ::flatbuffers::NativeTable {
     std::unique_ptr<open_perception_kit::metadata::RequestEnvelopeT> request{};
     std::string session_id{};
     uint64_t parent_id = 0;
+    std::vector<std::unique_ptr<open_perception_kit::metadata::PromptObjectMatchT>> matches{};
     PromptAssociationT() = default;
     PromptAssociationT(const PromptAssociationT &o);
     PromptAssociationT(PromptAssociationT &&) FLATBUFFERS_NOEXCEPT = default;
@@ -61,7 +142,8 @@ struct PromptAssociation FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
         VT_LAYER = 8,
         VT_REQUEST = 10,
         VT_SESSION_ID = 12,
-        VT_PARENT_ID = 14
+        VT_PARENT_ID = 14,
+        VT_MATCHES = 16
     };
     uint16_t schema_major() const {
         return GetField<uint16_t>(VT_SCHEMA_MAJOR, 1);
@@ -81,13 +163,21 @@ struct PromptAssociation FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
     uint64_t parent_id() const {
         return GetField<uint64_t>(VT_PARENT_ID, 0);
     }
+    const ::flatbuffers::Vector<
+        ::flatbuffers::Offset<open_perception_kit::metadata::PromptObjectMatch>> *
+    matches() const {
+        return GetPointer<const ::flatbuffers::Vector<
+            ::flatbuffers::Offset<open_perception_kit::metadata::PromptObjectMatch>> *>(VT_MATCHES);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyField<uint16_t>(verifier, VT_SCHEMA_MAJOR, 2) &&
                VerifyField<uint16_t>(verifier, VT_SCHEMA_MINOR, 2) &&
                VerifyOffset(verifier, VT_LAYER) && verifier.VerifyTable(layer()) &&
                VerifyOffset(verifier, VT_REQUEST) && verifier.VerifyTable(request()) &&
                VerifyOffset(verifier, VT_SESSION_ID) && verifier.VerifyString(session_id()) &&
-               VerifyField<uint64_t>(verifier, VT_PARENT_ID, 8) && verifier.EndTable();
+               VerifyField<uint64_t>(verifier, VT_PARENT_ID, 8) &&
+               VerifyOffset(verifier, VT_MATCHES) && verifier.VerifyVector(matches()) &&
+               verifier.VerifyVectorOfTables(matches()) && verifier.EndTable();
     }
     PromptAssociationT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(PromptAssociationT *_o,
@@ -121,6 +211,11 @@ struct PromptAssociationBuilder {
     void add_parent_id(uint64_t parent_id) {
         fbb_.AddElement<uint64_t>(PromptAssociation::VT_PARENT_ID, parent_id, 0);
     }
+    void add_matches(
+        ::flatbuffers::Offset<::flatbuffers::Vector<
+            ::flatbuffers::Offset<open_perception_kit::metadata::PromptObjectMatch>>> matches) {
+        fbb_.AddOffset(PromptAssociation::VT_MATCHES, matches);
+    }
     explicit PromptAssociationBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -138,9 +233,12 @@ inline ::flatbuffers::Offset<PromptAssociation> CreatePromptAssociation(
     ::flatbuffers::Offset<open_perception_kit::metadata::LayerInfo> layer = 0,
     ::flatbuffers::Offset<open_perception_kit::metadata::RequestEnvelope> request = 0,
     ::flatbuffers::Offset<::flatbuffers::String> session_id = 0,
-    uint64_t parent_id = 0) {
+    uint64_t parent_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<
+        ::flatbuffers::Offset<open_perception_kit::metadata::PromptObjectMatch>>> matches = 0) {
     PromptAssociationBuilder builder_(_fbb);
     builder_.add_parent_id(parent_id);
+    builder_.add_matches(matches);
     builder_.add_session_id(session_id);
     builder_.add_request(request);
     builder_.add_layer(layer);
@@ -156,10 +254,17 @@ inline ::flatbuffers::Offset<PromptAssociation> CreatePromptAssociationDirect(
     ::flatbuffers::Offset<open_perception_kit::metadata::LayerInfo> layer = 0,
     ::flatbuffers::Offset<open_perception_kit::metadata::RequestEnvelope> request = 0,
     const char *session_id = nullptr,
-    uint64_t parent_id = 0) {
+    uint64_t parent_id = 0,
+    const std::vector<::flatbuffers::Offset<open_perception_kit::metadata::PromptObjectMatch>>
+        *matches = nullptr) {
     auto session_id__ = session_id ? _fbb.CreateString(session_id) : 0;
+    auto matches__ =
+        matches
+            ? _fbb.CreateVector<
+                  ::flatbuffers::Offset<open_perception_kit::metadata::PromptObjectMatch>>(*matches)
+            : 0;
     return open_perception_kit::metadata::CreatePromptAssociation(
-        _fbb, schema_major, schema_minor, layer, request, session_id__, parent_id);
+        _fbb, schema_major, schema_minor, layer, request, session_id__, parent_id, matches__);
 }
 
 ::flatbuffers::Offset<PromptAssociation>
@@ -167,12 +272,65 @@ CreatePromptAssociation(::flatbuffers::FlatBufferBuilder &_fbb,
                         const PromptAssociationT *_o,
                         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+inline PromptObjectMatchT *
+PromptObjectMatch::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+    auto _o = std::unique_ptr<PromptObjectMatchT>(new PromptObjectMatchT());
+    UnPackTo(_o.get(), _resolver);
+    return _o.release();
+}
+
+inline void PromptObjectMatch::UnPackTo(PromptObjectMatchT *_o,
+                                        const ::flatbuffers::resolver_function_t *_resolver) const {
+    (void)_o;
+    (void)_resolver;
+    {
+        auto _e = object_id();
+        _o->object_id = _e;
+    }
+    {
+        auto _e = group_id();
+        if (_e)
+            _o->group_id = _e->str();
+    }
+}
+
+inline ::flatbuffers::Offset<PromptObjectMatch>
+PromptObjectMatch::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+                        const PromptObjectMatchT *_o,
+                        const ::flatbuffers::rehasher_function_t *_rehasher) {
+    return CreatePromptObjectMatch(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<PromptObjectMatch>
+CreatePromptObjectMatch(::flatbuffers::FlatBufferBuilder &_fbb,
+                        const PromptObjectMatchT *_o,
+                        const ::flatbuffers::rehasher_function_t *_rehasher) {
+    (void)_rehasher;
+    (void)_o;
+    struct _VectorArgs {
+        ::flatbuffers::FlatBufferBuilder *__fbb;
+        const PromptObjectMatchT *__o;
+        const ::flatbuffers::rehasher_function_t *__rehasher;
+    } _va = {&_fbb, _o, _rehasher};
+    (void)_va;
+    auto _object_id = _o->object_id;
+    auto _group_id = _o->group_id.empty() ? 0 : _fbb.CreateString(_o->group_id);
+    return open_perception_kit::metadata::CreatePromptObjectMatch(_fbb, _object_id, _group_id);
+}
+
 inline PromptAssociationT::PromptAssociationT(const PromptAssociationT &o)
     : schema_major(o.schema_major), schema_minor(o.schema_minor),
       layer((o.layer) ? new open_perception_kit::metadata::LayerInfoT(*o.layer) : nullptr),
       request((o.request) ? new open_perception_kit::metadata::RequestEnvelopeT(*o.request)
                           : nullptr),
-      session_id(o.session_id), parent_id(o.parent_id) {}
+      session_id(o.session_id), parent_id(o.parent_id) {
+    matches.reserve(o.matches.size());
+    for (const auto &matches_ : o.matches) {
+        matches.emplace_back((matches_)
+                                 ? new open_perception_kit::metadata::PromptObjectMatchT(*matches_)
+                                 : nullptr);
+    }
+}
 
 inline PromptAssociationT &
 PromptAssociationT::operator=(PromptAssociationT o) FLATBUFFERS_NOEXCEPT {
@@ -182,6 +340,7 @@ PromptAssociationT::operator=(PromptAssociationT o) FLATBUFFERS_NOEXCEPT {
     std::swap(request, o.request);
     std::swap(session_id, o.session_id);
     std::swap(parent_id, o.parent_id);
+    std::swap(matches, o.matches);
     return *this;
 }
 
@@ -239,6 +398,23 @@ inline void PromptAssociation::UnPackTo(PromptAssociationT *_o,
         auto _e = parent_id();
         _o->parent_id = _e;
     }
+    {
+        auto _e = matches();
+        if (_e) {
+            _o->matches.resize(_e->size());
+            for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) {
+                if (_o->matches[_i]) {
+                    _e->Get(_i)->UnPackTo(_o->matches[_i].get(), _resolver);
+                } else {
+                    _o->matches[_i] =
+                        std::unique_ptr<open_perception_kit::metadata::PromptObjectMatchT>(
+                            _e->Get(_i)->UnPack(_resolver));
+                }
+            }
+        } else {
+            _o->matches.resize(0);
+        }
+    }
 }
 
 inline ::flatbuffers::Offset<PromptAssociation>
@@ -266,8 +442,19 @@ CreatePromptAssociation(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _request = _o->request ? CreateRequestEnvelope(_fbb, _o->request.get(), _rehasher) : 0;
     auto _session_id = _o->session_id.empty() ? 0 : _fbb.CreateString(_o->session_id);
     auto _parent_id = _o->parent_id;
+    auto _matches =
+        _o->matches.size()
+            ? _fbb.CreateVector<
+                  ::flatbuffers::Offset<open_perception_kit::metadata::PromptObjectMatch>>(
+                  _o->matches.size(),
+                  [](size_t i, _VectorArgs *__va) {
+                      return CreatePromptObjectMatch(
+                          *__va->__fbb, __va->__o->matches[i].get(), __va->__rehasher);
+                  },
+                  &_va)
+            : 0;
     return open_perception_kit::metadata::CreatePromptAssociation(
-        _fbb, _schema_major, _schema_minor, _layer, _request, _session_id, _parent_id);
+        _fbb, _schema_major, _schema_minor, _layer, _request, _session_id, _parent_id, _matches);
 }
 
 inline const open_perception_kit::metadata::PromptAssociation *

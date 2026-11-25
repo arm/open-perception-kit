@@ -21,7 +21,7 @@
 
 namespace opk {
 
-/// Initial ingress composition; other formats are not exposed by the public protocol.
+/// Box decoder registered alongside the independent semantic query formats.
 const PromptCodec &boxPromptCodec();
 
 } // namespace opk

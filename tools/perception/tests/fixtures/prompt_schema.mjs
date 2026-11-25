@@ -51,3 +51,31 @@ const associated = result.get(PromptAssociationT);
 assert.equal(associated.request.requestId, requestId);
 assert.equal(associated.sessionId, 'session-a');
 assert.equal(associated.parentId, 0x8000000000000001n);
+
+import { TextPromptInputsT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-inputs.js';
+import { TextPromptPayloadT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-payload.js';
+import { TextPromptGroupT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/text-prompt-group.js';
+import { VisualPromptInputsT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-inputs.js';
+import { VisualPromptPayloadT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-payload.js';
+import { VisualPromptGroupT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-group.js';
+import { VisualPromptBoxT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/visual-prompt-box.js';
+import { PromptReferenceImageT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-reference-image.js';
+import { PromptObjectMatchT } from './dist/open_perception_kit/fb/open-perception-kit/metadata/prompt-object-match.js';
+const maximum = 0xffffffffffffffffn;
+const queryRequest = new RequestEnvelopeT(maximum, maximum, new RequestDestinationT('query', 'pipelineVideoFrame'));
+const queries = new Envelope();
+queries.add(new TextPromptInputsT(1, 0, queryRequest, new TextPromptPayloadT([
+  new TextPromptGroupT('people', 'person'), new TextPromptGroupT('vehicles', 'bus'),
+])));
+queries.add(new VisualPromptInputsT(1, 0, queryRequest, new VisualPromptPayloadT([
+  new PromptReferenceImageT(2, 1, 1, [1, 2, 3, 4, 5, 6]),
+], [new VisualPromptGroupT('sample', '', 0, new VisualPromptBoxT(0.25, 0, 1, 1))])));
+queries.add(new PromptAssociationT(1, 0, null, queryRequest, 'session', 1n, [new PromptObjectMatchT(maximum, 'people')]));
+const queryResult = new Envelope(queries.serialize());
+assert.equal(queryResult.get(TextPromptInputsT).request.requestId, maximum);
+assert.equal(queryResult.get(TextPromptInputsT).request.revision, maximum);
+assert.equal(queryResult.get(TextPromptInputsT).payload.groups.length, 2);
+assert.deepEqual(Array.from(queryResult.get(VisualPromptInputsT).payload.references[0].pixels), [1, 2, 3, 4, 5, 6]);
+assert.equal(queryResult.get(VisualPromptInputsT).payload.groups[0].box.left, 0.25);
+assert.equal(queryResult.get(PromptAssociationT).matches[0].objectId, maximum);
+assert.equal(queryResult.get(PromptAssociationT).matches[0].groupId, 'people');

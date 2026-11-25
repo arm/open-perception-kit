@@ -49,6 +49,7 @@ impl<'a> PromptAssociation<'a> {
     pub const VT_REQUEST: flatbuffers::VOffsetT = 10;
     pub const VT_SESSION_ID: flatbuffers::VOffsetT = 12;
     pub const VT_PARENT_ID: flatbuffers::VOffsetT = 14;
+    pub const VT_MATCHES: flatbuffers::VOffsetT = 16;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -61,6 +62,9 @@ impl<'a> PromptAssociation<'a> {
     ) -> flatbuffers::WIPOffset<PromptAssociation<'bldr>> {
         let mut builder = PromptAssociationBuilder::new(_fbb);
         builder.add_parent_id(args.parent_id);
+        if let Some(x) = args.matches {
+            builder.add_matches(x);
+        }
         if let Some(x) = args.session_id {
             builder.add_session_id(x);
         }
@@ -82,6 +86,9 @@ impl<'a> PromptAssociation<'a> {
         let request = self.request().map(|x| Box::new(x.unpack()));
         let session_id = self.session_id().map(|x| x.to_string());
         let parent_id = self.parent_id();
+        let matches = self
+            .matches()
+            .map(|x| x.iter().map(|t| t.unpack()).collect());
         PromptAssociationT {
             schema_major,
             schema_minor,
@@ -89,6 +96,7 @@ impl<'a> PromptAssociation<'a> {
             request,
             session_id,
             parent_id,
+            matches,
         }
     }
 
@@ -158,6 +166,19 @@ impl<'a> PromptAssociation<'a> {
                 .unwrap()
         }
     }
+    #[inline]
+    pub fn matches(
+        &self,
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PromptObjectMatch<'a>>>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab.get::<flatbuffers::ForwardsUOffset<
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PromptObjectMatch>>,
+            >>(PromptAssociation::VT_MATCHES, None)
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for PromptAssociation<'_> {
@@ -182,6 +203,9 @@ impl flatbuffers::Verifiable for PromptAssociation<'_> {
                 false,
             )?
             .visit_field::<u64>("parent_id", Self::VT_PARENT_ID, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<
+                flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<PromptObjectMatch>>,
+            >>("matches", Self::VT_MATCHES, false)?
             .finish();
         Ok(())
     }
@@ -193,6 +217,11 @@ pub struct PromptAssociationArgs<'a> {
     pub request: Option<flatbuffers::WIPOffset<RequestEnvelope<'a>>>,
     pub session_id: Option<flatbuffers::WIPOffset<&'a str>>,
     pub parent_id: u64,
+    pub matches: Option<
+        flatbuffers::WIPOffset<
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PromptObjectMatch<'a>>>,
+        >,
+    >,
 }
 impl<'a> Default for PromptAssociationArgs<'a> {
     #[inline]
@@ -204,6 +233,7 @@ impl<'a> Default for PromptAssociationArgs<'a> {
             request: None,
             session_id: None,
             parent_id: 0,
+            matches: None,
         }
     }
 }
@@ -252,6 +282,16 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> PromptAssociationBuilder<'a, 'b
             .push_slot::<u64>(PromptAssociation::VT_PARENT_ID, parent_id, 0);
     }
     #[inline]
+    pub fn add_matches(
+        &mut self,
+        matches: flatbuffers::WIPOffset<
+            flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<PromptObjectMatch<'b>>>,
+        >,
+    ) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(PromptAssociation::VT_MATCHES, matches);
+    }
+    #[inline]
     pub fn new(
         _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     ) -> PromptAssociationBuilder<'a, 'b, A> {
@@ -277,6 +317,7 @@ impl core::fmt::Debug for PromptAssociation<'_> {
         ds.field("request", &self.request());
         ds.field("session_id", &self.session_id());
         ds.field("parent_id", &self.parent_id());
+        ds.field("matches", &self.matches());
         ds.finish()
     }
 }
@@ -289,6 +330,7 @@ pub struct PromptAssociationT {
     pub request: Option<Box<RequestEnvelopeT>>,
     pub session_id: Option<String>,
     pub parent_id: u64,
+    pub matches: Option<Vec<PromptObjectMatchT>>,
 }
 impl Default for PromptAssociationT {
     fn default() -> Self {
@@ -299,6 +341,7 @@ impl Default for PromptAssociationT {
             request: None,
             session_id: None,
             parent_id: 0,
+            matches: None,
         }
     }
 }
@@ -313,6 +356,10 @@ impl PromptAssociationT {
         let request = self.request.as_ref().map(|x| x.pack(_fbb));
         let session_id = self.session_id.as_ref().map(|x| _fbb.create_string(x));
         let parent_id = self.parent_id;
+        let matches = self.matches.as_ref().map(|x| {
+            let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+            _fbb.create_vector(&w)
+        });
         PromptAssociation::create(
             _fbb,
             &PromptAssociationArgs {
@@ -322,6 +369,7 @@ impl PromptAssociationT {
                 request,
                 session_id,
                 parent_id,
+                matches,
             },
         )
     }

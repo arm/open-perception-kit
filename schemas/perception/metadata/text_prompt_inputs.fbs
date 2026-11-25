@@ -1,0 +1,25 @@
+include "request.fbs";
+
+namespace open_perception_kit.metadata;
+
+// Stable caller identity; ordering determines only the revision-local model slot.
+table TextPromptGroup {
+  group_id:string;
+  description:string;
+  display_name:string;
+}
+
+table TextPromptPayload {
+  groups:[open_perception_kit.metadata.TextPromptGroup];
+}
+
+// Absence of payload selects the no-prompt policy, not cancellation.
+table TextPromptInputs {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  request:open_perception_kit.metadata.RequestEnvelope;
+  payload:open_perception_kit.metadata.TextPromptPayload;
+}
+
+root_type TextPromptInputs;
+file_identifier "TPRM";

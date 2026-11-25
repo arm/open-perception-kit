@@ -73,12 +73,89 @@ opk::Result<void> submit(opk::PromptController &controller,
 class OwnedTextPayload final : public opk::PromptPayload {
   public:
     explicit OwnedTextPayload(std::string text) : text(std::move(text)) {}
+    size_t ownedBytes() const override {
+        return sizeof(*this) + text.size();
+    }
     opk::PromptFormat format() const override {
         return {"TEST", 1, 0};
     }
 
     const std::string text;
 };
+
+class OwnedBytesPayload final : public opk::PromptPayload {
+  public:
+    explicit OwnedBytesPayload(const size_t count) : bytes(count) {}
+    opk::PromptFormat format() const override {
+        return {"TEST", 1, 0};
+    }
+    size_t ownedBytes() const override {
+        return sizeof(*this) + bytes.capacity();
+    }
+    const std::vector<uint8_t> bytes;
+};
+
+TEST(PromptInputs, ByteBudgetCountsOwnersOnceAndPreservesRejectedRevision) {
+    opk::PromptController controller;
+    const auto owner = std::make_shared<const OwnedBytesPayload>(40 * 1024 * 1024);
+    auto first = request();
+    ASSERT_TRUE(controller.submit({"one", std::move(*first.request), owner}));
+    const auto pinned = controller.snapshot();
+    auto second = request(1, 2);
+    ASSERT_TRUE(controller.submit({"one", std::move(*second.request), owner}));
+    const auto other = std::make_shared<const OwnedBytesPayload>(40 * 1024 * 1024);
+    auto rejected = request(1, 3);
+    EXPECT_FALSE(controller.submit({"one", std::move(*rejected.request), other}));
+    ASSERT_TRUE(controller.snapshot());
+    EXPECT_EQ(controller.snapshot()->revision(), 2);
+    auto retry = request(1, 3);
+    EXPECT_TRUE(controller.submit({"one", std::move(*retry.request), owner}));
+    EXPECT_EQ(controller.snapshot()->revision(), 3);
+}
+
+TEST(PromptInputs, ReusingOwnerDoesNotAccumulateExpiredRevisionEntries) {
+    opk::PromptController controller;
+    const auto owner = std::make_shared<const OwnedBytesPayload>(1024);
+    for (uint64_t revision = 1; revision <= 20; ++revision) {
+        auto wire = request(1, revision);
+        ASSERT_TRUE(controller.submit({"one", std::move(*wire.request), owner}));
+    }
+    EXPECT_EQ(controller.snapshot()->revision(), 20);
+}
+
+TEST(PromptInputs, CancelledQueuedBufferKeepsByteChargeUntilReleased) {
+    gst_init(nullptr, nullptr);
+    opk::PromptController controller;
+    auto owner = std::make_shared<const OwnedBytesPayload>(40 * 1024 * 1024);
+    auto first = request();
+    ASSERT_TRUE(controller.submit({"one", std::move(*first.request), owner}));
+    GstBuffer *const buffer = gst_buffer_new();
+    ASSERT_NE(opk::PromptInputsMeta::add(buffer, controller.snapshot(), "infer", 2, 2), nullptr);
+    owner.reset();
+    ASSERT_TRUE(controller.cancel("one", 1, 1));
+    ASSERT_TRUE(controller.endSession("one"));
+    const auto next = std::make_shared<const OwnedBytesPayload>(40 * 1024 * 1024);
+    auto rejected = request();
+    EXPECT_FALSE(controller.submit({"two", std::move(*rejected.request), next}));
+    EXPECT_FALSE(controller.snapshot());
+    gst_buffer_unref(buffer);
+    auto retry = request();
+    EXPECT_TRUE(controller.submit({"two", std::move(*retry.request), next}));
+}
+
+TEST(PromptInputs, PayloadBorrowerWithoutSnapshotStillRetainsCharge) {
+    opk::PromptController controller;
+    auto owner = std::make_shared<const OwnedBytesPayload>(40 * 1024 * 1024);
+    auto first = request();
+    ASSERT_TRUE(controller.submit({"one", std::move(*first.request), owner}));
+    ASSERT_TRUE(controller.cancel("one", 1, 1));
+    const auto next = std::make_shared<const OwnedBytesPayload>(40 * 1024 * 1024);
+    auto rejected = request(2);
+    EXPECT_FALSE(controller.submit({"one", std::move(*rejected.request), next}));
+    owner.reset();
+    auto retry = request(2);
+    EXPECT_TRUE(controller.submit({"one", std::move(*retry.request), next}));
+}
 
 TEST(PromptInputs, DetachedEnvelopeCopiesCannotChangePublishedIdentityOrDestination) {
     opk::PromptController controller;

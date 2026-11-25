@@ -128,6 +128,14 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.SemanticSegmentationMasks',
         'file_identifier': 'SSGM',
     },
+    7676226797863811345: {
+        'name': 'open_perception_kit::metadata::TextPromptInputs',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.TextPromptInputs',
+        'root_type': 'TextPromptInputs',
+        'native_type': 'TextPromptInputsT',
+        'qualified_root_type': 'open_perception_kit.metadata.TextPromptInputs',
+        'file_identifier': 'TPRM',
+    },
     7618457940451616939: {
         'name': 'open_perception_kit::metadata::TrackTraces',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.TrackTraces',
@@ -143,6 +151,14 @@ _TYPE_REGISTRY = {
         'native_type': 'TurnDetectionsT',
         'qualified_root_type': 'open_perception_kit.metadata.TurnDetections',
         'file_identifier': 'TURN',
+    },
+    1751078931098357144: {
+        'name': 'open_perception_kit::metadata::VisualPromptInputs',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.VisualPromptInputs',
+        'root_type': 'VisualPromptInputs',
+        'native_type': 'VisualPromptInputsT',
+        'qualified_root_type': 'open_perception_kit.metadata.VisualPromptInputs',
+        'file_identifier': 'VPRM',
     },
     4750671262425495264: {
         'name': 'open_perception_kit::metadata::VoiceActivityDetections',

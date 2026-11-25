@@ -337,3 +337,62 @@ for review candidates; do not weaken manifest or checksum validation.
 - `check`, release tests, affected builds, and affected runtime tests pass from
   a clean committed snapshot.
 - The candidate bundle was packaged and verified before deployment.
+
+## Continuing Text and Visual Prompts
+
+`TextPromptInputs` (`TPRM`) and `VisualPromptInputs` (`VPRM`) reuse the continuing
+request envelope. These focused roots are compatible additions. `PromptAssociation`
+appends optional `matches`, mapping each emitted object ID to a stable caller group
+ID in that consumed request revision. Existing root identifiers and field defaults
+are unchanged. A published product contract requires a MINOR release; this feature
+leaves product-version selection to release preparation.
+
+Text groups contain a unique nonempty UTF-8 `group_id`, one category description,
+and an optional display name. Visual groups contain a unique ID, optional display
+name, a reference index and one normalized box in that reference. Dense category
+indices are revision-local implementation details. References own complete upright
+unmirrored packed RGB8 pixels; width, height and byte count must agree. References
+are neither target frame IDs nor external resource handles. Multiple groups can
+share a reference index. Full images and their boxes are preserved independently
+of target-frame geometry.
+
+The initial host implementation bounds groups to 16, reference count to 4, each
+reference dimension to 2048, and aggregate RGB bytes to 16 MiB per revision. Group
+IDs/display names are at most 128 bytes and descriptions at most 1024 bytes. NUL,
+invalid UTF-8, empty IDs, duplicate IDs and empty/whitespace-only descriptions are
+rejected. Text packets are at most 64 KiB; visual packets at most 16 MiB + 64 KiB.
+These are defensive host defaults, not measured device requirements. MobileSAM's
+4096-byte packet limit is unchanged. Encoder token bounds are additional model
+constraints; preparation must fail explicitly rather than truncate a category.
+
+Validation operates on verified wire views before copying. Reference count and
+aggregate byte limits count repeated/aliased FlatBuffers tables too. Accepted
+payloads own private immutable packet storage; generated const views borrow that
+owner. Applications may immediately release their source bytes. An absent payload
+selects the no-prompt policy; a present empty group list is malformed. In command
+submissions the request envelope remains required for acknowledgement identity.
+
+Group matching is separate from instance identity. Each emitted box and mask object
+must be mapped explicitly when both are present; array position is not a join key.
+Successful empty results retain the request association with no matches; failed or
+skipped inference emits no successful association. Old PRAS readers retain the old
+request-level semantics but cannot report group matches. An old decode/repack loses
+unknown match fields; the mixed-reader fixture records this limitation. New query
+consumers must require group matching for emitted query objects.
+
+Ingress codec registrations expose their per-format limits through
+`promptCodecCapabilities()`. `opkprompt` defaults to `formats=BPRM`; a text/visual
+preset explicitly selects `formats=TPRM,VPRM`. Its read-only `capabilities` property
+is JSON describing those enabled decoders. This is ingress admission policy,
+not model support: the existing destination `OpInterfacePromptConsumer` check
+still validates the buffer-pinned format before execution. The explicit setting
+is necessary because commands may arrive before the downstream chain is running;
+ingress does not load or inspect model files. Invalid/disabled-format submissions
+leave the active revision intact.
+
+The controller retains at most eight semantic revisions and 64 MiB of owned
+semantic allocations, including queued/cancelled revisions and payload borrowers.
+Shared payload owners are charged once. Rejected updates do not change the active
+revision or request history. A transient incoming decoded packet can coexist with
+that retained budget during validation; transport bytes and encoder workspace are
+separate allocations. Learned prepared state must enforce its own bounded budget.
