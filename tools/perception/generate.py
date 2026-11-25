@@ -399,6 +399,25 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path, python: str) -> 
     source_version = f'version = "{config.version}"'
     if cargo.count(source_version) != 1:
         raise RuntimeError("generated Rust package version is unexpected")
+    source_runtime = f'flatbuffers = "={config.flatbuffers_version}"'
+    if cargo.count(source_runtime) != 1:
+        raise RuntimeError("generated Rust FlatBuffers dependency is unexpected")
+    library_path = rust_root / "src/lib.rs"
+    library = library_path.read_text(encoding="utf-8")
+    source_requirement = (
+        f'pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "=={config.flatbuffers_version}";'
+    )
+    if library.count(source_requirement) != 1:
+        raise RuntimeError("generated Rust FlatBuffers requirement is unexpected")
+    runtime_version = config.flatbuffers_rust_crates[0].version
+    library_path.write_text(
+        library.replace(
+            source_requirement,
+            f'pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "=={runtime_version}";',
+        ),
+        encoding="utf-8",
+    )
+    cargo = cargo.replace(source_runtime, f'flatbuffers = "={runtime_version}"')
     cargo_toml.write_text(
         cargo.replace(
             source_version,
@@ -760,6 +779,9 @@ def _generation_tool_records() -> list[dict[str, object]]:
             *(SDK_LEGAL_INPUT_DIR / name for name in SDK_LEGAL_FILES),
             REPO_ROOT / ".clang-format",
             REPO_ROOT / ".cmake-format.yaml",
+            REPO_ROOT / "tools/frame-access/generate.py",
+            REPO_ROOT / "schemas/frame-access/frame_reply.fbs",
+            REPO_ROOT / "schemas/frame-access/frame_reply.fbs.license",
         )
     ]
 
@@ -797,7 +819,7 @@ def write_perception_manifest(
                 "node": f">={config.node_minimum_major}",
             },
             "rust": {
-                "flatbuffers_runtime": config.flatbuffers_version,
+                "flatbuffers_runtime": config.flatbuffers_rust_crates[0].version,
                 "formatter": rustfmt_version(),
                 "standard_library": True,
             },
@@ -917,6 +939,29 @@ def verify_perception_manifest(
     return manifest
 
 
+def prepare_frame_access(generated_root: Path, flatc: str, python: str) -> None:
+    with tempfile.TemporaryDirectory(prefix="opk-frame-access-") as tmp:
+        run([python, str(REPO_ROOT / "tools/frame-access/generate.py"),
+             "--flatc", flatc, "--output", tmp])
+        rust_source = generated_root / "rust/src"
+        shutil.copyfile(Path(tmp) / "frame_reply_generated.rs", rust_source / "frame_access_generated.rs")
+        shutil.copyfile(Path(tmp) / "frame_reply.bfbs", rust_source / "frame_reply.bfbs")
+    with (rust_source / "lib.rs").open("a", encoding="utf-8") as library:
+        library.write("""
+#[allow(unused_imports, dead_code)]
+mod frame_access_generated;
+/// Native one-shot frame contract; independent of the nested result schema.
+pub mod frame_access {
+    pub use super::frame_access_generated::opk::frame_access::v_1::{
+        Frame, FrameArgs, FrameReply, FrameReplyArgs, PixelFormat, Plane, PlaneArgs,
+        ReplyStatus, SampleInfo, SampleInfoArgs,
+    };
+    /// Binary schema used for native service type verification.
+    pub const SCHEMA: &[u8] = include_bytes!("frame_reply.bfbs");
+}
+""")
+
+
 def prepare_sdk(
     config: SdkConfig,
     generated_root: Path,
@@ -926,6 +971,7 @@ def prepare_sdk(
     python: str,
     node: str,
     node_modules: Path,
+    flatc: str,
 ) -> None:
     verify_flowdata_manifests(config, generated_root, python)
     flowdata_manifests = read_flowdata_manifests(generated_root)
@@ -946,6 +992,7 @@ def prepare_sdk(
     ):
         raise RuntimeError("generated Python package metadata is unexpected")
     prepare_rust_tests(config, generated_root, python)
+    prepare_frame_access(generated_root, flatc, python)
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)
     copy_sdk_legal_files(generated_root)
@@ -1008,7 +1055,7 @@ def generate_candidate(
     generate_sdk(config, generated, flatc, python)
     prepare_sdk(
         config, generated, internal, clang_format, formatter_python, python,
-        node, node_modules,
+        node, node_modules, flatc,
     )
     return generated, internal
 

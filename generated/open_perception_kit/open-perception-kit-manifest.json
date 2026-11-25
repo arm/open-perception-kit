@@ -5,7 +5,7 @@
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "cb4bae029c80713b673face612aec8763f9acca0c14ff5d9e7b89ccd17c5437a"
+    "sha256": "1058c3c16ee85af87f7ae9b09787c6f8e94c693da1cd9f921c69ffbac7830dab"
   },
   "files": [
     {
@@ -495,8 +495,8 @@
     },
     {
       "path": "rust/Cargo.toml",
-      "sha256": "87d34062c3c838764efdd578b713e6a95aeb1d104d3ff3f9536fc059cfbb5d7a",
-      "size": 859
+      "sha256": "e432b129ba8722e9f993efb2e65db1b96ec93c35572aa0332c669ab82beca447",
+      "size": 860
     },
     {
       "path": "rust/LICENSE",
@@ -819,9 +819,19 @@
       "size": 722
     },
     {
+      "path": "rust/src/frame_access_generated.rs",
+      "sha256": "ad51929fdddb76f40c996b184a39f89a68c440790213483ceb0b8e2001d1c8ef",
+      "size": 44405
+    },
+    {
+      "path": "rust/src/frame_reply.bfbs",
+      "sha256": "13a49532c39b870ac8f68086a72ec3631345975d6d75a15bc28429ea3a91a6df",
+      "size": 2248
+    },
+    {
       "path": "rust/src/lib.rs",
-      "sha256": "ac0523a6707ac8121ed51159d673f64c16a0caa2b722de608004006dda7ba0af",
-      "size": 58636
+      "sha256": "21d1d4145a49003f33792cfa5b23b1cd4af9573539debf288e31d410d66ba579",
+      "size": 59145
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
@@ -2021,8 +2031,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "7f6feb29df02fd9b7c131f10ecc3991977df30709e7078b98fc3edc6422a411e",
-        "size": 47803
+        "sha256": "85df45f75680b30e6d55bf4aa4f3198617de64ccc709330b5c67258b9f6a4a7d",
+        "size": 50140
       },
       {
         "path": "tools/perception/artifacts.py",
@@ -2036,8 +2046,8 @@
       },
       {
         "path": "tools/perception/sdk_config.py",
-        "sha256": "8a9424ba02deb56291c36e96ae547fbf2fdd7079cf75ea2e54fc7c16c86ca33c",
-        "size": 12000
+        "sha256": "5ec5196e95123987a5cda2029cb801f91920d47a6bcee9cf8ae4d095f45f2af4",
+        "size": 11906
       },
       {
         "path": "tools/perception/tests/fixtures/write_packet.py",
@@ -2063,6 +2073,21 @@
         "path": ".cmake-format.yaml",
         "sha256": "5cd0b0240991af3af8ea1e1fc4acce16b1cffe41f1898c1343f25cfe15218481",
         "size": 851
+      },
+      {
+        "path": "tools/frame-access/generate.py",
+        "sha256": "6b74845ba0f827c950dc5f0450e0e80a59a66030023f60065d7275ed23f39e1d",
+        "size": 1793
+      },
+      {
+        "path": "schemas/frame-access/frame_reply.fbs",
+        "sha256": "d4054ed0e96eb078edd0a474b65793ba4eeadbfff8d249b33ea333e666354794",
+        "size": 1582
+      },
+      {
+        "path": "schemas/frame-access/frame_reply.fbs.license",
+        "sha256": "a5886d117861894849525035214878bb415057394453d56d49bd1205091a71bf",
+        "size": 635
       }
     ]
   },
@@ -2072,7 +2097,7 @@
     "cpp_formatter": "clang-format version 23.1.5",
     "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.15.0)",
     "rust": {
-      "flatbuffers_runtime": "25.9.23",
+      "flatbuffers_runtime": "25.12.19",
       "formatter": "rustfmt 1.8.0",
       "standard_library": true
     },

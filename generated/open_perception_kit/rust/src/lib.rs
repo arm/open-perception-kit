@@ -53,7 +53,7 @@ pub const OPEN_PERCEPTION_KIT_VERSION: &str = "1.0.0";
 pub const SCHEMA_SET_SHA256: &str =
     "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5"; // pragma: allowlist secret
 /// Exact FlatBuffers runtime version required by this crate.
-pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.9.23";
+pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.12.19";
 /// Lowest numeric key reserved for application-defined external payloads.
 pub const EXTERNAL_KEY_MIN: u64 = 9223372036854775808;
 
@@ -1567,4 +1567,16 @@ mod tests {
             assert_eq!(error.bytes(), original);
         }
     }
+}
+
+#[allow(unused_imports, dead_code)]
+mod frame_access_generated;
+/// Native one-shot frame contract; independent of the nested result schema.
+pub mod frame_access {
+    pub use super::frame_access_generated::opk::frame_access::v_1::{
+        Frame, FrameArgs, FrameReply, FrameReplyArgs, PixelFormat, Plane, PlaneArgs, ReplyStatus,
+        SampleInfo, SampleInfoArgs,
+    };
+    /// Binary schema used for native service type verification.
+    pub const SCHEMA: &[u8] = include_bytes!("frame_reply.bfbs");
 }

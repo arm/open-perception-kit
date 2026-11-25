@@ -141,7 +141,7 @@ def _python_build_tools(value: object) -> tuple[LockedArtifact, ...]:
     return tuple(artifacts)
 
 
-def _rust_crates(value: object, flatbuffers_version: str) -> tuple[LockedArtifact, ...]:
+def _rust_crates(value: object) -> tuple[LockedArtifact, ...]:
     if not isinstance(value, list) or not value:
         raise RuntimeError("flatbuffers.rust_crates must be a non-empty list")
     artifacts: list[LockedArtifact] = []
@@ -159,7 +159,7 @@ def _rust_crates(value: object, flatbuffers_version: str) -> tuple[LockedArtifac
     names = [artifact.name for artifact in artifacts]
     if len(names) != len(set(names)):
         raise RuntimeError("flatbuffers.rust_crates names must be unique")
-    if artifacts[0].name != "flatbuffers" or artifacts[0].version != flatbuffers_version:
+    if artifacts[0].name != "flatbuffers":
         raise RuntimeError("the first Rust crate must be the locked FlatBuffers runtime")
     return tuple(artifacts)
 
@@ -239,7 +239,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         flatbuffers["source_archive"], "flatbuffers.source_archive",
         "flatbuffers", flatbuffers_version,
     )
-    rust_crates = _rust_crates(flatbuffers["rust_crates"], flatbuffers_version)
+    rust_crates = _rust_crates(flatbuffers["rust_crates"])
 
     build_tools = _python_build_tools(raw["python_build"])
     typescript_runtime, typescript_compiler, node_minimum_major = _typescript_build(

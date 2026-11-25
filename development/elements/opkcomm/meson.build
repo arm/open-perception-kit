@@ -19,6 +19,32 @@ asio_dep = dependency('asio', required: true,
 websocketpp_dep = dependency('websocketpp', required: true,
                              fallback: ['websocketpp', 'websocketpp_dep'])
 
+opkcomm_frame_access_enabled = false
+frame_sources = []
+frame_dependencies = []
+frame_cpp_args = []
+if not get_option('opkcomm_iceoryx2').disabled()
+  native_dep = dependency('iceoryx2-cxx', version: '==0.10.0', method: 'cmake',
+                          modules: ['iceoryx2-cxx::static-lib-cxx'],
+                          required: get_option('opkcomm_iceoryx2'))
+  if native_dep.found()
+    opkcomm_frame_access_enabled = true
+    repo_root = meson.project_source_root() / '..'
+    frame_contract = custom_target('frame_access_contract',
+      input: repo_root / 'schemas/frame-access/frame_reply.fbs',
+      output: ['frame_reply_generated.h', 'frame_reply_generated.rs', 'frame_reply.bfbs'],
+      command: [find_program('python3'), repo_root / 'tools/frame-access/generate.py',
+                '--flatc', find_program('flatc'), '--output', meson.current_build_dir()],
+      depend_files: [repo_root / 'tools/frame-access/generate.py', repo_root / 'tools/perception/sdk.json'],
+      install: release_package,
+      install_dir: [false, false, get_option('datadir') / 'opk/frame-access'])
+    schema_path = release_package ? '' : meson.current_build_dir() / 'frame_reply.bfbs'
+    frame_sources = [frame_contract[0], 'frame_access_server.cpp']
+    frame_dependencies = [native_dep]
+    frame_cpp_args = ['-DOPK_FRAME_ACCESS', '-DOPK_FRAME_SCHEMA_PATH="' + schema_path + '"']
+  endif
+endif
+
 opkcomm = shared_module(
   'opkcomm',                   
   sources: [
@@ -27,9 +53,10 @@ opkcomm = shared_module(
     'file_writer.cpp',
     'tcp_writer.cpp',
     'websocket_writer.cpp',
-  ],
+  ] + frame_sources,
+  cpp_args: frame_cpp_args,
   include_directories: [common_include],
-  dependencies: [opk_deps, dependency('zlib'), asio_dep, websocketpp_dep], 
+  dependencies: [opk_deps, dependency('zlib'), asio_dep, websocketpp_dep] + frame_dependencies,
   gnu_symbol_visibility: 'hidden', 
   link_with: [ common ],
   install: release_package,

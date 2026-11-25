@@ -7,11 +7,11 @@
     },
     "rust_crates": [
       {
-        "filename": "flatbuffers-25.9.23.crate",
+        "filename": "flatbuffers-25.12.19.crate",
         "name": "flatbuffers",
-        "sha256": "09b6620799e7340ebd9968d2e0708eb82cf1971e9a16821e2091b6d6e475eed5",
-        "url": "https://static.crates.io/crates/flatbuffers/flatbuffers-25.9.23.crate",
-        "version": "25.9.23"
+        "sha256": "35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3",
+        "url": "https://static.crates.io/crates/flatbuffers/flatbuffers-25.12.19.crate",
+        "version": "25.12.19"
       },
       {
         "filename": "bitflags-2.13.1.crate",

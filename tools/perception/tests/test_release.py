@@ -268,7 +268,10 @@ class SdkDescriptorTests(unittest.TestCase):
             [artifact.name for artifact in config.flatbuffers_rust_crates],
             ["flatbuffers", "bitflags", "rustc_version", "semver"],
         )
-        self.assertEqual(config.flatbuffers_rust_crates[0].version, config.flatbuffers_version)
+        self.assertEqual(
+            config.flatbuffers_rust_crates[0].version,
+            descriptor["flatbuffers"]["rust_crates"][0]["version"],
+        )
         self.assertEqual(
             [tool.name for tool in config.python_build_tools],
             ["pip", "setuptools", "wheel"],
@@ -388,6 +391,24 @@ class ArtifactCacheTests(unittest.TestCase):
 
 
 class GenerationReceiptTests(unittest.TestCase):
+    def test_rust_runtime_alignment_rejects_unexpected_generator_dependency(self) -> None:
+        generator = release_package.perception_generate
+        config = release_package.perception_config.load_sdk_config()
+        with tempfile.TemporaryDirectory() as tmp:
+            generated = Path(tmp)
+            (generated / "rust").mkdir()
+            manifest = generated / "rust/Cargo.toml"
+            content = (
+                f'[package]\nname = "{config.public_name}"\nversion = "{config.version}"\n'
+                '[dependencies]\nflatbuffers = "=0.0.0"\n'
+            )
+            manifest.write_text(content, encoding="utf-8")
+            with patch.object(generator, "acquire_artifact") as acquire:
+                with self.assertRaisesRegex(RuntimeError, "FlatBuffers dependency is unexpected"):
+                    generator.prepare_rust_tests(config, generated, sys.executable)
+                acquire.assert_not_called()
+            self.assertEqual(manifest.read_text(encoding="utf-8"), content)
+
     def test_rust_fixture_reuses_verified_image_wheel_and_keeps_isolation(self) -> None:
         generator = release_package.perception_generate
         content = b"locked fixture runtime"
@@ -402,9 +423,14 @@ class GenerationReceiptTests(unittest.TestCase):
                 if state != "missing":
                     (cache / config.flatbuffers_wheel.filename).write_bytes(content if state == "cached" else b"corrupt")
                 generated = root / "generated"
-                (generated / "rust").mkdir(parents=True)
+                (generated / "rust/src").mkdir(parents=True)
+                (generated / "rust/src/lib.rs").write_text(
+                    f'pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "=={config.flatbuffers_version}";\n',
+                    encoding="utf-8",
+                )
                 (generated / "rust/Cargo.toml").write_text(
-                    f'[package]\nname = "{config.public_name}"\nversion = "{config.version}"\n', encoding="utf-8")
+                    f'[package]\nname = "{config.public_name}"\nversion = "{config.version}"\n'
+                    f'[dependencies]\nflatbuffers = "={config.flatbuffers_version}"\n', encoding="utf-8")
 
                 def download(url, destination):
                     self.assertEqual(url, config.flatbuffers_wheel.url)
@@ -425,6 +451,14 @@ class GenerationReceiptTests(unittest.TestCase):
                     else:
                         generator.prepare_rust_tests(config, generated, sys.executable)
                         writer.assert_called_once()
+                        self.assertIn(
+                            f'flatbuffers = "={config.flatbuffers_rust_crates[0].version}"',
+                            (generated / "rust/Cargo.toml").read_text(encoding="utf-8"),
+                        )
+                        self.assertIn(
+                            f'"=={config.flatbuffers_rust_crates[0].version}"',
+                            (generated / "rust/src/lib.rs").read_text(encoding="utf-8"),
+                        )
                     self.assertEqual(fetch.call_count, int(state == "missing"))
 
     def test_rust_fixture_generation_without_installed_python_packages(self) -> None:
@@ -440,9 +474,14 @@ class GenerationReceiptTests(unittest.TestCase):
             )
             generated = Path(tmp) / "generated"
             shutil.copytree(config.generated_root / "python", generated / "python")
-            (generated / "rust").mkdir()
+            (generated / "rust/src").mkdir(parents=True)
+            (generated / "rust/src/lib.rs").write_text(
+                f'pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "=={config.flatbuffers_version}";\n',
+                encoding="utf-8",
+            )
             (generated / "rust/Cargo.toml").write_text(
-                f'[package]\nname = "{config.public_name}"\nversion = "{config.version}"\n',
+                f'[package]\nname = "{config.public_name}"\nversion = "{config.version}"\n'
+                f'[dependencies]\nflatbuffers = "={config.flatbuffers_version}"\n',
                 encoding="utf-8",
             )
             release_package.perception_generate.prepare_rust_tests(config, generated, str(python))
@@ -1641,7 +1680,7 @@ class GeneratedSdkTests(unittest.TestCase):
         )
         rust_postprocessing = manifest["postprocessing"]["rust"]
         self.assertEqual(
-            rust_postprocessing["flatbuffers_runtime"], config.flatbuffers_version
+            rust_postprocessing["flatbuffers_runtime"], config.flatbuffers_rust_crates[0].version
         )
         self.assertRegex(
             rust_postprocessing["formatter"], r"^rustfmt \d+\.\d+\.\d+$"

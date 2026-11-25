@@ -20,4 +20,4 @@ edition = "2021"
 description = "Generated open_perception_kit Rust SDK"
 
 [dependencies]
-flatbuffers = "=25.9.23"
+flatbuffers = "=25.12.19"

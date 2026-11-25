@@ -325,4 +325,34 @@ TEST_F(GstVideoBuffer, CapsNegotiationDescribesCopyAndPreservation) {
     EXPECT_TRUE(gst_caps_is_equal(filtered.get(), dma.get()));
 }
 
+TEST(GstVideoFrameMapping, RejectsStrideBeyondMappedAllocation) {
+    gst_init(nullptr, nullptr);
+    GstVideoInfo info{};
+    ASSERT_TRUE(gst_video_info_set_format(&info, GST_VIDEO_FORMAT_GRAY8, 3, 2));
+    const BufferRef buffer{gst_buffer_new_allocate(nullptr, info.size, nullptr), gst_buffer_unref};
+    std::array<gsize, GST_VIDEO_MAX_PLANES> offsets{};
+    std::array<gint, GST_VIDEO_MAX_PLANES> strides{100, 0, 0, 0};
+    ASSERT_NE(gst_buffer_add_video_meta_full(buffer.get(), GST_VIDEO_FRAME_FLAG_NONE,
+        GST_VIDEO_FORMAT_GRAY8, 3, 2, 1, offsets.data(), strides.data()), nullptr);
+
+    EXPECT_EQ(opk::mediaio::gst::GstVideoFrame::mapGstBuffer(buffer.get(), info), nullptr);
+}
+
+TEST(GstVideoFrameMapping, AllowsLastRowWithoutTrailingPadding) {
+    gst_init(nullptr, nullptr);
+    GstVideoInfo info{};
+    ASSERT_TRUE(gst_video_info_set_format(&info, GST_VIDEO_FORMAT_GRAY8, 3, 2));
+    const BufferRef buffer{gst_buffer_new_allocate(nullptr, 7, nullptr), gst_buffer_unref};
+    std::array<gsize, GST_VIDEO_MAX_PLANES> offsets{};
+    std::array<gint, GST_VIDEO_MAX_PLANES> strides{4, 0, 0, 0};
+    ASSERT_NE(gst_buffer_add_video_meta_full(buffer.get(), GST_VIDEO_FRAME_FLAG_NONE,
+        GST_VIDEO_FORMAT_GRAY8, 3, 2, 1, offsets.data(), strides.data()), nullptr);
+    const auto frame = opk::mediaio::gst::GstVideoFrame::mapGstBuffer(buffer.get(), info);
+
+    ASSERT_NE(frame, nullptr);
+    ASSERT_EQ(frame->planes().size(), 1);
+    EXPECT_EQ(frame->planes()[0].strideBytes(), 4);
+    EXPECT_EQ(frame->planes()[0].byteSize(), 7);
+}
+
 } // namespace

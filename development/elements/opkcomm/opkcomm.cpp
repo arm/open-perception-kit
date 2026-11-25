@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <atomic>
 #include <cstdint>
 #include <fcntl.h>
 #include <memory>
@@ -35,6 +36,14 @@
 
 #include <gst/FrameResultsMeta.h>
 
+#ifdef OPK_FRAME_ACCESS
+#include "frame_access_server.h"
+#include "mediaio/GstVideoFrame.h"
+#include <dlfcn.h>
+#include <filesystem>
+#include <nlohmann/json.hpp>
+#endif
+
 #ifndef PACKAGE
 constexpr const char *PACKAGE = "opkcomm";
 #endif
@@ -49,6 +58,9 @@ typedef enum {
     GST_OPK_COMM_METHOD_FILE = 1,
     GST_OPK_COMM_METHOD_WEBSOCKET = 2,
     GST_OPK_COMM_METHOD_TCP = 3,
+#ifdef OPK_FRAME_ACCESS
+    GST_OPK_COMM_METHOD_ICEORYX2 = 4,
+#endif
 } GstOpkCommMethod;
 
 struct GstOpkCommPrivate {
@@ -58,6 +70,15 @@ struct GstOpkCommPrivate {
     std::unique_ptr<Writer> writer;
     bool started = false;
     bool writer_open = false;
+#ifdef OPK_FRAME_ACCESS
+    std::string frame_endpoint;
+    std::string frame_profile;
+    std::string runtime_path;
+    std::optional<opk::frame_access::DeploymentProfile> profile;
+    std::unique_ptr<opk::frame_access::Server> frame_server;
+    std::atomic_bool frame_ready{false};
+    GstVideoInfo video_info{};
+#endif
 };
 
 struct _GstOpkComm {
@@ -95,6 +116,12 @@ enum class PropertyId : guint {
     Endpoint,
     TcpHost,
     TcpPort,
+#ifdef OPK_FRAME_ACCESS
+    FrameEndpoint,
+    FrameProfile,
+    RuntimePath,
+    FrameReady,
+#endif
 };
 
 } // namespace
@@ -105,6 +132,9 @@ static GType gst_opk_comm_method_get_type(void) {
         {GST_OPK_COMM_METHOD_FILE, "file", "file"},
         {GST_OPK_COMM_METHOD_WEBSOCKET, "websocket", "websocket"},
         {GST_OPK_COMM_METHOD_TCP, "tcp", "tcp"},
+#ifdef OPK_FRAME_ACCESS
+        {GST_OPK_COMM_METHOD_ICEORYX2, "iceoryx2", "iceoryx2"},
+#endif
         {0, nullptr, nullptr}};
 
     if (g_once_init_enter(&methodType)) {
@@ -124,6 +154,10 @@ static const char *gst_opk_comm_method_name(GstOpkCommMethod method) {
         return "websocket";
     case GST_OPK_COMM_METHOD_TCP:
         return "tcp";
+#ifdef OPK_FRAME_ACCESS
+    case GST_OPK_COMM_METHOD_ICEORYX2:
+        return "iceoryx2";
+#endif
     default:
         return "unknown";
     }
@@ -148,6 +182,44 @@ static bool gst_opk_comm_open_io(GstOpkComm *self) {
 
     auto success = false;
     switch (self->method) {
+#ifdef OPK_FRAME_ACCESS
+    case GST_OPK_COMM_METHOD_ICEORYX2:
+        // Validate explicit limits now; endpoint creation waits for negotiated caps.
+        self->priv->writer.reset();
+        try {
+            if (self->priv->frame_endpoint.empty()) {
+                throw std::invalid_argument("frame-endpoint must be explicitly configured");
+            }
+
+            const auto json = nlohmann::json::parse(self->priv->frame_profile);
+            opk::frame_access::DeploymentProfile profile{};
+            const std::array fields{
+                std::pair{"clients", &profile.clients},
+                std::pair{"active_requests_per_client", &profile.activeRequestsPerClient},
+                std::pair{"callback_attempts", &profile.callbackAttempts},
+                std::pair{"max_image_bytes", &profile.maxImageBytes},
+                std::pair{"max_results_bytes", &profile.maxResultsBytes},
+                std::pair{"max_construction_bytes", &profile.maxConstructionBytes}};
+            if (!json.is_object() || json.size() != fields.size()) {
+                throw std::invalid_argument("frame-profile requires exactly six explicit limits");
+            }
+
+            for (const auto &[name, target] : fields) {
+                if (!json.contains(name) || !json[name].is_number_unsigned() ||
+                    json[name].get<uint64_t>() == 0) {
+                    throw std::invalid_argument(std::string("invalid frame-profile limit: ") +
+                                                name);
+                }
+                *target = json[name].get<uint64_t>();
+            }
+
+            self->priv->profile = profile;
+            success = true;
+        } catch (const std::exception &error) {
+            GST_ERROR_OBJECT(self, "Invalid frame-access configuration: %s", error.what());
+        }
+        break;
+#endif
     case GST_OPK_COMM_METHOD_FILE:
         self->priv->writer = std::make_unique<FileWriter>(self, self->file_name, 5);
         success = self->priv->writer->start();
@@ -183,9 +255,103 @@ static void gst_opk_comm_close_io(GstOpkComm *self) {
     }
     self->priv->writer.reset();
     self->priv->writer_open = false;
+#ifdef OPK_FRAME_ACCESS
+    self->priv->frame_ready.store(false);
+    self->priv->frame_server.reset();
+    self->priv->profile.reset();
+    gst_video_info_init(&self->priv->video_info);
+#endif
 }
 
 /* ----------------------- GstBaseTransform vfuncs ----------------------- */
+
+#ifdef OPK_FRAME_ACCESS
+static std::string frame_schema_path() {
+    // Resolve beside the loaded plugin so relocatable packages do not use a build-host path.
+    static constexpr char anchor = '\0';
+    Dl_info library{};
+    if (dladdr(&anchor, &library) != 0 && library.dli_fname != nullptr) {
+        const auto directory = std::filesystem::absolute(library.dli_fname).parent_path();
+        for (const auto *relative : {"../../share/opk/frame-access/frame_reply.bfbs",
+                                     "../../../share/opk/frame-access/frame_reply.bfbs"}) {
+            const auto candidate = (directory / relative).lexically_normal();
+            if (std::filesystem::is_regular_file(candidate))
+                return candidate.string();
+        }
+    }
+
+    if (std::filesystem::is_regular_file(OPK_FRAME_SCHEMA_PATH))
+        return OPK_FRAME_SCHEMA_PATH;
+    throw std::runtime_error("frame_reply.bfbs is missing from the OPK package");
+}
+
+static gboolean gst_opk_comm_set_caps(GstBaseTransform *parent, GstCaps *input, GstCaps *) {
+    auto *self = GST_OPK_COMM(parent);
+    const std::scoped_lock lock(self->priv->writer_mutex);
+    if (self->method != GST_OPK_COMM_METHOD_ICEORYX2)
+        return TRUE;
+
+    self->priv->frame_ready.store(false);
+    GstVideoInfo info{};
+    if (!gst_video_info_from_caps(&info, input))
+        return FALSE;
+
+    namespace wire = opk::frame_access::v1;
+    auto format = wire::PixelFormat_Unknown;
+    switch (GST_VIDEO_INFO_FORMAT(&info)) {
+    case GST_VIDEO_FORMAT_BGRA:
+        format = wire::PixelFormat_BGRA8;
+        break;
+    case GST_VIDEO_FORMAT_RGB:
+        format = wire::PixelFormat_RGB8;
+        break;
+    case GST_VIDEO_FORMAT_GRAY8:
+        format = wire::PixelFormat_Gray8;
+        break;
+    case GST_VIDEO_FORMAT_I420:
+        format = wire::PixelFormat_I420;
+        break;
+    case GST_VIDEO_FORMAT_NV12:
+        format = wire::PixelFormat_NV12;
+        break;
+    case GST_VIDEO_FORMAT_YUY2:
+        format = wire::PixelFormat_YUY2;
+        break;
+    default:
+        return FALSE;
+    }
+
+    // Caps determine the initial byte reservation; later layouts must fit it without resizing.
+    try {
+        if (!self->priv->profile)
+            throw std::runtime_error("frame-access profile was not initialized");
+        if (self->priv->frame_server) {
+            if (!self->priv->frame_server->setLayout(format, info.width, info.height)) {
+                throw std::runtime_error("renegotiated frame exceeds endpoint construction bounds");
+            }
+        } else {
+            self->priv->frame_server = std::make_unique<opk::frame_access::Server>(
+                *self->priv->profile,
+                self->priv->frame_endpoint,
+                self->priv->runtime_path,
+                frame_schema_path(),
+                format,
+                info.width,
+                info.height,
+                [self](const std::string_view error) {
+                    GST_WARNING_OBJECT(self, "%.*s", static_cast<int>(error.size()), error.data());
+                });
+        }
+
+        self->priv->video_info = info;
+        self->priv->frame_ready.store(true);
+        return TRUE;
+    } catch (const std::exception &error) {
+        GST_ERROR_OBJECT(self, "Frame-access setup failed: %s", error.what());
+        return FALSE;
+    }
+}
+#endif
 
 static gboolean gst_opk_comm_start(GstBaseTransform *selfInParentType) {
     GstOpkComm *self = GST_OPK_COMM(selfInParentType);
@@ -219,10 +385,46 @@ static gboolean gst_opk_comm_stop(GstBaseTransform *selfInParentType) {
 static GstFlowReturn gst_opk_comm_transform_ip(GstBaseTransform *selfInParentType,
                                                GstBuffer *buffer) {
     GstOpkComm *self = GST_OPK_COMM(selfInParentType);
-    const std::scoped_lock lock(self->priv->writer_mutex);
+    std::unique_lock lock(self->priv->writer_mutex);
 
     if (!self->priv->writer_open)
         return GST_FLOW_ERROR;
+
+#ifdef OPK_FRAME_ACCESS
+    if (self->method == GST_OPK_COMM_METHOD_ICEORYX2) {
+        if (!self->priv->frame_server || self->frame_counter == UINT64_MAX) {
+            lock.unlock();
+            GST_ELEMENT_ERROR(self,
+                              RESOURCE,
+                              FAILED,
+                              ("Frame-access endpoint unavailable or sequence exhausted"),
+                              (nullptr));
+            return GST_FLOW_ERROR;
+        }
+
+        // Use this completed buffer for both results and pixels, without an extra-frame wait.
+        const auto results = opk::FrameResultsMeta::read(buffer);
+        const auto pts = GST_BUFFER_PTS_IS_VALID(buffer)
+                             ? std::optional<uint64_t>(GST_BUFFER_PTS(buffer))
+                             : std::nullopt;
+
+        // Mapping is deferred: metadata-only requests must not touch source pixels.
+        self->priv->frame_server->serve(results.get(), self->frame_counter, pts, [self, buffer]() {
+            if (GST_VIDEO_INFO_INTERLACE_MODE(&self->priv->video_info) !=
+                    GST_VIDEO_INTERLACE_MODE_PROGRESSIVE ||
+                GST_BUFFER_FLAG_IS_SET(buffer, GST_VIDEO_BUFFER_FLAG_INTERLACED) ||
+                GST_BUFFER_FLAG_IS_SET(buffer, GST_VIDEO_BUFFER_FLAG_ONEFIELD)) {
+                return std::shared_ptr<opk::mediaio::VideoFrame>{};
+            }
+            return std::static_pointer_cast<opk::mediaio::VideoFrame>(
+                opk::mediaio::gst::GstVideoFrame::mapGstBuffer(buffer, self->priv->video_info));
+        });
+
+        // Identity advances per buffer, not per request; clients may share a sequence or see gaps.
+        ++self->frame_counter;
+        return GST_FLOW_OK;
+    }
+#endif
 
     if (self->priv->writer && self->priv->writer->check_running()) {
         auto frameResults = opk::FrameResultsMeta::read(buffer);
@@ -249,6 +451,20 @@ static void gst_opk_comm_set_property(GObject *object,
     GstOpkComm *self = GST_OPK_COMM(object);
     std::unique_lock lock(self->priv->writer_mutex);
     std::unique_lock propertyLock(self->priv->property_mutex);
+
+#ifdef OPK_FRAME_ACCESS
+    // Live endpoint/profile changes would invalidate what connected clients discovered.
+    if (self->priv->started && (self->method == GST_OPK_COMM_METHOD_ICEORYX2 ||
+                                (static_cast<PropertyId>(propertyId) == PropertyId::Method &&
+                                 g_value_get_enum(value) == GST_OPK_COMM_METHOD_ICEORYX2) ||
+                                static_cast<PropertyId>(propertyId) == PropertyId::FrameEndpoint ||
+                                static_cast<PropertyId>(propertyId) == PropertyId::FrameProfile ||
+                                static_cast<PropertyId>(propertyId) == PropertyId::RuntimePath)) {
+        propertyLock.unlock();
+        GST_WARNING_OBJECT(self, "Frame-access configuration cannot change while started");
+        return;
+    }
+#endif
 
     switch (static_cast<PropertyId>(propertyId)) {
     case PropertyId::Method:
@@ -286,6 +502,17 @@ static void gst_opk_comm_set_property(GObject *object,
     case PropertyId::TcpPort:
         self->tcp_port = g_value_get_uint(value);
         break;
+#ifdef OPK_FRAME_ACCESS
+    case PropertyId::FrameEndpoint:
+        self->priv->frame_endpoint = g_value_get_string(value) ? g_value_get_string(value) : "";
+        break;
+    case PropertyId::FrameProfile:
+        self->priv->frame_profile = g_value_get_string(value) ? g_value_get_string(value) : "";
+        break;
+    case PropertyId::RuntimePath:
+        self->priv->runtime_path = g_value_get_string(value) ? g_value_get_string(value) : "";
+        break;
+#endif
 
     default:
         propertyLock.unlock();
@@ -338,6 +565,20 @@ static void gst_opk_comm_get_property(GObject *object,
     case PropertyId::TcpPort:
         g_value_set_uint(value, self->tcp_port);
         break;
+#ifdef OPK_FRAME_ACCESS
+    case PropertyId::FrameEndpoint:
+        g_value_set_string(value, self->priv->frame_endpoint.c_str());
+        break;
+    case PropertyId::FrameProfile:
+        g_value_set_string(value, self->priv->frame_profile.c_str());
+        break;
+    case PropertyId::RuntimePath:
+        g_value_set_string(value, self->priv->runtime_path.c_str());
+        break;
+    case PropertyId::FrameReady:
+        g_value_set_boolean(value, self->priv->frame_ready.load());
+        break;
+#endif
 
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, propertySpec);
@@ -376,7 +617,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
         static_cast<guint>(PropertyId::Method),
         g_param_spec_enum("method",
                           "Method",
-                          "Publishing method: file, websocket, or tcp"
+                          "Publishing method: file, websocket, tcp, or optional iceoryx2"
                           "; Changeable while playing; synchronous reopen disconnects clients and "
                           "may discard queued output",
                           gst_opk_comm_method_get_type(),
@@ -441,6 +682,43 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
                           65535,
                           7001,
                           livePropertyFlags));
+
+#ifdef OPK_FRAME_ACCESS
+    constexpr auto frameFlags = static_cast<GParamFlags>(
+        G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY);
+    g_object_class_install_property(objectClass,
+                                    static_cast<guint>(PropertyId::FrameEndpoint),
+                                    g_param_spec_string("frame-endpoint",
+                                                        "Frame endpoint",
+                                                        "Explicit native frame-access service name",
+                                                        nullptr,
+                                                        frameFlags));
+    g_object_class_install_property(
+        objectClass,
+        static_cast<guint>(PropertyId::FrameProfile),
+        g_param_spec_string("frame-profile",
+                            "Frame profile",
+                            "JSON with six explicit frame-access capacity limits",
+                            nullptr,
+                            frameFlags));
+    g_object_class_install_property(
+        objectClass,
+        static_cast<guint>(PropertyId::RuntimePath),
+        g_param_spec_string("runtime-path",
+                            "Runtime path",
+                            "Native runtime directory; unset uses the middleware default",
+                            nullptr,
+                            frameFlags));
+    g_object_class_install_property(
+        objectClass,
+        static_cast<guint>(PropertyId::FrameReady),
+        g_param_spec_boolean("frame-access-ready",
+                             "Frame access ready",
+                             "Native endpoint has negotiated caps and validated capacity",
+                             FALSE,
+                             static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+    baseTransformClass->set_caps = gst_opk_comm_set_caps;
+#endif
 
     /* Add pad templates so the element has sink/src pads */
     gst_element_class_add_pad_template(elementClass, gst_static_pad_template_get(&sink_template));
