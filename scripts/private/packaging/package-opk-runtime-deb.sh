@@ -246,7 +246,7 @@ runtime_architecture=x86_64
 if [[ "${ARCHITECTURE}" == arm64 ]]; then
     runtime_architecture=aarch64
 fi
-mapfile -t python_dependency_lock < <(
+python_dependency_output="$(
     python3 -c \
         'import json, sys
 runtime = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -255,16 +255,23 @@ numpy = runtime["numpy"]
 numpy_wheel = numpy["wheels"][sys.argv[3]]
 flatbuffers = sdk["flatbuffers"]
 flatbuffers_wheel = flatbuffers["python_wheel"]
+tokenizer = runtime.get("tokenizer", {})
+tokenizer_wheels = {name: package["wheels"][sys.argv[3]] for name, package in tokenizer.items()}
 for value in (
     numpy["version"], numpy_wheel["url"], numpy_wheel["sha256"],
     flatbuffers["version"], flatbuffers_wheel["url"], flatbuffers_wheel["sha256"],
 ):
-    print(value)' \
+    print(value)
+import shlex
+print(json.dumps({name: package["version"] for name, package in tokenizer.items()}))
+print(" ".join(shlex.quote(wheel["url"] + "#sha256=" + wheel["sha256"]) for wheel in tokenizer_wheels.values()))
+print(";".join(name + "=" + tokenizer[name]["version"] + ":" + wheel["sha256"] for name, wheel in tokenizer_wheels.items()) or "-")' \
         "${REPO_ROOT}/development/ops-python/runtime.json" \
         "${REPO_ROOT}/tools/perception/sdk.json" \
         "${runtime_architecture}"
-)
-[[ ${#python_dependency_lock[@]} -eq 6 ]] ||
+)"
+mapfile -t python_dependency_lock <<< "${python_dependency_output}"
+[[ ${#python_dependency_lock[@]} -eq 9 ]] ||
     die "invalid Python runtime dependency descriptors"
 numpy_version="${python_dependency_lock[0]}"
 numpy_wheel="${python_dependency_lock[1]}"
@@ -272,6 +279,14 @@ numpy_sha256="${python_dependency_lock[2]}"
 flatbuffers_version="${python_dependency_lock[3]}"
 flatbuffers_wheel="${python_dependency_lock[4]}"
 flatbuffers_sha256="${python_dependency_lock[5]}"
+tokenizer_versions="${python_dependency_lock[6]}"
+tokenizer_wheels="${python_dependency_lock[7]}"
+tokenizer_contract="${python_dependency_lock[8]}"
+if [[ "${tokenizer_contract}" == - ]]; then
+    tokenizer_contract=
+else
+    tokenizer_contract=";${tokenizer_contract}"
+fi
 
 cat > "${package_root}/DEBIAN/postinst" << EOF
 #!/bin/sh
@@ -283,7 +298,7 @@ fi
 
 target=/var/lib/opk/python
 parent=\$(dirname "\${target}")
-contract='numpy=${numpy_version}:${numpy_sha256};flatbuffers=${flatbuffers_version}:${flatbuffers_sha256}'
+contract='numpy=${numpy_version}:${numpy_sha256};flatbuffers=${flatbuffers_version}:${flatbuffers_sha256}${tokenizer_contract}'
 umask 022
 mkdir -p -- "\${parent}"
 if [ -f "\${target}/.opk-runtime-contract" ] && \
@@ -324,7 +339,7 @@ echo "Installing OPK Python runtime dependencies..."
     --only-binary :all: \
     --target "\${temporary}" \
     '${numpy_wheel}#sha256=${numpy_sha256}' \
-    '${flatbuffers_wheel}#sha256=${flatbuffers_sha256}'
+    '${flatbuffers_wheel}#sha256=${flatbuffers_sha256}' ${tokenizer_wheels}
 
 /usr/bin/python3.13 - "\${temporary}" '${numpy_version}' '${flatbuffers_version}' << 'PYTHON'
 import importlib
@@ -334,6 +349,7 @@ import sys
 
 root = pathlib.Path(sys.argv[1]).resolve()
 expected = {"numpy": sys.argv[2], "flatbuffers": sys.argv[3]}
+expected.update(${tokenizer_versions})
 sys.path.insert(0, str(root))
 for name, version in expected.items():
     module = importlib.import_module(name)

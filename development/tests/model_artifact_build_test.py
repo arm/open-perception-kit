@@ -70,6 +70,25 @@ class ModelArtifactBuildTest(unittest.TestCase):
                             with self.assertNoLogs(downloader["LOGGER"], level="WARNING"):
                                 downloader["_prepare_download"](descriptor, validator)
 
+    def test_tokenizer_runtime_lock_resolves_both_architectures_and_rejects_partial_output(self) -> None:
+        setup = REPO_ROOT / "scripts/setup-python-ops-runtime.sh"
+        for architecture in ("x86_64", "aarch64"):
+            result = subprocess.run([str(setup), "--python", sys.executable, "--dry-run",
+                                     "--architecture", architecture], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for package in ("ftfy", "regex", "wcwidth"):
+                self.assertIn("tokenizer=" + package + "==", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            lock = json.loads((REPO_ROOT / "development/ops-python/runtime.json").read_text())
+            del lock["tokenizer"]["regex"]["wheels"]["aarch64"]
+            invalid = Path(directory) / "runtime.json"
+            invalid.write_text(json.dumps(lock))
+            result = subprocess.run([str(setup), "--python", sys.executable, "--dry-run",
+                                     "--architecture", "aarch64", "--runtime-json", str(invalid)],
+                                    text=True, capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("python_version=", result.stdout)
+
     def test_configuration_schema_versions_require_complete_strings(self) -> None:
         from jsonschema import Draft202012Validator
 

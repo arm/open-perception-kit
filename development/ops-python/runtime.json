@@ -16,5 +16,52 @@
         "url": "https://files.pythonhosted.org/packages/04/dc/46066ce18d01645541f0186877377b9371b8fa8017fa8262002b4ef22612/numpy-2.4.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
       }
     }
+  },
+  "tokenizer": {
+    "ftfy": {
+      "version": "6.3.1",
+      "wheels": {
+        "x86_64": {
+          "filename": "ftfy-6.3.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ab/6e/81d47999aebc1b155f81eca4477a616a70f238a2549848c38983f3c22a82/ftfy-6.3.1-py3-none-any.whl",
+          "sha256": "7c70eb532015cd2f9adb53f101fb6c7945988d023a085d127d1573dc49dd0083"
+        },
+        "aarch64": {
+          "filename": "ftfy-6.3.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ab/6e/81d47999aebc1b155f81eca4477a616a70f238a2549848c38983f3c22a82/ftfy-6.3.1-py3-none-any.whl",
+          "sha256": "7c70eb532015cd2f9adb53f101fb6c7945988d023a085d127d1573dc49dd0083"
+        }
+      }
+    },
+    "regex": {
+      "version": "2026.11.19",
+      "wheels": {
+        "x86_64": {
+          "filename": "regex-2026.11.19-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "url": "https://files.pythonhosted.org/packages/ea/dd/bdc44884d86dab01f1aa87c1a6c6897d756410b5f36186de0ae34537ac77/regex-2026.11.19-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "5403bbcbd207f6e498fab36c4bfa31d857a0bd4173f74a845f1f731cb95d31ff"
+        },
+        "aarch64": {
+          "filename": "regex-2026.11.19-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+          "url": "https://files.pythonhosted.org/packages/e0/a2/ab71c53f8adfe1c330c935c0eb7dcc753bd74843f4a0c6c1f46c3a61ac1a/regex-2026.11.19-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+          "sha256": "3c916c26a235d06a4dfe717c4dd618563e373a15d0dd86085e9c8d8b1d1abd70"
+        }
+      }
+    },
+    "wcwidth": {
+      "version": "0.9.5",
+      "wheels": {
+        "x86_64": {
+          "filename": "wcwidth-0.9.5-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ca/77/61587cff9534a911b3116009f42de1edb2fa12bbb7c45ca92c4a415993f1/wcwidth-0.9.5-py3-none-any.whl",
+          "sha256": "ef205150ff317032d633de2d8ca26d03dc8d5ba6a00294f6acfd1d0cfe1365d6"
+        },
+        "aarch64": {
+          "filename": "wcwidth-0.9.5-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ca/77/61587cff9534a911b3116009f42de1edb2fa12bbb7c45ca92c4a415993f1/wcwidth-0.9.5-py3-none-any.whl",
+          "sha256": "ef205150ff317032d633de2d8ca26d03dc8d5ba6a00294f6acfd1d0cfe1365d6"
+        }
+      }
+    }
   }
 }

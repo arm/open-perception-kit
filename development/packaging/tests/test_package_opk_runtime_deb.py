@@ -109,6 +109,12 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
         source.unlink()
 
     def test_builds_runtime_package_with_expected_payload(self) -> None:
+        self.build_runtime_package(False)
+
+    def test_includes_locked_tokenizer_closure_in_postinstall(self) -> None:
+        self.build_runtime_package(True)
+
+    def build_runtime_package(self, tokenizer: bool) -> None:
         architecture = self.run_command(
             ["dpkg-architecture", "-qDEB_BUILD_ARCH"]
         ).stdout.strip()
@@ -269,6 +275,12 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 json.dumps(
                     {
                         "python": {"version": "3.13"},
+                        **({"tokenizer": {
+                            name: {"version": "1.2.3", "wheels": {
+                                arch: {"url": f"https://example.test/{name}-{arch}.whl", "sha256": "c" * 64}
+                                for arch in ("x86_64", "aarch64")}}
+                            for name in ("ftfy", "regex", "wcwidth")
+                        }} if tokenizer else {}),
                         "numpy": {
                             "version": "2.4.2",
                             "wheels": {
@@ -358,6 +370,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             self.assertIn("python3.13", control)
             self.assertIn("python3-pip", control)
             self.assertIn("libstdc++6", control)
+            self.assertTrue((extracted / f"usr/lib/{multiarch}/opk/libopk-onnx.so").is_file())
             self.assertNotIn("libonnxruntime", control)
             self.assertNotIn("libvulkan1", control)
             self.assertFalse((extracted / f"usr/lib/{multiarch}/opk/opk-mlwl-ops.so").exists())
@@ -423,6 +436,14 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             }[architecture]
             self.assertIn(expected_numpy_wheel, postinst)
             self.assertIn("flatbuffers.whl", postinst)
+            if tokenizer:
+                for name in ("ftfy", "regex", "wcwidth"):
+                    self.assertIn(f"{name}=1.2.3:" + "c" * 64, postinst)
+                    self.assertIn(f"{name}-", postinst)
+                    self.assertIn(f'"{name}": "1.2.3"', postinst)
+            else:
+                self.assertNotIn("wcwidth", postinst)
+
             self.assertIn("/var/lib/opk/python", postinst)
             self.assertIn(".opk-runtime-contract", postinst)
             self.assertTrue(os.access(control_root / "postinst", os.X_OK))

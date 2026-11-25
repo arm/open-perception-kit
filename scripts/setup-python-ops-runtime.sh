@@ -122,7 +122,7 @@ case "${architecture}" in
         ;;
 esac
 
-readarray -t dependency_lock < <("${python}" -c \
+dependency_lock_output="$("${python}" -c \
     'import json, sys
 descriptor=json.load(open(sys.argv[1], encoding="utf-8"))
 expected_python=descriptor["python"]["version"]
@@ -139,10 +139,14 @@ print(numpy_wheel["url"])
 print(numpy_wheel["sha256"])
 print(flatbuffers["version"])
 print(flatbuffers_wheel["url"])
-print(flatbuffers_wheel["sha256"])' \
-    "${runtime_descriptor}" "${sdk_descriptor}" "${architecture}")
+print(flatbuffers_wheel["sha256"])
+for name, package in descriptor.get("tokenizer", {}).items():
+    wheel=package["wheels"][sys.argv[3]]
+    print(name + "==" + package["version"] + "|" + wheel["url"] + "#sha256=" + wheel["sha256"])' \
+    "${runtime_descriptor}" "${sdk_descriptor}" "${architecture}")"
+readarray -t dependency_lock <<< "${dependency_lock_output}"
 
-if ((${#dependency_lock[@]} != 7)); then
+if ((${#dependency_lock[@]} < 7)); then
     echo "Invalid Python Ops dependency descriptors." >&2
     exit 1
 fi
@@ -152,6 +156,10 @@ numpy_version="${dependency_lock[1]}"
 numpy_wheel="${dependency_lock[2]}#sha256=${dependency_lock[3]}"
 flatbuffers_version="${dependency_lock[4]}"
 flatbuffers_wheel="${dependency_lock[5]}#sha256=${dependency_lock[6]}"
+tokenizer_wheels=()
+for dependency in "${dependency_lock[@]:7}"; do
+    tokenizer_wheels+=("${dependency#*|}")
+done
 venv="$("${python}" -c 'import os, sys; print(os.path.abspath(sys.argv[1]))' "${venv}")"
 
 if [[ "${dry_run}" == true ]]; then
@@ -164,6 +172,9 @@ if [[ "${dry_run}" == true ]]; then
     if [[ -n "${perception_sdk}" ]]; then
         printf 'perception_sdk=%s\n' "${perception_sdk}"
     fi
+    for dependency in "${dependency_lock[@]:7}"; do
+        printf 'tokenizer=%s\n' "${dependency%%|*}"
+    done
     exit 0
 fi
 
@@ -177,19 +188,22 @@ fi
 
 "${venv}/bin/python" -m pip install --no-cache-dir \
     "${numpy_wheel}" \
-    "${flatbuffers_wheel}"
+    "${flatbuffers_wheel}" "${tokenizer_wheels[@]}"
 if [[ -n "${perception_sdk}" ]]; then
     "${venv}/bin/python" -m pip install --no-cache-dir --no-deps "${perception_sdk}"
 fi
 
 "${venv}/bin/python" -c \
-    'import flatbuffers, numpy, sys
-expected_numpy, expected_flatbuffers = sys.argv[1:]
+    'import flatbuffers, numpy, sys, json, importlib.metadata
+expected_numpy, expected_flatbuffers, descriptor = sys.argv[1:]
+for name, package in json.load(open(descriptor)).get("tokenizer", {}).items():
+    if importlib.metadata.version(name) != package["version"]:
+        raise SystemExit(f"unexpected tokenizer dependency version: {name}")
 if numpy.__version__ != expected_numpy:
     raise SystemExit(f"unexpected NumPy version: {numpy.__version__}")
 if flatbuffers.__version__ != expected_flatbuffers:
     raise SystemExit(f"unexpected FlatBuffers version: {flatbuffers.__version__}")' \
-    "${numpy_version}" "${flatbuffers_version}"
+    "${numpy_version}" "${flatbuffers_version}" "${runtime_descriptor}"
 if [[ -n "${perception_sdk}" ]]; then
     "${venv}/bin/python" -c 'import open_perception_kit'
 fi
