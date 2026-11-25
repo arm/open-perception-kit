@@ -20,17 +20,22 @@ limitations under the License.
 
 # SDK 1.0 verification
 
-**Status: overlay and RetinaFace/ResNet gaze integration verified on main `95199ff9`; review, current-head CI and release gates remain.**
+**Historical status: overlay and RetinaFace/ResNet gaze integration verified on main `95199ff9`; review, CI and release gates were still outstanding at that snapshot.**
 This dated record supports [EXPKITS-1535](https://jira.arm.com/browse/EXPKITS-1535)
 and [EXPKITS-1523](https://jira.arm.com/browse/EXPKITS-1523). It was refreshed on
 2026-11-12 after the main rebase and review corrections. Verification does not authorize publication.
+
+Current release preparation uses OPK **0.1.4** with independently versioned SDK
+**1.0.0** packages without development suffixes, and Model/OpChain format **2.0.0**.
+The versions, hashes and test results below remain tied to their recorded snapshots;
+see the [release process](release-process.md) for current package requirements.
 
 ## Baselines and scope
 
 The latest genuine numbered product release checked on 2026-11-10 is `v0.1.2`
 (`95e61135df923d708bea7f8b161165055c92aa40`), corroborated by the GitHub Release,
 changelog and product version. The implementation baseline before this refactor is
-`d1e8c7d4b5a264e1b13d209a57b94e6b66f06dc7`. The approved target is SDK/product
+`d1e8c7d4b5a264e1b13d209a57b94e6b66f06dc7`. The target at that snapshot was SDK/product
 `1.0.0`, an intentionally breaking coordinated migration.
 
 The verified implementation snapshot is
@@ -226,5 +231,6 @@ Peer review, current-head CI and bottom-up merging remain required. Infrastructu
 resolution for the earlier Ubuntu package-host DNS failures is handed off.
 Use current PR state for subsequent updates and changes to main.
 Stable package preparation and final product-architecture evidence are separate
-release gates. Development markers remain until release readiness is established.
-Hardware and visual-validation limits above remain visible; no publication was performed.
+release gates. The development markers above describe the historical snapshot;
+current release preparation removes them as described in the release process.
+Hardware and visual-validation limits above remain visible; this record does not establish publication.

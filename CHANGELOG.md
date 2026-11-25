@@ -23,7 +23,33 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [1.0.0] - Unreleased
+## [0.1.4]
+
+[Release-version exception](https://github.com/arm/open-perception-kit/pull/305#discussion_r4697027647):
+OPK retains the planned 0.1.4 product version despite breaking metadata, SDK API
+and configuration changes from 0.1.3. The independently versioned SDK is 1.0.0.
+Upgrade producers,
+consumers, custom Ops and configuration together; see the migration requirements
+below.
+
+### Added
+
+- Rust crate README with a runnable consumer example, plus crates.io and offline
+  installation guidance.
+- WebUI Play/Pause/Stop controls and session-only model editing while stopped:
+  add, replace, remove and reorder installed models within their groups, with
+  Save/Discard and one editing browser at a time. Replacement rereads the OpChain
+  and clears that stage's input connections, even when selecting the same path.
+  See [browser model editing](docs/public/how-to/configure-elements.md#edit-models-from-the-browser).
+- Optimized-Runtimes OR inference for stateless, static Float32 host tensors,
+  with a YOLO26n example. Runtime libraries and model packages are provisioned
+  separately.
+- Configurable native log-mel audio preprocessing, generic voice-activity and
+  keyword postprocessing, and overlapping VAD/turn windows. The voice demo
+  supports custom pipelines and independent keyword assessments.
+- Checksum-verified dependency patches with packaging receipts.
+- Nightly validation of builds, installed packages, archives and real inference,
+  with health reports for nightly and release runs.
 
 ### Changed
 
@@ -31,8 +57,10 @@ follow [Semantic Versioning](https://semver.org/).
   identities now depend on their qualified root names rather than schema contents.
 - Adopt the four-state producer identity API. OPK consumers accept matching SDK
   names and major versions; schema hashes remain diagnostic information.
-- Mark the SDK packages as development prereleases while the 1.0 refactor is in
-  progress; the packet identity remains `1.0.0`.
+- Version SDK packets and packages independently of the OPK product release.
+  Set SDK package versions to 1.0.0, replacing the intermediate development
+  versions; the packet identity remains `1.0.0`. Reuse an identical published
+  SDK crate across OPK releases without publishing it again.
 - Make image coordinate spaces, optional category identity, classification kinds
   and subjects, contact/presence outcomes, gaze angles, mask encodings and meanings,
   embedding spaces, and track identity/history explicit in metadata.
@@ -45,9 +73,34 @@ follow [Semantic Versioning](https://semver.org/).
 - Integrate semantic/instance segmentation and OCR overlay controls with the 1.0
   contracts: declared mask regions/encodings/void values, optional annotations,
   explicit OCR subjects and recognized-text kinds.
+- Migrate saved overlay settings from v2 to v3, retaining explicit renderers,
+  source identities and settings while removing retired selectors.
+- Create editable default browser overlays in fresh setups and preserve saved
+  styles, visibility and removals. Move `full-onnx-yuv` decorations from native
+  `opkosd` into browser overlays.
+- Unify compact sidebar and overlay switches while preserving larger hit areas
+  and keyboard focus after model toggles.
+- Retain browser VAD and turn results between inference windows, clearing them
+  when the source resets or stops.
+- Use the official NuGet package as the default ONNX Runtime download source;
+  retain the original GitHub source through `OPK_ONNXRUNTIME_SOURCE=github`.
+- Update the manual PythonScript installation pin in `requirements/python-ops.txt`
+  to NumPy 2.5.5. The standard runtime setup continues to use NumPy 2.4.2 from
+  `development/ops-python/runtime.json`.
+- Unify documentation generation and validate prepared publication sources.
 
 ### Fixed
 
+- Check the development container checkout mount before building; request recreation
+  for a different checkout and reject a still-mismatched mount.
+
+- Include every configuration schema version in release packages, including the
+  v2 Model and OpChain schemas required by the current runtime.
+- Reconnect browser media and dynamic decoder links after Stop, and retain the
+  editor for correction after recoverable pipeline errors. Failed edits remain
+  available for correction; earlier applied edits are not rolled back.
+- Keep model-group identities unique across nested bins and reject stale edits
+  while model registrations update.
 - Correct category-zero handling, non-finite measurement handling, subject and
   producer ambiguity, gaze angular wrap comparison, and embedding compatibility checks.
 - Preserve mask placement/opacity semantics, elapsed-time track history and valid
@@ -60,6 +113,19 @@ follow [Semantic Versioning](https://semver.org/).
 - Preserve fine instance-mask cells at display resolution and refresh composition
   on resize/DPR changes. Match derived track subjects by identity as well as geometry
   so coincident tracks cannot hide swapped outcomes in regression comparisons.
+- Reduce browser background-segmentation flicker by retaining matched overlays
+  for up to 100 ms after the first metadata miss and enabling TCP_NODELAY.
+  Retained masks can briefly lag moving video.
+- Extend browser regression coverage for mask opacity, retention expiry and
+  exact RTP metadata matching across timestamp wraparound.
+- Clarify independent microphone capture and audio playback mute controls,
+  synchronize playback labels with volume changes, and prevent sidebar clipping.
+- Process browser model toggles in arrival order without blocking the control
+  thread, and prevent tracker trace-retention overflow.
+- Restore Plumber keyword comparisons and convert UltraFace logits to
+  probabilities before filtering detections.
+- Correct generated C++ type lookup when enum and table names collide across
+  namespaces.
 
 ### Breaking
 
@@ -71,11 +137,15 @@ follow [Semantic Versioning](https://semver.org/).
   declarations. Custom Op libraries and WebUI clients must be upgraded together.
 - Remove `LayerInfo.content_type`, Model `contentType`, semantic capability roles
   and subtype-based ROI/tracker/rendering selection. Model and OpChain formats move
-  to `2.0.0`; migrate sources explicitly and rebuild intermediate SDK 1.0 snapshots
-  together. See [explicit result inputs](docs/arch/explicit-input-connections.md).
-- Keep development package versions until stable release preparation is complete. See the
-  [SDK 1.0 verification record](docs/arch/sdk-1.0-verification.md) for scope and limits;
-  this entry does not authorize publication.
+  to `2.0.0`; migrate sources explicitly. See
+  [explicit result inputs](docs/arch/explicit-input-connections.md).
+- Rename the inference dependency policy to `auto-activate-model-dependencies`;
+  require GLib 2.70 or newer.
+- Allow only one `opksink` per pipeline, including nested bins. Pipelines with
+  multiple instances must remove extra sinks or use separate pipelines.
+
+See the [SDK 1.0 verification record](docs/arch/sdk-1.0-verification.md) for the
+refactor's validation scope and limits.
 
 ## [0.1.3]
 

@@ -5,7 +5,7 @@
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "74d9f09a097840e2f6d0094d80456ad49c64d400fedaef15d38c4541ececc7ca"
+    "sha256": "cc011c3b7bd1bd93617f403565861d5936c745dac39b32c3ff266b0a18107a87"
   },
   "files": [
     {
@@ -150,8 +150,8 @@
     },
     {
       "path": "python/pyproject.toml",
-      "sha256": "b6a1ec86538767e944c92e2b7ac9e70357f95f67a9b7ee950f67d5f570c1a4c0",
-      "size": 1265
+      "sha256": "b37491ff83221459735be3262d1eed114c6167448a9cd00e6a8c417a1033f8cd",
+      "size": 1260
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
@@ -495,8 +495,8 @@
     },
     {
       "path": "rust/Cargo.toml",
-      "sha256": "ae5a7ff3f8f0535abb2c209eb52e406850639796051c319173ffa744a691cb87",
-      "size": 880
+      "sha256": "aa92bab4e7e188d76c7977e651d7176f0c21d6a8a085dee14c95ad0258eebfaf",
+      "size": 874
     },
     {
       "path": "rust/LICENSE",
@@ -1470,8 +1470,8 @@
     },
     {
       "path": "ts/package.json",
-      "sha256": "8b711342231ca5dab197e9f95cb1d65711fe2e435bf21576758dba3050abb732",
-      "size": 880
+      "sha256": "ed621a8220b5589932f655daf2069799aa0f45de55f782c011e3c8d2f1b46ab9",
+      "size": 874
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",

@@ -14,7 +14,7 @@
 # limitations under the License.
 
 project('opk_elements', ['c', 'cpp'],
-    version: '1.0.0',
+    version: '0.1.4',
   default_options: [
     'c_std=c11',
     'cpp_std=c++20',

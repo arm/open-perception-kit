@@ -69,7 +69,7 @@ releases remain independently versioned in `development/meson.build`.
 | Model JSON | `config/schemas/v2/model.schema.json` | OPK model integration maintainers own tensor and preprocessing declarations. Model authors own the artifact and its export requirements. |
 | SDK descriptor JSON | `tools/perception/sdk.json` and `tools/perception/sdk_config.py` | SDK tooling maintainers own its dependency locks, generator inputs, and release fields. It has no configuration-format version. |
 | OPK runtime and native plugins | `development/meson.build` | OPK maintainers own the product version. Use native components from the same release or source checkout. |
-| SDK packet and package version | `tools/perception/sdk.json` | SDK maintainers version APIs and payload semantics independently of the product. |
+| SDK packet and package version | `tools/perception/sdk.json` | SDK maintainers version APIs and payload semantics independently of the product. OPK 0.1.4 includes SDK 1.0.0. |
 | Inference frameworks | `Dockerfile` dependency versions and `development/ops-*/meson.build` build integration | Backend maintainers select the packaged framework. Exported models must be supported by that framework. |
 | Open Perception Kit and FlatBuffers | `schemas/perception/`, `tools/perception/sdk.json`, and the generated SDK manifest | Schema maintainers own payload semantics; the SDK descriptor owns generator inputs and exact FlatBuffers artifacts. |
 | Embedded Python dependencies | `development/ops-python/runtime.json` and `tools/perception/sdk.json` | Python Op maintainers own NumPy; the SDK descriptor owns FlatBuffers. Use the supplied container or matching binary release runtime. |
@@ -172,9 +172,9 @@ OPK container image or binary release together.
 
 External consumers should start with the Open Perception Kit SDK shipped with their
 producer. FlatBuffers wire compatibility, generated payload identity, and
-SDK API compatibility are separate checks: an additive schema change can
-produce a new payload ID that an older SDK cannot decode through its typed API.
-See the FrameResults schema compatibility policy beside the schema definitions.
+SDK API compatibility are separate checks. Payload IDs derive from qualified
+root names; retaining an ID does not by itself guarantee API or semantic
+compatibility. See the FrameResults schema compatibility policy beside the schema definitions.
 Changing a configuration `version` does not change the SDK or payload identity.
 
 ## Validation before execution
@@ -220,6 +220,10 @@ validated when the pipeline starts.
 
 The current Model and OpChain readers require major **2**. Pipeline presets remain
 major **1**. Rebuild custom Op libraries and upgrade the generated SDK and WebUI together.
+OPK 0.1.4 also permits only one `opksink` per pipeline, including nested bins.
+Remove extra instances or split the pipeline before upgrading; the pipeline
+format version does not relax this runtime restriction. See
+[browser model editing](../how-to/configure-elements.md#edit-models-from-the-browser).
 
 1. Remove Model `contentType` and set the Model version to `2.0.0`.
 2. Replace ROI `contentType` with `sourceOp` naming an earlier producer's explicit
