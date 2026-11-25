@@ -16,6 +16,8 @@
  */
 
 #include "GenericImagePreprocessOp.h"
+#include "opk/BilinearImageTensor.h"
+#include <cstring>
 
 #include <algorithm>
 #include <array>
@@ -200,7 +202,7 @@ opk::Result<void> GenericImagePreprocessOp::bind(const size_t index,
 }
 
 opk::Result<void> GenericImagePreprocessOp::configure(const opk::AttributeMap &attributes) {
-    for (const auto *const name : {"inputImageSourceName", "inferenceInstance"}) {
+    for (const auto *const name : {"inputImageSourceName", "inferenceInstance", "sampling"}) {
         if (attributes.contains(name) && !attributes.at(name).isString()) {
             return tl::unexpected(
                 OPK_ERROR(opk::ErrorFlag::InvalidData, std::string(name) + " must be a string"));
@@ -218,6 +220,12 @@ opk::Result<void> GenericImagePreprocessOp::configure(const opk::AttributeMap &a
         attributes.getStringOrDefault("inputImageSourceName", "pipelineVideoFrame");
     inputImageTensorIndex =
         attributes.getIntOrDefault("inputImageTensorIndex", opk::InvalidTensorIndex);
+    const auto sampling = attributes.getStringOrDefault("sampling", "nearest");
+    if (sampling != "nearest" && sampling != "bilinear") {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData, "sampling must be nearest or bilinear"));
+    }
+    bilinear = sampling == "bilinear";
     inferenceInstanceId = attributes.getStringOrDefault("inferenceInstance", "");
     if (inputImageSourceName.empty() ||
         (attributes.contains("inferenceInstance") && inferenceInstanceId.empty())) {
@@ -333,10 +341,43 @@ GenericImagePreprocessOp::process(opk::op::OpChainContext &opChainContext) {
             opk::computeLetterboxInnerRect(cropRect, setup.imageDestinationDesc.rect);
     }
 
-    // call tensor building
-    const auto result{genericImageInputTensorBuilder.build(setup)};
-    if (result.has_value() == false) {
-        return tl::unexpected(result.error());
+    if (bilinear) {
+        const auto &plane = source->planes[0];
+        const size_t channels = source->format == opk::RawImagePixelFormat::Bgra ? 4 : 3;
+        if (source->planeCount != 1 ||
+            !cropRect.fitsWithin(source->surfaceWidth, source->surfaceHeight) ||
+            cropRect.isEmpty() ||
+            cropRect.y > plane.byteCount / std::max(size_t{1}, plane.strideBytes) ||
+            cropRect.x > plane.byteCount / channels) {
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData, "Invalid bilinear source crop"));
+        }
+        const size_t rowOffset = cropRect.y * plane.strideBytes;
+        const size_t columnOffset = cropRect.x * channels;
+        if (rowOffset > plane.byteCount || columnOffset > plane.byteCount - rowOffset) {
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData, "Bilinear crop exceeds source plane"));
+        }
+        const size_t offset = rowOffset + columnOffset;
+        const auto image =
+            opk::buildBilinearImageTensor({plane.data + offset, plane.byteCount - offset},
+                                          cropRect.width,
+                                          cropRect.height,
+                                          plane.strideBytes,
+                                          source->format,
+                                          inputTensor);
+        if (!image) {
+            return tl::unexpected(image.error());
+        }
+        std::memcpy(destination->planes[0].mutableData,
+                    image->pixels.data(),
+                    image->pixels.size() * sizeof(float));
+        letterboxInnerRect = {image->left, image->top, image->width, image->height};
+    } else {
+        const auto result = genericImageInputTensorBuilder.build(setup);
+        if (!result) {
+            return tl::unexpected(result.error());
+        }
     }
 
     opChainContext.inferenceInfo.image =

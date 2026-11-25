@@ -25,6 +25,8 @@ common = shared_library(
     'opk/Tools.cpp',
     'opk/Labels.cpp',
     'opk/Model.cpp',
+    'opk/ImageResize.cpp',
+    'opk/BilinearImageTensor.cpp',
     'opk/ModelDescriptor.cpp',
     'opk/PipelinePreset.cpp',
 

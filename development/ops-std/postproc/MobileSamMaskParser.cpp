@@ -17,6 +17,8 @@
 
 #include "postproc/MobileSamMaskParser.h"
 
+#include "opk/ImageResize.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -36,23 +38,10 @@ constexpr size_t CandidatePixels = LogitSide * LogitSide;
 // Leave space for FlatBuffers tables and the other FrameResults payloads.
 constexpr size_t MaxMaskBytes = std::numeric_limits<int32_t>::max() - 65536U;
 
-struct AxisSample {
-    size_t first;
-    size_t second;
-    float weight;
-};
-
-constexpr std::array<AxisSample, ModelSide> makeSamples() {
-    std::array<AxisSample, ModelSide> samples{};
+constexpr std::array<opk::LinearImageSample, ModelSide> makeSamples() {
+    std::array<opk::LinearImageSample, ModelSide> samples{};
     for (size_t index = 0; index < ModelSide; ++index) {
-        const float coordinate =
-            std::clamp((static_cast<float>(index) + 0.5F) * static_cast<float>(LogitSide) /
-                               static_cast<float>(ModelSide) -
-                           0.5F,
-                       0.0F,
-                       static_cast<float>(LogitSide - 1));
-        const auto first = static_cast<size_t>(coordinate);
-        samples[index] = {first, std::min(first + 1, LogitSide - 1), coordinate - first};
+        samples[index] = opk::linearImageSample(index, LogitSide, ModelSide);
     }
     return samples;
 }
@@ -97,11 +86,7 @@ std::vector<uint8_t> upsampleAndThreshold(const std::vector<float> &logits) {
         const auto &sy = Samples[y];
         for (size_t x = 0; x < ModelSide; ++x) {
             const auto &sx = Samples[x];
-            const float upper = (1.0F - sx.weight) * logits[sy.first * LogitSide + sx.first] +
-                                sx.weight * logits[sy.first * LogitSide + sx.second];
-            const float lower = (1.0F - sx.weight) * logits[sy.second * LogitSide + sx.first] +
-                                sx.weight * logits[sy.second * LogitSide + sx.second];
-            const float value = (1.0F - sy.weight) * upper + sy.weight * lower;
+            const float value = opk::interpolateImage(logits, LogitSide, sx, sy);
             binary[y * ModelSide + x] = value > 0.0F ? 1 : 0;
         }
     }
@@ -161,9 +146,9 @@ opk::Result<void> MobileSamMaskParser::parse(const Input &input,
     size_t right = 0;
     size_t bottom = 0;
     for (size_t y = 0; y < image.height; ++y) {
-        const size_t sourceY = y * ModelSide / image.height;
+        const size_t sourceY = opk::nearestImageSample(y, ModelSide, image.height);
         for (size_t x = 0; x < image.width; ++x) {
-            const size_t sourceX = x * ModelSide / image.width;
+            const size_t sourceX = opk::nearestImageSample(x, ModelSide, image.width);
             const auto value = binary[sourceY * ModelSide + sourceX];
             bitmap.set8(x, y, value);
             if (value != 0) {

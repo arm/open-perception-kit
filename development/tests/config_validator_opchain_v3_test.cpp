@@ -691,7 +691,7 @@ TEST(ConfigValidator, MobileSamUsesDefaultImageSamplingWithoutSamplingAttribute)
     ASSERT_TRUE(opk::config::validateOpChainJson(document.dump(), path.string()));
     for (const auto *const sampling : {"nearest", "bilinear"}) {
         document["ops"][1]["attributes"]["sampling"] = sampling;
-        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump(), path.string()));
+        EXPECT_TRUE(opk::config::validateOpChainJson(document.dump(), path.string()));
     }
     document["ops"][1]["attributes"]["sampling"] = "unknown";
     EXPECT_FALSE(opk::config::validateOpChainJson(document.dump(), path.string()));

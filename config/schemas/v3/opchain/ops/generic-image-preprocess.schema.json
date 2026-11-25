@@ -14,9 +14,7 @@
   },
   "then": {
     "properties": {
-      "role": {
-        "const": "image-preprocess"
-      },
+      "role": {"const": "image-preprocess"},
       "attributes": {
         "type": "object",
         "additionalProperties": false,
@@ -32,6 +30,15 @@
           },
           "inferenceInstance": {
             "$ref": "urn:arm:opk:schema:opchain-common:v3#/$defs/trimNonEmptyString"
+          },
+          "sampling": {
+            "type": "string",
+            "enum": [
+              "nearest",
+              "bilinear"
+            ],
+            "default": "nearest",
+            "description": "CPU bilinear uses centered fixed-canvas uint8 interpolation and ties-to-even geometry."
           }
         }
       }

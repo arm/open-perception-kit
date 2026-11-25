@@ -101,6 +101,7 @@ class GenericImagePreprocessOp : public opk::op::Op,
     destinationImageDescription(const opk::ModelInput &inputTensor,
                                 const opk::PixelRect &destinationRect);
 
+    bool bilinear = false;
     std::string inputImageSourceName;
     std::string inferenceInstanceId;
     size_t inputImageTensorIndex{opk::InvalidTensorIndex};

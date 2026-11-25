@@ -1133,3 +1133,25 @@ prompt_adapter_tests = executable(
   link_with : [common],
 )
 test('prompt_adapter_tests', prompt_adapter_tests)
+
+image_resize_tests = executable(
+  'image_resize_tests',
+  ['image_resize_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('image_resize_tests', image_resize_tests)
+
+bilinear_model_tests = executable(
+  'bilinear_model_tests',
+  ['bilinear_model_test.cpp'],
+  include_directories : [common_include, include_directories('../ops-onnx')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps, onnx_backend_dep],
+  link_with : [common],
+  cpp_args : [
+    '-DOPK_QUERY_ONNX_OPS="' + onnxops.full_path() + '"',
+    '-DOPK_QUERY_STD_OPS="' + stdops.full_path() + '"',
+  ],
+)
+test('bilinear_model_tests', bilinear_model_tests, depends : [onnxops, stdops], timeout : 180)
