@@ -84,6 +84,17 @@ resolve_project_root() {
     printf '%s\n' "$resolved_root"
 }
 
+container_work_mount() {
+    docker container inspect --format \
+        '{{range .Mounts}}{{if and (eq .Destination "/work") (eq .Type "bind")}}{{.Source}}{{end}}{{end}}' "$1"
+}
+
+work_mount_matches_checkout() {
+    local source_path="$1"
+    [[ "$source_path" -ef "$REPO_ROOT" ]] ||
+        [[ "$source_path" == /host_mnt/* && "${source_path#/host_mnt}" -ef "$REPO_ROOT" ]]
+}
+
 run_on_host() {
     local detect_script="$REPO_ROOT/scripts/quick-start/detect-environment.sh"
     local start_container_script="$REPO_ROOT/scripts/quick-start/start-container.sh"
@@ -101,7 +112,22 @@ run_on_host() {
     eval "$detect_output"
 
     cd "$REPO_ROOT"
-    "$start_container_script"
+    local work_mount container_id
+    if work_mount="$(container_work_mount "$OPK_CONTAINER_NAME" 2> /dev/null)" &&
+        ! work_mount_matches_checkout "$work_mount"; then
+        echo "Recreating $OPK_CONTAINER_NAME: /work mounts '${work_mount:-<no bind mount>}', expected '$REPO_ROOT'."
+        "$start_container_script" --recreate
+    else
+        "$start_container_script"
+    fi
+
+    # Pin the checked container so another checkout cannot replace it before exec.
+    container_id="$(docker container inspect --format '{{.Id}}' "$OPK_CONTAINER_NAME")"
+    work_mount="$(container_work_mount "$container_id")"
+    if ! work_mount_matches_checkout "$work_mount"; then
+        echo "Error: /work mounts '${work_mount:-<no bind mount>}', expected '$REPO_ROOT'." >&2
+        return 1
+    fi
 
     docker_exec_args=(-u dev)
     if [[ -f "$REPO_ROOT/devices.env" ]]; then
@@ -114,11 +140,11 @@ run_on_host() {
             docker_exec_args+=(--env "$env_name=${!env_name}")
         fi
     done
-    docker exec "${docker_exec_args[@]}" "$OPK_CONTAINER_NAME" \
+    docker exec "${docker_exec_args[@]}" "$container_id" \
         bash -lc 'cd /work && ./scripts/build.sh "$@"' bash "$@"
 
     if [[ "$1" != clean ]]; then
-        docker exec -u dev "$OPK_CONTAINER_NAME" test -x /work/tools/opk-menu
+        docker exec -u dev "$container_id" test -x /work/tools/opk-menu
     fi
 }
 
