@@ -110,10 +110,15 @@ checked-in inputs before packaging:
 The product and SDK versions are independent.
 The SDK version also identifies packet producers; product releases do not change it.
 The `prepare` job checks the product version for an existing GitHub tag, release,
-or Artifactory destination, and the SDK version for an existing crates.io
-`open_perception_kit` crate.
-An existing version or an unavailable version check stops the workflow before
-publication.
+or Artifactory destination. An existing product version stops the workflow.
+Before publication, the ARM build compares the SDK crate with crates.io.
+Reuse requires an identical, non-yanked crate and unchanged consumer files in
+an earlier released SDK bundle, including the Python wheel and TypeScript
+package. Changed payloads require a new SDK version; missing release evidence
+or unavailable checks stop the workflow. Generation receipts may differ.
+Release runs are serialized so two product releases cannot pass this check
+before either publishes. If another publisher wins a Cargo upload race, the
+workflow continues only after verifying the registered checksum and yank status.
 
 In a release-preparation PR, update the product version and changelog section.
 Select the SDK version separately in `tools/perception/sdk.json`; generation
@@ -221,7 +226,7 @@ published as a site.
 ## Publication order
 
 1. `prepare` validates the product and SDK versions and source commit, then checks
-   publication destinations using the corresponding version. Native builds and source SBOM generation follow.
+   product publication destinations. Native builds and source SBOM generation follow.
    Quick-start smoke, SDK tests, and Meson tests also run.
 2. `artifactory` waits for the builds, the source SBOM, and all required test
    workflows. It collects the architecture archives, the Debian packages for
@@ -230,7 +235,8 @@ published as a site.
    `Arm-Debug/open-perception-kit-publisher`. It waits for success and retrieves the
    published download URLs.
 3. `perception-crates-io-publish` verifies the crate, generates its SBOM, and
-   publishes it to crates.io.
+   publishes it to crates.io only if that SDK version is absent. It rechecks the
+   published checksum before deciding whether to skip authentication and upload.
 4. `github-release` waits for both publishers, checks again for an existing
    `v<version>` release, and publishes the architecture archives, Debian packages,
    and SBOMs at the selected commit. Release notes include the changelog entry,
@@ -246,8 +252,9 @@ published as a site.
 A push to `main` separately starts the
 [staging documentation workflow](../../.github/workflows/docs-publish.yml).
 
-Do not overwrite published versions. The early check prevents known version
-reuse; the later GitHub check catches a release created during the run. A
+Do not overwrite published versions. The early check prevents product version
+reuse; an unchanged SDK can be shared by several product releases. The later
+GitHub check catches a release created during the run. A
 failed run can still leave packages or a GitHub Release behind, with no
 automatic rollback. Check completed jobs and publisher runs before retrying.
 

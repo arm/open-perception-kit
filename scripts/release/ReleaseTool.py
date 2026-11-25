@@ -23,13 +23,16 @@ import configparser
 import filecmp
 import hashlib
 import importlib.metadata
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
+import zipfile
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -1111,9 +1114,9 @@ def prepare(args: argparse.Namespace) -> None:
     )
 
 
-def check_published_version(version: str, sdk_version: str, repository: str, token: str) -> None:
-    if not VERSION_PATTERN.fullmatch(version) or not VERSION_PATTERN.fullmatch(sdk_version):
-        fail("Release and SDK versions must be stable MAJOR.MINOR.PATCH")
+def check_published_version(version: str, repository: str, token: str) -> None:
+    if not VERSION_PATTERN.fullmatch(version):
+        fail("Release version must be stable MAJOR.MINOR.PATCH")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         fail("GitHub repository must be OWNER/REPO")
     if not token:
@@ -1122,7 +1125,6 @@ def check_published_version(version: str, sdk_version: str, repository: str, tok
     checks = (
         ("GitHub tag", version, f"https://api.github.com/repos/{repository}/git/ref/tags/v{version}"),
         ("GitHub release", version, f"https://api.github.com/repos/{repository}/releases/tags/v{version}"),
-        ("crates.io crate", sdk_version, f"https://crates.io/api/v1/crates/open_perception_kit/{sdk_version}"),
         ("Artifactory destination", version, f"https://artifacts.tools.arm.com/open-perception-kit/v{version}/"),
     )
     for destination, checked_version, url in checks:
@@ -1139,6 +1141,111 @@ def check_published_version(version: str, sdk_version: str, repository: str, tok
             fail(f"Could not check {destination}: HTTP {error.code}")
         except URLError as error:
             fail(f"Could not check {destination}: {error.reason}")
+
+
+def check_crate(version: str, crate: Path) -> bool:
+    if not VERSION_PATTERN.fullmatch(version):
+        fail("SDK version must be stable MAJOR.MINOR.PATCH")
+    if crate.name != f"open_perception_kit-{version}.crate":
+        fail("Crate filename does not match the SDK version")
+    checksum = hashlib.sha256(crate.read_bytes()).hexdigest()
+    url = f"https://crates.io/api/v1/crates/open_perception_kit/{version}"
+    request = Request(url, headers={"User-Agent": "open-perception-kit-release-check"})
+    try:
+        with urlopen(request, timeout=15) as response:
+            payload = json.load(response)
+    except HTTPError as error:
+        if error.code == 404:
+            write_github_output({"publish_crate": "true"})
+            return True
+        fail(f"Could not check crates.io: HTTP {error.code}")
+    except URLError as error:
+        fail(f"Could not check crates.io: {error.reason}")
+
+    metadata = payload.get("version") if isinstance(payload, dict) else None
+    if not isinstance(metadata, dict) or (
+        metadata.get("crate") != "open_perception_kit"
+        or metadata.get("num") != version
+        or not isinstance(metadata.get("checksum"), str)
+        or not re.fullmatch(r"[0-9a-f]{64}", metadata["checksum"])
+    ):
+        fail("Invalid crates.io version metadata")
+    if metadata.get("yanked") is not False:
+        fail(f"SDK {version} is yanked or its status is unknown")
+    if metadata["checksum"] != checksum:
+        fail(f"SDK {version} already exists with different crate contents; bump the SDK version")
+    write_github_output({"publish_crate": "false"})
+    return False
+
+
+def sdk_payloads(archive: Path | io.BytesIO, version: str) -> dict[str, str]:
+    prefix = f"open-perception-kit-{version}/"
+    manifest_name = "open-perception-kit-release-manifest.json"
+    with zipfile.ZipFile(archive) as bundle:
+        names = bundle.namelist()
+        if len(names) != len(set(names)) or any(not name.startswith(prefix) for name in names):
+            fail("SDK archive has duplicated entries or an unexpected root")
+        manifest = json.loads(bundle.read(prefix + manifest_name))
+        if manifest.get("artifact") != {"name": "open-perception-kit", "version": version}:
+            fail("SDK archive identity does not match the selected SDK version")
+        # Generation receipts may change on product-only releases; consumer files may not.
+        payloads = {
+            name.removeprefix(prefix): hashlib.sha256(bundle.read(name)).hexdigest()
+            for name in names
+            if name != prefix + manifest_name and not name.startswith(prefix + "metadata/")
+        }
+    if not payloads:
+        fail("SDK archive contains no consumer payloads")
+    return payloads
+
+
+def check_sdk(version: str, crate: Path, archive: Path, repository: str, token: str) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+        fail("GitHub repository must be OWNER/REPO")
+    candidate = sdk_payloads(archive, version)
+    if check_crate(version, crate):
+        return
+    headers = {"User-Agent": "open-perception-kit-release-check", "Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    page = 1
+    while True:
+        url = f"https://api.github.com/repos/{repository}/releases?per_page=100&page={page}"
+        with urlopen(Request(url, headers=headers), timeout=15) as response:
+            releases = json.load(response)
+        if not isinstance(releases, list):
+            fail("Invalid GitHub releases response")
+        if not releases:
+            fail(f"No released SDK {version} bundle found; cannot verify reuse")
+        for release in releases:
+            tag = release["tag_name"]
+            if release["draft"] or release["prerelease"] or not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
+                continue
+            filename = f"opk-{tag[1:]}-linux-aarch64.tar.gz"
+            if not any(asset["name"] == filename for asset in release["assets"]):
+                continue
+            url = f"https://github.com/{repository}/releases/download/{tag}/{filename}"
+            suffix = f"/share/opk/open-perception-kit/open-perception-kit-{version}.zip"
+            with urlopen(url, timeout=60) as response, tarfile.open(fileobj=response, mode="r|gz") as package:
+                for entry in package:
+                    if entry.isfile() and entry.name.endswith(suffix):
+                        with package.extractfile(entry) as stream:
+                            previous = sdk_payloads(io.BytesIO(stream.read()), version)
+                        if previous != candidate:
+                            fail(f"SDK {version} payloads differ from {tag}; bump the SDK version")
+                        return
+        page += 1
+
+
+def publish_crate(version: str, crate: Path, source: Path) -> None:
+    if not check_crate(version, crate):
+        return
+    try:
+        subprocess.run(["cargo", "publish", "--locked", "--registry", "crates-io"], cwd=source, check=True)
+    except subprocess.CalledProcessError:
+        # Another product release may have published the same SDK after our check.
+        if check_crate(version, crate):
+            raise
 
 
 def main() -> int:
@@ -1182,8 +1289,22 @@ def main() -> int:
 
     check_version_parser = subparsers.add_parser("check-version")
     check_version_parser.add_argument("--version", required=True)
-    check_version_parser.add_argument("--sdk-version", required=True)
     check_version_parser.add_argument("--repository", required=True)
+
+    check_crate_parser = subparsers.add_parser("check-crate")
+    check_crate_parser.add_argument("--sdk-version", required=True)
+    check_crate_parser.add_argument("--crate", type=Path, required=True)
+
+    check_sdk_parser = subparsers.add_parser("check-sdk")
+    check_sdk_parser.add_argument("--sdk-version", required=True)
+    check_sdk_parser.add_argument("--crate", type=Path, required=True)
+    check_sdk_parser.add_argument("--archive", type=Path, required=True)
+    check_sdk_parser.add_argument("--repository", required=True)
+
+    publish_crate_parser = subparsers.add_parser("publish-crate")
+    publish_crate_parser.add_argument("--sdk-version", required=True)
+    publish_crate_parser.add_argument("--crate", type=Path, required=True)
+    publish_crate_parser.add_argument("--source", type=Path, required=True)
 
     args = parser.parse_args()
     try:
@@ -1202,9 +1323,15 @@ def main() -> int:
         elif args.command == "prepare":
             prepare(args)
         elif args.command == "check-version":
-            check_published_version(args.version, args.sdk_version, args.repository, os.environ.get("GH_TOKEN", ""))
+            check_published_version(args.version, args.repository, os.environ.get("GH_TOKEN", ""))
+        elif args.command == "check-crate":
+            check_crate(args.sdk_version, args.crate)
+        elif args.command == "check-sdk":
+            check_sdk(args.sdk_version, args.crate, args.archive, args.repository, os.environ.get("GH_TOKEN", ""))
+        elif args.command == "publish-crate":
+            publish_crate(args.sdk_version, args.crate, args.source)
         return 0
-    except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError) as error:
+    except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError, tarfile.TarError, zipfile.BadZipFile, KeyError) as error:
         print(f"release error: {error}", file=sys.stderr)
         return 1
 

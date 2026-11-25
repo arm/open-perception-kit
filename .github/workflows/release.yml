@@ -22,6 +22,10 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: opk-product-release
+  cancel-in-progress: false
+
 env:
   CCACHE_SCHEMA_VERSION: v2
 
@@ -66,15 +70,13 @@ jobs:
             --repo-root . \
             --commit "$commit"
 
-      - name: Reject an already published version
+      - name: Reject an already published product version
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.release.outputs.version }}
-          SDK_VERSION: ${{ steps.release.outputs.sdk_version }}
         run: |
           python3 scripts/release/ReleaseTool.py check-version \
             --version "$VERSION" \
-            --sdk-version "$SDK_VERSION" \
             --repository "$GITHUB_REPOSITORY"
 
   quick-start-smoke:
@@ -144,7 +146,7 @@ jobs:
 
         with:
           submodules: recursive
-          ref: ${{ needs.prepare.outputs.commit }}
+          ref: ${{ github.sha }}
           path: ${{ env.SOURCE_DIR }}
           persist-credentials: false
 
@@ -307,6 +309,19 @@ jobs:
           mv "$publish_source" dist/open-perception-kit-input/
           cp "$export_root/python/open_perception_kit-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
             dist/open-perception-kit-input/
+
+      - name: Check SDK before release publication
+        if: matrix.architecture == 'aarch64'
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+        run: |
+          python3 scripts/release/ReleaseTool.py check-sdk \
+            --sdk-version "$CARGO_PACKAGE_VERSION" \
+            --repository "$GITHUB_REPOSITORY" \
+            --archive "dist/open-perception-kit-input/open-perception-kit-$CARGO_PACKAGE_VERSION.zip" \
+            --crate "dist/open-perception-kit-input/open_perception_kit-$CARGO_PACKAGE_VERSION.crate"
 
       - name: Upload open-perception-kit input
         if: matrix.architecture == 'aarch64'
@@ -657,16 +672,32 @@ jobs:
           path: opk-sbom-open-perception-kit-crate.json
           if-no-files-found: error
 
+      - name: Check whether the SDK crate needs publishing
+        id: crate-publication
+        env:
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+        run: |
+          python3 scripts/release/ReleaseTool.py check-crate \
+            --sdk-version "$CARGO_PACKAGE_VERSION" \
+            --crate "$RUNNER_TEMP/open-perception-kit-input/open_perception_kit-$CARGO_PACKAGE_VERSION.crate"
+
       - name: Authenticate to crates.io
+        if: steps.crate-publication.outputs.publish_crate == 'true'
         id: crates-auth
         uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9
 
       - name: Publish open-perception-kit crate to crates.io
+        if: steps.crate-publication.outputs.publish_crate == 'true'
         working-directory: ${{ runner.temp }}/open-perception-kit-input/open_perception_kit-cargo-source-${{ needs.prepare.outputs.cargo_package_version }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
           RUSTUP_TOOLCHAIN: 1.85.0
-        run: cargo publish --locked --registry crates-io
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+        run: |
+          python3 "$GITHUB_WORKSPACE/scripts/release/ReleaseTool.py" publish-crate \
+            --sdk-version "$CARGO_PACKAGE_VERSION" \
+            --crate "$RUNNER_TEMP/open-perception-kit-input/open_perception_kit-$CARGO_PACKAGE_VERSION.crate" \
+            --source .
 
   latest-release-tag:
     name: Update latest release tag

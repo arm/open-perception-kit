@@ -16,13 +16,17 @@
 
 """Focused checks for release package staging and validation."""
 
+import hashlib
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
+import zipfile
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
@@ -1247,7 +1251,7 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("version=0.1.0", final.stdout.splitlines())
 
     def test_published_version_check_rejects_each_destination(self) -> None:
-        destinations = ("GitHub tag", "GitHub release", "crates.io crate", "Artifactory destination")
+        destinations = ("GitHub tag", "GitHub release", "Artifactory destination")
         for existing in range(len(destinations)):
             with self.subTest(destination=destinations[existing]):
                 checked = 0
@@ -1263,7 +1267,7 @@ class ReleaseToolTests(unittest.TestCase):
 
                 with patch.object(release_tool, "urlopen", side_effect=open_version):
                     with self.assertRaisesRegex(RuntimeError, destinations[existing]):
-                        release_tool.check_published_version("0.1.0", "1.0.0", "arm/open-perception-kit", "token")
+                        release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
                 self.assertEqual(checked, existing + 1)
 
         seen = []
@@ -1273,19 +1277,194 @@ class ReleaseToolTests(unittest.TestCase):
             raise HTTPError(request.full_url, 404, "Not Found", {}, None)
 
         with patch.object(release_tool, "urlopen", side_effect=missing_version):
-            release_tool.check_published_version("0.1.0", "1.0.0", "arm/open-perception-kit", "token")
+            release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
         self.assertEqual(len(seen), len(destinations))
         self.assertTrue(seen[0].endswith("/git/ref/tags/v0.1.0"))
         self.assertTrue(seen[1].endswith("/releases/tags/v0.1.0"))
-        self.assertTrue(seen[2].endswith("/open_perception_kit/1.0.0"))
-        self.assertTrue(seen[3].endswith("/v0.1.0/"))
+        self.assertTrue(seen[2].endswith("/v0.1.0/"))
 
     def test_published_version_check_fails_on_unavailable_destination(self) -> None:
         for error in (HTTPError("url", 403, "Forbidden", {}, None), URLError("offline")):
             with self.subTest(error=error):
                 with patch.object(release_tool, "urlopen", side_effect=error):
                     with self.assertRaisesRegex(RuntimeError, "Could not check GitHub tag"):
-                        release_tool.check_published_version("0.1.0", "1.0.0", "arm/open-perception-kit", "token")
+                        release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
+
+    def test_crate_publication_decision(self) -> None:
+        content = b"unchanged SDK crate"
+        metadata = {
+            "crate": "open_perception_kit", "num": "1.0.0", "yanked": False,
+            "checksum": hashlib.sha256(content).hexdigest(),
+        }
+        cases = (
+            (HTTPError("url", 404, "Not Found", {}, None), 0, "true"),
+            ({"version": metadata}, 0, "false"),
+            ({"version": {**metadata, "checksum": "0" * 64}}, 1, ""),
+            ({"version": {**metadata, "yanked": True}}, 1, ""),
+            ({"version": {**metadata, "num": "0.1.4"}}, 1, ""),
+            ({"version": {**metadata, "crate": "another_crate"}}, 1, ""),
+            ({"version": {**metadata, "checksum": "bad"}}, 1, ""),
+            ({"version": {**metadata, "yanked": None}}, 1, ""),
+            ({}, 1, ""),
+            ([], 1, ""),
+            (HTTPError("url", 403, "Forbidden", {}, None), 1, ""),
+            (HTTPError("url", 500, "Server error", {}, None), 1, ""),
+            (URLError("offline"), 1, ""),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            crate = root / "open_perception_kit-1.0.0.crate"
+            crate.write_bytes(content)
+            output = root / "output"
+            argv = [str(TOOL), "check-crate", "--sdk-version", "1.0.0", "--crate", str(crate)]
+            for response, status, publish in cases:
+                with self.subTest(response=response):
+                    output.write_text("")
+
+                    def open_version(request, timeout):
+                        self.assertEqual(timeout, 15)
+                        self.assertEqual(request.full_url,
+                                         "https://crates.io/api/v1/crates/open_perception_kit/1.0.0")
+                        self.assertIsNone(request.get_header("Authorization"))
+                        if isinstance(response, Exception):
+                            raise response
+                        return io.StringIO(json.dumps(response))
+
+                    with patch.object(release_tool, "urlopen", side_effect=open_version), \
+                            patch.object(sys, "argv", argv), \
+                            patch.dict(os.environ, {"GITHUB_OUTPUT": str(output)}), \
+                            patch.object(sys, "stderr", io.StringIO()):
+                        self.assertEqual(release_tool.main(), status)
+                    self.assertEqual(output.read_text(),
+                                     f"publish_crate={publish}\n" if publish else "")
+
+    def test_sdk_reuse_checks_every_language_payload(self) -> None:
+        version = "1.0.0"
+        prefix = f"open-perception-kit-{version}/"
+        payloads = {
+            "cpp/sdk.h": b"header", "python/sdk.whl": b"wheel", "rust/src/lib.rs": b"crate",
+            "typescript/sdk.tgz": b"npm", "schemas/packet.fbs": b"schema",
+        }
+
+        def bundle(contents, receipt):
+            result = io.BytesIO()
+            with zipfile.ZipFile(result, "w") as archive:
+                archive.writestr(prefix + "open-perception-kit-release-manifest.json", json.dumps({
+                    "artifact": {"name": "open-perception-kit", "version": version},
+                }))
+                archive.writestr(prefix + "metadata/receipt.json", receipt)
+                for name, content in contents.items():
+                    archive.writestr(prefix + name, content)
+            return result.getvalue()
+
+        previous = bundle(payloads, "old receipt")
+        package = io.BytesIO()
+        with tarfile.open(fileobj=package, mode="w:gz") as archive:
+            entry = tarfile.TarInfo("opk-0.1.4-linux-aarch64/share/opk/open-perception-kit/" + prefix[:-1] + ".zip")
+            entry.size = len(previous)
+            archive.addfile(entry, io.BytesIO(previous))
+        crate_content = b"same published crate"
+        metadata = {"version": {
+            "crate": "open_perception_kit", "num": version, "yanked": False,
+            "checksum": hashlib.sha256(crate_content).hexdigest(),
+        }}
+        release = {"tag_name": "v0.1.4", "draft": False, "prerelease": False,
+                   "assets": [{"name": "opk-0.1.4-linux-aarch64.tar.gz"}]}
+        requested = []
+
+        def published(request, timeout):
+            url = request if isinstance(request, str) else request.full_url
+            requested.append(url)
+            if url.startswith("https://crates.io/"):
+                return io.StringIO(json.dumps(metadata))
+            if url.startswith("https://api.github.com/"):
+                return io.StringIO(json.dumps([release] if url.endswith("page=1") else []))
+            self.assertEqual(
+                url, "https://github.com/arm/open-perception-kit/releases/download/v0.1.4/opk-0.1.4-linux-aarch64.tar.gz")
+            return io.BytesIO(package.getvalue())
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            crate = root / f"open_perception_kit-{version}.crate"
+            crate.write_bytes(crate_content)
+            candidate = root / "sdk.zip"
+            for changed in (None, *payloads):
+                with self.subTest(changed=changed):
+                    contents = dict(payloads)
+                    if changed:
+                        contents[changed] = b"changed payload"
+                    candidate.write_bytes(bundle(contents, "new receipt"))
+                    argv = [str(TOOL), "check-sdk", "--sdk-version", version, "--crate", str(crate),
+                            "--archive", str(candidate), "--repository", "arm/open-perception-kit"]
+                    with patch.object(release_tool, "urlopen", side_effect=published), \
+                            patch.object(sys, "argv", argv), patch.object(sys, "stderr", io.StringIO()) as errors, \
+                            patch.object(release_tool, "write_github_output"):
+                        self.assertEqual(release_tool.main(), 1 if changed else 0)
+                    if changed:
+                        self.assertIn("bump the SDK version", errors.getvalue())
+            self.assertTrue(any("releases/download/" in url for url in requested))
+            candidate.write_bytes(bundle(payloads, "new receipt"))
+            with patch.object(release_tool, "urlopen", side_effect=HTTPError("url", 404, "Not Found", {}, None)) as network, \
+                    patch.object(release_tool, "write_github_output"):
+                release_tool.check_sdk(version, crate, candidate, "arm/open-perception-kit", "token")
+                network.assert_called_once()
+            with self.assertRaisesRegex(RuntimeError, "unexpected root"):
+                release_tool.sdk_payloads(candidate, "0.1.4")
+            release["assets"] = []
+            with patch.object(release_tool, "urlopen", side_effect=published), \
+                    patch.object(release_tool, "write_github_output"), \
+                    self.assertRaisesRegex(RuntimeError, "cannot verify reuse"):
+                release_tool.check_sdk(version, crate, candidate, "arm/open-perception-kit", "token")
+
+    def test_cargo_publish_recovers_only_an_identical_unyanked_winner(self) -> None:
+        content = b"expected crate"
+        missing = HTTPError("url", 404, "Not Found", {}, None)
+        metadata = {"crate": "open_perception_kit", "num": "1.0.0", "yanked": False,
+                    "checksum": hashlib.sha256(content).hexdigest()}
+        cases = (
+            ({"version": metadata}, None),
+            ({"version": {**metadata, "checksum": "0" * 64}}, RuntimeError),
+            ({"version": {**metadata, "yanked": True}}, RuntimeError),
+            (missing, subprocess.CalledProcessError),
+            (URLError("offline"), RuntimeError),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            crate = root / "open_perception_kit-1.0.0.crate"
+            crate.write_bytes(content)
+            with patch.object(release_tool, "urlopen", return_value=io.StringIO(json.dumps({"version": metadata}))), \
+                    patch.object(release_tool, "write_github_output"), patch.object(release_tool.subprocess, "run") as cargo:
+                release_tool.publish_crate("1.0.0", crate, root)
+                cargo.assert_not_called()
+            with patch.object(release_tool, "urlopen", side_effect=missing) as network, \
+                    patch.object(release_tool, "write_github_output"), patch.object(release_tool.subprocess, "run") as cargo:
+                release_tool.publish_crate("1.0.0", crate, root)
+                cargo.assert_called_once()
+                network.assert_called_once()
+            for winner, error in cases:
+                with self.subTest(winner=winner):
+                    response = winner if isinstance(winner, Exception) else io.StringIO(json.dumps(winner))
+                    with patch.object(release_tool, "urlopen", side_effect=[missing, response]) as network, \
+                            patch.object(release_tool, "write_github_output"), \
+                            patch.object(release_tool.subprocess, "run", side_effect=subprocess.CalledProcessError(101, "cargo")) as cargo:
+                        with self.assertRaises(error) if error else nullcontext():
+                            release_tool.publish_crate("1.0.0", crate, root)
+                        self.assertEqual(network.call_count, 2)
+                        cargo.assert_called_once_with(
+                            ["cargo", "publish", "--locked", "--registry", "crates-io"], cwd=root, check=True)
+
+    def test_crate_check_validates_local_input_before_network(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(release_tool, "urlopen") as network:
+            root = Path(temporary)
+            for version, name, error in (
+                ("1.0.0", "open_perception_kit-0.1.4.crate", RuntimeError),
+                ("1.0.0-dev.0", "open_perception_kit-1.0.0-dev.0.crate", RuntimeError),
+                ("1.0.0", "open_perception_kit-1.0.0.crate", FileNotFoundError),
+            ):
+                with self.subTest(version=version, name=name), self.assertRaises(error):
+                    release_tool.check_crate(version, root / name)
+            network.assert_not_called()
 
     def test_model_path_cannot_escape_its_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
