@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "name": "yoloe-v8s-detector",
+  "modelFile": "detector.onnx",
+  "dynamicOutput": true,
+  "inputTensors": [
+    {
+      "shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "dataKind": "ImageRgbChw",
+      "valueType": "Float32",
+      "keepAspectRatio": true
+    },
+    {
+      "shape": [
+        1,
+        1,
+        512
+      ],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    }
+  ],
+  "outputTensors": []
+}

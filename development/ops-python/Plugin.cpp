@@ -16,6 +16,8 @@
  */
 
 #include "PythonScriptOp.h"
+#include "YoloeInstancePostprocessOp.h"
+#include "YoloePromptPrepareOp.h"
 
 #include <string_view>
 
@@ -24,6 +26,15 @@ namespace {
 opk::op::Op *createOp(std::string_view opName) {
     if (opName == "PythonScript")
         return new opk::python::PythonScriptOp();
+    if (opName == "YoloePromptPrepare") {
+        return new opk::python::YoloePromptPrepareOp();
+    }
+    if (opName == "YoloePromptPack") {
+        return new opk::python::YoloePromptPackOp();
+    }
+    if (opName == "YoloeInstancePostprocess") {
+        return new opk::python::YoloeInstancePostprocessOp();
+    }
     return nullptr;
 }
 

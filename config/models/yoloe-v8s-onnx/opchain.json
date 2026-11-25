@@ -1,0 +1,64 @@
+{
+  "version": "3.0.0",
+  "name": "YoloeV8sText",
+  "description": "Continuing text category prompts with owned revision mapping; materialize the qualified local graphs before use.",
+  "displayName": "YOLO-E v8s text prompts (local prototype)",
+  "task": "Instance segmentation",
+  "runtime": "ONNX Runtime",
+  "ops": [
+    {
+      "id": "opk-python-ops/YoloePromptPrepare",
+      "instanceId": "prepare",
+      "attributes": {
+        "mode": "text",
+        "inferenceInstance": "yoloe",
+        "modelDescriptor": "model-text-encoder.json"
+      },
+      "role": "intermediate-process"
+    },
+    {
+      "id": "opk-std-ops/InferenceController",
+      "attributes": {},
+      "role": "controller"
+    },
+    {
+      "id": "opk-std-ops/GenericImagePreprocess",
+      "instanceId": "image",
+      "attributes": {
+        "inferenceInstance": "yoloe",
+        "sampling": "bilinear"
+      },
+      "role": "image-preprocess"
+    },
+    {
+      "id": "opk-python-ops/YoloePromptPack",
+      "instanceId": "pack",
+      "attributes": {
+        "inferenceInstance": "yoloe",
+        "preparationInstance": "prepare"
+      },
+      "role": "input-preprocess"
+    },
+    {
+      "id": "opk-onnx-ops/Inference",
+      "instanceId": "yoloe",
+      "attributes": {
+        "modelDescriptor": "model.json",
+        "intraOpNumThreads": 2
+      },
+      "role": "inference"
+    },
+    {
+      "id": "opk-python-ops/YoloeInstancePostprocess",
+      "instanceId": "results",
+      "attributes": {
+        "inferenceInstance": "yoloe",
+        "preparationInstance": "prepare"
+      },
+      "role": "postprocess"
+    }
+  ],
+  "execution": {
+    "preprocessing": "cpu"
+  }
+}

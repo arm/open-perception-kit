@@ -31,20 +31,31 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 
 class OnnxTelemetryTest(unittest.TestCase):
     def test_initialization_does_not_create_telemetry_storage(self):
+        self.check_initialization("inference")
+
+    @unittest.skipUnless(len(sys.argv) > 2, "Python ops are not enabled")
+    def test_query_initialization_does_not_create_telemetry_storage(self):
+        for mode in ("text", "visual"):
+            with self.subTest(mode=mode):
+                self.check_initialization(mode)
+
+    def check_initialization(self, mode):
+        query = mode != "inference"
+        model_directory = REPOSITORY / "config/models" / (
+            "yoloe-v8s-onnx" if query else "yolo26n-320"
+        )
+        model_name = f"model-{mode}-encoder.json" if query else "model.json"
+        chain_name = "opchain-visual.json" if mode == "visual" else "opchain.json"
+        operation = "opk-python-ops/YoloePromptPrepare" if query else "opk-onnx-ops/Inference"
         for configured in (None, "0"):
             with self.subTest(configured=configured), tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
-                model = json.loads(
-                    (REPOSITORY / "config/models/yolo26n-320/model.json").read_text()
-                )
+                model = json.loads((model_directory / model_name).read_text())
                 model["modelFile"] = "missing.onnx"
                 model.pop("hfDownload", None)
-                (directory / "model.json").write_text(json.dumps(model))
-                opchain = json.loads(
-                    (REPOSITORY / "config/models/yolo26n-320/opchain.json").read_text()
-                )
-                opchain["ops"] = [op for op in opchain["ops"]
-                                  if op["id"] == "opk-onnx-ops/Inference"]
+                (directory / model_name).write_text(json.dumps(model))
+                opchain = json.loads((model_directory / chain_name).read_text())
+                opchain["ops"] = [op for op in opchain["ops"] if op["id"] == operation]
                 opchain["ops"][0]["attributes"].pop("intraOpNumThreads", None)
                 descriptor = directory / "opchain.json"
                 descriptor.write_text(json.dumps(opchain))
@@ -72,9 +83,9 @@ class OnnxTelemetryTest(unittest.TestCase):
                     if sys.platform == "linux" else None,
                 )
                 self.assertNotEqual(result.returncode, 0)
-                # A missing model proves Ort::Env was created before model loading failed.
+                # Missing weights still exercise Env creation, without downloading any models.
                 self.assertIn("File doesn't exist", result.stdout + result.stderr)
-                if sys.platform == "linux":
+                if sys.platform == "linux" and not query:
                     self.assertIn("intraOpNumThreads=1 (", result.stdout + result.stderr)
                 self.assertEqual(list(directory.rglob("deviceid")), [])
                 self.assertEqual(list(directory.rglob("onnxruntime.db")), [])

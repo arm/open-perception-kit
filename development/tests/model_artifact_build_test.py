@@ -70,6 +70,53 @@ class ModelArtifactBuildTest(unittest.TestCase):
                             with self.assertNoLogs(downloader["LOGGER"], level="WARNING"):
                                 downloader["_prepare_download"](descriptor, validator)
 
+    def test_selected_asset_owner_skips_other_models_and_rejects_escape(self) -> None:
+        downloader = runpy.run_path(str(DOWNLOAD_SCRIPT))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.bin"
+            source.write_bytes(b"qualified local artifact")
+            entry = {
+                "url": source.as_uri(),
+                "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            }
+            manifest = root / "assets.json"
+            manifest.write_text(
+                json.dumps(
+                    {
+                        "selected/asset.bin": entry,
+                        "other/asset.bin": {"url": "unreachable", "sha256": "unused"},
+                    }
+                )
+            )
+            destination = root / "models"
+            downloader["_download_files"](manifest, destination, "selected")
+            self.assertEqual(
+                (destination / "selected/asset.bin").read_bytes(), source.read_bytes()
+            )
+            self.assertFalse((destination / "other").exists())
+            manifest.write_text(json.dumps({"selected/../../escape.bin": entry}))
+            with self.assertRaisesRegex(ValueError, "outside"):
+                downloader["_download_files"](manifest, destination, "selected")
+            self.assertFalse((root / "escape.bin").exists())
+            for selector in ("..", "../other", "/tmp/outside"):
+                with (
+                    self.subTest(selector=selector),
+                    mock.patch.object(
+                        sys,
+                        "argv",
+                        [
+                            str(DOWNLOAD_SCRIPT),
+                            "--models-dir",
+                            str(destination),
+                            "--model",
+                            selector,
+                        ],
+                    ),
+                ):
+                    with self.assertRaises(SystemExit):
+                        downloader["parse_args"]()
+
     def test_tokenizer_runtime_lock_resolves_both_architectures_and_rejects_partial_output(self) -> None:
         setup = REPO_ROOT / "scripts/setup-python-ops-runtime.sh"
         for architecture in ("x86_64", "aarch64"):

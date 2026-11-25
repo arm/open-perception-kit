@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "name": "yoloe-v8s-text-encoder",
+  "modelFile": "text-encoder.onnx",
+  "dynamicOutput": true,
+  "inputTensors": [
+    {
+      "shape": [
+        1,
+        77
+      ],
+      "dataKind": "RawTensorData",
+      "valueType": "Int64"
+    }
+  ],
+  "outputTensors": []
+}

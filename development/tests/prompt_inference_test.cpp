@@ -716,4 +716,140 @@ TEST_F(PromptInference, MalformedReplacementRetainsPromptAndBusReportsBoundaryRe
     EXPECT_EQ(promptedCalls[0].load(), 1U);
 }
 
+TEST_F(PromptInference, ActualQueryPreparationSurvivesCancelAndSessionHandoverAndRecreates) {
+    const char *const assetPath = std::getenv("OPK_QUERY_TEST_ASSETS");
+    if (!assetPath) {
+        GTEST_SKIP() << "Requires qualified actual query models and fixtures";
+    }
+    const std::filesystem::path assets(assetPath);
+    nlohmann::json descriptor;
+    std::ifstream(assets / "opchain.json") >> descriptor;
+    const std::filesystem::path model =
+        descriptor["ops"][0]["attributes"]["modelDescriptor"].get<std::string>();
+    const auto ready = directory / "ready";
+    const auto proceed = directory / "proceed";
+    const auto counts = directory / "calls";
+    const auto tokenizer = directory / "tokenizer.py";
+    {
+        std::ofstream script(tokenizer);
+        script << "import importlib.util, time\nfrom pathlib import Path\n"
+               << "def create_tokenizer(vocabulary):\n"
+               << "    spec=importlib.util.spec_from_file_location('qualified_tokenizer', "
+               << nlohmann::json((model.parent_path() / "scripts/tokenizer.py").string()).dump()
+               << ")\n"
+               << "    module=importlib.util.module_from_spec(spec)\n    "
+                  "spec.loader.exec_module(module)\n"
+               << "    original=module.create_tokenizer(vocabulary)\n"
+               << "    def encode(texts):\n"
+               << "        with open(" << nlohmann::json(counts.string()).dump()
+               << ", 'a') as output: output.write('call\\n')\n"
+               << "        Path(" << nlohmann::json(ready.string()).dump() << ").touch()\n"
+               << "        deadline=time.monotonic()+20\n"
+               << "        while not Path(" << nlohmann::json(proceed.string()).dump()
+               << ").exists():\n"
+               << "            if time.monotonic()>deadline: raise RuntimeError('test preparation "
+                  "barrier timed out')\n"
+               << "            time.sleep(0.001)\n"
+               << "        return original(texts)\n    return encode\n";
+    }
+    for (auto &operation : descriptor["ops"]) {
+        if (operation.value("instanceId", "") == "yoloe") {
+            operation["instanceId"] = "sam";
+        }
+        if (operation["attributes"].contains("inferenceInstance")) {
+            operation["attributes"]["inferenceInstance"] = "sam";
+        }
+    }
+    descriptor["ops"][0]["attributes"]["tokenizerScript"] = tokenizer.string();
+    const auto actual = directory / "opchain-actual.json";
+    std::ofstream(actual) << descriptor.dump();
+    ASSERT_TRUE(start(true, true, true, true, "", "TPRM"));
+    ASSERT_NE(gst_element_set_state(pipeline, GST_STATE_NULL), GST_STATE_CHANGE_FAILURE);
+    g_object_set(infer, "opchain-path", actual.c_str(), nullptr);
+    nlohmann::json oracle;
+    std::ifstream(assets / "expected.json") >> oracle;
+    GstCaps *const caps = gst_caps_new_simple("video/x-raw",
+                                              "format",
+                                              G_TYPE_STRING,
+                                              "BGRA",
+                                              "width",
+                                              G_TYPE_INT,
+                                              oracle["width"].get<int>(),
+                                              "height",
+                                              G_TYPE_INT,
+                                              oracle["height"].get<int>(),
+                                              "framerate",
+                                              GST_TYPE_FRACTION,
+                                              1,
+                                              1,
+                                              nullptr);
+    gst_app_src_set_caps(GST_APP_SRC(source), caps);
+    gst_caps_unref(caps);
+    std::ifstream input(assets / "target.bgra", std::ios::binary);
+    const std::vector<uint8_t> pixels{std::istreambuf_iterator<char>(input),
+                                      std::istreambuf_iterator<char>()};
+    const auto pushTarget = [&]() {
+        GstBuffer *const buffer = gst_buffer_new_allocate(nullptr, pixels.size(), nullptr);
+        gst_buffer_fill(buffer, 0, pixels.data(), pixels.size());
+        GST_BUFFER_PTS(buffer) = 0;
+        GST_BUFFER_DURATION(buffer) = GST_SECOND;
+        return gst_app_src_push_buffer(GST_APP_SRC(source), buffer) == GST_FLOW_OK;
+    };
+    const auto countPreparations = [&]() {
+        std::ifstream callsFile(counts);
+        return std::count(
+            std::istreambuf_iterator<char>(callsFile), std::istreambuf_iterator<char>(), '\n');
+    };
+    ASSERT_NE(gst_element_set_state(pipeline, GST_STATE_PLAYING), GST_STATE_CHANGE_FAILURE);
+    ASSERT_TRUE(submitQuery(false, 1));
+    ASSERT_TRUE(pushTarget());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (!std::filesystem::exists(ready) && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const bool preparing = std::filesystem::exists(ready);
+    if (!preparing) {
+        std::ofstream(proceed).put('1');
+    }
+    ASSERT_TRUE(preparing);
+    EXPECT_TRUE(command("cancel", "first", 1));
+    EXPECT_TRUE(command("end-session", "first", 0));
+    EXPECT_TRUE(submitQuery(false, 1, true, "second"));
+    std::ofstream(proceed).put('1');
+    const auto old = pull();
+    ASSERT_TRUE(old);
+    const auto oldResults = opk::FrameResultsMeta::read(gst_sample_get_buffer(old.get()));
+    ASSERT_TRUE(oldResults);
+    const auto oldAssociation = oldResults->get<PromptAssociationT>();
+    ASSERT_TRUE(oldAssociation);
+    EXPECT_EQ((*oldAssociation)->session_id, "first");
+    EXPECT_EQ((*oldAssociation)->request->revision, 1);
+    EXPECT_EQ(oldResults->count<PromptAssociationT>(), 1);
+    EXPECT_FALSE((*oldAssociation)->matches.empty());
+    EXPECT_EQ(countPreparations(), 1);
+    for (int repeat = 0; repeat < 2; ++repeat) {
+        ASSERT_TRUE(pushTarget());
+        const auto sample = pull();
+        ASSERT_TRUE(sample);
+        const auto results = opk::FrameResultsMeta::read(gst_sample_get_buffer(sample.get()));
+        ASSERT_TRUE(results);
+        const auto association = results->get<PromptAssociationT>();
+        ASSERT_TRUE(association);
+        EXPECT_EQ((*association)->session_id, "second");
+        EXPECT_EQ(results->count<PromptAssociationT>(), 1);
+        EXPECT_EQ(countPreparations(), 2);
+    }
+    ASSERT_NE(gst_element_set_state(pipeline, GST_STATE_NULL), GST_STATE_CHANGE_FAILURE);
+    ASSERT_NE(gst_element_set_state(pipeline, GST_STATE_PLAYING), GST_STATE_CHANGE_FAILURE);
+    ASSERT_TRUE(pushTarget());
+    const auto recreated = pull();
+    ASSERT_TRUE(recreated);
+    EXPECT_EQ(countPreparations(), 3); // No prepared features survive runtime recreation.
+    const auto results = opk::FrameResultsMeta::read(gst_sample_get_buffer(recreated.get()));
+    ASSERT_TRUE(results);
+    const auto association = results->get<PromptAssociationT>();
+    ASSERT_TRUE(association);
+    EXPECT_EQ((*association)->session_id, "second");
+}
+
 } // namespace

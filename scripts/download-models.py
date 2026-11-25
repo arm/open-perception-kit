@@ -49,9 +49,16 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Directory recursively searched for JSON model descriptors.",
     )
+    parser.add_argument(
+        "--model", help="Download only this immediate model directory and its assets"
+    )
     args = parser.parse_args()
     if not args.models_dir.is_dir():
         parser.error(f"--models-dir is not a directory: {args.models_dir}")
+    if args.model and (
+        Path(args.model).name != args.model or args.model in (".", "..")
+    ):
+        parser.error("--model must name one immediate model directory")
     return args
 
 
@@ -153,15 +160,19 @@ def _download_model(model_file, destination, source, token, credential_cache) ->
         LOGGER.warning("Skipping %s: %s", model_file, error)
 
 
-def _download_files(manifest: Path, root: Path) -> None:
+def _download_files(manifest: Path, root: Path, model: str | None = None) -> None:
     if not manifest.is_file():
         return
 
     root = root.resolve()
     for filename, source in json.loads(manifest.read_text()).items():
+        if model is not None and not filename.startswith(model + "/"):
+            continue
         destination = (root / filename).resolve()
         if not destination.is_relative_to(root):
-            raise ValueError(f"Artifact destination is outside {root.name}/: {filename}")
+            raise ValueError(
+                f"Artifact destination is outside {root.name}/: {filename}"
+            )
         expected_sha256 = source["sha256"]
         if _matches_sha256(destination, expected_sha256):
             continue
@@ -209,7 +220,7 @@ def _matches_sha256(path: Path, expected_sha256: str) -> bool:
     return digest.hexdigest() == expected_sha256
 
 
-def main(models_dir: Path) -> None:
+def main(models_dir: Path, model: str | None = None) -> None:
     token = os.environ.get("HF_TOKEN")
     if not token:
         LOGGER.info(
@@ -218,12 +229,15 @@ def main(models_dir: Path) -> None:
 
     validator = _load_validator()
     downloads = []
-    for descriptor in sorted(models_dir.rglob("*.json")):
+    descriptor_root = models_dir / model if model else models_dir
+    if not descriptor_root.is_dir():
+        raise ValueError(f"Model directory does not exist: {descriptor_root}")
+    for descriptor in sorted(descriptor_root.rglob("*.json")):
         if download := _prepare_download(descriptor, validator):
             downloads.append(download)
 
     _download_files(models_dir.parent / "model-notices.json", models_dir / "licenses")
-    _download_files(models_dir.parent / "model-assets.json", models_dir)
+    _download_files(models_dir.parent / "model-assets.json", models_dir, model)
     credential_cache = _cache_dir(token)
     for model_file, destination, source in downloads:
         _download_model(model_file, destination, source, token, credential_cache)
@@ -233,7 +247,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     arguments = parse_args()
     try:
-        main(arguments.models_dir)
+        main(arguments.models_dir, arguments.model)
     except (OSError, ValueError) as error:
         LOGGER.error("%s", error)
         raise SystemExit(1) from None

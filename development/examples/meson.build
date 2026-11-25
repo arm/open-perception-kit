@@ -23,3 +23,5 @@ example_common_include = include_directories('common')
 subdir('opchain-exec')
 subdir('pipeline-exec')
 subdir('voice-pipeline')
+
+subdir('query-prompts')

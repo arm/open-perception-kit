@@ -219,6 +219,7 @@ Pick your next step.
 | [Pipeline basics](concepts/runtime-basics.md) | Learn about inference pipeline principles  |
 | [Custom postprocessing](how-to/custom-postprocessing.md) | Inference result postprocessing  |
 | [Python script Op](how-to/python-script-op.md) | Stateful scripting with FrameResults and tensors |
+| [Text and visual category prompts](how-to/query-prompts.md) | Native continuing queries with owned references and explicit result mappings |
 | [Performance Measurement](how-to/performance-measurement.md) | Measure the pipeline performance with Performix |
 
 

@@ -22,5 +22,21 @@
   "gaze-resnet50/resnet50_gaze.onnx": {
     "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet50_gaze.onnx",
     "sha256": "bb28d421565adc4dfb665742f8fc80bdef36dd8caa0c87e040e0937f9fdca9a6"
+  },
+  "yoloe-v8s-onnx/export/source.tar.gz": {
+    "url": "https://api.github.com/repos/THU-MIG/yoloe/tarball/40cd606cabdbe2b566d6f14a6b162c89206e9a1b",
+    "sha256": "cce06057a932ea4aee30b273d870e6c379b91219fb322cb239ca83b0746f830d"
+  },
+  "yoloe-v8s-onnx/export/yoloe-v8s-seg.pt": {
+    "url": "https://huggingface.co/jameslahm/yoloe/resolve/b584da188a198a2e6aa0e013d3fef6d55b212603/yoloe-v8s-seg.pt",
+    "sha256": "ac2b90ed23011495a3e86d89caeb3432a15129cac8d849ba121293c8fc1e0536"
+  },
+  "yoloe-v8s-onnx/export/mobileclip_blt.pt": {
+    "url": "https://docs-assets.developer.apple.com/ml-research/datasets/mobileclip/mobileclip_blt.pt",
+    "sha256": "670844f7a886dd6eff7a9285adfc53f3d3c889c03bfc8354010cb5c6bf27441a"
+  },
+  "yoloe-v8s-onnx/bpe_simple_vocab_16e6.txt.gz": {
+    "url": "https://raw.githubusercontent.com/mlfoundations/open_clip/v2.30.0/src/open_clip/bpe_simple_vocab_16e6.txt.gz",
+    "sha256": "924691ac288e54409236115652ad4aa250f48203de50a9e4722a6ecd48d6804a"
   }
 }

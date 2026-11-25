@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "description": "YOLO-E continuing visual prompts; use the native query-prompts example to submit commands. Requires locally materialized model graphs.",
+  "sourceInfo": "USB camera; native prompt commands required for inference",
+  "pipeline": [
+    "v4l2src device=/dev/video0 !",
+    "videoconvert ! video/x-raw,format=BGRA !",
+    "opkprompt name=prompts destination-element=query inference-instance=yoloe formats=VPRM !",
+    "opkinfer name=query opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yoloe-v8s-onnx/opchain-visual.json\" active=true !",
+    "opkcomm method=file file-name=- !",
+    "fakesink sync=false"
+  ]
+}

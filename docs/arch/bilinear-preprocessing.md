@@ -90,7 +90,7 @@ python tools/preprocessing/qualify_bilinear.py \
 ```
 
 The script checks the descriptor's artifact SHA-256 and records input shape, image
-hash and dependency versions. `query_model_tests` consumes these files when
+hash and dependency versions. `bilinear_model_tests` consumes these files when
 `OPK_QUERY_TEST_ASSETS` points to that directory. Missing optional model fixtures
 are reported as skipped; the qualification run described above had no skips.
 OpenCV remains confined to the oracle/export environment, not the OPK runtime.

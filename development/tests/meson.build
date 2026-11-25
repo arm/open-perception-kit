@@ -555,6 +555,7 @@ test(
     opk_config_check.full_path(),
     opk_repository_root,
   ],
+  depends : opk_config_check,
 )
 test('opchain_descriptor_tests', opchain_descriptor_tests)
 test('opk_menu_discover_tests', opk_menu_discover_tests)
@@ -690,11 +691,17 @@ test('yolo26_semantic_segmentation_parser_tests', yolo26_semantic_segmentation_p
 test('gaze_detection_parser_tests', gaze_detection_parser_tests)
 test('rvm_parser_tests', rvm_parser_tests)
 test('onnx_tensor_tests', onnx_tensor_tests)
+onnx_telemetry_dependencies = [gstopkinfer, onnxops]
+onnx_telemetry_args = [files('onnx_telemetry_test.py'), gstopkinfer.full_path()]
+if python_ops_enabled
+  onnx_telemetry_dependencies += python_ops
+  onnx_telemetry_args += python_ops.full_path()
+endif
 test(
   'onnx_telemetry',
   python,
-  args : [files('onnx_telemetry_test.py'), gstopkinfer.full_path()],
-  depends : [gstopkinfer, onnxops],
+  args : onnx_telemetry_args,
+  depends : onnx_telemetry_dependencies,
 )
 test('logging_tests', logging_tests)
 test('logger_tests', logger_tests)
@@ -1023,6 +1030,15 @@ prompt_inputs_tests = executable(
 )
 test('prompt_inputs_tests', prompt_inputs_tests)
 
+prompt_adapter_tests = executable(
+  'prompt_adapter_tests',
+  ['prompt_adapter_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('prompt_adapter_tests', prompt_adapter_tests)
+
 numerical_prompt_tests = executable(
   'numerical_prompt_tests',
   [
@@ -1061,12 +1077,16 @@ prompt_inference_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, opk_deps, dependency('gstreamer-app-1.0')],
   link_with : [common],
 )
+prompt_inference_dependencies = [gstopkprompt, gstopkinfer, prompt_probe_op]
+if python_ops_enabled
+  prompt_inference_dependencies += [python_ops, onnxops, stdops]
+endif
 test('prompt_inference_tests', prompt_inference_tests,
   env : [
     'GST_PLUGIN_PATH=' + fs.parent(gstopkinfer.full_path()),
-    'LD_LIBRARY_PATH=' + fs.parent(common.full_path()),
+    'LD_LIBRARY_PATH=' + fs.parent(common.full_path()) + ':' + onnx_libdir,
   ],
-  depends : [gstopkprompt, gstopkinfer, prompt_probe_op],
+  depends : prompt_inference_dependencies,
   timeout : 60,
 )
 
@@ -1107,15 +1127,6 @@ prompt_codec_tests = executable(
 )
 test('prompt_codec_tests', prompt_codec_tests)
 
-onnx_dynamic_input_tests = executable(
-  'onnx_dynamic_input_tests',
-  ['onnx_dynamic_input_test.cpp'],
-  include_directories : [common_include],
-  dependencies : [gtest_main_dep, gtest_dep, onnx_backend_dep],
-  link_with : [common],
-)
-test('onnx_dynamic_input_tests', onnx_dynamic_input_tests, timeout : 180)
-
 query_prompt_tests = executable(
   'query_prompt_tests',
   ['query_prompt_test.cpp'],
@@ -1125,14 +1136,22 @@ query_prompt_tests = executable(
 )
 test('query_prompt_tests', query_prompt_tests)
 
-prompt_adapter_tests = executable(
-  'prompt_adapter_tests',
-  ['prompt_adapter_test.cpp'],
-  include_directories : [common_include],
-  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
-  link_with : [common],
-)
-test('prompt_adapter_tests', prompt_adapter_tests)
+if python_ops_enabled
+  query_model_tests = executable(
+    'query_model_tests',
+    ['query_model_test.cpp'],
+    include_directories : [common_include, include_directories('../ops-python', '../ops-onnx')],
+    dependencies : [gtest_main_dep, gtest_dep, python_ops_test_dep],
+    link_with : [common],
+    cpp_args : [
+      '-DOPK_QUERY_PYTHON_OPS="' + python_ops.full_path() + '"',
+      '-DOPK_QUERY_ONNX_OPS="' + onnxops.full_path() + '"',
+      '-DOPK_QUERY_STD_OPS="' + stdops.full_path() + '"',
+    ],
+  )
+  test('query_model_tests', query_model_tests,
+    depends : [python_ops, onnxops, stdops], timeout : 180)
+endif
 
 image_resize_tests = executable(
   'image_resize_tests',
@@ -1142,6 +1161,15 @@ image_resize_tests = executable(
   link_with : [common],
 )
 test('image_resize_tests', image_resize_tests)
+
+onnx_dynamic_input_tests = executable(
+  'onnx_dynamic_input_tests',
+  ['onnx_dynamic_input_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, onnx_backend_dep],
+  link_with : [common],
+)
+test('onnx_dynamic_input_tests', onnx_dynamic_input_tests, timeout : 180)
 
 bilinear_model_tests = executable(
   'bilinear_model_tests',
