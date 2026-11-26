@@ -392,6 +392,26 @@ void validateThresholds(ValidationReport &report,
     }
 }
 
+void validateLogMelIntegers(ValidationReport &report,
+                            const opk::op::OpChainDescriptor &descriptor,
+                            const std::string_view source) {
+    for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
+        const auto &op = descriptor.ops[index];
+        if (op.id != "opk-std-ops/GenericAudioPreprocess" || !op.attributes.contains("logMel") ||
+            !op.attributes.at("logMel").isObject())
+            continue;
+        const auto logMel = op.attributes.getObject("logMel");
+        if (!logMel || !logMel->contains("frameCount") || logMel->at("frameCount").isInt())
+            continue;
+        report.issues.push_back(
+            makeIssue("opchain.v2.log-mel-integer",
+                      ValidationPhase::Descriptor,
+                      source,
+                      std::format("/ops/{}/attributes/logMel/frameCount", index),
+                      "frameCount must use integer notation, without a decimal point or exponent"));
+    }
+}
+
 void validateAudioParserIntegers(ValidationReport &report,
                                  const opk::op::OpChainDescriptor &descriptor,
                                  const std::string_view source) {
@@ -401,9 +421,10 @@ void validateAudioParserIntegers(ValidationReport &report,
             continue;
         const auto parser = stringAttribute(op.attributes, "parser");
         if (parser != "VoiceActivityParser" && parser != "KeywordClassificationParser" &&
-            parser != "PitchEstimationParser")
+            parser != "PitchEstimationParser" && parser != "AudioEventClassificationParser")
             continue;
         for (const auto *const attribute : {"outputTensorIndex",
+                                            "topK",
                                             "scoreIndex",
                                             "attackMs",
                                             "releaseMs",
@@ -434,6 +455,7 @@ ValidationReport validateOpChainV2(const opk::op::OpChainDescriptor &descriptor,
     validateTurnDetectorIntegers(report, descriptor, source);
     validateThresholds(report, descriptor, source);
     validateAudioParserIntegers(report, descriptor, source);
+    validateLogMelIntegers(report, descriptor, source);
     report.sort();
     return report;
 }

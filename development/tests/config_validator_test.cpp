@@ -601,3 +601,37 @@ TEST(ConfigValidator, PitchParserRequiresExplicitGridDecoderAndThresholds) {
         EXPECT_FALSE(valid(bad)) << key;
     }
 }
+
+TEST(ConfigValidator, YamnetIntegerAttributesRejectDecimalAndExponentNotation) {
+    std::ifstream input(std::filesystem::path(OPK_REPOSITORY_ROOT) /
+                        "config/models/yamnet-esc/opchain.json");
+    const auto original = nlohmann::json::parse(input);
+    ASSERT_TRUE(opk::config::validateOpChainJson(original.dump()));
+    struct Case {
+        const char *location;
+        const char *rule;
+    };
+    for (const auto &test :
+         {Case{"/ops/2/attributes/outputTensorIndex", "opchain.v2.audio-parser-integer"},
+          Case{"/ops/2/attributes/topK", "opchain.v2.audio-parser-integer"},
+          Case{"/ops/0/attributes/logMel/frameCount", "opchain.v2.log-mel-integer"}}) {
+        const nlohmann::json::json_pointer pointer(test.location);
+        const auto integer = original.at(pointer).dump();
+        for (const auto *const suffix : {".0", "e0"}) {
+            auto document = original;
+            document[pointer] = "INTEGER_NOTATION_PLACEHOLDER";
+            auto text = document.dump();
+            const std::string placeholder = "\"INTEGER_NOTATION_PLACEHOLDER\"";
+            text.replace(text.find(placeholder), placeholder.size(), integer + suffix);
+            const auto result = opk::config::validateOpChainJson(text);
+            ASSERT_FALSE(result) << test.location << ": " << integer << suffix;
+            ASSERT_EQ(result.error().issues.size(), 1u) << result.error().toText();
+            EXPECT_EQ(result.error().issues[0].rule, test.rule);
+            EXPECT_EQ(result.error().issues[0].phase, opk::config::ValidationPhase::Descriptor);
+            EXPECT_EQ(result.error().issues[0].instanceLocation, test.location);
+        }
+    }
+    auto withoutFrameCount = original;
+    withoutFrameCount["ops"][0]["attributes"]["logMel"].erase("frameCount");
+    EXPECT_TRUE(opk::config::validateOpChainJson(withoutFrameCount.dump()));
+}
