@@ -90,15 +90,13 @@ and does not regenerate the SDK.
 
 ## Versioning Policy
 
-The unreleased 1.0 refactor uses packet version `1.0.0` and development packages
-(`1.0.0.dev0` for Python, `1.0.0-dev.0` for Rust and npm). Its intermediate
-snapshots are rebuilt and used together; they do not promise interoperability
-with one another. Complete the refactor before publishing stable 1.0 packages.
-The release rules below apply when evolving a published contract, not between
-subtasks of that unreleased refactor.
+SDK 1.0 uses packet and package version `1.0.0`. The major version reflects
+incompatible changes from 0.1.3; upgrade producers and consumers together.
+Intermediate development snapshots did not promise interoperability;
+rebuild against the release SDK.
 
 SDK packet and package versions come from `tools/perception/sdk.json`,
-independently of the OPK product version.
+independently of the OPK product version. OPK 0.1.4 ships SDK 1.0.0.
 Apply the schema compatibility impact to the SDK version:
 
 - Increment **MAJOR** for an incompatible generated API or semantic contract,

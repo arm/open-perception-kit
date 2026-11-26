@@ -28,24 +28,17 @@ Each release contains these archives:
 
 - `opk-<version>-linux-x86_64.tar.gz`
 - `opk-<version>-linux-aarch64.tar.gz`
-- `opk-docs-<version>.tar.gz`
 
-Choose the architecture archive that matches `uname -m`. The documentation
-archive is architecture-neutral and contains the offline public site in
-`html/` and the generated API reference in `doxygen/`.
+Choose the architecture archive that matches `uname -m`. The release also provides
+runtime/demo Debian packages and SBOMs. Documentation is published as a site;
+see the [release artifact inventory](../../arch/release-process.md#builds-and-artifacts).
 
 The same native builds can be downloaded from the commandline as well:
 
 ```bash
 gh auth login
-gh release download <version> --repo arm/open-perception-kit --pattern 'opk-<version>-linux-<architecture>.tar.gz'
+gh release download v<version> --repo arm/open-perception-kit --pattern 'opk-<version>-linux-<architecture>.tar.gz'
 ```
-
-Release notes provide the immutable image digest. Use the digest-qualified
-reference when a deployment must remain pinned. The image keeps the existing
-`opk-deployment-base` entrypoint and selects its pipeline through
-`OPK_PIPELINE`; provide the networking, ports, and devices required by that
-pipeline when creating the container.
 
 Verify the hash shown beside the archive on the GitHub Release or Artifactory
 workflow summary before extracting it:
@@ -62,8 +55,8 @@ the SDK and descriptor schemas:
 
 - `share/opk/open-perception-kit/` contains the open-perception-kit ZIP, checksum, and
   provenance sidecar;
-- `share/opk/schemas/json/v1/` contains the model and OpChain descriptor JSON
-  schemas copied from the released source.
+- `share/opk/schemas/json/` contains all descriptor JSON Schema versions
+  copied from the released source, including Model and OpChain v2.
 
 The descriptor schemas are direct OPK package content, separate from the SDK
 ZIP. The archive includes the PythonScript type stub and generated Python SDK
@@ -123,7 +116,8 @@ Extract the archive anywhere readable, then set only `GST_PLUGIN_PATH`:
 
 ```bash
 tar -xzf opk-<version>-linux-<architecture>.tar.gz
-export GST_PLUGIN_PATH="$PWD/opk-<version>-linux-<architecture>/lib/gstreamer-1.0"
+export OPK_PACKAGE_ROOT="$PWD/opk-<version>-linux-<architecture>"
+export GST_PLUGIN_PATH="$OPK_PACKAGE_ROOT/lib/gstreamer-1.0"
 gst-inspect-1.0 opkinfer
 ```
 
@@ -174,7 +168,7 @@ GStreamer element, but the OPK C++ performance-metrics API is not part of the
 binary release.
 
 To consume serialized `FrameResults`, Cairn can verify and extract the nested
-the Open Perception Kit SDK with the matching release tooling:
+Open Perception Kit SDK with the matching release tooling:
 
 ```bash
 sdk_root="$OPK_PACKAGE_ROOT/share/opk/open-perception-kit"
@@ -185,25 +179,27 @@ unzip "$sdk_root/open-perception-kit-<sdk-version>.zip" -d open-perception-kit
 ```
 
 Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK
-version is independent of the OPK product version.
+version is independent of the product version: OPK 0.1.4 includes SDK 1.0.0.
 
 ## Download models
 
-Releases contain model descriptors and OpChains, with pinned `hfDownload`
-metadata, but no model binaries. Download the models using your own Hugging Face
-access before running inference. Private or gated repositories require a
-read-only `HF_TOKEN` with access to those models.
+The architecture tarballs contain model descriptors and OpChains, with pinned
+`hfDownload` metadata, but no model binaries. For those tarballs, download the
+models before running inference. The `opk-demo` Debian package already includes
+its model binaries and does not need this download step.
+The standard OPK model sources are public and support anonymous downloads.
+Private or gated repositories require a read-only `HF_TOKEN` with access to those models.
 
 The existing quick-start setup downloads models into the checkout's
 `config/models` directory. Use a checkout at the release's source revision and
-set `HF_TOKEN` in your host shell before running `./scripts/quick_start.sh`.
-The local development image uses that token only during its model and demo
-video download steps and seeds the downloaded files into the checkout at startup.
+run `./scripts/quick_start.sh`. Set `HF_TOKEN` in your host shell only when your
+models require authentication. The local development image seeds downloaded
+files into the checkout at startup.
 
 For an extracted binary package, reuse the same downloader to populate the
 package's model directory. Put the extracted package under the checkout's
 `var/` directory so it is accessible in the quick-start container, then run
-from the host shell with `HF_TOKEN` still exported:
+from the host shell, retaining `HF_TOKEN` if authentication is required:
 
 ```bash
 docker exec -u dev -e HF_TOKEN open-perception-kit \
@@ -262,19 +258,27 @@ if message.type == Gst.MessageType.ERROR:
 
 `opksink` serves the packaged browser UI from `web/content` by default. Its
 `static-files` property remains available when an application needs an explicit
-web root. Top-level `opk-menu` pipeline presets and sample media are
-intentionally not part of the binary release.
+web root. Each pipeline supports one `opksink`, including nested bins.
 
-The same smoke path is run natively for x86_64 and Arm packages on pull
-requests targeting `main`. Pushes to `main` publish the matching archives
-on one GitHub Release and together in generic Artifactory under
-`releases/<version>/`, the open-perception-kit wheel to Artifactory PyPI, the Open Perception Kit
-crate to Artifactory Cargo, and the matching multi-architecture image in GHCR.
-Manual runs publish the archives, wheel, and crate only to generic Artifactory
-under `snapshots/<label>/<full-sha>-<run-id>-<attempt>/`. The generic archive
-and snapshot paths use
-`https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci` as their
-base URL. The final Artifactory workflow log and job summary contain the folder,
-links, hashes, and the matching run-unique GHCR snapshot reference.
+The browser's Add/Replace picker discovers installed models under
+`$OPK_PROJECT_ROOT/config/models`. For an extracted package, create a workspace
+that exposes the downloaded package models at that path before starting the pipeline:
+
+```bash
+export OPK_PROJECT_ROOT="$PWD/opk-workspace"
+mkdir -p "$OPK_PROJECT_ROOT/config"
+ln -s "$OPK_PACKAGE_ROOT/share/opk/models" "$OPK_PROJECT_ROOT/config/models"
+```
+
+Only model-local `opchain.json` files with installed model binaries appear.
+See [browser model editing](../how-to/configure-elements.md#edit-models-from-the-browser)
+for Stop/Edit/Save behavior and editing limits. Top-level `opk-menu` pipeline
+presets and sample media are intentionally not part of the binary release.
+
+The manual Release workflow builds and smoke-tests both native architecture
+archives before publication. It runs from `main` after the release-preparation
+PR merges; merging or pushing to `main` does not publish product packages.
+See the [release process](../../arch/release-process.md) for publication
+destinations, artifact checks and the protected approval gate.
 
 [Back to Getting Started](/getting-started)

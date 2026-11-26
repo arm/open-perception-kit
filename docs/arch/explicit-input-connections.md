@@ -72,8 +72,8 @@ choices and removing retired selector fields. The previous record remains a back
 ## Migration and compatibility
 
 Removing `LayerInfo.content_type` is a schema-set-wide breaking change. It remains
-within the coordinated, unreleased SDK 1.0 migration; intermediate development
-snapshots must be rebuilt together and are not mixed. Root IDs remain stable.
+within the coordinated SDK 1.0 migration; producers and consumers must be rebuilt
+together. Root IDs remain stable.
 
 Model and OpChain configuration readers advance to major version 2 because removed
 fields and input declaration contracts are incompatible. Checked-in descriptors and

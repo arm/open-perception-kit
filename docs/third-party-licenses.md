@@ -38,7 +38,7 @@ and check the built artifacts before publication.
 | [Click](https://github.com/pallets/click) | [8.5.0](https://pypi.org/project/click/8.5.0/) | BSD-3-Clause | PyPI |
 | [cmakelang](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmakelang/0.6.13/) | GPL-3.0-or-later | PyPI |
 | [convert-source-map](https://github.com/thlorenz/convert-source-map) | [2.0.0](https://www.npmjs.com/package/convert-source-map/v/2.0.0) | MIT | npm |
-| [coverage.py](https://github.com/nedbat/coveragepy) | [7.10.7](https://pypi.org/project/coverage/7.10.7/) | Apache-2.0 | PyPI |
+| [coverage.py](https://github.com/nedbat/coveragepy) | [7.17.3](https://pypi.org/project/coverage/7.17.3/) | Apache-2.0 | PyPI |
 | [esbuild-wasm](https://github.com/evanw/esbuild) | [0.28.2](https://www.npmjs.com/package/esbuild-wasm/v/0.28.2) | MIT | npm |
 | [ExecuTorch](https://github.com/pytorch/executorch) | 1.3.1-3 | BSD-3-Clause and bundled terms | Debian package |
 | [expected](https://github.com/TartanLlama/expected) | [1.3.1](https://github.com/TartanLlama/expected/tree/v1.3.1) | CC0-1.0 | Fedora |
@@ -92,7 +92,7 @@ and check the built artifacts before publication.
 | [more-itertools](https://github.com/more-itertools/more-itertools) | [10.7.0](https://pypi.org/project/more-itertools/10.7.0/) | MIT | PyPI |
 | [magic\_enum](https://github.com/Neargye/magic_enum) | [v0.9.7](https://github.com/Neargye/magic_enum/tree/v0.9.7) | MIT | Debian |
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |
-| [NumPy](https://github.com/numpy/numpy) | [2.4.2](https://pypi.org/project/numpy/2.4.2/), [2.5.4](https://pypi.org/project/numpy/2.5.4/) (build and host Python) | BSD-3-Clause and [wheel terms](https://github.com/numpy/numpy/blob/v2.4.2/pyproject.toml), including GPL-3.0-or-later WITH GCC-exception-3.1 (libgfortran) and LGPL-2.1-or-later (x86_64 libquadmath) | PyPI |
+| [NumPy](https://github.com/numpy/numpy) | [2.4.2](https://pypi.org/project/numpy/2.4.2/), [2.5.5](https://pypi.org/project/numpy/2.5.5/) (build and host Python) | BSD-3-Clause and [wheel terms](https://github.com/numpy/numpy/blob/v2.4.2/pyproject.toml), including GPL-3.0-or-later WITH GCC-exception-3.1 (libgfortran) and LGPL-2.1-or-later (x86_64 libquadmath) | PyPI |
 | [onnx](https://github.com/onnx/onnx) | [1.22.0](https://pypi.org/project/onnx/1.22.0/) | Apache-2.0 | PyPI |
 | [onnxruntime](https://github.com/microsoft/onnxruntime) | [1.31.1](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime/1.31.1) | MIT and bundled terms | GitHub release or Microsoft NuGet package |
 | [openai](https://github.com/openai/openai-python) | [2.44.0](https://pypi.org/project/openai/2.44.0/) | Apache-2.0 | PyPI |

@@ -86,7 +86,7 @@ Meson:
 ```
 
 The printed SDK version must match the generated SDK package version, independently
-of the OPK product version. If the command reports that
+of the OPK product version. OPK 0.1.4 includes SDK 1.0.0. If the command reports that
 `open-perception-kit` is missing from an existing container, repair that private
 environment with:
 

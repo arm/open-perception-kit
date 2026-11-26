@@ -30,8 +30,8 @@ schemas, and a manifest describing every file and compatibility requirement.
 Released OPK architecture packages carry the unchanged ZIP, checksum, and
 provenance sidecar under `share/opk/open-perception-kit/`. SDK packages use
 `version` from `tools/perception/sdk.json`, independently of the product version
-in `development/meson.build`. Use the SDK version for the package names and
-dependencies below.
+in `development/meson.build`. OPK 0.1.4 includes SDK 1.0.0; use the SDK version
+for the package names and dependencies below.
 
 Open Perception Kit is licensed under Apache-2.0. Each language package includes
 the licence text and Arm copyright notice, including the standalone wheel and

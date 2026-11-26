@@ -48,7 +48,7 @@ defines the wire identity, public package name, canonical schema and generated d
 flowdata-sdk location, generated project integrations, and checksum-locked
 FlatBuffers and Python wheel-build artifacts. Its `version` owns the SDK packet
 and package version independently of the OPK product version in
-`development/meson.build`.
+`development/meson.build`. OPK 0.1.4 ships SDK 1.0.0.
 `tools/perception/sdk_config.py` is the shared loader
 used by generation, packaging, tests, and development installation. Generation first verifies the raw
 flowdata manifests, then applies OPK-owned copyright and formatting decoration. The final
@@ -288,7 +288,7 @@ Trace lengths and sample chronology must agree; extra points and malformed data
 are no longer silently accepted by comparing only a shared prefix. Display wording
 and association score precision do not define track identity.
 
-This is a breaking SDK 1.0 development migration of `ObjectTracks` and
+This is a breaking SDK 1.0 migration of `ObjectTracks` and
 `TrackTraces`, with unchanged root identities and regenerated bindings. No legacy
 text/tag parser or old-point adapter is provided.
 
@@ -341,7 +341,7 @@ tolerance 0.2. Reordering equivalent outputs can match; changing spaces, swappin
 subjects or dropping an output cannot. Browser decoding and terminal inspection
 expose space, subject and usability without inventing defaults.
 
-This is an intentional semantic/API migration within unreleased SDK 1.0. Old
+This is an intentional semantic/API migration within SDK 1.0. Old
 unidentified embeddings must be given an explicit producer-authored space, and
 users of the former tracker property must adopt the new selectors. No legacy
 property alias or guessed embedding-space identity is provided.
@@ -397,7 +397,7 @@ samples on the larger existing grid; category IDs are never interpolated.
 Multiple source-frame IDs in one mask producer group are ambiguous for cross-packet
 comparison and fail rather than guessing correspondence from local IDs.
 
-This is an intentional breaking API/wire change within the unreleased SDK 1.0
+This is an intentional breaking API/wire change within the SDK 1.0
 refactor. All participants use the same generated snapshot; no old bitmap adapter
 is supplied. Root identities remain stable while the shared schema digest changes.
 
@@ -599,7 +599,7 @@ profile's 50 ms delay with a 512-sample hop takes two calls (64 ms). State reset
 on `inferenceInfo.audio.discontinuity`; each parser instance owns its counters.
 
 SDK 1.0 keeps this root identity and adopts explicit measurement availability.
-Producers and consumers use the same regenerated development snapshot. Native
+Producers and consumers use the same regenerated snapshot. Native
 inspection, browser decoding and Plumber all handle the typed audio roots.
 
 ## Turn detection results
@@ -633,7 +633,7 @@ fallback and STT submission. Neither this payload nor the parser implements
 those policies. Plumber normalizes and compares turn assessments using their
 decision, audio bounds, timestamps and probability.
 
-The optional score/decision migration is part of the breaking, unreleased SDK 1.0
+The optional score/decision migration is part of the breaking SDK 1.0
 contract. Root identities remain unchanged; generated bindings must be upgraded
 together. Construction and serialization tests cover positive/negative results,
 repeated assessments, empty payloads and optional/zero timestamps.

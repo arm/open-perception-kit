@@ -152,5 +152,5 @@ Duplicate detection includes unavailable observations before filtering display
 rows; alternating availability cannot transfer history between ambiguous scopes.
 Plumber continues to exclude these diagnostics from result comparisons.
 
-This replaces the text-only performance payload in the breaking, unreleased SDK
+This replaces the text-only performance payload in the breaking SDK
 1.0 refactor. Producers and consumers use the same generated snapshot.

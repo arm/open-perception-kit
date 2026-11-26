@@ -107,7 +107,7 @@ checked-in inputs before packaging:
 | `generated/open_perception_kit/rust/Cargo.toml` | Cargo package version equals the SDK version |
 | `CHANGELOG.md` | Non-empty `## [<version>]` section for the product version |
 
-The product and SDK versions are independent.
+The product and SDK versions are independent: OPK 0.1.4 ships SDK 1.0.0.
 The SDK version also identifies packet producers; product releases do not change it.
 The `prepare` job checks the product version for an existing GitHub tag, release,
 or Artifactory destination. An existing product version stops the workflow.
