@@ -61,18 +61,18 @@ opk::Result<Configuration> configure(const opk::AttributeMap &a) {
     if ((activation != "none" && activation != "sigmoid") ||
         (decoder != "argmax" && decoder != "weightedArgmax"))
         return invalid("Pitch parser activation or decoder is unsupported");
-    const Configuration c{static_cast<size_t>(index),
-                          static_cast<size_t>(bins),
-                          static_cast<size_t>(radius),
-                          activation == "sigmoid",
-                          decoder == "weightedArgmax",
-                          a.getDouble("centsOffset"),
-                          a.getDouble("centsPerBin"),
-                          a.getDouble("referenceFrequencyHz"),
-                          a.getDouble("minFrequencyHz"),
-                          a.getDouble("maxFrequencyHz"),
-                          a.getDouble("periodicityThreshold"),
-                          a.getDouble("minimumRms")};
+    const Configuration c{.tensorIndex = static_cast<size_t>(index),
+                          .binCount = static_cast<size_t>(bins),
+                          .radius = static_cast<size_t>(radius),
+                          .sigmoid = activation == "sigmoid",
+                          .weighted = decoder == "weightedArgmax",
+                          .centsOffset = a.getDouble("centsOffset"),
+                          .centsPerBin = a.getDouble("centsPerBin"),
+                          .referenceHz = a.getDouble("referenceFrequencyHz"),
+                          .minHz = a.getDouble("minFrequencyHz"),
+                          .maxHz = a.getDouble("maxFrequencyHz"),
+                          .threshold = a.getDouble("periodicityThreshold"),
+                          .minimumRms = a.getDouble("minimumRms")};
     if (c.centsPerBin <= 0 || c.referenceHz <= 0 || c.minHz <= 0 || c.maxHz < c.minHz ||
         c.maxHz > std::numeric_limits<float>::max() || c.threshold < 0 || c.threshold > 1 ||
         c.minimumRms < 0)
