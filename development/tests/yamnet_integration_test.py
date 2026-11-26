@@ -116,12 +116,11 @@ def main():
                 envelope = Envelope(base64.b64decode(packet))
                 assert envelope.valid(), envelope.error()
                 payloads.extend(envelope.for_each(ClassificationsT))
-            assert len(payloads) == (1 if expected else 0), (name, len(payloads))
-            if not expected:
-                print(f'{name}: PASS (no qualifying events)')
-                continue
+            assert len(payloads) == 1, (name, len(payloads))
             payload = payloads[0]
-            assert payload.layer.contentType == b'esc'
+            assert len(payload.classifications) == 1
+            assert payload.classifications[0].labelSet == post['labelSet'].encode()
+            assert payload.classifications[0].kind == 1  # Categorical
             assert payload.layer.model == b'yamnet-esc'
             assert payload.layer.producer.implementation == b'AudioEventClassificationParser'
             candidates = payload.classifications[0].candidates
@@ -129,6 +128,9 @@ def main():
             for candidate, index in zip(candidates, expected):
                 assert candidate.text.decode('utf-8') == post['labels'][index]
                 np.testing.assert_allclose(candidate.confidence, probabilities[index], atol=2e-4, rtol=0)
+            if not expected:
+                print(f'{name}: PASS (empty classification assessment)')
+                continue
             print(f"{name}: PASS ({candidates[0].text.decode('utf-8')}, {candidates[0].confidence:.6f})")
 
 

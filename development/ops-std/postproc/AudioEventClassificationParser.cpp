@@ -163,8 +163,7 @@ AudioEventClassificationParser::parse(const opk::TensorParser::Input &input,
     const auto candidates = decodeCandidates(input, *configuration);
     if (!candidates)
         return tl::unexpected(candidates.error());
-    if (!candidates->empty())
-        results.add(makeResult(input, *candidates, *configuration));
+    results.add(makeResult(input, *candidates, *configuration));
     if (input.attributes.getBoolOrDefault("log", false)) {
         for (const auto &candidate : *candidates)
             fmt::print(stderr,

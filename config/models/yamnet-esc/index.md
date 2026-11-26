@@ -48,7 +48,11 @@ reference inference; this is not a continuous-stream STFT.
 
 The supplied ONNX graph ends in a linear classifier. `AudioEventClassificationParser`
 applies sigmoid independently, retains up to five events at confidence >= 0.5,
-and emits `Classifications` with content type `esc`, class ID, label and probability.
+and emits categorical `Classifications` with label set `audioset:yamnet-521`,
+class ID, label and probability. When no events qualify, it still publishes a
+typed classification with the same label set and an empty candidate list; absence
+of a payload means no assessment was published. Model and OpChain descriptors use versions
+`2.0.0` and `2.1.0`, respectively.
 Temporary debug logging is enabled with `log: true` in `opchain.json`. It prints
 each accepted event directly to stderr on every inference window, independently
 of the launcher’s log level; set it to `false`

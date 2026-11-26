@@ -183,7 +183,7 @@ Shared algorithms and their unit tests use algorithm or payload-based filenames.
 ### Audio event classifications
 
 `AudioEventClassificationParser` publishes existing `Classifications` payloads
-with semantic content type `esc`. It requires `outputTensorIndex`, `activation`
+with categorical kind and an explicit `labelSet`. It requires `outputTensorIndex`, `activation`
 (`sigmoid` for logits or `none` for probabilities), `confidenceThreshold`,
 positive `topK`, and a `labels` array matching the Float32 class vector. Leading
 tensor dimensions must be singleton. Labels are nonempty strings or null, with
@@ -192,8 +192,13 @@ at least one string. Null suppresses that class independently.
 All scores must be finite; `none` additionally requires [0,1]. Sigmoid is computed
 stably per class, without normalizing across classes. Candidates at or above the
 Float32 threshold are sorted by descending probability, ties by ascending class
-index, and limited to `topK`. No qualifying classes produces no payload. Each
-payload preserves model, inference element, producer and parent-object identity.
+index, and limited to `topK`. Every successful assessment publishes one typed
+`Classifications` payload. If no classes qualify (including when qualifying classes
+have null labels), its classification retains its kind, label set and subject
+identity with an empty candidate list. This distinguishes an empty assessment from
+disabled, skipped or unavailable output. Each payload preserves model, inference
+element, producer and parent-object identity. Invalid input still returns an error
+without appending a payload.
 Classification results do not carry audio-window bounds. See the
 [YAMNet model](../../config/models/yamnet-esc/index.md) for its frontend and artifacts.
 

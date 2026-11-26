@@ -673,7 +673,7 @@ TEST(AudioEventClassificationParser, PreservesIndependentScoresAndIdentityThroug
     });
 }
 
-TEST(AudioEventClassificationParser, HandlesExtremesTopKAndEmptyResults) {
+TEST(AudioEventClassificationParser, HandlesExtremesAndTopK) {
     EventFixture fixture;
     fixture.scores = {-1000, 0, 1000, 2};
     fixture.attributes.set("topK", int64_t{1});
@@ -685,11 +685,39 @@ TEST(AudioEventClassificationParser, HandlesExtremesTopKAndEmptyResults) {
         EXPECT_EQ(candidates[0]->class_id, 2);
         EXPECT_EQ(candidates[0]->confidence, 1.0f);
     });
-    fixture.attributes.set("activation", "none");
-    fixture.scores = {.1f, 1.f, .2f, .3f};
-    Results empty;
-    ASSERT_TRUE(fixture.eventParser.parse(fixture.input, empty));
-    EXPECT_EQ(empty.size(), 0u);
+}
+
+TEST(AudioEventClassificationParser, PublishesEmptyAssessmentWithIdentityThroughSerialization) {
+    for (const float suppressedScore : {0.1f, 1.0f}) {
+        EventFixture fixture;
+        fixture.attributes.set("activation", "none");
+        // No class passes, or only the class with a null label passes.
+        fixture.scores = {.1f, suppressedScore, .2f, .3f};
+        Results results;
+        ASSERT_TRUE(fixture.eventParser.parse(fixture.input, results));
+        ASSERT_EQ(results.size(), 1u);
+        const auto bytes = open_perception_kit::serialize(results);
+        const Results decoded{std::span<const uint8_t>(bytes)};
+        ASSERT_EQ(decoded.size(), 1u);
+        const auto payload = decoded.get<KeywordPayload>();
+        ASSERT_TRUE(payload);
+        const auto &assessment = payload->value();
+        ASSERT_TRUE(assessment.layer);
+        EXPECT_EQ(assessment.layer->model, "synthetic-command-scores");
+        EXPECT_EQ(assessment.layer->infer_element_id, "commands");
+        ASSERT_TRUE(assessment.layer->producer);
+        EXPECT_EQ(assessment.layer->producer->instance_id, "commands/post");
+        EXPECT_EQ(assessment.layer->producer->implementation, "AudioEventClassificationParser");
+        ASSERT_EQ(assessment.classifications.size(), 1u);
+        const auto &classification = *assessment.classifications[0];
+        EXPECT_EQ(classification.kind,
+                  open_perception_kit::metadata::ClassificationKind::Categorical);
+        EXPECT_EQ(classification.label_set, "test:commands-v1");
+        ASSERT_TRUE(classification.object);
+        EXPECT_EQ(classification.object->parent_id, 29u);
+        EXPECT_EQ(classification.subject_id, 29u);
+        EXPECT_TRUE(classification.candidates.empty());
+    }
 }
 
 TEST(AudioEventClassificationParser, RejectsInvalidScoresConfigurationAndShapeAtomically) {
