@@ -50,7 +50,7 @@ Project location:
 EOF
 }
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 OPK_PROJECT_ROOT_EXPLICIT=false
 if [[ -n "${OPK_PROJECT_ROOT:-}" ]]; then
@@ -497,4 +497,6 @@ main() {
     echo "  ./scripts/run.sh"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

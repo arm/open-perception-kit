@@ -1011,6 +1011,13 @@ voice_pipeline_output_tests = executable(
 )
 test('voice_pipeline_output_tests', voice_pipeline_output_tests)
 
+test('opchain_exec_packet', python,
+  args: [files('opchain_exec_packet_test.py'), opchain_exec.full_path(), qos_delay_op.full_path(),
+         opk_repository_root / 'data/images/GettyImages-1129703310-thumbnail.jpg'],
+  env: python_guest_script_test_env,
+  depends: [opchain_exec, qos_delay_op],
+)
+
 test('voice_pipeline_cli', python,
   args: [files('voice_pipeline_cli_test.py'), voice_pipeline.full_path()],
   depends: voice_pipeline,

@@ -49,6 +49,11 @@ The example is part of the main Meson build and is staged to
   data/images/my-image.jpg
 ```
 
+To save the validated binary FrameResults packet for an external consumer, append
+`--packet-out /tmp/result.frame`. The command overwrites the output file and prints the text
+summary on success. A write failure returns a nonzero exit status and can leave
+a partial file.
+
 The first argument is the OpChain JSON file. The second argument is the input
 image file. Supported image extensions are `.png`, `.jpg`, and `.jpeg`.
 
@@ -61,3 +66,30 @@ Unknown payload types are reported as `Unknown payload type`.
 Runtime components may also print diagnostics while the chain is being built or
 executed; this example intentionally keeps that behavior visible so the source
 stays focused on runtime execution plus typed Open Perception Kit result consumption.
+
+### Run from a Linux or WSL host
+
+From the checkout root, use `./scripts/opchain-exec.sh` with the same arguments.
+The host needs compatible runtime libraries, including GStreamer and ORC.
+The wrapper uses the active build's plugins. Set `OPK_ONNXRUNTIME_ROOT` to use
+an ONNX Runtime installation with a `lib/` directory. Without this override,
+the wrapper checks `/opt/opk-deps/onnxruntime/lib` and then the checkout cache.
+
+If ONNX Runtime is only installed in the build container, run this from the
+checkout root. Refresh the cached copy when the dependency changes.
+
+```bash
+(
+    set -e
+    source ./scripts/build.sh
+    eval "$(./scripts/quick-start/detect-environment.sh --shell)"
+    container_id=$(docker container inspect --format '{{.Id}}' "$OPK_CONTAINER_NAME")
+    mount=$(container_work_mount "$container_id")
+    if ! work_mount_matches_checkout "$mount"; then
+        echo "Container /work mounts '$mount', expected '$REPO_ROOT'." >&2
+        exit 1
+    fi
+    mkdir -p .cache/opchain-exec
+    docker cp -L "${container_id}:/opt/opk-deps/onnxruntime/lib/libonnxruntime.so.1" .cache/opchain-exec/
+)
+```
