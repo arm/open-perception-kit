@@ -115,10 +115,12 @@ opk::Result<void> PitchEstimationParser::parse(const opk::TensorParser::Input &i
         const double value = tensor->get(i);
         if (!std::isfinite(value) || (!c.sigmoid && (value < 0 || value > 1)))
             return invalid("Pitch parser requires finite logits or scores in [0,1]");
-        const double exponential = std::exp(-std::abs(value));
-        scores[i] = c.sigmoid
-                        ? (value >= 0 ? 1 / (1 + exponential) : exponential / (1 + exponential))
-                        : value;
+        if (c.sigmoid) {
+            const double exponential = std::exp(-std::abs(value));
+            scores[i] = value >= 0 ? 1 / (1 + exponential) : exponential / (1 + exponential);
+        } else {
+            scores[i] = value;
+        }
         const double hz = frequency(static_cast<double>(i));
         if (!std::isfinite(hz) || hz <= 0)
             return invalid("Pitch parser grid produces invalid frequencies");
