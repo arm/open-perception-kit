@@ -1201,7 +1201,10 @@ def sdk_payloads(archive: Path | io.BytesIO, version: str) -> dict[str, str]:
 
 def sdk_version_in_release_notes(tag: str, notes: str) -> str | None:
     notes = "\n" + notes.replace("\r\n", "\n")
-    links = notes.rpartition("\n### Artifactory\n")[2].partition("\n#")[0]
+    sections = notes.split("\n### Artifactory\n")
+    if len(sections) != 2:
+        return None
+    links = sections[1].partition("\n#")[0]
     prefix = f"https://artifacts.tools.arm.com/open-perception-kit/{tag}/opk-release-artifacts/open_perception_kit-"
     versions = set(re.findall(rf"^{re.escape(prefix)}([0-9]+\.[0-9]+\.[0-9]+)\.crate$", links, re.MULTILINE))
     return versions.pop() if len(versions) == 1 else None

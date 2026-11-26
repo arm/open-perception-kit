@@ -1419,7 +1419,8 @@ class ReleaseToolTests(unittest.TestCase):
                 release_tool.check_sdk(version, crate, candidate, "arm/open-perception-kit", "token")
                 network.assert_called_once()
             other = crate_link("v0.1.4", "1.1.0")
-            for body in (None, f"### Changelog\n{other}", f"### Artifactory\n{matching}\n{other}"):
+            for body in (None, other, f"### Changelog\n{other}", f"### Artifactory\n{matching}\n{other}",
+                         f"### Artifactory\n{matching}\n### Artifactory\n{other}"):
                 release["body"] = body
                 with self.subTest(body=body), patch.object(release_tool, "urlopen", side_effect=published), \
                         patch.object(release_tool, "write_github_output"):
