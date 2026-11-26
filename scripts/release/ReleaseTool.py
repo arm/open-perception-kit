@@ -1199,6 +1199,14 @@ def sdk_payloads(archive: Path | io.BytesIO, version: str) -> dict[str, str]:
     return payloads
 
 
+def sdk_version_in_release_notes(tag: str, notes: str) -> str | None:
+    notes = "\n" + notes.replace("\r\n", "\n")
+    links = notes.rpartition("\n### Artifactory\n")[2].partition("\n#")[0]
+    prefix = f"https://artifacts.tools.arm.com/open-perception-kit/{tag}/opk-release-artifacts/open_perception_kit-"
+    versions = set(re.findall(rf"^{re.escape(prefix)}([0-9]+\.[0-9]+\.[0-9]+)\.crate$", links, re.MULTILINE))
+    return versions.pop() if len(versions) == 1 else None
+
+
 def check_sdk(version: str, crate: Path, archive: Path, repository: str, token: str) -> None:
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         fail("GitHub repository must be OWNER/REPO")
@@ -1223,6 +1231,8 @@ def check_sdk(version: str, crate: Path, archive: Path, repository: str, token: 
                 continue
             filename = f"opk-{tag[1:]}-linux-aarch64.tar.gz"
             if not any(asset["name"] == filename for asset in release["assets"]):
+                continue
+            if sdk_version_in_release_notes(tag, release.get("body") or "") not in (None, version):
                 continue
             url = f"https://github.com/{repository}/releases/download/{tag}/{filename}"
             suffix = f"/share/opk/open-perception-kit/open-perception-kit-{version}.zip"

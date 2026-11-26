@@ -116,9 +116,12 @@ Reuse requires an identical, non-yanked crate and unchanged consumer files in
 an earlier released SDK bundle, including the Python wheel and TypeScript
 package. Changed payloads require a new SDK version; missing release evidence
 or unavailable checks stop the workflow. Generation receipts may differ.
-Release runs are serialized so two product releases cannot pass this check
-before either publishes. If another publisher wins a Cargo upload race, the
-workflow continues only after verifying the registered checksum and yank status.
+A crate link in the release's Artifactory list can rule out a different SDK
+before downloading its archive. Matching or inconclusive notes still require
+comparing the packaged SDK files.
+Up to 100 release runs can wait while one runs the checks and publishes.
+If another publisher wins a Cargo upload race, the workflow continues only
+after verifying the registered checksum and yank status.
 
 In a release-preparation PR, update the product version and changelog section.
 Select the SDK version separately in `tools/perception/sdk.json`; generation

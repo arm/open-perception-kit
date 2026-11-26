@@ -1370,6 +1370,16 @@ class ReleaseToolTests(unittest.TestCase):
         }}
         release = {"tag_name": "v0.1.4", "draft": False, "prerelease": False,
                    "assets": [{"name": "opk-0.1.4-linux-aarch64.tar.gz"}]}
+
+        def crate_link(tag, sdk_version):
+            return (f"https://artifacts.tools.arm.com/open-perception-kit/{tag}/"
+                    f"opk-release-artifacts/open_perception_kit-{sdk_version}.crate")
+
+        matching = crate_link("v0.1.4", version)
+        release["body"] = f"### Artifactory\r\n\r\n{matching}\r\n"
+        newer = {"tag_name": "v0.1.5", "draft": False, "prerelease": False,
+                 "assets": [{"name": "opk-0.1.5-linux-aarch64.tar.gz"}],
+                 "body": "### Artifactory\r\n\r\n" + crate_link("v0.1.5", "1.1.0") + "\r\n"}
         requested = []
 
         def published(request, timeout):
@@ -1378,7 +1388,7 @@ class ReleaseToolTests(unittest.TestCase):
             if url.startswith("https://crates.io/"):
                 return io.StringIO(json.dumps(metadata))
             if url.startswith("https://api.github.com/"):
-                return io.StringIO(json.dumps([release] if url.endswith("page=1") else []))
+                return io.StringIO(json.dumps([newer, release] if url.endswith("page=1") else []))
             self.assertEqual(
                 url, "https://github.com/arm/open-perception-kit/releases/download/v0.1.4/opk-0.1.4-linux-aarch64.tar.gz")
             return io.BytesIO(package.getvalue())
@@ -1408,6 +1418,12 @@ class ReleaseToolTests(unittest.TestCase):
                     patch.object(release_tool, "write_github_output"):
                 release_tool.check_sdk(version, crate, candidate, "arm/open-perception-kit", "token")
                 network.assert_called_once()
+            other = crate_link("v0.1.4", "1.1.0")
+            for body in (None, f"### Changelog\n{other}", f"### Artifactory\n{matching}\n{other}"):
+                release["body"] = body
+                with self.subTest(body=body), patch.object(release_tool, "urlopen", side_effect=published), \
+                        patch.object(release_tool, "write_github_output"):
+                    release_tool.check_sdk(version, crate, candidate, "arm/open-perception-kit", "token")
             with self.assertRaisesRegex(RuntimeError, "unexpected root"):
                 release_tool.sdk_payloads(candidate, "0.1.4")
             release["assets"] = []
