@@ -98,6 +98,7 @@ class BuildScriptTests(unittest.TestCase):
         bin_dir: Path,
         log_path: Path,
         *arguments: str,
+        force_host: bool = False,
         project_root: Path | str | None = None,
         environment_overrides: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
@@ -122,8 +123,18 @@ class BuildScriptTests(unittest.TestCase):
         if environment_overrides:
             environment.update(environment_overrides)
 
+        command = [str(checkout / BUILD_SCRIPT_PATH), *arguments]
+        if force_host:
+            host_driver = """
+                source "$1"
+                shift
+                running_in_container() { return 1; }
+                main "$@"
+            """
+            command = ["bash", "-c", host_driver, "bash", *command]
+
         return subprocess.run(
-            [str(checkout / BUILD_SCRIPT_PATH), *arguments],
+            command,
             cwd=checkout.parent,
             env=environment,
             check=False,
@@ -136,6 +147,83 @@ class BuildScriptTests(unittest.TestCase):
             json.loads(line)
             for line in log_path.read_text(encoding="utf-8").splitlines()
         ]
+
+    def test_host_build_checks_container_mount(self) -> None:
+        cases = (
+            ("reuse matching container", True, True),
+            ("recreate mismatched container", False, True),
+            ("reject mismatched replacement", False, False),
+            ("reject mismatched reused container", True, False),
+        )
+        for scenario, existing_mount_matches_checkout, started_mount_matches_checkout in cases:
+            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                checkout = self.make_checkout(root, "checkout with spaces")
+                other = root / "other checkout"
+                other.mkdir()
+                quick_start = checkout / "scripts/quick-start"
+                quick_start.mkdir()
+                log = root / "host-calls"
+                recorder = root / "record-argv"
+                recorder.write_text(
+                    "#!/usr/bin/env python3\n"
+                    "import json, os, sys\n"
+                    "with open(os.environ['OPK_BUILD_SCRIPT_TEST_LOG'], 'a') as log:\n"
+                    "    print(json.dumps(sys.argv[1:]), file=log)\n",
+                    encoding="utf-8",
+                )
+                recorder.chmod(0o755)
+                commands = {
+                    quick_start / "detect-environment.sh":
+                        "echo OPK_CONTAINER_NAME=build-container",
+                    quick_start / "start-container.sh":
+                        'record-argv start "$@"',
+                    root / "docker": """
+                        work_mount_format='{{range .Mounts}}{{if and (eq .Destination "/work") (eq .Type "bind")}}{{.Source}}{{end}}{{end}}'
+                        if [ "$1:$2" = container:inspect ]; then
+                            case "$3" in --format|-f) ;; *) exit 1 ;; esac
+                        fi
+                        case "$1:$2:$4:$5" in
+                            container:inspect:'{{.Id}}':build-container)
+                                record-argv inspect-id
+                                echo pinned-id ;;
+                            container:inspect:"$work_mount_format":build-container) echo "$EXISTING_MOUNT" ;;
+                            container:inspect:"$work_mount_format":pinned-id) echo "$STARTED_MOUNT" ;;
+                            exec:*) record-argv "$@" ;;
+                            *) exit 1 ;;
+                        esac
+                    """,
+                }
+                for path, command in commands.items():
+                    path.write_text("#!/bin/sh\n" + command + "\n", encoding="utf-8")
+                    path.chmod(0o755)
+
+                completed = self.run_build(
+                    checkout,
+                    root,
+                    log,
+                    "debug",
+                    force_host=True,
+                    environment_overrides={
+                        "EXISTING_MOUNT": str(checkout if existing_mount_matches_checkout else other),
+                        "STARTED_MOUNT": str(checkout if started_mount_matches_checkout else other),
+                    },
+                )
+                expected = [
+                    ["start"] if existing_mount_matches_checkout else ["start", "--recreate"],
+                    ["inspect-id"],
+                ]
+                if started_mount_matches_checkout:
+                    self.assertEqual(completed.returncode, 0, completed.stderr)
+                    expected.extend([
+                        ["exec", "-u", "dev", "pinned-id", "bash", "-lc",
+                         'cd /work && ./scripts/build.sh "$@"', "bash", "debug"],
+                        ["exec", "-u", "dev", "pinned-id", "test", "-x", "/work/tools/opk-menu"],
+                    ])
+                else:
+                    self.assertNotEqual(completed.returncode, 0)
+                    self.assertIn(f"/work mounts '{other}'", completed.stderr)
+                self.assertEqual([json.loads(line) for line in log.read_text().splitlines()], expected)
 
     def test_defaults_to_checkout_containing_build_script(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
