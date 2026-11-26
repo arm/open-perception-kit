@@ -122,5 +122,9 @@
   "crepe-tiny-LICENSE.txt": {
     "url": "https://raw.githubusercontent.com/maxrmorrison/torchcrepe/19e2ec3d494c0797a5ff2a11408ec5838fba6681/LICENSE",
     "sha256": "2e1d0b22e64e0f0937cb213dbe45b0b02c97d278c4db8bae926ae031325b2417"
+  },
+  "crepe-original-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/marl/crepe/c9b71ce61491454125a0693f584f7244f29d9884/LICENSE",
+    "sha256": "72b2e8b7b1f8f21b667eb241275d4b57cb504d17c0fc624421ec306ef4edc4ac"
   }
 }
