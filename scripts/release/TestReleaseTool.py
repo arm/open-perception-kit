@@ -1137,6 +1137,17 @@ class ReleaseToolTests(unittest.TestCase):
                     finally:
                         path.write_text("{}\n", encoding="utf-8")
 
+    def test_standalone_validation_requires_referenced_opchain_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            schemas = root / "share/opk/schemas/json"
+            shutil.copytree(REPO_ROOT / "config/schemas", schemas)
+            release_tool.validate_release_payload(root, None)
+
+            (schemas / "v2/opchain/common.schema.json").unlink()
+            with self.assertRaisesRegex(RuntimeError, "urn:arm:opk:schema:opchain-common:v2"):
+                release_tool.validate_release_payload(root, None)
+
     def test_rejects_unsafe_descriptor_schema_trees(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

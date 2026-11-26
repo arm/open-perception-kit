@@ -33,6 +33,7 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -510,15 +511,46 @@ def payload_files(root: Path) -> set[Path]:
     return files
 
 
+def descriptor_subschemas(root: object) -> Iterator[dict[str, object]]:
+    pending = [root]
+    while pending:
+        schema = pending.pop()
+        if not isinstance(schema, dict):
+            continue
+        yield schema
+        # Examples and defaults contain instance data. Only descend through schema-valued keywords.
+        for key, value in schema.items():
+            if key in ("$defs", "definitions", "properties", "patternProperties", "dependentSchemas"):
+                if isinstance(value, dict):
+                    pending.extend(value.values())
+            elif key in ("allOf", "anyOf", "oneOf", "prefixItems"):
+                if isinstance(value, list):
+                    pending.extend(value)
+            elif key in ("items", "contains", "additionalProperties", "propertyNames", "not", "if", "then", "else",
+                         "unevaluatedItems", "unevaluatedProperties", "contentSchema"):
+                pending.append(value)
+
+
 def validate_schema_tree(root: Path) -> set[Path]:
     files = payload_files(root)
     if not files:
         fail(f"Descriptor schema directory is missing or empty: {root}")
+    schema_ids: set[str] = set()
+    referenced_ids: set[str] = set()
     for relative in files:
         path = root / relative
         if path.suffix != ".json":
             fail(f"Descriptor schema is not JSON: {path}")
-        load_json(path)
+        for schema in descriptor_subschemas(load_json(path)):
+            schema_id = schema.get("$id")
+            if isinstance(schema_id, str):
+                schema_ids.add(schema_id)
+            ref = schema.get("$ref")
+            if isinstance(ref, str) and ref.startswith("urn:arm:opk:schema:"):
+                referenced_ids.add(ref.partition("#")[0])
+    missing = referenced_ids - schema_ids
+    if missing:
+        fail(f"Referenced descriptor schemas are missing from {root}: {sorted(missing)}")
     return files
 
 
