@@ -182,12 +182,15 @@ Shared algorithms and their unit tests use algorithm or payload-based filenames.
 
 ### Audio event classifications
 
-`AudioEventClassificationParser` publishes existing `Classifications` payloads
-with categorical kind and an explicit `labelSet`. It requires `outputTensorIndex`, `activation`
-(`sigmoid` for logits or `none` for probabilities), `confidenceThreshold`,
-positive `topK`, and a `labels` array matching the Float32 class vector. Leading
-tensor dimensions must be singleton. Labels are nonempty strings or null, with
-at least one string. Null suppresses that class independently.
+`AudioEventClassificationParser` publishes typed `Classifications` payloads with
+categorical kind. It requires `outputTensorIndex`, `activation` (`sigmoid` for
+logits or `none` for probabilities), `confidenceThreshold`, positive `topK`, a
+nonempty `labelSet` identifying the class vocabulary, and a `labels` array
+matching the Float32 class vector. The configured `labelSet` is published as the
+classification's `label_set`; YAMNet uses `audioset:yamnet-521`.
+
+Leading tensor dimensions must be singleton. Labels are nonempty strings or
+null, with at least one string. Null suppresses that class independently.
 
 All scores must be finite; `none` additionally requires [0,1]. Sigmoid is computed
 stably per class, without normalizing across classes. Candidates at or above the
