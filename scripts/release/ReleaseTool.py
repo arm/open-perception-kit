@@ -690,7 +690,7 @@ def validate_perception_sdk(
     version = archive.name.removeprefix("open-perception-kit-").removesuffix(".zip")
 
     verification_root = repo_root or REPO_ROOT
-    if repo_root is not None and read_version(repo_root) != version:
+    if repo_root is not None and read_sdk_config(repo_root).version != version:
         fail("open-perception-kit version does not match the selected source")
     subprocess.run(
         [
@@ -1035,7 +1035,18 @@ def read_version(repo_root: Path) -> str:
     return match.group(1)
 
 
-def read_package_versions(repo_root: Path, version: str) -> tuple[str, str]:
+def read_sdk_config(repo_root: Path):
+    # Runtime images also use this script without the SDK tooling for legal checks.
+    sys.path.insert(0, str(REPO_ROOT / "tools/perception"))
+    from sdk_config import load_sdk_config
+
+    return load_sdk_config(repo_root / "tools/perception/sdk.json", repo_root=repo_root)
+
+
+def read_package_versions(repo_root: Path) -> tuple[str, str]:
+    config = read_sdk_config(repo_root)
+    if config.package_prerelease:
+        fail("Release SDK packages must not be prereleases")
     paths = {
         "Python": repo_root / "generated/open_perception_kit/python/pyproject.toml",
         "Cargo": repo_root / "generated/open_perception_kit/rust/Cargo.toml",
@@ -1051,8 +1062,8 @@ def read_package_versions(repo_root: Path, version: str) -> tuple[str, str]:
             fail(f"Generated Perception {language} package version is missing")
         versions[language] = match.group(1)
     result = (versions["Python"], versions["Cargo"])
-    if result != (version, version):
-        fail("Generated Perception package versions do not match the product version")
+    if result != (config.python_package_version, config.cargo_package_version):
+        fail("Generated Perception package versions do not match the SDK version")
     return result
 
 
@@ -1082,9 +1093,7 @@ def write_github_output(values: dict[str, str]) -> None:
 def prepare(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
     version = read_version(repo_root)
-    python_package_version, cargo_package_version = read_package_versions(
-        repo_root, version
-    )
+    python_package_version, cargo_package_version = read_package_versions(repo_root)
     changelog_section(repo_root, version)
     commit = args.commit
     if not GIT_COMMIT_PATTERN.fullmatch(commit):
@@ -1092,6 +1101,7 @@ def prepare(args: argparse.Namespace) -> None:
     write_github_output(
         {
             "version": version,
+            "sdk_version": python_package_version,
             "python_package_version": python_package_version,
             "cargo_package_version": cargo_package_version,
             "commit": commit,
@@ -1101,28 +1111,28 @@ def prepare(args: argparse.Namespace) -> None:
     )
 
 
-def check_published_version(version: str, repository: str, token: str) -> None:
-    if not VERSION_PATTERN.fullmatch(version):
-        fail("Release version must be stable MAJOR.MINOR.PATCH")
+def check_published_version(version: str, sdk_version: str, repository: str, token: str) -> None:
+    if not VERSION_PATTERN.fullmatch(version) or not VERSION_PATTERN.fullmatch(sdk_version):
+        fail("Release and SDK versions must be stable MAJOR.MINOR.PATCH")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         fail("GitHub repository must be OWNER/REPO")
     if not token:
         fail("GH_TOKEN is required to check GitHub releases")
 
     checks = (
-        ("GitHub tag", f"https://api.github.com/repos/{repository}/git/ref/tags/v{version}"),
-        ("GitHub release", f"https://api.github.com/repos/{repository}/releases/tags/v{version}"),
-        ("crates.io crate", f"https://crates.io/api/v1/crates/open_perception_kit/{version}"),
-        ("Artifactory destination", f"https://artifacts.tools.arm.com/open-perception-kit/v{version}/"),
+        ("GitHub tag", version, f"https://api.github.com/repos/{repository}/git/ref/tags/v{version}"),
+        ("GitHub release", version, f"https://api.github.com/repos/{repository}/releases/tags/v{version}"),
+        ("crates.io crate", sdk_version, f"https://crates.io/api/v1/crates/open_perception_kit/{sdk_version}"),
+        ("Artifactory destination", version, f"https://artifacts.tools.arm.com/open-perception-kit/v{version}/"),
     )
-    for destination, url in checks:
+    for destination, checked_version, url in checks:
         headers = {"User-Agent": "open-perception-kit-release-check"}
         if url.startswith("https://api.github.com/"):
             headers["Authorization"] = f"Bearer {token}"
             headers["Accept"] = "application/vnd.github+json"
         try:
             with urlopen(Request(url, headers=headers), timeout=15):
-                fail(f"v{version} already exists at {destination}: {url}")
+                fail(f"v{checked_version} already exists at {destination}: {url}")
         except HTTPError as error:
             if error.code == 404:
                 continue
@@ -1172,6 +1182,7 @@ def main() -> int:
 
     check_version_parser = subparsers.add_parser("check-version")
     check_version_parser.add_argument("--version", required=True)
+    check_version_parser.add_argument("--sdk-version", required=True)
     check_version_parser.add_argument("--repository", required=True)
 
     args = parser.parse_args()
@@ -1191,7 +1202,7 @@ def main() -> int:
         elif args.command == "prepare":
             prepare(args)
         elif args.command == "check-version":
-            check_published_version(args.version, args.repository, os.environ.get("GH_TOKEN", ""))
+            check_published_version(args.version, args.sdk_version, args.repository, os.environ.get("GH_TOKEN", ""))
         return 0
     except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError) as error:
         print(f"release error: {error}", file=sys.stderr)

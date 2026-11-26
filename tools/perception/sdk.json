@@ -48,6 +48,7 @@
   },
   "generated_dir": "generated/open_perception_kit",
   "public_name": "open_perception_kit",
+  "version": "1.0.0",
   "package_prerelease": true,
   "project_generated_files": {
     "internal_meson": "development/perception/meson.build"

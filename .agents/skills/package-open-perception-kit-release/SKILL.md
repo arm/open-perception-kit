@@ -64,11 +64,11 @@ release candidate. It is reserved for local experiments and records
 
 ## Build the Bundle
 
-Read the stable OPK version from `development/meson.build`, then assert the same
-value during packaging:
+Read the independent SDK version from `tools/perception/sdk.json`, then assert
+the same value during packaging:
 
 ```bash
-sdk_version="$(sed -n "s/^[[:space:]]*version: '\([^']*\)'.*/\1/p" development/meson.build)"
+sdk_version="$(python3 -c 'import sys; sys.path.insert(0, "tools/perception"); from sdk_config import load_sdk_config; print(load_sdk_config().version)')"
 
 ./scripts/perception-sdk.sh package \
   --output-dir artifacts \

@@ -46,7 +46,7 @@ committed and ready to release.
    automatically. Generation receipts use local content hashes, not a separate
    Git checkout or remote reference.
 5. If schemas changed, apply `$evolve-perception-schema` first to classify
-   compatibility and record the required OPK release impact.
+   compatibility and record the required SDK release impact.
 
 ## Regenerate
 

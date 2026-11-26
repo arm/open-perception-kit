@@ -130,18 +130,28 @@ def add_perception_sdk(
     return archive
 
 
-def add_release_identity(repo_root: Path) -> None:
+def add_release_identity(
+    repo_root: Path, product_version: str = "0.1.0", sdk_version: str = "0.1.0"
+) -> None:
     development_root = repo_root / "development"
     development_root.mkdir(parents=True, exist_ok=True)
     (development_root / "meson.build").write_text(
-        "project('demo', version: '0.1.0')\n", encoding="utf-8"
+        f"project('demo', version: '{product_version}')\n", encoding="utf-8"
     )
     python = repo_root / "generated/open_perception_kit/python/pyproject.toml"
     cargo = repo_root / "generated/open_perception_kit/rust/Cargo.toml"
     python.parent.mkdir(parents=True, exist_ok=True)
     cargo.parent.mkdir(parents=True, exist_ok=True)
-    python.write_text('[project]\nversion = "0.1.0"\n', encoding="utf-8")
-    cargo.write_text('[package]\nversion = "0.1.0"\n', encoding="utf-8")
+    python.write_text(f'[project]\nversion = "{sdk_version}"\n', encoding="utf-8")
+    cargo.write_text(f'[package]\nversion = "{sdk_version}"\n', encoding="utf-8")
+    descriptor = json.loads((REPO_ROOT / "tools/perception/sdk.json").read_text())
+    descriptor["version"] = sdk_version
+    descriptor["package_prerelease"] = False
+    descriptor["schema_dir"] = "schemas/selected-sdk"
+    (repo_root / descriptor["schema_dir"]).mkdir(parents=True, exist_ok=True)
+    descriptor_path = repo_root / "tools/perception/sdk.json"
+    descriptor_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -157,12 +167,12 @@ class ReleaseToolTests(unittest.TestCase):
             text=True,
         )
 
-    def test_package_versions_match_the_product_version(self) -> None:
+    def test_package_versions_match_the_sdk_version(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             add_release_identity(root)
             self.assertEqual(
-                release_tool.read_package_versions(root, "0.1.0"),
+                release_tool.read_package_versions(root),
                 ("0.1.0", "0.1.0"),
             )
 
@@ -171,12 +181,42 @@ class ReleaseToolTests(unittest.TestCase):
             python.write_text('[project]\nversion = "0.1.0.dev0"\n', encoding="utf-8")
             cargo.write_text('[package]\nversion = "0.1.0-dev.0"\n', encoding="utf-8")
             with self.assertRaisesRegex(RuntimeError, "do not match"):
-                release_tool.read_package_versions(root, "0.1.0")
+                release_tool.read_package_versions(root)
 
             python.write_text('[project]\nversion = "0.1.0"\n', encoding="utf-8")
             cargo.write_text('[package]\nversion = "0.2.0"\n', encoding="utf-8")
             with self.assertRaisesRegex(RuntimeError, "do not match"):
-                release_tool.read_package_versions(root, "0.1.0")
+                release_tool.read_package_versions(root)
+
+    def test_rejects_prerelease_sdk_for_product_release(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            add_release_identity(root, product_version="0.1.4", sdk_version="1.0.0")
+            path = root / "tools/perception/sdk.json"
+            descriptor = json.loads(path.read_text())
+            descriptor["package_prerelease"] = True
+            path.write_text(json.dumps(descriptor))
+            with self.assertRaisesRegex(RuntimeError, "prerelease"):
+                release_tool.read_package_versions(root)
+
+    def test_prepare_keeps_product_and_sdk_versions_independent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            add_release_identity(root, product_version="0.1.4", sdk_version="1.0.0")
+            (root / "CHANGELOG.md").write_text("## [0.1.4]\n\nChanges\n")
+            result = self.run_tool("prepare", "--repo-root", str(root), "--commit", "a" * 40)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            outputs = dict(line.split("=", 1) for line in result.stdout.splitlines())
+            self.assertEqual(outputs["version"], "0.1.4")
+            self.assertEqual(outputs["sdk_version"], "1.0.0")
+            self.assertEqual(outputs["python_package_version"], "1.0.0")
+            self.assertEqual(outputs["cargo_package_version"], "1.0.0")
+            self.assertEqual(outputs["arm_archive"], "opk-0.1.4-linux-aarch64.tar.gz")
+            config = release_tool.read_sdk_config(root)
+            self.assertEqual(config.schema_dir, root / "schemas/selected-sdk")
+            self.assertEqual(config.generated_root, root / "generated/open_perception_kit")
+            self.assertTrue(config.flowdata_generator.is_relative_to(root))
+            self.assertTrue(config.internal_meson_path.is_relative_to(root))
 
     def test_release_tree_rejects_redistributed_python_packages(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -690,6 +730,14 @@ class ReleaseToolTests(unittest.TestCase):
             for name in ("python-numpy", "python-flatbuffers"):
                 shutil.rmtree(legal / name)
             release_tool.validate_legal_documentation(root)
+            standalone = root / "scripts/release/ReleaseTool.py"
+            standalone.parent.mkdir(parents=True)
+            shutil.copyfile(TOOL, standalone)
+            result = subprocess.run(
+                [sys.executable, str(standalone), "validate-legal", "--package-root", str(root)],
+                cwd=root, capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_python_module_requires_numpy_header_notice(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1086,9 +1134,9 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             sdk_root = root / "perception-sdk"
-            archive = add_perception_sdk(sdk_root)
+            archive = add_perception_sdk(sdk_root, version="1.0.0")
             repo_root = root / "source"
-            add_release_identity(repo_root)
+            add_release_identity(repo_root, product_version="0.1.4", sdk_version="1.0.0")
 
             with patch.object(release_tool.subprocess, "run") as verifier:
                 release_tool.validate_perception_sdk(
@@ -1150,19 +1198,14 @@ class ReleaseToolTests(unittest.TestCase):
             sdk_root = root / "perception-sdk"
             add_perception_sdk(sdk_root)
             repo_root = root / "source"
-            add_release_identity(repo_root)
-            (repo_root / "development/meson.build").write_text(
-                "project('demo', version: '1.0.0')\n", encoding="utf-8"
-            )
+            add_release_identity(repo_root, product_version="0.1.4", sdk_version="1.0.0")
 
             with self.assertRaisesRegex(RuntimeError, "version does not match"):
                 release_tool.validate_perception_sdk(
                     sdk_root, SOURCE_COMMIT, repo_root
                 )
 
-            (repo_root / "development/meson.build").write_text(
-                "project('demo', version: '0.1.0')\n", encoding="utf-8"
-            )
+            add_release_identity(repo_root, product_version="0.1.4")
             with (
                 patch.object(release_tool.subprocess, "run"),
                 self.assertRaisesRegex(RuntimeError, "commit does not match"),
@@ -1220,7 +1263,7 @@ class ReleaseToolTests(unittest.TestCase):
 
                 with patch.object(release_tool, "urlopen", side_effect=open_version):
                     with self.assertRaisesRegex(RuntimeError, destinations[existing]):
-                        release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
+                        release_tool.check_published_version("0.1.0", "1.0.0", "arm/open-perception-kit", "token")
                 self.assertEqual(checked, existing + 1)
 
         seen = []
@@ -1230,11 +1273,11 @@ class ReleaseToolTests(unittest.TestCase):
             raise HTTPError(request.full_url, 404, "Not Found", {}, None)
 
         with patch.object(release_tool, "urlopen", side_effect=missing_version):
-            release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
+            release_tool.check_published_version("0.1.0", "1.0.0", "arm/open-perception-kit", "token")
         self.assertEqual(len(seen), len(destinations))
         self.assertTrue(seen[0].endswith("/git/ref/tags/v0.1.0"))
         self.assertTrue(seen[1].endswith("/releases/tags/v0.1.0"))
-        self.assertTrue(seen[2].endswith("/open_perception_kit/0.1.0"))
+        self.assertTrue(seen[2].endswith("/open_perception_kit/1.0.0"))
         self.assertTrue(seen[3].endswith("/v0.1.0/"))
 
     def test_published_version_check_fails_on_unavailable_destination(self) -> None:
@@ -1242,7 +1285,7 @@ class ReleaseToolTests(unittest.TestCase):
             with self.subTest(error=error):
                 with patch.object(release_tool, "urlopen", side_effect=error):
                     with self.assertRaisesRegex(RuntimeError, "Could not check GitHub tag"):
-                        release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
+                        release_tool.check_published_version("0.1.0", "1.0.0", "arm/open-perception-kit", "token")
 
     def test_model_path_cannot_escape_its_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

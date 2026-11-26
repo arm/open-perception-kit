@@ -55,7 +55,9 @@ Report the predecessor, proposed version, classification, and short rationale be
 1. Update the authored active-version surfaces:
    - `development/meson.build`: authoritative product version.
    - `CHANGELOG.md`: one non-empty section for the same version.
-   - `tools/plumber/pyproject.toml`: the exact `open_perception_kit==<version>` dependency.
+   - `tools/perception/sdk.json`: independent SDK packet and package `version`; disable `package_prerelease` for a release.
+   - `tools/plumber/pyproject.toml`: the exact `open_perception_kit==<sdk-version>` dependency, refreshed by generation.
+   Select product and SDK versions independently; an SDK API break does not require matching product and SDK version numbers.
    Do not rewrite historical examples or release records.
 2. Regenerate both derived version surfaces, in this order:
    - `./scripts/perception-sdk.sh generate`
@@ -65,7 +67,7 @@ Report the predecessor, proposed version, classification, and short rationale be
 5. Rely on the release PR workflows for architecture packaging and smoke coverage that is unavailable locally.
 6. Follow the current contribution rules for branch names, commits, PR titles, descriptions, and labels.
 
-Failure pattern: changing only `development/meson.build` produces a stale Open Perception Kit SDK identity; regenerating the SDK without updating plumber makes the Docker dependency solve unsatisfiable. This sequence was verified by clean Open Perception Kit SDK and WebUI checks plus a successful local uv dependency solve. The ruled-out shortcut is a manual single-file version bump.
+Failure pattern: changing `tools/perception/sdk.json` without regenerating leaves a stale SDK identity and Plumber dependency. A product-only version change in `development/meson.build` must not change the SDK version. Verify both version outputs with `ReleaseTool.py prepare`.
 
 ## Handle PRs, CI, and follow-ups
 

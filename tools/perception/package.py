@@ -661,6 +661,7 @@ def _verify_source_identities(
     generated_manifest = metadata["generated_manifest"]
     if (
         artifact.get("name") != str(descriptor.get('public_name', '')).replace('_', '-')
+        or ("version" in descriptor and descriptor["version"] != artifact.get("version"))
         or generated_manifest.get("artifact") != artifact
     ):
         raise RuntimeError("release descriptor, generated manifest, and artifact identities differ")
@@ -1389,7 +1390,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
     config = perception_config.load_sdk_config()
     if args.expect_version is not None and args.expect_version != config.version:
         raise RuntimeError(
-            f"expected OPK version {args.expect_version}, product contains {config.version}"
+            f"expected SDK version {args.expect_version}, descriptor contains {config.version}"
         )
     if args.repository_commit is not None and not GIT_COMMIT_RE.fullmatch(args.repository_commit):
         raise RuntimeError("repository commit must be a full Git SHA")
@@ -1541,8 +1542,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--expect-version",
         metavar="MAJOR.MINOR.PATCH",
         help=(
-            "fail unless development/meson.build contains exactly this OPK version; "
-            "does not override the product version"
+            "fail unless tools/perception/sdk.json contains exactly this SDK version; "
+            "does not override the SDK version"
         ),
     )
     package_parser.add_argument(

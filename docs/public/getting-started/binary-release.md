@@ -179,13 +179,13 @@ the Open Perception Kit SDK with the matching release tooling:
 ```bash
 sdk_root="$OPK_PACKAGE_ROOT/share/opk/open-perception-kit"
 ./scripts/perception-sdk.sh verify \
-  "$sdk_root/open-perception-kit-<opk-version>.zip" \
+  "$sdk_root/open-perception-kit-<sdk-version>.zip" \
   --require-sidecars
-unzip "$sdk_root/open-perception-kit-<opk-version>.zip" -d open-perception-kit
+unzip "$sdk_root/open-perception-kit-<sdk-version>.zip" -d open-perception-kit
 ```
 
 Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK
-version matches the OPK product version.
+version is independent of the OPK product version.
 
 ## Download models
 

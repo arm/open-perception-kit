@@ -46,8 +46,10 @@ snapshot and creates distributable artifacts without regenerating it.
 `tools/perception/sdk.json` is the only hand-edited SDK release descriptor. It
 defines the wire identity, public package name, canonical schema and generated directories,
 flowdata-sdk location, generated project integrations, and checksum-locked
-FlatBuffers and Python wheel-build artifacts. The SDK packages share the OPK
-product version from `development/meson.build`. `tools/perception/sdk_config.py` is the shared loader
+FlatBuffers and Python wheel-build artifacts. Its `version` owns the SDK packet
+and package version independently of the OPK product version in
+`development/meson.build`.
+`tools/perception/sdk_config.py` is the shared loader
 used by generation, packaging, tests, and development installation. Generation first verifies the raw
 flowdata manifests, then applies OPK-owned copyright and formatting decoration. The final
 generated SDK manifest embeds the raw generator manifests and records the

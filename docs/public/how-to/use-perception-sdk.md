@@ -28,8 +28,10 @@ TypeScript packages, a Rust crate, matching FlatBuffers runtimes, the source
 schemas, and a manifest describing every file and compatibility requirement.
 
 Released OPK architecture packages carry the unchanged ZIP, checksum, and
-provenance sidecar under `share/opk/open-perception-kit/`. SDK packages use the OPK
-product version from `development/meson.build`.
+provenance sidecar under `share/opk/open-perception-kit/`. SDK packages use
+`version` from `tools/perception/sdk.json`, independently of the product version
+in `development/meson.build`. Use the SDK version for the package names and
+dependencies below.
 
 Open Perception Kit is licensed under Apache-2.0. Each language package includes
 the licence text and Arm copyright notice, including the standalone wheel and
@@ -58,10 +60,11 @@ without invoking flowdata-sdk, `flatc`, or formatters. The generator sources are
 normal tracked files in `tools/flowdata-sdk`, updated manually alongside the
 regenerated snapshot; SDK commands do not fetch or update them.
 It builds the Python wheels from the canonical snapshot
-and creates `artifacts/open-perception-kit-<opk-version>.zip`.
+and creates `artifacts/open-perception-kit-<sdk-version>.zip`.
 
-After changing the OPK product version in `development/meson.build`, run
-`./scripts/perception-sdk.sh generate`. The archive
+After changing the SDK version in `tools/perception/sdk.json`, run
+`./scripts/perception-sdk.sh generate`. A product-only version change does not
+change the SDK identity or packages. The archive
 uses fixed timestamps, permissions, ordering, and compression so identical
 inputs produce identical bytes. Packaging rejects dirty SDK inputs and outputs
 unless `--allow-dirty` is explicitly supplied. CI can assert a release version
@@ -87,11 +90,11 @@ Stable OPK releases publish the same verified open-perception-kit wheel that is 
 in the SDK ZIP to the existing `edge-ai-tooling` Artifactory PyPI repository.
 Python-only consumers can lock it as a normal package dependency.
 
-Declare the OPK release version and named index:
+Declare the SDK package version and named index:
 
 ```toml
 [project]
-dependencies = ["open_perception_kit==<opk-version>"]
+dependencies = ["open_perception_kit==<sdk-version>"]
 
 [[tool.uv.index]]
 name = "edge-ai-tooling"
@@ -142,8 +145,12 @@ Install both npm-compatible tarballs directly from the extracted bundle:
 ```bash
 npm install \
   ./typescript/flatbuffers-25.9.23.tgz \
-  ./typescript/open-perception-kit-<opk-version>.tgz
+  ./typescript/open-perception-kit-<npm-package-version>.tgz
 ```
+
+Use the npm package version from the extracted bundle's `README.md`, which
+contains the exact install command. Development packages append `-dev.0` to the
+SDK version when `package_prerelease` is enabled.
 
 Import `Envelope`, `ProducerIdentityStatus`, and generated payload classes from
 the `open-perception-kit` package. Require `Envelope.valid()` and an `exact_match`
@@ -159,7 +166,7 @@ browser asset after SDK or WebUI changes.
 
 ## Integrate the Rust SDK
 
-Stable OPK releases publish `open_perception_kit` at the OPK version on
+Stable OPK releases publish `open_perception_kit` at the SDK version on
 [crates.io](https://crates.io/crates/open_perception_kit):
 
 ```bash
@@ -170,7 +177,7 @@ Pin the tested release in `Cargo.toml` and commit the consumer's `Cargo.lock`:
 
 ```toml
 [dependencies]
-open_perception_kit = "=<opk-version>"
+open_perception_kit = "=<sdk-version>"
 ```
 
 See the [crate README](https://crates.io/crates/open_perception_kit) for a runnable
@@ -181,7 +188,7 @@ Snapshots are not published to crates.io. For snapshots or offline builds, use t
 
 ```toml
 [dependencies]
-open_perception_kit = { path = "/path/to/open-perception-kit-<opk-version>/rust" }
+open_perception_kit = { path = "/path/to/open-perception-kit-<sdk-version>/rust" }
 ```
 
 The bundle includes checksum-locked Cargo archives, `rust/Cargo.lock`, and
@@ -238,7 +245,7 @@ Verify an archive and its checksum/provenance sidecars with:
 
 ```bash
 ./scripts/perception-sdk.sh verify \
-  artifacts/open-perception-kit-<opk-version>.zip \
+  artifacts/open-perception-kit-<sdk-version>.zip \
   --require-sidecars
 ```
 
