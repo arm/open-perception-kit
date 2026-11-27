@@ -501,13 +501,14 @@ TEST(ConfigValidator, PcmWindowNormalizationContract) {
 }
 
 TEST(ConfigValidator, AudioEventParserRequiresIndependentActivationAndPositiveTopK) {
-    nlohmann::json document{{"version", "1.14.0"},
+    nlohmann::json document{{"version", "2.1.0"},
                             {"name", "events"},
                             {"description", "Audio event classification"},
                             {"ops",
                              {{{"id", "opk-std-ops/GenericPostprocess"},
                                {"attributes",
                                 {{"parser", "AudioEventClassificationParser"},
+                                 {"labelSet", "test:audio-events"},
                                  {"outputTensorIndex", 0},
                                  {"activation", "sigmoid"},
                                  {"confidenceThreshold", 0.5},
@@ -519,6 +520,11 @@ TEST(ConfigValidator, AudioEventParserRequiresIndependentActivationAndPositiveTo
     EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
     attributes["activation"] = "none";
     attributes["topK"] = 0;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["topK"] = 5;
+    attributes.erase("labelSet");
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["labelSet"] = "";
     EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
 }
 

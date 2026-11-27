@@ -764,9 +764,14 @@
         "activation",
         "confidenceThreshold",
         "labels",
-        "topK"
+        "topK",
+        "labelSet"
       ],
       "properties": {
+        "labelSet": {
+          "type": "string",
+          "minLength": 1
+        },
         "parser": {
           "const": "AudioEventClassificationParser"
         },

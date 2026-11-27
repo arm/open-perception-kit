@@ -657,7 +657,9 @@ TEST(AudioEventClassificationParser, PreservesIndependentScoresAndIdentityThroug
     const Results decoded{std::span<const uint8_t>(bytes)};
     ASSERT_EQ(decoded.size(), 1u);
     decoded.for_each<KeywordPayload>([](const auto &payload) {
-        EXPECT_EQ(payload.layer->content_type, "esc");
+        EXPECT_EQ(payload.classifications[0]->label_set, "test:commands-v1");
+        EXPECT_EQ(payload.classifications[0]->kind,
+                  open_perception_kit::metadata::ClassificationKind::Categorical);
         EXPECT_EQ(payload.layer->model, "synthetic-command-scores");
         EXPECT_EQ(payload.layer->infer_element_id, "commands");
         EXPECT_EQ(payload.layer->producer->implementation, "AudioEventClassificationParser");
@@ -667,7 +669,7 @@ TEST(AudioEventClassificationParser, PreservesIndependentScoresAndIdentityThroug
         EXPECT_EQ(candidates[0]->class_id, 0);
         EXPECT_EQ(candidates[1]->class_id, 2);
         EXPECT_EQ(candidates[2]->text, "hold");
-        EXPECT_NEAR(candidates[0]->confidence, 0.880797f, 1e-6f);
+        EXPECT_NEAR(candidates[0]->confidence.value_or(-1), 0.880797f, 1e-6f);
         EXPECT_EQ(candidates[0]->confidence, candidates[1]->confidence);
         EXPECT_EQ(candidates[2]->confidence, 0.5f);
     });
@@ -740,6 +742,11 @@ TEST(AudioEventClassificationParser, RejectsInvalidScoresConfigurationAndShapeAt
     fixture.attributes.set("topK", int64_t{0});
     EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
     fixture.attributes.set("topK", int64_t{3});
+    fixture.attributes.set("labelSet", "");
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("labelSet", int64_t{1});
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("labelSet", "test:commands-v1");
     fixture.attributes.setArray("labels", {"wrong", "count"});
     EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
     fixture.input.tensors[1] = nullptr;

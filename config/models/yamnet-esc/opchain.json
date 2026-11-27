@@ -1,5 +1,5 @@
 {
-  "version": "1.15.0",
+  "version": "2.1.0",
   "name": "YamNet",
   "displayName": "YAMNet audio events",
   "task": "Audio event classification",
@@ -38,6 +38,7 @@
       "id": "opk-std-ops/GenericPostprocess",
       "attributes": {
         "parser": "AudioEventClassificationParser",
+        "labelSet": "audioset:yamnet-521",
         "outputTensorIndex": 0,
         "activation": "sigmoid",
         "confidenceThreshold": 0.5,
