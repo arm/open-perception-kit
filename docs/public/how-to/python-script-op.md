@@ -192,6 +192,9 @@ python3 run.py
 
 Its `opchain.json` and `postprocess.py` show the supported integration pattern.
 
+To inspect tensors at an editor breakpoint in the running callback, follow
+[Debug Python Scripts with Breakpoints](python-breakpoint-debugging.md).
+
 ## Failure behavior
 
 OPK loads and validates the script while configuring the OpChain, before the
