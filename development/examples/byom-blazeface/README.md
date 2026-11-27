@@ -181,6 +181,13 @@ for this verification artifact; it is not part of inference or postprocessing.
 
 Ctrl-C requests graceful shutdown and removes temporary and partial files.
 
+## Debug the postprocessor
+
+To set a breakpoint in `postprocess.py` and inspect inference tensors, follow
+[Debug Python Scripts with Breakpoints](../../../docs/public/how-to/python-breakpoint-debugging.md).
+The walkthrough runs the BlazeFace OpChain on the demo video and attaches the
+Python debugger while the pipeline is playing.
+
 ## Adapt the pattern
 
 To integrate another ONNX model:
