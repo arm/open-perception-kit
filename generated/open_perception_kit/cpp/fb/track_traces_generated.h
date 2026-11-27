@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "tracking_generated.h"
@@ -360,14 +360,14 @@ inline void TrackTrace::UnPackTo(TrackTraceT *_o,
 }
 
 inline ::flatbuffers::Offset<TrackTrace>
-TrackTrace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateTrackTrace(::flatbuffers::FlatBufferBuilder &_fbb,
                  const TrackTraceT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateTrackTrace(_fbb, _o, _rehasher);
+    return TrackTrace::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<TrackTrace>
-CreateTrackTrace(::flatbuffers::FlatBufferBuilder &_fbb,
+TrackTrace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                  const TrackTraceT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -464,14 +464,14 @@ inline void TrackTraces::UnPackTo(TrackTracesT *_o,
 }
 
 inline ::flatbuffers::Offset<TrackTraces>
-TrackTraces::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateTrackTraces(::flatbuffers::FlatBufferBuilder &_fbb,
                   const TrackTracesT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateTrackTraces(_fbb, _o, _rehasher);
+    return TrackTraces::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<TrackTraces>
-CreateTrackTraces(::flatbuffers::FlatBufferBuilder &_fbb,
+TrackTraces::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                   const TrackTracesT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

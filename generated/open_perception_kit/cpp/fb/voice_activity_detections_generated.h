@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -389,14 +389,14 @@ VoiceActivityDetection::UnPackTo(VoiceActivityDetectionT *_o,
 }
 
 inline ::flatbuffers::Offset<VoiceActivityDetection>
-VoiceActivityDetection::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateVoiceActivityDetection(::flatbuffers::FlatBufferBuilder &_fbb,
                              const VoiceActivityDetectionT *_o,
                              const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateVoiceActivityDetection(_fbb, _o, _rehasher);
+    return VoiceActivityDetection::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<VoiceActivityDetection>
-CreateVoiceActivityDetection(::flatbuffers::FlatBufferBuilder &_fbb,
+VoiceActivityDetection::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                              const VoiceActivityDetectionT *_o,
                              const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -499,14 +499,14 @@ VoiceActivityDetections::UnPackTo(VoiceActivityDetectionsT *_o,
 }
 
 inline ::flatbuffers::Offset<VoiceActivityDetections>
-VoiceActivityDetections::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateVoiceActivityDetections(::flatbuffers::FlatBufferBuilder &_fbb,
                               const VoiceActivityDetectionsT *_o,
                               const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateVoiceActivityDetections(_fbb, _o, _rehasher);
+    return VoiceActivityDetections::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<VoiceActivityDetections>
-CreateVoiceActivityDetections(::flatbuffers::FlatBufferBuilder &_fbb,
+VoiceActivityDetections::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                               const VoiceActivityDetectionsT *_o,
                               const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

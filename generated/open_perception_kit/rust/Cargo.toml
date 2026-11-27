@@ -14,11 +14,11 @@
 # limitations under the License.
 [package]
 name = "open_perception_kit"
-version = "1.0.0"
+version = "1.0.1"
 license = "Apache-2.0"
 readme = "README.md"
 edition = "2021"
 description = "Generated open_perception_kit Rust SDK"
 
 [dependencies]
-flatbuffers = "=25.9.23"
+flatbuffers = "=25.12.19"

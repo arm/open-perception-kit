@@ -162,9 +162,7 @@ def _rust_crates(value: object, flatbuffers_version: str) -> tuple[LockedArtifac
     return tuple(artifacts)
 
 
-def _typescript_build(
-    value: object, flatbuffers_version: str
-) -> tuple[LockedArtifact, LockedArtifact, int]:
+def _typescript_build(value: object) -> tuple[LockedArtifact, LockedArtifact, int]:
     expected = {"flatbuffers_runtime", "node_minimum_major", "typescript"}
     if not isinstance(value, dict) or set(value) != expected:
         raise RuntimeError(
@@ -177,8 +175,8 @@ def _typescript_build(
     runtime = _named_artifact(
         value["flatbuffers_runtime"], "typescript_build.flatbuffers_runtime", "flatbuffers"
     )
-    if runtime.version != flatbuffers_version:
-        raise RuntimeError("TypeScript FlatBuffers runtime must match the compiler version")
+    # Dynamic runtimes follow the generated compatibility range, not flatc's
+    # exact version. Generation/package verification checks that contract.
     compiler = _named_artifact(
         value["typescript"], "typescript_build.typescript", "typescript"
     )
@@ -236,7 +234,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH, *, repo_root: Path = REPO_ROOT
 
     build_tools = _python_build_tools(raw["python_build"])
     typescript_runtime, typescript_compiler, node_minimum_major = _typescript_build(
-        raw["typescript_build"], flatbuffers_version
+        raw["typescript_build"]
     )
 
     flowdata = raw["flowdata_sdk"]

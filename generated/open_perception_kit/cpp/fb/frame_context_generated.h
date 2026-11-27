@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -431,14 +431,14 @@ inline void VideoFrameContext::UnPackTo(VideoFrameContextT *_o,
 }
 
 inline ::flatbuffers::Offset<VideoFrameContext>
-VideoFrameContext::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateVideoFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
                         const VideoFrameContextT *_o,
                         const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateVideoFrameContext(_fbb, _o, _rehasher);
+    return VideoFrameContext::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<VideoFrameContext>
-CreateVideoFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
+VideoFrameContext::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                         const VideoFrameContextT *_o,
                         const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -527,14 +527,14 @@ inline void AudioFrameContext::UnPackTo(AudioFrameContextT *_o,
 }
 
 inline ::flatbuffers::Offset<AudioFrameContext>
-AudioFrameContext::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateAudioFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
                         const AudioFrameContextT *_o,
                         const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateAudioFrameContext(_fbb, _o, _rehasher);
+    return AudioFrameContext::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<AudioFrameContext>
-CreateAudioFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
+AudioFrameContext::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                         const AudioFrameContextT *_o,
                         const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -639,14 +639,14 @@ inline void FrameContext::UnPackTo(FrameContextT *_o,
 }
 
 inline ::flatbuffers::Offset<FrameContext>
-FrameContext::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
                    const FrameContextT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateFrameContext(_fbb, _o, _rehasher);
+    return FrameContext::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<FrameContext>
-CreateFrameContext(::flatbuffers::FlatBufferBuilder &_fbb,
+FrameContext::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                    const FrameContextT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

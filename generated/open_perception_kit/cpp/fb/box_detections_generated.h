@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -342,14 +342,14 @@ inline void BoxDetection::UnPackTo(BoxDetectionT *_o,
 }
 
 inline ::flatbuffers::Offset<BoxDetection>
-BoxDetection::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateBoxDetection(::flatbuffers::FlatBufferBuilder &_fbb,
                    const BoxDetectionT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateBoxDetection(_fbb, _o, _rehasher);
+    return BoxDetection::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<BoxDetection>
-CreateBoxDetection(::flatbuffers::FlatBufferBuilder &_fbb,
+BoxDetection::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                    const BoxDetectionT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -440,14 +440,14 @@ inline void BoxDetections::UnPackTo(BoxDetectionsT *_o,
 }
 
 inline ::flatbuffers::Offset<BoxDetections>
-BoxDetections::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateBoxDetections(::flatbuffers::FlatBufferBuilder &_fbb,
                     const BoxDetectionsT *_o,
                     const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateBoxDetections(_fbb, _o, _rehasher);
+    return BoxDetections::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<BoxDetections>
-CreateBoxDetections(::flatbuffers::FlatBufferBuilder &_fbb,
+BoxDetections::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                     const BoxDetectionsT *_o,
                     const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

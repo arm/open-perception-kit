@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 namespace open_perception_kit {
@@ -805,14 +805,14 @@ inline void ObjectMeta::UnPackTo(ObjectMetaT *_o,
 }
 
 inline ::flatbuffers::Offset<ObjectMeta>
-ObjectMeta::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateObjectMeta(::flatbuffers::FlatBufferBuilder &_fbb,
                  const ObjectMetaT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateObjectMeta(_fbb, _o, _rehasher);
+    return ObjectMeta::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ObjectMeta>
-CreateObjectMeta(::flatbuffers::FlatBufferBuilder &_fbb,
+ObjectMeta::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                  const ObjectMetaT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -858,14 +858,14 @@ inline void ProducerInfo::UnPackTo(ProducerInfoT *_o,
 }
 
 inline ::flatbuffers::Offset<ProducerInfo>
-ProducerInfo::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateProducerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                    const ProducerInfoT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateProducerInfo(_fbb, _o, _rehasher);
+    return ProducerInfo::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ProducerInfo>
-CreateProducerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
+ProducerInfo::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                    const ProducerInfoT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -956,14 +956,14 @@ inline void LayerInfo::UnPackTo(LayerInfoT *_o,
 }
 
 inline ::flatbuffers::Offset<LayerInfo>
-LayerInfo::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                 const LayerInfoT *_o,
                 const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateLayerInfo(_fbb, _o, _rehasher);
+    return LayerInfo::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<LayerInfo>
-CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
+LayerInfo::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                 const LayerInfoT *_o,
                 const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -1034,14 +1034,14 @@ inline void ImageSpace::UnPackTo(ImageSpaceT *_o,
 }
 
 inline ::flatbuffers::Offset<ImageSpace>
-ImageSpace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateImageSpace(::flatbuffers::FlatBufferBuilder &_fbb,
                  const ImageSpaceT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateImageSpace(_fbb, _o, _rehasher);
+    return ImageSpace::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ImageSpace>
-CreateImageSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+ImageSpace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                  const ImageSpaceT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -1125,14 +1125,14 @@ inline void BoundingBox::UnPackTo(BoundingBoxT *_o,
 }
 
 inline ::flatbuffers::Offset<BoundingBox>
-BoundingBox::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
                   const BoundingBoxT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateBoundingBox(_fbb, _o, _rehasher);
+    return BoundingBox::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<BoundingBox>
-CreateBoundingBox(::flatbuffers::FlatBufferBuilder &_fbb,
+BoundingBox::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                   const BoundingBoxT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -1211,14 +1211,14 @@ inline void BitmapData::UnPackTo(BitmapDataT *_o,
 }
 
 inline ::flatbuffers::Offset<BitmapData>
-BitmapData::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateBitmapData(::flatbuffers::FlatBufferBuilder &_fbb,
                  const BitmapDataT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateBitmapData(_fbb, _o, _rehasher);
+    return BitmapData::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<BitmapData>
-CreateBitmapData(::flatbuffers::FlatBufferBuilder &_fbb,
+BitmapData::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                  const BitmapDataT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

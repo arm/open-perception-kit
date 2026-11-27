@@ -97,6 +97,15 @@ rebuild against the release SDK.
 
 SDK packet and package versions come from `tools/perception/sdk.json`,
 independently of the OPK product version. OPK 0.1.4 ships SDK 1.0.0.
+SDK 1.0.1 updates the compiler and C++/Python/Rust FlatBuffers artifacts to
+25.12.19 without changing the schemas. The TypeScript runtime remains pinned to
+25.9.23 because an npm 25.12.19 package is unavailable. Generation and package
+verification check this pin against the generator's declared TypeScript runtime
+compatibility range; it is not an exact compiler-version requirement.
+OPK generation preserves the existing concrete C++ verifier signatures: upstream
+25.12.19 emits templates that would otherwise break callers taking verifier
+function/member addresses. Raw FlowData receipts are verified before this
+compatibility postprocessing, which is recorded in the OPK generation receipt.
 Apply the schema compatibility impact to the SDK version:
 
 - Increment **MAJOR** for an incompatible generated API or semantic contract,

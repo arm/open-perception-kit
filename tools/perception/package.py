@@ -38,7 +38,7 @@ from typing import cast
 
 import generate as perception_generate
 from artifacts import acquire_artifact
-from release_common import command_output, load_json, sha256, validate_relative_path
+from release_common import command_output, load_json, sha256, validate_relative_path, validate_typescript_runtime
 import sdk_config as perception_config
 
 
@@ -996,6 +996,7 @@ def _verify_typescript_packages(
     flatbuffers_npm = flatbuffers.get("typescript_package")
     if not isinstance(perception_npm, dict) or not isinstance(flatbuffers_npm, dict):
         raise RuntimeError("release TypeScript package metadata is missing")
+    validate_typescript_runtime(flatbuffers_npm.get("version"), flatbuffers.get("runtimes"))
     for label, record in (
         ("open-perception-kit TypeScript", perception_npm),
         ("FlatBuffers TypeScript", flatbuffers_npm),

@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 namespace open_perception_kit {
@@ -266,14 +266,14 @@ inline void WirePayload::UnPackTo(WirePayloadT *_o,
 }
 
 inline ::flatbuffers::Offset<WirePayload>
-WirePayload::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateWirePayload(::flatbuffers::FlatBufferBuilder &_fbb,
                   const WirePayloadT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateWirePayload(_fbb, _o, _rehasher);
+    return WirePayload::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<WirePayload>
-CreateWirePayload(::flatbuffers::FlatBufferBuilder &_fbb,
+WirePayload::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                   const WirePayloadT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -353,14 +353,14 @@ inline void WireEnvelope::UnPackTo(WireEnvelopeT *_o,
 }
 
 inline ::flatbuffers::Offset<WireEnvelope>
-WireEnvelope::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateWireEnvelope(::flatbuffers::FlatBufferBuilder &_fbb,
                    const WireEnvelopeT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateWireEnvelope(_fbb, _o, _rehasher);
+    return WireEnvelope::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<WireEnvelope>
-CreateWireEnvelope(::flatbuffers::FlatBufferBuilder &_fbb,
+WireEnvelope::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                    const WireEnvelopeT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

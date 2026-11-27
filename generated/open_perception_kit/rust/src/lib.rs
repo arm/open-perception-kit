@@ -48,12 +48,12 @@ use crate::flowdata_internal::internalfb as wire;
 /// Generated SDK name written into serialized producer identity metadata.
 pub const OPEN_PERCEPTION_KIT_NAME: &str = "open_perception_kit";
 /// Generated SDK version written into serialized producer identity metadata.
-pub const OPEN_PERCEPTION_KIT_VERSION: &str = "1.0.0";
+pub const OPEN_PERCEPTION_KIT_VERSION: &str = "1.0.1";
 /// SHA-256 identity of the complete schema set used for generation.
 pub const SCHEMA_SET_SHA256: &str =
     "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5"; // pragma: allowlist secret
 /// Exact FlatBuffers runtime version required by this crate.
-pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.9.23";
+pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.12.19";
 /// Lowest numeric key reserved for application-defined external payloads.
 pub const EXTERNAL_KEY_MIN: u64 = 9223372036854775808;
 

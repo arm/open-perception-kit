@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -358,14 +358,14 @@ PersonPresenceResult::UnPackTo(PersonPresenceResultT *_o,
 }
 
 inline ::flatbuffers::Offset<PersonPresenceResult>
-PersonPresenceResult::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreatePersonPresenceResult(::flatbuffers::FlatBufferBuilder &_fbb,
                            const PersonPresenceResultT *_o,
                            const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreatePersonPresenceResult(_fbb, _o, _rehasher);
+    return PersonPresenceResult::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<PersonPresenceResult>
-CreatePersonPresenceResult(::flatbuffers::FlatBufferBuilder &_fbb,
+PersonPresenceResult::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                            const PersonPresenceResultT *_o,
                            const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -440,14 +440,14 @@ inline void PersonPresence::UnPackTo(PersonPresenceT *_o,
 }
 
 inline ::flatbuffers::Offset<PersonPresence>
-PersonPresence::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreatePersonPresence(::flatbuffers::FlatBufferBuilder &_fbb,
                      const PersonPresenceT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreatePersonPresence(_fbb, _o, _rehasher);
+    return PersonPresence::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<PersonPresence>
-CreatePersonPresence(::flatbuffers::FlatBufferBuilder &_fbb,
+PersonPresence::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                      const PersonPresenceT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -535,14 +535,14 @@ inline void PersonPresences::UnPackTo(PersonPresencesT *_o,
 }
 
 inline ::flatbuffers::Offset<PersonPresences>
-PersonPresences::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreatePersonPresences(::flatbuffers::FlatBufferBuilder &_fbb,
                       const PersonPresencesT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreatePersonPresences(_fbb, _o, _rehasher);
+    return PersonPresences::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<PersonPresences>
-CreatePersonPresences(::flatbuffers::FlatBufferBuilder &_fbb,
+PersonPresences::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                       const PersonPresencesT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

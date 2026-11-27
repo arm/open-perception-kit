@@ -266,7 +266,8 @@ class GeneratorTests(unittest.TestCase):
         validation.validate_schema_namespaces([self.schema], "sample")
 
     def test_flatbuffers_compatibility_and_runtime_mapping(self) -> None:
-        for text, supported in [("24.3.24", False), ("24.3.25", True), ("25.9.23", True), ("26.0.0", False)]:
+        for text, supported in [("24.3.24", False), ("24.3.25", True), ("25.9.23", True),
+                                ("25.12.19", True), ("26.0.0", False)]:
             self.assertEqual(compat.is_supported_flatbuffers_version(compat.parse_flatbuffers_version(text)), supported)
         with self.assertRaisesRegex(ValueError, "cannot parse"):
             compat.parse_flatbuffers_version("flatc development")

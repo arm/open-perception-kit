@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "tracking_generated.h"
@@ -491,14 +491,14 @@ inline void ObjectTrack::UnPackTo(ObjectTrackT *_o,
 }
 
 inline ::flatbuffers::Offset<ObjectTrack>
-ObjectTrack::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateObjectTrack(::flatbuffers::FlatBufferBuilder &_fbb,
                   const ObjectTrackT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateObjectTrack(_fbb, _o, _rehasher);
+    return ObjectTrack::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ObjectTrack>
-CreateObjectTrack(::flatbuffers::FlatBufferBuilder &_fbb,
+ObjectTrack::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                   const ObjectTrackT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -608,14 +608,14 @@ inline void ObjectTracks::UnPackTo(ObjectTracksT *_o,
 }
 
 inline ::flatbuffers::Offset<ObjectTracks>
-ObjectTracks::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateObjectTracks(::flatbuffers::FlatBufferBuilder &_fbb,
                    const ObjectTracksT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateObjectTracks(_fbb, _o, _rehasher);
+    return ObjectTracks::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ObjectTracks>
-CreateObjectTracks(::flatbuffers::FlatBufferBuilder &_fbb,
+ObjectTracks::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                    const ObjectTracksT *_o,
                    const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

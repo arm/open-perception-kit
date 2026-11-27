@@ -16,7 +16,7 @@
  */
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
-export const OPEN_PERCEPTION_KIT_VERSION = '1.0.0';
+export const OPEN_PERCEPTION_KIT_VERSION = '1.0.1';
 export const OPEN_PERCEPTION_KIT_NAME = 'open_perception_kit';
 export const SCHEMA_SET_SHA256 = '8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5';
 export const FLATBUFFERS_VERSION_REQUIREMENT = '>=24.3.25 <26.0.0';

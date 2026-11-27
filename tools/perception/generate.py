@@ -32,7 +32,7 @@ import tempfile
 from pathlib import Path
 
 from artifacts import acquire_artifact
-from release_common import sha256
+from release_common import sha256, validate_typescript_runtime
 from sdk_config import (
     REPO_ROOT,
     SDK_CONFIG_PATH,
@@ -647,6 +647,9 @@ def validate_flowdata_manifests(
         "sdk": "rust",
     }:
         raise RuntimeError("flowdata Rust outputs do not match the open-perception-kit contract")
+    validate_typescript_runtime(
+        config.typescript_runtime.version, typescript_manifest.get("flatbuffers_runtimes")
+    )
 
 
 def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None:
@@ -657,6 +660,26 @@ def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None
     )
     for path in paths:
         path.write_text(path.read_text(encoding="utf-8").rstrip() + "\n", encoding="utf-8")
+
+
+def preserve_cpp_verifier_api(generated_root: Path) -> None:
+    """Keep SDK 1.0 verifier function/member addresses source-compatible.
+
+    flatc 25.12 emits function templates, which break `auto fn = &Verify...`.
+    OPK retains its published concrete Verifier API, after raw receipt verification.
+    """
+    signature = re.compile(
+        r"template\s*<\s*bool\s+B\s*=\s*false\s*>\s*"
+        r"((?:inline\s+)?bool\s+Verify\w*\(\s*::flatbuffers::)VerifierTemplate<B>"
+    )
+    for path in (generated_root / "cpp" / "fb").rglob("*.h"):
+        text = path.read_text(encoding="utf-8")
+        updated, count = signature.subn(r"\1Verifier", text)
+        if count:
+            updated = re.sub(r"\bverifier\.template\s+", "verifier.", updated)
+            if "VerifierTemplate<B>" in updated:
+                raise RuntimeError(f"unrecognized templated verifier in {path}")
+            path.write_text(updated, encoding="utf-8")
 
 
 def write_internal_meson(config: SdkConfig, target: Path) -> None:
@@ -789,6 +812,7 @@ def write_perception_manifest(
             "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
             "cmake_formatter": command_version([CMAKE_FORMAT, "--version"]),
             "cpp_formatter": command_version([clang_format, "--version"]),
+            "cpp_verifier_api": "non-template",
             "python_formatter": command_version([formatter_python, "-m", "autopep8", "--version"]),
             "typescript": {
                 "compiler": config.typescript_compiler.version,
@@ -948,6 +972,7 @@ def prepare_sdk(
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)
     copy_sdk_legal_files(generated_root)
+    preserve_cpp_verifier_api(generated_root)
     format_cpp_sources(generated_root, clang_format)
     format_python_modules(generated_root, formatter_python)
     format_rust_sources(generated_root)

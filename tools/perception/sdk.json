@@ -1,17 +1,17 @@
 {
   "flatbuffers": {
     "python_wheel": {
-      "filename": "flatbuffers-25.9.23-py2.py3-none-any.whl",
-      "sha256": "255538574d6cb6d0a79a17ec8bc0d30985913b87513a01cce8bcdb6b4c44d0e2",
-      "url": "https://files.pythonhosted.org/packages/ee/1b/00a78aa2e8fbd63f9af08c9c19e6deb3d5d66b4dda677a0f61654680ee89/flatbuffers-25.9.23-py2.py3-none-any.whl"
+      "filename": "flatbuffers-25.12.19-py2.py3-none-any.whl",
+      "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4",
+      "url": "https://files.pythonhosted.org/packages/e8/2d/d2a548598be01649e2d46231d151a6c56d10b964d94043a335ae56ea2d92/flatbuffers-25.12.19-py2.py3-none-any.whl"
     },
     "rust_crates": [
       {
-        "filename": "flatbuffers-25.9.23.crate",
+        "filename": "flatbuffers-25.12.19.crate",
         "name": "flatbuffers",
-        "sha256": "09b6620799e7340ebd9968d2e0708eb82cf1971e9a16821e2091b6d6e475eed5",
-        "url": "https://static.crates.io/crates/flatbuffers/flatbuffers-25.9.23.crate",
-        "version": "25.9.23"
+        "sha256": "35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3",
+        "url": "https://static.crates.io/crates/flatbuffers/flatbuffers-25.12.19.crate",
+        "version": "25.12.19"
       },
       {
         "filename": "bitflags-2.13.1.crate",
@@ -36,11 +36,11 @@
       }
     ],
     "source_archive": {
-      "filename": "v25.9.23.tar.gz",
-      "sha256": "9102253214dea6ae10c2ac966ea1ed2155d22202390b532d1dea64935c518ada",
-      "url": "https://github.com/google/flatbuffers/archive/refs/tags/v25.9.23.tar.gz"
+      "filename": "v25.12.19.tar.gz",
+      "sha256": "f81c3162b1046fe8b84b9a0dbdd383e24fdbcf88583b9cb6028f90d04d90696a",
+      "url": "https://github.com/google/flatbuffers/archive/refs/tags/v25.12.19.tar.gz"
     },
-    "version": "25.9.23"
+    "version": "25.12.19"
   },
   "flowdata_sdk": {
     "generator": "tools/flowdata/gen.py",
@@ -48,7 +48,7 @@
   },
   "generated_dir": "generated/open_perception_kit",
   "public_name": "open_perception_kit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "package_prerelease": false,
   "project_generated_files": {
     "internal_meson": "development/perception/meson.build"

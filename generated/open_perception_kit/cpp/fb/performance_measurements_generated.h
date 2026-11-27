@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -381,14 +381,14 @@ inline void ScopeTiming::UnPackTo(ScopeTimingT *_o,
 }
 
 inline ::flatbuffers::Offset<ScopeTiming>
-ScopeTiming::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateScopeTiming(::flatbuffers::FlatBufferBuilder &_fbb,
                   const ScopeTimingT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateScopeTiming(_fbb, _o, _rehasher);
+    return ScopeTiming::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ScopeTiming>
-CreateScopeTiming(::flatbuffers::FlatBufferBuilder &_fbb,
+ScopeTiming::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                   const ScopeTimingT *_o,
                   const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -424,14 +424,14 @@ inline void FrameRate::UnPackTo(FrameRateT *_o,
 }
 
 inline ::flatbuffers::Offset<FrameRate>
-FrameRate::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateFrameRate(::flatbuffers::FlatBufferBuilder &_fbb,
                 const FrameRateT *_o,
                 const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateFrameRate(_fbb, _o, _rehasher);
+    return FrameRate::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<FrameRate>
-CreateFrameRate(::flatbuffers::FlatBufferBuilder &_fbb,
+FrameRate::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                 const FrameRateT *_o,
                 const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -540,14 +540,14 @@ PerformanceMeasurements::UnPackTo(PerformanceMeasurementsT *_o,
 }
 
 inline ::flatbuffers::Offset<PerformanceMeasurements>
-PerformanceMeasurements::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreatePerformanceMeasurements(::flatbuffers::FlatBufferBuilder &_fbb,
                               const PerformanceMeasurementsT *_o,
                               const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreatePerformanceMeasurements(_fbb, _o, _rehasher);
+    return PerformanceMeasurements::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<PerformanceMeasurements>
-CreatePerformanceMeasurements(::flatbuffers::FlatBufferBuilder &_fbb,
+PerformanceMeasurements::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                               const PerformanceMeasurementsT *_o,
                               const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
