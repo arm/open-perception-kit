@@ -24,8 +24,14 @@
 
 #include <fmt/core.h>
 
+#include <cerrno>
 #include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <span>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 
 namespace {
@@ -85,8 +91,23 @@ void printTypedPayloadText(const open_perception_kit::container::envelope &frame
     }
 }
 
+int writePacket(const char *path, const std::span<const std::uint8_t> packet) {
+    std::FILE *const output = std::fopen(path, "wb");
+    if (output == nullptr) {
+        return errno;
+    }
+    const int writeError =
+        std::fwrite(packet.data(), 1, packet.size(), output) == packet.size() ? 0 : errno;
+    if (std::fclose(output) != 0 && writeError == 0) {
+        return errno;
+    }
+    return writeError;
+}
+
 void printUsage(const char *programName) {
-    fmt::print(stderr, "Usage: {} <opchain.json> <image.png|image.jpg|image.jpeg>\n", programName);
+    fmt::print(stderr,
+               "Usage: {} <opchain.json> <image.png|image.jpg|image.jpeg> [--packet-out <file>]\n",
+               programName);
 }
 
 } // namespace
@@ -100,7 +121,11 @@ int main(int argc, char **argv) {
     // opchain-exec intentionally has the smallest useful interface for the
     // direct runtime API: one OpChain JSON file and one image file that becomes
     // the synthetic pipelineVideoFrame consumed by existing image opchains.
-    if (argc != 3) {
+    constexpr int basicArgCount = 3;
+    constexpr int exportArgCount = basicArgCount + 2;
+    const bool exportPacket =
+        argc == exportArgCount && std::string_view(argv[basicArgCount]) == "--packet-out";
+    if (argc != basicArgCount && !exportPacket) {
         printUsage(argv[0]);
         return 2;
     }
@@ -145,6 +170,17 @@ int main(int argc, char **argv) {
     if (!frameResults) {
         fmt::print(stderr, "{}\n", frameResults.error().toString());
         return 1;
+    }
+
+    if (exportPacket) {
+        const char *outputPath = argv[exportArgCount - 1];
+        if (const int error = writePacket(outputPath, *packet); error != 0) {
+            fmt::print(stderr,
+                       "Cannot write FrameResults packet to {}: {}\n",
+                       outputPath,
+                       std::generic_category().message(error));
+            return 1;
+        }
     }
 
     // The payload count helps distinguish an actually empty result from a

@@ -51,6 +51,7 @@ runtime and `opksink` control/API surface.
 
 Until this page is implemented, start with the working runtime paths:
 
+- [Export a FrameResults packet with opchain-exec](https://github.com/arm/open-perception-kit/blob/main/development/examples/opchain-exec/README.md#run) to run an OpChain on one image and save its binary output with `--packet-out`.
 - [Use Your Own Media](media-input.md) to keep a known pipeline and change input.
 - [Use A Camera](camera-input.md) to run live camera inference.
 - [Runtime Basics](../concepts/runtime-basics.md) to understand the pipeline and output
