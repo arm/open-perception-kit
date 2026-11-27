@@ -667,9 +667,9 @@ PCM normalization, ONNX inference and this parser.
 
 This is an additive schema change: existing root identities and fields remain
 unchanged. Older SDKs can forward the new root as an unknown payload, while typed
-pitch access requires regenerated SDKs. Under the published-contract policy this
-requires an OPK minor release. The current unreleased 1.0 development snapshot
-retains its shared version until release preparation.
+pitch access requires SDK 1.1.0 or later. The new root is a backward-compatible
+addition to SDK 1.0.0, which shipped with OPK 0.1.4. It therefore increments the
+independent SDK minor version to 1.1.0; the OPK product version is unchanged.
 
 Plumber normalizes pitch items and compares window bounds, timestamp presence,
 discontinuity and voiced decisions exactly. Frequencies allow one cent of error;
