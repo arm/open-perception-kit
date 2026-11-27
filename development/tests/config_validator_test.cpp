@@ -477,6 +477,34 @@ TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {
     EXPECT_TRUE(hasRule(modelDescriptorResult.error(), "opchain.v2.model-descriptor-control"));
 }
 
+TEST(ConfigValidator, AudioEventParserRequiresIndependentActivationAndPositiveTopK) {
+    nlohmann::json document{{"version", "2.1.0"},
+                            {"name", "events"},
+                            {"description", "Audio event classification"},
+                            {"ops",
+                             {{{"id", "opk-std-ops/GenericPostprocess"},
+                               {"attributes",
+                                {{"parser", "AudioEventClassificationParser"},
+                                 {"labelSet", "test:audio-events"},
+                                 {"outputTensorIndex", 0},
+                                 {"activation", "sigmoid"},
+                                 {"confidenceThreshold", 0.5},
+                                 {"topK", 5},
+                                 {"labels", {"speech", "music"}}}}}}}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    auto &attributes = document["ops"][0]["attributes"];
+    attributes["activation"] = "softmax";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["activation"] = "none";
+    attributes["topK"] = 0;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["topK"] = 5;
+    attributes.erase("labelSet");
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["labelSet"] = "";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+}
+
 } // namespace
 
 TEST(ConfigValidator, AudioPcmRequiresFloat32AndPositiveSampleShape) {

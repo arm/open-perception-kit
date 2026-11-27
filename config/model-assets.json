@@ -14,5 +14,28 @@
   "gaze-resnet50/resnet50_gaze.onnx": {
     "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet50_gaze.onnx",
     "sha256": "bb28d421565adc4dfb665742f8fc80bdef36dd8caa0c87e040e0937f9fdca9a6"
+  },
+  "yamnet-esc": {
+    "url": "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/yamnet/releases/v0.66.0/yamnet-onnx-float.zip",
+    "sha256": "cf08212c3b9c03160d3c343a5cf99dd53edcb3176b49b6dd330d7d0480abd309",
+    "upstream": "https://huggingface.co/qualcomm/YamNet/tree/2105a5e3e546b80c484a7084fcae435683a1c205",
+    "archive": {
+      "yamnet.onnx": {
+        "member": "yamnet-onnx-float/yamnet.onnx",
+        "sha256": "9261fbe1f196c8bb695933845af28df0a155845c9ec5e37ec96295e82c96f096"
+      },
+      "yamnet.data": {
+        "member": "yamnet-onnx-float/yamnet.data",
+        "sha256": "0b4de0b14bf2b528d51e3cd84e2d3e2ae826b942fbec6001c654605f1f2ceb60"
+      },
+      "metadata.json": {
+        "member": "yamnet-onnx-float/metadata.json",
+        "sha256": "59026af15b589ca2ccffbd804652f1cb4563f3fdb1539e3661ee3c96b0e34c54"
+      },
+      "labels.txt": {
+        "member": "yamnet-onnx-float/labels.txt",
+        "sha256": "8e1267a120c1932b7273c0d0e0c5529edbb9a35512b437b1c8982baa59047051"
+      }
+    }
   }
 }
