@@ -24,6 +24,7 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+#include "gst/FrameResultsPacket.h"
 #include "gst/GstMetaWrapper.h"
 #include "opk/FrameResults.h"
 
@@ -33,10 +34,11 @@ struct FrameResultsMetaTraits {
     using Payload = open_perception_kit::FrameResults;
 
     static const std::string_view api_name() {
-        return "com_arm_opk_meta_FrameResultsAPI_v1";
+        // Native metadata layout includes a shared cache; not the wire format.
+        return "com_arm_opk_meta_FrameResultsAPI_v2";
     }
     static const std::string_view meta_name() {
-        return "com_arm_opk_meta_FrameResults";
+        return "com_arm_opk_meta_FrameResults_v2";
     }
     /**
      * Keep "GST_META_TAG_VIDEO_STR" as the only tag, followed by nullptr. GStreamer
@@ -60,6 +62,6 @@ struct FrameResultsMetaTraits {
     }
 };
 
-using FrameResultsMeta = Meta<FrameResultsMetaTraits>;
+using FrameResultsMeta = Meta<FrameResultsMetaTraits, FrameResultsPacket>;
 
 } // namespace opk

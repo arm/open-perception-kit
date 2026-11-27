@@ -28,6 +28,10 @@ namespace {
 struct TestMetaTraits {
     using Payload = int;
 
+    static Payload clone(const Payload &payload) {
+        return payload;
+    }
+
     static const std::string_view api_name() {
         return "com_arm_opk_test_meta_API_v1";
     }
@@ -44,6 +48,19 @@ struct TestMetaTraits {
 
 using TestMeta = opk::Meta<TestMetaTraits>;
 
+template <class T>
+concept HasMutableGet = requires(GstBuffer *buffer) { T::get(buffer); };
+template <class T>
+concept HasCachedRead = requires(GstBuffer *buffer) { T::readCached(buffer); };
+template <class T>
+concept AcceptsSharedPayload = requires(
+    GstBuffer *buffer, std::shared_ptr<typename T::Payload> payload) { T::add(buffer, payload); };
+
+static_assert(!HasMutableGet<TestMeta>);
+static_assert(!HasCachedRead<TestMeta>);
+static_assert(!AcceptsSharedPayload<TestMeta>);
+static_assert(std::is_same_v<decltype(TestMeta::read(nullptr)), std::shared_ptr<const int>>);
+
 } // namespace
 
 TEST(GstMetaWrapper, NullSourceDoesNotAddDestinationMeta) {
@@ -52,7 +69,31 @@ TEST(GstMetaWrapper, NullSourceDoesNotAddDestinationMeta) {
     ASSERT_NE(destination, nullptr);
 
     EXPECT_FALSE(TestMeta::info()->transform_func(destination, nullptr, nullptr, 0, nullptr));
-    EXPECT_EQ(TestMeta::get(destination), nullptr);
+    EXPECT_FALSE(TestMeta::has(destination));
 
     gst_buffer_unref(destination);
+}
+
+TEST(GstMetaWrapper, CacheDisabledMetadataHasNoCacheStorageAndStillCopiesOnWrite) {
+    gst_init(nullptr, nullptr);
+    struct UncachedLayout {
+        GstMeta meta;
+        std::shared_ptr<int> payload;
+    };
+    EXPECT_EQ(TestMeta::info()->size, sizeof(UncachedLayout));
+
+    g_autoptr(GstBuffer) original = gst_buffer_new();
+    ASSERT_NE(TestMeta::add(original, 7), nullptr);
+    g_autoptr(GstBuffer) copy = gst_buffer_copy(original);
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(TestMeta::read(copy), TestMeta::read(original));
+    const auto result = TestMeta::mutate<bool>(copy, [](int &value) {
+        value = 9;
+        return true;
+    });
+    ASSERT_TRUE(std::holds_alternative<bool>(result));
+    EXPECT_EQ(*TestMeta::read(original), 7);
+    EXPECT_EQ(*TestMeta::read(copy), 9);
+    EXPECT_TRUE(TestMeta::remove(copy));
+    EXPECT_FALSE(TestMeta::has(copy));
 }

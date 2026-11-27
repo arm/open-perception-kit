@@ -25,13 +25,13 @@
 #include <string>
 #include <thread>
 
-#include <opk/FrameResults.h>
+#include <gst/FrameResultsPacket.h>
 
 struct _GstOpkComm;
 
 struct OpkCommJob {
     uint64_t frame_counter = 0;
-    std::shared_ptr<const open_perception_kit::FrameResults> frameResults;
+    std::shared_ptr<const opk::FrameResultsPacket> frameResults;
 };
 
 class JobQueue {

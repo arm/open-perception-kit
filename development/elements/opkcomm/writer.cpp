@@ -17,12 +17,13 @@
 
 #include "writer.h"
 
+#include <exception>
+#include <gst/gst.h>
 #include <mutex>
 #include <unistd.h>
 #include <utility>
 
 #include <opk/Base64.h>
-#include <opk/FrameResults.h>
 
 #include <nlohmann/json.hpp>
 
@@ -104,25 +105,33 @@ void Writer::stop() {
 void Writer::run() {
     using json = nlohmann::json;
 
-    OpkCommJob job;
-    while (m_queue.pop(job)) {
+    while (true) {
+        // Release a completed job (including its cached packet) before waiting
+        // for another frame. Failed records are dropped, not retried forever.
+        OpkCommJob job;
+        if (!m_queue.pop(job))
+            return;
+        try {
+            json record;
+            record["frame_counter"] = job.frame_counter;
+            if (job.frameResults) {
+                record["frame_results_encoding"] = "perception-frame-results+base64";
+                record["frame_results_packet_b64"] = opk::base64Encode(job.frameResults->view());
+            } else {
+                record["frame_results_encoding"] = nullptr;
+                record["frame_results_packet_b64"] = nullptr;
+            }
 
-        json record;
-
-        record["frame_counter"] = job.frame_counter;
-        if (job.frameResults) {
-            const auto packet = open_perception_kit::serialize(*job.frameResults);
-            record["frame_results_encoding"] = "perception-frame-results+base64";
-            record["frame_results_packet_b64"] = opk::base64Encode(packet);
-        } else {
-            record["frame_results_encoding"] = nullptr;
-            record["frame_results_packet_b64"] = nullptr;
+            std::string line = record.dump();
+            line.push_back('\n');
+            publish(line);
+        } catch (const std::exception &error) {
+            // Logging, rather than a synchronous bus error, avoids requesting
+            // shutdown/join of this writer from its own worker thread.
+            GST_ERROR_OBJECT(self(), "Dropping FrameResults record: %s", error.what());
+        } catch (...) {
+            GST_ERROR_OBJECT(self(), "Dropping FrameResults record: unknown publishing failure");
         }
-
-        std::string line = record.dump();
-        line.push_back('\n');
-
-        publish(line);
     }
 }
 

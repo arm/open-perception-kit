@@ -104,6 +104,10 @@ static std::shared_ptr<SessionContext> lock_session_callback_data(gpointer user_
     return weak_ctx->lock();
 }
 
+static void report_frame_metadata_failure(GstElement *const element, const char *const detail) {
+    GST_ERROR_OBJECT(element, "Dropping frame metadata: %s", detail);
+}
+
 static void send_frame_metadata(const std::shared_ptr<SessionContext> &ctx, GstBuffer *buffer) {
     GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
     if (!gst_rtp_buffer_map(buffer, GST_MAP_READ, &rtp)) {
@@ -112,46 +116,56 @@ static void send_frame_metadata(const std::shared_ptr<SessionContext> &ctx, GstB
     const bool lastPacket = gst_rtp_buffer_get_marker(&rtp);
     const guint32 timestamp = gst_rtp_buffer_get_timestamp(&rtp);
     gst_rtp_buffer_unmap(&rtp);
-    const auto results = opk::FrameResultsMeta::read(buffer);
-    if (!lastPacket || !results) {
+    if (!lastPacket) {
         return;
     }
-
     // Bound both pending callbacks and queued WebSocket data for slow clients.
     if (ctx->metadata_pending.exchange(true)) {
         return;
     }
-    asio::post(ctx->ws->get_io_service(), [weak = SessionWeakPtr(ctx), results, timestamp] {
-        auto ctx = weak.lock();
-        if (!ctx || ctx->cleaned_up()) {
+    try {
+        const auto results = opk::FrameResultsMeta::readCached(buffer);
+        if (!results) {
+            ctx->metadata_pending = false;
             return;
         }
+        asio::post(ctx->ws->get_io_service(), [weak = SessionWeakPtr(ctx), results, timestamp] {
+            const auto ctx = weak.lock();
+            if (!ctx || ctx->cleaned_up())
+                return;
+            ctx->metadata_pending = false;
+            try {
+                // Keep frame metadata out of the signaling queue until ICE has a usable path.
+                GstWebRTCICEConnectionState iceState = GST_WEBRTC_ICE_CONNECTION_STATE_NEW;
+                g_object_get(ctx->webrtcbin, "ice-connection-state", &iceState, nullptr);
+                if (iceState != GST_WEBRTC_ICE_CONNECTION_STATE_CONNECTED &&
+                    iceState != GST_WEBRTC_ICE_CONNECTION_STATE_COMPLETED)
+                    return;
+                websocketpp::lib::error_code ec;
+                const auto connection = ctx->ws->get_con_from_hdl(ctx->hdl, ec);
+                if (ec || connection->get_state() != websocketpp::session::state::open ||
+                    connection->get_buffered_amount() > kMaxQueuedFrameMetadataBytes)
+                    return;
+                const json message = {
+                    {"type", "frame-metadata"},
+                    {"rtp_timestamp", timestamp},
+                    {"frame_results_encoding", "perception-frame-results+base64"},
+                    {"frame_results_packet_b64", opk::base64Encode(results->view())},
+                };
+                ctx->ws->send(ctx->hdl, message.dump(), websocketpp::frame::opcode::text, ec);
+                if (ec && ctx->owner)
+                    ctx->owner->cleanup_session(ctx->hdl, "frame metadata send failure");
+            } catch (const std::exception &error) {
+                report_frame_metadata_failure(ctx->webrtcbin, error.what());
+            } catch (...) {
+                report_frame_metadata_failure(ctx->webrtcbin, "unknown publishing failure");
+            }
+        });
+    } catch (...) {
+        // No callback was queued to clear the flag; permit the next frame to try.
         ctx->metadata_pending = false;
-        // Keep frame metadata out of the signaling queue until ICE has a usable path.
-        GstWebRTCICEConnectionState iceState = GST_WEBRTC_ICE_CONNECTION_STATE_NEW;
-        g_object_get(ctx->webrtcbin, "ice-connection-state", &iceState, nullptr);
-        if (iceState != GST_WEBRTC_ICE_CONNECTION_STATE_CONNECTED &&
-            iceState != GST_WEBRTC_ICE_CONNECTION_STATE_COMPLETED) {
-            return;
-        }
-        websocketpp::lib::error_code ec;
-        const auto connection = ctx->ws->get_con_from_hdl(ctx->hdl, ec);
-        if (ec || connection->get_state() != websocketpp::session::state::open ||
-            connection->get_buffered_amount() > kMaxQueuedFrameMetadataBytes) {
-            return;
-        }
-        const auto packet = open_perception_kit::serialize(*results);
-        const json message = {
-            {"type", "frame-metadata"},
-            {"rtp_timestamp", timestamp},
-            {"frame_results_encoding", "perception-frame-results+base64"},
-            {"frame_results_packet_b64", opk::base64Encode(packet)},
-        };
-        ctx->ws->send(ctx->hdl, message.dump(), websocketpp::frame::opcode::text, ec);
-        if (ec && ctx->owner) {
-            ctx->owner->cleanup_session(ctx->hdl, "frame metadata send failure");
-        }
-    });
+        throw;
+    }
 }
 
 static GstPadProbeReturn frame_metadata_probe(GstPad *, GstPadProbeInfo *info, gpointer data) {
@@ -159,13 +173,18 @@ static GstPadProbeReturn frame_metadata_probe(GstPad *, GstPadProbeInfo *info, g
     if (!ctx) {
         return GST_PAD_PROBE_OK;
     }
-    if (GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_BUFFER_LIST) {
-        auto *list = GST_PAD_PROBE_INFO_BUFFER_LIST(info);
-        for (guint i = 0; i < gst_buffer_list_length(list); ++i) {
-            send_frame_metadata(ctx, gst_buffer_list_get(list, i));
+    try {
+        if (GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_BUFFER_LIST) {
+            auto *const list = GST_PAD_PROBE_INFO_BUFFER_LIST(info);
+            for (guint i = 0; i < gst_buffer_list_length(list); ++i)
+                send_frame_metadata(ctx, gst_buffer_list_get(list, i));
+        } else {
+            send_frame_metadata(ctx, GST_PAD_PROBE_INFO_BUFFER(info));
         }
-    } else {
-        send_frame_metadata(ctx, GST_PAD_PROBE_INFO_BUFFER(info));
+    } catch (const std::exception &error) {
+        GST_ERROR_OBJECT(ctx->webrtcbin, "Failed to queue frame metadata: %s", error.what());
+    } catch (...) {
+        GST_ERROR_OBJECT(ctx->webrtcbin, "Failed to queue frame metadata: unknown exception");
     }
     return GST_PAD_PROBE_OK;
 }

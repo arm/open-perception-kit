@@ -51,7 +51,7 @@ class GstVideoBuffer : public testing::Test {
     GstBus *errorMessageBus = nullptr;
     GstBuffer *inputBuffer = nullptr;
     GstBuffer *outputBuffer = nullptr;
-    std::shared_ptr<open_perception_kit::FrameResults> results;
+    std::shared_ptr<const open_perception_kit::FrameResults> results;
 
     void SetUp() override {
         gst_init(nullptr, nullptr);
@@ -90,9 +90,10 @@ class GstVideoBuffer : public testing::Test {
                                             testFrameWidth,
                                             testFrameHeight),
                   nullptr);
-        results = std::make_shared<open_perception_kit::FrameResults>();
-        results->add(open_perception_kit::metadata::PerformanceMeasurementsT{});
-        ASSERT_NE(opk::FrameResultsMeta::add(inputBuffer, results), nullptr);
+        open_perception_kit::FrameResults initialResults;
+        initialResults.add(open_perception_kit::metadata::PerformanceMeasurementsT{});
+        ASSERT_NE(opk::FrameResultsMeta::add(inputBuffer, std::move(initialResults)), nullptr);
+        results = opk::FrameResultsMeta::read(inputBuffer);
     }
 
     void TearDown() override {

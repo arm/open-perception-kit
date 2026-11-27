@@ -131,6 +131,28 @@ gst_meta_wrapper_tests = executable(
   link_with : [common],
 )
 
+frame_results_packet_tests = executable(
+  'frame_results_packet_tests',
+  ['frame_results_packet_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('frame_results_packet_tests', frame_results_packet_tests, timeout : 30)
+
+opkcomm_serialize_results_tests = executable(
+  'opkcomm_serialize_results_tests',
+  ['opkcomm_serialize_results_test.cpp', '../elements/opkcomm/writer.cpp'],
+  include_directories : [common_include, include_directories('../elements/opkcomm')],
+  cpp_args : ['-DOPKCOMM_PLUGIN_PATH="' + opkcomm.full_path() + '"'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test(
+  'opkcomm_serialize_results_tests', opkcomm_serialize_results_tests,
+  depends : [opkcomm], env : ['G_DEBUG=fatal-criticals'], timeout : 30,
+)
+
 gst_video_buffer_tests = executable(
   'gst_video_buffer_tests',
   ['gst_video_buffer_test.cpp'],
@@ -483,6 +505,7 @@ runtime_pipeline_tests = executable(
   'runtime_pipeline_tests',
   ['runtime_pipeline_test.cpp'],
   include_directories : [common_include, include_directories('..')],
+  cpp_args : ['-DOPK_PERFORMANCE_PLUGIN_PATH="' + gstopkperformance.full_path() + '"'],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
   link_with : [opk_runtime, common],
 )
@@ -728,6 +751,15 @@ test(
   depends : [gstopkperformance, opkcomm],
   timeout : 60,
 )
+test(
+  'opkcomm_action_pipeline_tests',
+  # The devtools venv inherits distro GI and supplies the SDK's FlatBuffers dependency.
+  test_python,
+  args : [files('opkcomm_action_pipeline_test.py'), opkcomm.full_path(), gstopkperformance.full_path()],
+  env : python_guest_script_test_env,
+  depends : [opkcomm, gstopkperformance],
+  timeout : 60,
+)
 test('opktracker_matching_tests', opktracker_matching_tests)
 test('opktracker_tracking_output_tests', opktracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
@@ -851,7 +883,7 @@ foreach failed_operation : [
     is_parallel : false,
   )
 endforeach
-test('runtime_pipeline_tests', runtime_pipeline_tests)
+test('runtime_pipeline_tests', runtime_pipeline_tests, depends : [gstopkperformance])
 if mlwl_enabled
   test(
     'mlwl_startup_pipeline_tests',

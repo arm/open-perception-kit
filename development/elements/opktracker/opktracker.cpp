@@ -247,7 +247,7 @@ static GstFlowReturn gst_opktracker_transform_ip(GstBaseTransform *selfInParentT
         return GST_FLOW_OK;
     }
 
-    if (const auto frameResultsMeta = opk::FrameResultsMeta::get(buffer); !frameResultsMeta) {
+    if (!opk::FrameResultsMeta::has(buffer)) {
         return GST_FLOW_OK;
     }
 

@@ -20,6 +20,8 @@
 #include <functional>
 #include <gst/gst.h>
 #include <memory>
+#include <mutex>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
@@ -34,9 +36,10 @@ namespace opk {
 //   static Payload clone(const Payload&); // or std::unique_ptr clone
 // };
 
-template <class Traits> struct MetaContainer {
-    GstMeta meta;
-    std::shared_ptr<typename Traits::Payload> payload;
+// Shared even before the first read, so copies of a buffer reuse a lazy cache.
+template <class ReadCache> struct MetaReadCache {
+    std::mutex mutex;
+    std::shared_ptr<const ReadCache> value;
 };
 
 enum class MetaError {
@@ -44,11 +47,23 @@ enum class MetaError {
     NO_METADATA,
 };
 
-template <class Traits> class Meta {
+// ReadCache must retain its shared_ptr<const Payload> while it may read the
+// payload. It may release it after producing an independently owned result.
+template <class Traits, class ReadCache = void> class Meta {
   public:
     using Payload = typename Traits::Payload;
-    using MetaType = MetaContainer<Traits>;
 
+  private:
+    using CacheStorage = std::conditional_t<std::is_void_v<ReadCache>,
+                                            std::monostate,
+                                            std::shared_ptr<MetaReadCache<ReadCache>>>;
+    struct MetaType {
+        GstMeta meta;
+        std::shared_ptr<Payload> payload;
+        [[no_unique_address]] CacheStorage cache;
+    };
+
+  public:
     // ---- Registration ----
     static GType api_type() {
         static gsize once = 0;
@@ -106,20 +121,33 @@ template <class Traits> class Meta {
         return mi;
     }
 
-    // ---- Attach / Get ----
-    static MetaType *add(GstBuffer *buf, std::shared_ptr<Payload> p) {
+    // ---- Attach / Presence / Remove ----
+    // Store an owned value, not a caller's mutable shared_ptr. After attachment,
+    // mutate() is the only supported write path; its callback must not retain
+    // references to the payload. Pass std::move(p) to transfer an existing value.
+    static GstMeta *add(GstBuffer *const buf, Payload p = Payload{}) {
         g_return_val_if_fail(GST_IS_BUFFER(buf), nullptr);
+        auto payload = std::make_shared<Payload>(std::move(p));
+        [[maybe_unused]] CacheStorage cache{};
+        if constexpr (!std::is_void_v<ReadCache>)
+            cache = std::make_shared<MetaReadCache<ReadCache>>();
         auto *m = (MetaType *)gst_buffer_add_meta(buf, info(), nullptr);
         if (!m) {
             return nullptr;
         }
-        m->payload = std::move(p);
-        return m;
+        m->payload = std::move(payload);
+        if constexpr (!std::is_void_v<ReadCache>)
+            m->cache = std::move(cache);
+        return &m->meta;
     }
 
-    static MetaType *get(GstBuffer *buf) {
-        g_return_val_if_fail(GST_IS_BUFFER(buf), nullptr);
-        return (MetaType *)gst_buffer_get_meta(buf, api_type());
+    static bool has(GstBuffer *const buf) {
+        return get(buf) != nullptr;
+    }
+
+    static bool remove(GstBuffer *const buf) {
+        auto *const m = get(buf);
+        return m && gst_buffer_remove_meta(buf, &m->meta);
     }
 
     // ---- Read-only access ----
@@ -128,6 +156,21 @@ template <class Traits> class Meta {
         if (!m || !m->payload)
             return nullptr;
         return m->payload;
+    }
+
+    // The cache initially retains a read-only payload snapshot, just like read().
+    // Acquiring it does not serialize. Concurrent readers share one instance.
+    static std::shared_ptr<const ReadCache> readCached(GstBuffer *const buf)
+        requires(!std::is_void_v<ReadCache>)
+    {
+        const auto *const m = get(buf);
+        if (!m || !m->payload)
+            return nullptr;
+        const auto cache = m->cache;
+        const std::scoped_lock lock(cache->mutex);
+        if (!cache->value)
+            cache->value = std::make_shared<ReadCache>(m->payload);
+        return cache->value;
     }
 
     // ---- Mutating access with copy-on-write ----
@@ -140,6 +183,17 @@ template <class Traits> class Meta {
             return MetaError::NO_METADATA;
         }
 
+        // Mutations require exclusive buffer access, as before. Detach BEFORE
+        // invoking fn (including if it throws). Other buffers and queued readers
+        // keep their old snapshot and packet. No-op mutations invalidate too.
+        if constexpr (!std::is_void_v<ReadCache>) {
+            if (m->cache.use_count() != 1) {
+                m->cache = std::make_shared<MetaReadCache<ReadCache>>();
+            } else {
+                m->cache->value.reset();
+            }
+        }
+
         // Copy-on-write: if shared, clone before modifying.
         if (m->payload.use_count() != 1) {
             auto cloned = std::make_shared<Payload>(Traits::clone(*m->payload));
@@ -150,13 +204,20 @@ template <class Traits> class Meta {
     }
 
   private:
+    static MetaType *get(GstBuffer *const buf) {
+        g_return_val_if_fail(GST_IS_BUFFER(buf), nullptr);
+        return reinterpret_cast<MetaType *>(gst_buffer_get_meta(buf, api_type()));
+    }
+
     // init/free/transform for GstMeta
     static gboolean init(GstMeta *meta, gpointer, GstBuffer *) {
         auto *m = (MetaType *)meta;
-        // placement-new not needed for shared_ptr because MetaType is a C++ type and
-        // default-initialized. But GStreamer allocates raw memory; we must construct it.
+        // GStreamer allocates raw memory; construct the C++ members without
+        // overwriting the GstMeta header that GStreamer already initialized.
         if (m) {
-            new (&m->payload) std::shared_ptr<Payload>();
+            std::construct_at(&m->payload);
+            if constexpr (!std::is_void_v<ReadCache>)
+                std::construct_at(&m->cache);
             return TRUE;
         } else {
             return FALSE;
@@ -166,8 +227,9 @@ template <class Traits> class Meta {
     static void free(GstMeta *meta, GstBuffer *) {
         auto *m = (MetaType *)meta;
         if (m) {
-            m->payload.reset();
-            m->payload.~shared_ptr();
+            if constexpr (!std::is_void_v<ReadCache>)
+                std::destroy_at(&m->cache);
+            std::destroy_at(&m->payload);
         }
     }
 
@@ -179,8 +241,9 @@ template <class Traits> class Meta {
         auto *dst = (MetaType *)gst_buffer_add_meta(dest, info(), nullptr);
         if (!dst)
             return FALSE;
-        dst->payload.~shared_ptr();
-        new (&dst->payload) std::shared_ptr<Payload>(src->payload); // shallow copy
+        dst->payload = src->payload;
+        if constexpr (!std::is_void_v<ReadCache>)
+            dst->cache = src->cache;
         return TRUE;
     }
 };

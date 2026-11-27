@@ -450,9 +450,8 @@ static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *selfInPa
     }
 
     // Ensure generated FrameResults metadata exists so performance is a standalone payload.
-    if (auto frameResultsMeta = opk::FrameResultsMeta::get(buffer); !frameResultsMeta) {
-        auto frameResults = std::make_shared<open_perception_kit::FrameResults>();
-        opk::FrameResultsMeta::add(buffer, frameResults);
+    if (!opk::FrameResultsMeta::has(buffer)) {
+        opk::FrameResultsMeta::add(buffer);
     }
 
     auto result = opk::FrameResultsMeta::mutate<GstFlowReturn>(buffer, [self](auto &frameResults) {

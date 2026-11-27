@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <gst/gst.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -27,6 +28,7 @@
 #include <fstream>
 #include <future>
 #include <limits>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -419,6 +421,34 @@ TEST(RuntimePipelinePlayback, ReportsProgressCallbacksWhileRunning) {
     auto waitResult = pipelineResult->wait();
     EXPECT_TRUE(waitResult.has_value()) << waitResult.error().toString();
     EXPECT_GT(progressCount.load(), 0U);
+}
+
+TEST(RuntimePipelineErrors, MetadataAndErrorCallbackExceptionsStayInsideTheProbe) {
+    RuntimeLoggingGuard loggingGuard;
+    std::atomic<int> deliveries = 0;
+    std::atomic<int> errors = 0;
+    // Load only the fixture's plugin. Scanning the whole build directory also
+    // forks a scanner for helper libraries, leaving exec-only Valgrind logs.
+    gst_init(nullptr, nullptr);
+    g_autoptr(GError) error = nullptr;
+    g_autoptr(GstPlugin) plugin = gst_plugin_load_file(OPK_PERFORMANCE_PLUGIN_PATH, &error);
+    ASSERT_NE(plugin, nullptr) << (error ? error->message : "plugin load failed");
+    auto pipeline = opk::runtime::Pipeline::fromString(
+        "videotestsrc num-buffers=3 ! video/x-raw,format=BGRA,width=16,height=16 ! "
+        "opkperformance ! fakesink sync=false");
+    ASSERT_TRUE(pipeline.has_value()) << pipeline.error().toString();
+    pipeline->onFrameResultsPacket([&deliveries](const auto &) {
+        ++deliveries;
+        throw std::runtime_error("test metadata callback failure");
+    });
+    pipeline->onError([&errors](const auto &) {
+        ++errors;
+        throw 17; // Exercise containment of a non-standard exception from user code too.
+    });
+    ASSERT_TRUE(pipeline->start().has_value());
+    EXPECT_TRUE(pipeline->wait().has_value());
+    EXPECT_GE(deliveries.load(), 3);
+    EXPECT_EQ(errors.load(), deliveries.load());
 }
 
 TEST(RuntimePipelinePlayback, LoopsSeekableMediaWithoutReportingEos) {
