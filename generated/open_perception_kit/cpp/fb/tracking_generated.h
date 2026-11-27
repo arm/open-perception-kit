@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -503,14 +503,14 @@ inline void TrackIdentity::UnPackTo(TrackIdentityT *_o,
 }
 
 inline ::flatbuffers::Offset<TrackIdentity>
-TrackIdentity::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateTrackIdentity(::flatbuffers::FlatBufferBuilder &_fbb,
                     const TrackIdentityT *_o,
                     const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateTrackIdentity(_fbb, _o, _rehasher);
+    return TrackIdentity::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<TrackIdentity>
-CreateTrackIdentity(::flatbuffers::FlatBufferBuilder &_fbb,
+TrackIdentity::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                     const TrackIdentityT *_o,
                     const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -550,14 +550,14 @@ inline void TrackAssociation::UnPackTo(TrackAssociationT *_o,
 }
 
 inline ::flatbuffers::Offset<TrackAssociation>
-TrackAssociation::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateTrackAssociation(::flatbuffers::FlatBufferBuilder &_fbb,
                        const TrackAssociationT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateTrackAssociation(_fbb, _o, _rehasher);
+    return TrackAssociation::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<TrackAssociation>
-CreateTrackAssociation(::flatbuffers::FlatBufferBuilder &_fbb,
+TrackAssociation::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                        const TrackAssociationT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -603,14 +603,14 @@ inline void TrackingSample::UnPackTo(TrackingSampleT *_o,
 }
 
 inline ::flatbuffers::Offset<TrackingSample>
-TrackingSample::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateTrackingSample(::flatbuffers::FlatBufferBuilder &_fbb,
                      const TrackingSampleT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateTrackingSample(_fbb, _o, _rehasher);
+    return TrackingSample::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<TrackingSample>
-CreateTrackingSample(::flatbuffers::FlatBufferBuilder &_fbb,
+TrackingSample::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                      const TrackingSampleT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -676,14 +676,14 @@ inline void TrackTracePoint::UnPackTo(TrackTracePointT *_o,
 }
 
 inline ::flatbuffers::Offset<TrackTracePoint>
-TrackTracePoint::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateTrackTracePoint(::flatbuffers::FlatBufferBuilder &_fbb,
                       const TrackTracePointT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateTrackTracePoint(_fbb, _o, _rehasher);
+    return TrackTracePoint::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<TrackTracePoint>
-CreateTrackTracePoint(::flatbuffers::FlatBufferBuilder &_fbb,
+TrackTracePoint::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                       const TrackTracePointT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

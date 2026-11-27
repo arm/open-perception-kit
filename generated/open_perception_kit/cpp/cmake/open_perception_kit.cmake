@@ -29,8 +29,8 @@
 #   OPEN_PERCEPTION_KIT_FLATBUFFERS_INCLUDE_DIR - FlatBuffers headers (auto-discovered)
 #
 get_filename_component(_OPEN_PERCEPTION_KIT_SDK_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
-set(OPEN_PERCEPTION_KIT_VERSION "1.0.0")
-set(OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT "==25.9.23")
+set(OPEN_PERCEPTION_KIT_VERSION "1.0.1")
+set(OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT "==25.12.19")
 set(OPEN_PERCEPTION_KIT_PYTHON_VERSION_REQUIREMENT ">=3.10")
 set(OPEN_PERCEPTION_KIT_PYTHON_BRIDGE_AVAILABLE TRUE)
 set(OPEN_PERCEPTION_KIT_PYTHON_BRIDGE_MODULE "open_perception_kit_bridge")
@@ -50,13 +50,13 @@ function(open_perception_kit_enable_sdk)
     check_cxx_source_compiles(
         "#include <flatbuffers/base.h>
      static_assert(FLATBUFFERS_VERSION_MAJOR == 25);
-     static_assert(FLATBUFFERS_VERSION_MINOR == 9);
-     static_assert(FLATBUFFERS_VERSION_REVISION == 23);
+     static_assert(FLATBUFFERS_VERSION_MINOR == 12);
+     static_assert(FLATBUFFERS_VERSION_REVISION == 19);
      int main() { return 0; }"
-        _OPEN_PERCEPTION_KIT_FLATBUFFERS_25_9_23_MATCHES)
+        _OPEN_PERCEPTION_KIT_FLATBUFFERS_25_12_19_MATCHES)
     set(CMAKE_REQUIRED_INCLUDES "${_OPEN_PERCEPTION_KIT_SAVED_REQUIRED_INCLUDES}")
-    if(NOT _OPEN_PERCEPTION_KIT_FLATBUFFERS_25_9_23_MATCHES)
-        message(FATAL_ERROR "open_perception_kit requires FlatBuffers 25.9.23; " "headers under '${OPEN_PERCEPTION_KIT_FLATBUFFERS_INCLUDE_DIR}' are incompatible")
+    if(NOT _OPEN_PERCEPTION_KIT_FLATBUFFERS_25_12_19_MATCHES)
+        message(FATAL_ERROR "open_perception_kit requires FlatBuffers 25.12.19; " "headers under '${OPEN_PERCEPTION_KIT_FLATBUFFERS_INCLUDE_DIR}' are incompatible")
     endif()
 
     add_library(_open_perception_kit_sdk INTERFACE)

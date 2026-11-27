@@ -1,11 +1,11 @@
 {
   "artifact": {
     "name": "open-perception-kit",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "cc011c3b7bd1bd93617f403565861d5936c745dac39b32c3ff266b0a18107a87"
+    "sha256": "2b396a774ee7c2c0e99d231c43be4697e9e34b13d2c7225fc3a014836223edae"
   },
   "files": [
     {
@@ -20,103 +20,103 @@
     },
     {
       "path": "cpp/cmake/open_perception_kit.cmake",
-      "sha256": "2776667e02553ce5bff5d60a3fb5e01ea98cbbf608e62d44bea86f6d425a5ad0",
-      "size": 4266
+      "sha256": "e1fc9bba74210d81636edd58aa5f6384f755ad955939fc34878bf9ff6163f54c",
+      "size": 4271
     },
     {
       "path": "cpp/fb/box_detections_generated.h",
-      "sha256": "9a2ce953ec974389f2f7cd003a1f61dc4ee1a00043dfe8e9a49591e485337c0b",
-      "size": 21426
+      "sha256": "b0d0d24a8fa247889fc22e31fe62237652b5fa86afa6d2d2293923d20a743c8f",
+      "size": 21427
     },
     {
       "path": "cpp/fb/camera_contacts_generated.h",
-      "sha256": "dabd839f95d940e24f4fa3b72d23a197d1d6a6f5122544f00ad83ca652c5a9fc",
-      "size": 25440
+      "sha256": "f336865f2d7c0a45c682f94dcd7742197554a2bfdd4befb9f165c793a0378afc",
+      "size": 25441
     },
     {
       "path": "cpp/fb/classifications_generated.h",
-      "sha256": "3ac0901c1898a369a5399f5a1400a64d4e2878d1b822c7ba2582b669fcbebc24",
-      "size": 31335
+      "sha256": "ef43820170f8cd2b13a779e2defbca5bc3435e2f44d121f02fa748940aa08c24",
+      "size": 31336
     },
     {
       "path": "cpp/fb/common_generated.h",
-      "sha256": "93f56612f25446106581225d2b67e94bc1c8a49b68cd7151bf24ec525c3711c7",
-      "size": 47615
+      "sha256": "512df1cfa1b76d933376201f1a15720afec4031c37773f8a0e98162e4d8213b1",
+      "size": 47616
     },
     {
       "path": "cpp/fb/frame_context_generated.h",
-      "sha256": "b9e92545856689458716551e579be3118adc917097d1006a4054e496f6ebe279",
-      "size": 30220
+      "sha256": "dec3db80128f2fc54d51249ad152447581e86d0b94fa45b41457d551d72db237",
+      "size": 30221
     },
     {
       "path": "cpp/fb/gaze_measurements_generated.h",
-      "sha256": "a7699220bea75b26f72a593d3351a2088a38203a6f56ff75d57ee4ddb05770e6",
-      "size": 25283
+      "sha256": "eb59cf4e941cffdc342ee7f4291875eb330d6741fa1eb4499bd501a11bdf5edf",
+      "size": 25284
     },
     {
       "path": "cpp/fb/instance_segmentation_masks_generated.h",
-      "sha256": "60eee07e370060d82ce0fb646ce2ce4eaf7c42b8e930e1c61a76b43ee07a3531",
-      "size": 24986
+      "sha256": "ba0c8125754e151090c39313636c791ff181e90044f9a70ea304bf6e8a10584b",
+      "size": 24987
     },
     {
       "path": "cpp/fb/internal/wire_envelope_generated.h",
-      "sha256": "4654fe1fb05ff600f1441ca9e56d69f8339dc2a7091702a48a2cae89ae12d424",
-      "size": 18937
+      "sha256": "412294ba681bb6b21f3750c967452a1615d03ad12403664723200155a3cd820e",
+      "size": 18938
     },
     {
       "path": "cpp/fb/object_embeddings_generated.h",
-      "sha256": "52d588f3d6531653f66fb6bcd4960160a9ef1cc8f9920bcbcf0f96c2094fe9a1",
-      "size": 28224
+      "sha256": "c3bf74d8035922ba459306ea6ed8374695910afb90a8348253fe6b4e1a114731",
+      "size": 28225
     },
     {
       "path": "cpp/fb/object_tracks_generated.h",
-      "sha256": "bd7cf73ca6b0885d6fedc9ab5ee6e214f7ad9c00a9110f8c782ca2a972fa20c1",
-      "size": 29621
+      "sha256": "5acbc33fb80cdbcb40e87dccda8e466f895edbd6e7da1751abc1c1759b1dfe43",
+      "size": 29622
     },
     {
       "path": "cpp/fb/performance_measurements_generated.h",
-      "sha256": "1ff76f742bb03b25696bf897e6beffbefc1b739a5df870dada35854c5fc5cbe9",
-      "size": 26175
+      "sha256": "3d16620aaa01a1d23bd88d52e20d5c6e27b4be9ab44b48c0ca7adf0acbd51580",
+      "size": 26176
     },
     {
       "path": "cpp/fb/person_presences_generated.h",
-      "sha256": "a8a54a1419f09008bb91cde741bde6828b7506b5c8c296de9bdad2fe18385a75",
-      "size": 25499
+      "sha256": "0395749165e09ef1feeae6f63b34629d7690fa3e9ffd1af39e22d5890006cbce",
+      "size": 25500
     },
     {
       "path": "cpp/fb/segmentation_masks_generated.h",
-      "sha256": "6b0ec57da225fc8f5fb9ff0ccae3d956d8baffc64a53a6b57b04c61e12d62d88",
-      "size": 21338
+      "sha256": "3be4bc8bc2a1aa8b9e01497814597bacb728ea65c33473d35e94ef370b191f77",
+      "size": 21339
     },
     {
       "path": "cpp/fb/semantic_segmentation_masks_generated.h",
-      "sha256": "8103360b03ae2a830e6e55206de7bac723bd0adb7327d70f0317afc7fed5241b",
-      "size": 22943
+      "sha256": "f4e13b044081801380251d4c70d06e88e9fb53f1d81f77b05620b980ad9af756",
+      "size": 22944
     },
     {
       "path": "cpp/fb/track_traces_generated.h",
-      "sha256": "1732b33e29df31a97edcae9f8dd71a0a3486be0bc310644866836c317edc7552",
-      "size": 22743
+      "sha256": "0eaa74db17a725aca2df5cfa26059ef10aedfc2130ff64c5285350e36c4e4803",
+      "size": 22744
     },
     {
       "path": "cpp/fb/tracking_generated.h",
-      "sha256": "826bde07033a44d214317da1c330b3c1725d2c3df379e4168761416f35b481ca",
-      "size": 27057
+      "sha256": "aed9e185d65a1ce993f4c093a2dc434006a3ffaac323f8abc5083aeb3e43764d",
+      "size": 27058
     },
     {
       "path": "cpp/fb/turn_detections_generated.h",
-      "sha256": "dda7ce271b03a72f10c766735211e61dd167c2c0b1c9c700077c757d01f6c55a",
-      "size": 24264
+      "sha256": "a5d448ac400e26b0ac43093f6ea325bd61e97cf2d914f2d4d44350738e51e239",
+      "size": 24265
     },
     {
       "path": "cpp/fb/voice_activity_detections_generated.h",
-      "sha256": "70337ff23cfd2c8dcfaca17abc2db54802f11c2589f89b4f98c413b8a687d4b3",
-      "size": 26006
+      "sha256": "0bd49272f9479b1b777820a46df7af70717e3354d83428945ed1470ad6151879",
+      "size": 26007
     },
     {
       "path": "cpp/meson/open_perception_kit/meson.build",
-      "sha256": "8675e8b6823630471fbf705a23c86cfa75e175da2649b12fe820b73f0d194008",
-      "size": 4138
+      "sha256": "d26ef21e3942b6113995063b9329b1da5a860bc237dc07ccf542a66bbc2b1efd",
+      "size": 4142
     },
     {
       "path": "cpp/meson/open_perception_kit/python_bridge/meson.build",
@@ -125,8 +125,8 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "974a6b69d0300a0a987f4efc3f4a5c9264c195832c80daae4ebd804e5df8a23d",
-      "size": 37133
+      "sha256": "118fd38a13b4c334420740539278390a425f2fe9b39d4bfb85563e8391435b2e",
+      "size": 37138
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
@@ -150,12 +150,12 @@
     },
     {
       "path": "python/pyproject.toml",
-      "sha256": "b37491ff83221459735be3262d1eed114c6167448a9cd00e6a8c417a1033f8cd",
+      "sha256": "ac7a3fbb291e5c91392b27ae5e03cad31fa3916621ce0065ea0062eb6073c1c0",
       "size": 1260
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "3653059cfedcbec5111b076b0718f9c0f9d184c090b59e82b429f78dddbaa0b5",
+      "sha256": "10179239894e4084757cb098acce939b3b05245be8f0e913b8c8c2f778dadaf5",
       "size": 1166
     },
     {
@@ -490,13 +490,13 @@
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "187abec47422ac9ceb1e4ad6a4488c428b4252f23bcd197a32b4e9cb5417df85",
+      "sha256": "6bc0b364ce587c7f602416a3f623d18af460712f6fa8e46a637b69419308e5f0",
       "size": 15484
     },
     {
       "path": "rust/Cargo.toml",
-      "sha256": "aa92bab4e7e188d76c7977e651d7176f0c21d6a8a085dee14c95ad0258eebfaf",
-      "size": 874
+      "sha256": "075cc99fa939d421dac001da6a9b2de7555960f028c0df7b980c12d3b14d9434",
+      "size": 875
     },
     {
       "path": "rust/LICENSE",
@@ -520,128 +520,128 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/audio_frame_context_generated.rs",
-      "sha256": "99f5094f0d6a8682a0beb785154629517f390b5566e3e4176a15596b9de2ac42",
-      "size": 12978
+      "sha256": "f8a30825d4239e89c4709f2b2a6b835dda8dfbbb968aa4bce5e2965cd3dc12be",
+      "size": 12908
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/bitmap_data_generated.rs",
-      "sha256": "a9d10127cd5ca99900f329d36dc79cb00b23975f89624799cf8c00dfb8eea766",
-      "size": 9257
+      "sha256": "a6c69ac94d8871f5601281b03485d1a73e8a22fe217eb6221a448c5cb942687e",
+      "size": 9185
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/bitmap_encoding_generated.rs",
-      "sha256": "c81035e48681cc0989e1a7fe974d3c424f5ae049a5f67421751312cf896309b9",
-      "size": 3890
+      "sha256": "69fef2fbe46a1a315a4ae55f3e07fe69ff79edd04f984caf9f18955d34a0bdc1",
+      "size": 3655
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/bounding_box_generated.rs",
-      "sha256": "60110db4fc5f1782fe258111c6ed9604f2547a500d8bd0be25435c6fdb215ddb",
-      "size": 9341
+      "sha256": "54a51a0d737b614abda6ecb70d90f076ddb345b223a6aab8f89bb56de7e727b8",
+      "size": 9239
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/box_detection_generated.rs",
-      "sha256": "d54250d31dae89fff6a3be35533bd43d50e3710b3644b9fa5d65059c29eb6391",
-      "size": 9386
+      "sha256": "1691c605b3bd1891bd497f90237d07d443a7bc2790b035aeb68a6ab55c25ffca",
+      "size": 9432
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/box_detections_generated.rs",
-      "sha256": "adb2450f5412de625e6ba8f00dc4959a6fe87bb42763a93cf35442b678744591",
-      "size": 12822
+      "sha256": "438db82211091eed82f170add1fd427c4c4fce0da45d857c9371715613a4f805",
+      "size": 12943
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/camera_contact_generated.rs",
-      "sha256": "f42d5faf5cdf640d1557d33257c1d6b9da804e2117c9f5ede44c71c1d2e363a1",
-      "size": 7675
+      "sha256": "e826111fc01966109e469eea3d540c7e4014da61a946ae5bfee2b5a2050d87a6",
+      "size": 7605
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/camera_contact_result_generated.rs",
-      "sha256": "bdddcc72010e6bfd6f70528994ba3abcd06e586d86db53ab38edc730769550c7",
-      "size": 7359
+      "sha256": "82ffad1ec6bf6cebb21dfa74a6dd05336de0c1f46da9298ac5e20f9d4743adea",
+      "size": 7213
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/camera_contacts_generated.rs",
-      "sha256": "518e093ff00c13f4c63915d0309bce45a288d4c324eb10eb4ed1963583c5b72c",
-      "size": 12844
+      "sha256": "02efc49cf3f15874a3e85c76e4a2d65cb073f8eb60761dacb7d3fa0ce618e1ae",
+      "size": 12958
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/classification_candidate_generated.rs",
-      "sha256": "ad5e4cc9f9e5580427ed36beace141bd309588739b88fc239589f1ef8dc8fc8a",
-      "size": 7400
+      "sha256": "9fecb79dec153625852257e4915419b88dbe9c64dd63e3e828770084273baa97",
+      "size": 7325
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/classification_generated.rs",
-      "sha256": "67958c7a13f196a371497a173760967dec3f22601426ef09f58c0378320b5920",
-      "size": 10651
+      "sha256": "b1dab8462e67dc0ffa4352cbfdddbeb792d1de84cd290a87966c78941a36078b",
+      "size": 10709
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/classification_kind_generated.rs",
-      "sha256": "6047e553a2d1a8376c1e04103aa0f40d0d19773db8ef9a4950dca06096180eb9",
-      "size": 4022
+      "sha256": "5a992e5de26406f85646c5c9fbf8358124fd356c899b6ee3df7fa6494f56e0d4",
+      "size": 3787
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/classifications_generated.rs",
-      "sha256": "4285d7d5e77184103ad607b9d70ae0db37f6314f4e3f0a7d4b211b4b71ea5511",
-      "size": 13138
+      "sha256": "1a5309780b008fb76b7804d24eaf81723092010c270dcc4a4a926a4827715133",
+      "size": 13205
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/coordinate_units_generated.rs",
-      "sha256": "b906f237d7a2db6088bfe7aae76ec04beb47fe6ef05e3cbfb7f48640efc5cf47",
-      "size": 3764
+      "sha256": "3bdf54e3ccc69c59311b22f3f84cd897b537e61cc07d2682163f910126fdefb0",
+      "size": 3529
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/embedding_metric_generated.rs",
-      "sha256": "3ea3b221f4712a3577c19aba5bf9bafd4e6a4950d4bc06bcf6d0ba56b8796ace",
-      "size": 3769
+      "sha256": "7c4816dfc42207cd64efdc79e45dd5a13442489133e5c047f5de630d8203a488",
+      "size": 3534
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/embedding_space_generated.rs",
-      "sha256": "14feacab21ca3dc4d92e668ed8e1710b588b497fa0883b94a299fc073d727b00",
-      "size": 7191
+      "sha256": "2dd5b87d2a8a4d34961f1bcc8db3c080f0ab56c7d7e648219199559e696b88fe",
+      "size": 7094
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/frame_context_generated.rs",
-      "sha256": "b0799627f00ce37754c6c92e9881afe965257e11c9dca44fb6ddcec3a7c5482d",
-      "size": 13634
+      "sha256": "7658afaff66f492f5954ad8c07e1e7342b96086158455a3737fdff50cf480b7b",
+      "size": 13732
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/frame_rate_generated.rs",
-      "sha256": "b515fd63095fc4bd307eca2d35caebdab3b9139d74e661ea6f8b917684737aca",
-      "size": 4514
+      "sha256": "a3564478feb084f848687a095e12b3168921840ec33118bc900f87a85dd07459",
+      "size": 4379
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/gaze_angles_generated.rs",
-      "sha256": "f5bc94390800c3c6d90dab985300f6f5526179c60861ed58c8386e11c87d9b43",
-      "size": 5919
+      "sha256": "b688745ce808bbc39cebdfb080e895b0b8104b2578ca03b2b4e692caaf3fd662",
+      "size": 5771
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/gaze_measurement_generated.rs",
-      "sha256": "b7dc847db062138700dc335772c536b45cc22fc45305151726775854c2c06ece",
-      "size": 8605
+      "sha256": "8457985579caa36153ab90243357be5db2376bcad174aee8fcc152cca1f26095",
+      "size": 8537
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/gaze_measurements_generated.rs",
-      "sha256": "75582c1b85b9d96a8553c76a83f0ad54dd42fa29a75c376e9a23b9649ba0d9f1",
-      "size": 13171
+      "sha256": "3193c5bbe707dcc0e810162d4217a528aecf3370f5c15b22b3c2fc97867c3816",
+      "size": 13249
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/image_space_generated.rs",
-      "sha256": "1d4540ea45887562e2d8406bdb703fd06eb785ea8f9248ee605deae58a5bb17b",
-      "size": 10347
+      "sha256": "53ff71ae94fd96ec9ed0a6c072f5032c4130eae548a1fab7678dd125439b893f",
+      "size": 10209
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/instance_segmentation_mask_generated.rs",
-      "sha256": "458c407f61f1815f19441c1276badba1dca460b95a48824b3ca629a099dabc32",
-      "size": 11603
+      "sha256": "598d99758a87aa2d2b361ee480da8d3d371d09d909a87488edd647ccde26b1b3",
+      "size": 11744
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/instance_segmentation_masks_generated.rs",
-      "sha256": "97dad208aa3048bc8a28e4328e390ccecf918cc8727f448986b097437a063ab6",
-      "size": 13813
+      "sha256": "80c3f7113b0309ef1f6638206f1e2e979ff6bfa146dbbc4bb5c2ba0e0a1cbb88",
+      "size": 13891
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/layer_info_generated.rs",
-      "sha256": "0e86a730f2768cee29a0a77a2a7f9ec78ee327539db7c21c1863f437a6f70094",
-      "size": 12827
+      "sha256": "64fa2f1e020f900290474abb7ce94c4531c1ce31281dc66cc199eb0384d89de6",
+      "size": 13114
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
@@ -650,153 +650,153 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
-      "sha256": "b894808d04cac87ac908e2f4b6d0915964a82501f8c84bb4ddfc4b82ce0d89d4",
-      "size": 9069
+      "sha256": "139cec60bc2da04298f907138474852818e2646b14812983d1fd6ef5195d0fd9",
+      "size": 9033
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embeddings_generated.rs",
-      "sha256": "16e6efc6badd5913e92b64c8b4114aa18ce4bf5004f29b1f876b4c75d792e152",
-      "size": 13125
+      "sha256": "ce02e42855396eea39d86a30af48eaf35b6d54974b6207a7247491bb8e3c6715",
+      "size": 13203
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_meta_generated.rs",
-      "sha256": "81e3cfeaa9d61e2cdc8db12d4ee308b3bd3c55edfe8d6ac8f22c948558456920",
-      "size": 6591
+      "sha256": "de24a0014ab82f1317657ba88bc9d4f4280167634128b89a43aec4daa94f8db4",
+      "size": 6445
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_track_generated.rs",
-      "sha256": "894160957d51325d4d1298e71c0786637cbbc4fa9339a3a38bd778f1e16e6cc0",
-      "size": 15836
+      "sha256": "7a52ff8b2a0cabc1dec7d4780728081ad5f67e37c82524368fc4941405480fe9",
+      "size": 16138
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_tracks_generated.rs",
-      "sha256": "3f37d4b4f428dd2d4cb7682a6917092458c06694544ba0f5d2d8b7b325dac5a2",
-      "size": 13749
+      "sha256": "590c34fbdc1effa1a6fabcc86af988c885758e442cb31b741a8bfff248e7cf28",
+      "size": 13825
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/opacity_meaning_generated.rs",
-      "sha256": "65e9491333d3e9168c6d18689ba1a24d3708410da89eb14dfc23ebf5227817ba",
-      "size": 4006
+      "sha256": "d77d286f910e1b18357aab4963d6e5f7aee2ab31d31e0c537df4b15d571357f1",
+      "size": 3771
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/performance_measurements_generated.rs",
-      "sha256": "cc10df547f10a2711c3af102a832ee0a48c0c80f046923e8e77fa67778a68c27",
-      "size": 16614
+      "sha256": "48e53bfa579a4b9a31dc59d5ff7ecd668952dcd76a425d4b2678724e467c772e",
+      "size": 16797
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/person_presence_generated.rs",
-      "sha256": "eda0f55151fe098cbd9ea1aafbf47e02bd0c526a400a06d6e854f3cc2fad6dab",
-      "size": 7716
+      "sha256": "8a4ee2a756f2b52482a2d8d1cc01c1316ff0f677b642a2eec0d8e7aff29241da",
+      "size": 7646
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/person_presence_result_generated.rs",
-      "sha256": "be5045b773876a129d8a4801afea1883530a9a1a9c22420ca5a5d59570f50403",
-      "size": 7289
+      "sha256": "3f9bc4234c5c83446edc9b24c9a1dcd998ad25a5474595397e3626c8a61ebcf6",
+      "size": 7143
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/person_presences_generated.rs",
-      "sha256": "040c4f62a92ea99beb1d877d74456f8618558ec9a3c4bc6a1e096063d946f268",
-      "size": 13019
+      "sha256": "3897cfa0d36c00151dc0f895b8b8f5c45981cdfbc9f54b45e1b5d86e61dbbc3a",
+      "size": 13086
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/producer_info_generated.rs",
-      "sha256": "a434e31797270660ec3e782173e877aaf33f6f966ed5ce6152603e6102c11d92",
-      "size": 7955
+      "sha256": "45a58bd972b58a531be216d1eab23cff2d9cef484569b3d1959168bca6933e17",
+      "size": 8034
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/scope_timing_generated.rs",
-      "sha256": "f91cb01d68396278cae9e945f4f31a82efa56eb1ee8386c8fc549869f3842d12",
-      "size": 8043
+      "sha256": "18a823045b408406bd64b233d8ba514da93a06e702604ccfe9f2afc66a526603",
+      "size": 8023
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/segmentation_mask_generated.rs",
-      "sha256": "363c63fbbfdcda3f26818faf8987c163385c595c2ef2dfe0d12c095e9b7b1511",
-      "size": 7849
+      "sha256": "b19897971c7a8e1b42a8514c0b703b48db89dd61460a2631c6709e5b431a1327",
+      "size": 7839
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/segmentation_masks_generated.rs",
-      "sha256": "2fd73e15a19fb6887937d94484d4d29ea7e3c05f2d74c24fa9f0a63c4168f07f",
-      "size": 13045
+      "sha256": "e520560a5a9328a583cda31578bf37ea0fb755a6786f05012e871050bd315829",
+      "size": 13123
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/semantic_segmentation_mask_generated.rs",
-      "sha256": "14ed046db72c5a5e99e21591a0f04d3d909581552f23b55d6af65aa51438b197",
-      "size": 9365
+      "sha256": "a0b079f78254e5595c3b17c74b46d012d743e44df286ae42688a841fc74122a9",
+      "size": 9372
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/semantic_segmentation_masks_generated.rs",
-      "sha256": "c152ecc64beb2cf886bd8286150fe2ea018a9ff8e1008df4092b1193b469e762",
-      "size": 13813
+      "sha256": "48ac473e7e08acf2f03f83d37de166062bcfe38105869a536cc2c887b3a0d87b",
+      "size": 13891
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/track_association_generated.rs",
-      "sha256": "f441e41f62beedcc8553611a125d9beb1b8edb94df2d47284820c83758cfe1b7",
-      "size": 5988
+      "sha256": "c6c483b8082deef624b9287979e8bb3b7012c0377df17bee952978f6fe551ea6",
+      "size": 5840
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/track_association_kind_generated.rs",
-      "sha256": "e36c9557f3c3fe690a6898000d4e0b687ab98e692af6153041b694662a381bf9",
-      "size": 4331
+      "sha256": "d9dc8ac8f18ef54ad45e37fc39fc3007813d88883660c79606e6816df7f824b9",
+      "size": 4096
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/track_identity_generated.rs",
-      "sha256": "80750f1af14c77732ee09143e2b5921fdf8881cf762cbc8b4f78dc3e9b79738b",
-      "size": 7530
+      "sha256": "f557bbe57041c83a77d2eff348887a6e2b41bc4e3a8b7c532b732c1eb09fc31c",
+      "size": 7534
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/track_observation_state_generated.rs",
-      "sha256": "497c522feb96d6536f94807244b48fdebe743d80ae8f14b3c53164d8d3452c9e",
-      "size": 4025
+      "sha256": "2023f9bf4ccdc338f6055a52a57a043c5f2dc5034acab5c315498f607301569b",
+      "size": 3790
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/track_trace_generated.rs",
-      "sha256": "54c1e124af5f617ae5f879365bb4b31c7cb3faa106c4d692117ca1a0330f0b45",
-      "size": 9483
+      "sha256": "a93c564261e02fbcd6f1a7d71c5205b625431400ccc0fb74b729dc23762484c2",
+      "size": 9558
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/track_trace_point_generated.rs",
-      "sha256": "3fe4e66389df12e7967ff101d566e77f8c1b827b071a26c5a2c991099277f1a8",
-      "size": 6806
+      "sha256": "12f81f45da7ad14ca492e87ce8ced1328c29f684ec2a3dc4db36fb91bb4e8b93",
+      "size": 6698
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/track_traces_generated.rs",
-      "sha256": "e4d89fd3fac8ea9005b5f0658d42f9d983fee6bdd04470e70bd880c378d5eb98",
-      "size": 12542
+      "sha256": "48316a1dcca68f29adff4ef8b0f456c6e0ea3d76163f4e2d41ef590076d1e914",
+      "size": 12616
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/tracking_sample_generated.rs",
-      "sha256": "5bdb045c5c389890d702e584ed9654d46ba2f49d1ed14f817c6abde567a1c48d",
-      "size": 8488
+      "sha256": "5c58150b7a620abdc8e1c96e12b6b2c94dce7510575ee92ed611dc11fa5fd511",
+      "size": 8344
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/tracking_time_source_generated.rs",
-      "sha256": "b10cc4b6d7c81248218de7fa09bd8d75d3ae4abfeaf8bc1aa9982e49437040c0",
-      "size": 4015
+      "sha256": "376053435a92f28cb0c8cc804f5c161e805a401a7d2596a4a2c372e5d47e7602",
+      "size": 3780
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/turn_detection_generated.rs",
-      "sha256": "6003b364ebb3a5ef1440a3944987d58168e80e799744478ad887d9536643c135",
-      "size": 13246
+      "sha256": "f81f9cd5b09e7801ae39afbb9d5f1a707d873993f7ac73378bf831117c37526b",
+      "size": 13148
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/turn_detections_generated.rs",
-      "sha256": "0d5322a3d4eb093fe743888ed39471669d4e54cbf6122dca4dc8e1131a4e2253",
-      "size": 12912
+      "sha256": "16068a6eaaca1e4ccc3fe7dc0fa5f735eb92c5845dc70bc717b127d61ca628dc",
+      "size": 13026
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/video_frame_context_generated.rs",
-      "sha256": "b8fe5986866dcb96c21e5e0c936484e4d23cec7f1d218a8a34a6922b03bfb955",
-      "size": 8768
+      "sha256": "77313d8f73a32b1949737e51fcab0cb7cd7760ef94b3d269fb00ae69eec85b25",
+      "size": 8692
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/voice_activity_detection_generated.rs",
-      "sha256": "c6b192a6b24ce4a3b8c3f3cd262f5475c0ab10455c027a4db5938e5144ea482b",
-      "size": 13889
+      "sha256": "fea69f55126b077dbc3194cf9f870dc25d2ae4678ec4be5f60ec36ccdfc5c132",
+      "size": 13791
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/voice_activity_detections_generated.rs",
-      "sha256": "78033ae7314dccc2667e0a6af179320de77ad7446b516686e2e42aa8cde3d686",
-      "size": 13781
+      "sha256": "7aba7203e67393e850f6f9efbe9f2f52029fe47012dd1c0f60f9f9b0957ac462",
+      "size": 13855
     },
     {
       "path": "rust/src/fb/open_perception_kit/mod.rs",
@@ -810,13 +810,13 @@
     },
     {
       "path": "rust/src/flowdata_internal/internalfb/wire_envelope_generated.rs",
-      "sha256": "a6042b4cf09d5ba252792c622c5d5c41416f714a0cc28b9db55b7419f49378a3",
-      "size": 14439
+      "sha256": "bec56a4eda4c2ed7e363d7104cc4155100c5e15c0003bbb2e4d23d3c46dc40ab",
+      "size": 14667
     },
     {
       "path": "rust/src/flowdata_internal/internalfb/wire_payload_generated.rs",
-      "sha256": "70b7a435c7a6312b3c938ed2d9ef661d2216a4bf9000e9d98240dc7ad8dbedff",
-      "size": 5787
+      "sha256": "2340d7a505d058242e4c435aa8cf9824e8856e82961589fc1f2d728046ddddb4",
+      "size": 5671
     },
     {
       "path": "rust/src/flowdata_internal/mod.rs",
@@ -825,13 +825,13 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "ac0523a6707ac8121ed51159d673f64c16a0caa2b722de608004006dda7ba0af",
-      "size": 58636
+      "sha256": "a9f108a083e2ca371b3617fabf513aecf12aa4cc8a646a2b132596b7b4b24ba8",
+      "size": 58637
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections.hex",
-      "sha256": "845b47296ffc8f51958d93d2c1410e7d572db83a8ff0187881eceb16066f7f44",
-      "size": 1025
+      "sha256": "e52411057e3902bd0ad4fcc3542e7c2549a8d825d0ad5b11e7967876bf947363",
+      "size": 1057
     },
     {
       "path": "rust/tests/opk_packet.rs",
@@ -850,12 +850,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "442ae2cb332d572d0b31dd7c766deb137e621ec6971e1fd48e7a413b57f3b984",
+      "sha256": "f53dc10fac109fccec253e00cb95e20c2d4cbd80aa832f4ca79eed65c363dea8",
       "size": 2868
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "e188382effb4288c017f704db1a87c7c250a719bd97e3e30e57465fff0b3931b",
+      "sha256": "f0033700126ae8dbb00ab451a173c931cfcb01029a39844721929b1e47545045",
       "size": 14047
     },
     {
@@ -1450,12 +1450,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "23312f6405657c7a9ef66fdf0c2240251842e75cbb4af866742d9750827f977e",
+      "sha256": "14b8f40788f8f5226539e218332bbf924099c75ccecb3895b4ace8d79cb8ec89",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "388335c74b2a5049ece82d496937f7bb2871e4e06696b4b926c72a383f131ac2",
+      "sha256": "f5913be0b1b928c2bfd9091e827a5328772deaf7e7b9df4b4661a3e2131d4c3b",
       "size": 1203
     },
     {
@@ -1470,12 +1470,12 @@
     },
     {
       "path": "ts/package.json",
-      "sha256": "ed621a8220b5589932f655daf2069799aa0f45de55f782c011e3c8d2f1b46ab9",
+      "sha256": "abca7f20d19bfd5feaa5c633e6ac1b1de08f2bb4d2b1e3d2367d8f596d4ada2b",
       "size": 874
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "c8936c4603fde466d8c193be3770c11f35c9194ae82fada23d808fbe39a31e4c",
+      "sha256": "97d06b3ac4515cbd5898da07193c98170097e6d74535b456d3ff68e5599cce75",
       "size": 12726
     },
     {
@@ -1775,7 +1775,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "e7c7269a2be97a60ba175a67e852b87c670a74bfd5b5c7506abe16b73f3858d6",
+      "sha256": "7ed725d8e3b404971007f66b8e5cb18effcabce10173b40c4968bb545e6fc7f2",
       "size": 1216
     },
     {
@@ -2026,8 +2026,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "24f8381b6aaf188e979a00f17beb49ca2234f61fde1c50081c593082680603cf",
-        "size": 47789
+        "sha256": "7db7e57e5c2c0ad5634afd797a8e2a154fbd6ca8503d8c81ca3a4aa85fd3c25a",
+        "size": 48975
       },
       {
         "path": "tools/perception/artifacts.py",
@@ -2036,13 +2036,13 @@
       },
       {
         "path": "tools/perception/release_common.py",
-        "sha256": "7f023739343af3c48845650d3ff7b2ade79288751844d4aef6687674fa4bb735",
-        "size": 1967
+        "sha256": "065e418d44118203c03efc4f117de6e2bdec53487524a0a11c98ab839d5e9e94",
+        "size": 3109
       },
       {
         "path": "tools/perception/sdk_config.py",
-        "sha256": "472f0b86d64a321fb8bb67c99c5d894561ef12f408665b93ba714162d98ab407",
-        "size": 11792
+        "sha256": "2731237e55f93a5afcbef6c4fd9b03b37a45f15c4024aaab46dcb91bc48c708b",
+        "size": 11751
       },
       {
         "path": "tools/perception/tests/fixtures/write_packet.py",
@@ -2080,9 +2080,10 @@
     "cmake_formatter": "0.6.13",
     "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
     "cpp_formatter": "clang-format version 23.1.5",
+    "cpp_verifier_api": "non-template",
     "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.15.0)",
     "rust": {
-      "flatbuffers_runtime": "25.9.23",
+      "flatbuffers_runtime": "25.12.19",
       "formatter": "rustfmt 1.8.0",
       "standard_library": true
     },
@@ -2095,8 +2096,8 @@
   "project_files": [
     {
       "path": "development/perception/meson.build",
-      "sha256": "ee2e1bde05d82fcd465a23e5cf8aafaf3873d5f8cfd2d4e9ea0b0dd4fe743d50",
-      "size": 1976
+      "sha256": "9d44327ecfc9e5e582d7ac69c9a1a7c097206a7749af0648df9ea3a5db90d970",
+      "size": 1977
     }
   ],
   "upstream_receipts": {
@@ -2104,103 +2105,103 @@
       "files": [
         {
           "path": "cmake/open_perception_kit.cmake",
-          "sha256": "af15775f6b8ecab08708c9f6872e618b45a8941a8a4660ce0d1115354016efc7",
-          "size": 3536
+          "sha256": "2b8c543b16485656b118cd0470764c1c3a5fea7183292c2867c5ea33cf81db36",
+          "size": 3541
         },
         {
           "path": "fb/box_detections_generated.h",
-          "sha256": "dcd32c78ec6783ad35b2633061d03ed6c1b4b46f699defb6f6125ebd72bae9f1",
-          "size": 18829
+          "sha256": "2001aaaa3f315f46aad8994661c04dda3620c6eb1f2a055440c21d388ab3b5d3",
+          "size": 19000
         },
         {
           "path": "fb/camera_contacts_generated.h",
-          "sha256": "c9cbcb70dc919e442d029665d3b89a107ca2a09b4e5bb2551b42647fc9384a3a",
-          "size": 22282
+          "sha256": "ecb381981318a08be1feb04bb2499eed02976b3a64d8099cfe5a3a3c64f497de",
+          "size": 22492
         },
         {
           "path": "fb/classifications_generated.h",
-          "sha256": "3167ea7416f3e3e4601cb1fae6e39222f875f2d7064564e62601946a263a815d",
-          "size": 27491
+          "sha256": "c3f6a47fb1a40a9ab54fd62992cb5e473b9bc5648ce52f01497b2a6f2b6b0596",
+          "size": 27701
         },
         {
           "path": "fb/common_generated.h",
-          "sha256": "fa716f7d239130a1a4fec01eb31d60fdc4df420a99b137d64e2fae207fc182ae",
-          "size": 41820
+          "sha256": "60df24abbf88cb668b554f3f60e3e9915ab749c28d06538d1d9d659ecdf48737",
+          "size": 42055
         },
         {
           "path": "fb/frame_context_generated.h",
-          "sha256": "96adb1b77012ff82493776db12229142d45d419881e66967468d7a7f739e6047",
-          "size": 26773
+          "sha256": "861a31eaa6d1f688253965df682b1ad96101e69a5001a9d84d1634b11fe88bf5",
+          "size": 26983
         },
         {
           "path": "fb/gaze_measurements_generated.h",
-          "sha256": "0938cd2550c79b48adf510d799779f21884b960d8706c44d022f9a646c9f7cbd",
-          "size": 22154
+          "sha256": "818443c920ae51e0d7ecdc15e856890525671691bc590d8b9cfa66750f5b0ad0",
+          "size": 22364
         },
         {
           "path": "fb/instance_segmentation_masks_generated.h",
-          "sha256": "d6db1d1546adf33051b8458fa3016d3764f6aaa90ce197b02b067c32798d49f6",
-          "size": 22083
+          "sha256": "05bb553d2f327f02dce9118e7a9512dc9d5ce61d85a6a4cc1460ce38c4e5b74d",
+          "size": 22254
         },
         {
           "path": "fb/internal/wire_envelope_generated.h",
-          "sha256": "66f3f729756e1080f48dec013d81fcdd1a6f4aac250eb992232a408dc27ed76d",
-          "size": 16245
+          "sha256": "3c95faef355ca735a515c2797d9c14f04bc3b21ff11ba400f47591ecddf54834",
+          "size": 16416
         },
         {
           "path": "fb/object_embeddings_generated.h",
-          "sha256": "1a4e9837c028a364ca6ad22be9a92416653b56c5e64aaf70e7e423d5eb21bedc",
-          "size": 24993
+          "sha256": "6b47f5fe46c2cc98bea7b4a26b0aaa46f8f9558c870711228eb79cad0b8d3b97",
+          "size": 25203
         },
         {
           "path": "fb/object_tracks_generated.h",
-          "sha256": "a1652c98417c9ed7954c0650ef6606641a1d425fc4f0dc086dc23f088622f0a2",
-          "size": 25274
+          "sha256": "24f16da32fa0e537210c00605e110f2aa4f8d4fedfce736d67249a5a98d08de6",
+          "size": 25445
         },
         {
           "path": "fb/performance_measurements_generated.h",
-          "sha256": "5ef8ee008163fb3ec12d6c888f67170e1b0a6487f60391e971ca3e83ba8cef71",
-          "size": 23151
+          "sha256": "e8191446a3ba9a176059045700b2c165642d9b6b4f642e3d4db80d745368c342",
+          "size": 23361
         },
         {
           "path": "fb/person_presences_generated.h",
-          "sha256": "861c82c12667a7ae2ba454ce3d4542856c9fa30f05d68b83ddcf0fcad5a0389f",
-          "size": 22391
+          "sha256": "f17d41bac7e89660e5582c614b952ade3d50c74c88927dfb65723bd59575e647",
+          "size": 22601
         },
         {
           "path": "fb/segmentation_masks_generated.h",
-          "sha256": "80c42e14c14a42e7ef1c09e1f89ee241620857be920e4da3196f02c9acfe5dd7",
-          "size": 18555
+          "sha256": "c315e9c43189a42f206d4e374d955992b4a5846532f65b766a445b979fe6b1a6",
+          "size": 18726
         },
         {
           "path": "fb/semantic_segmentation_masks_generated.h",
-          "sha256": "2ddd6914dc56057d3957ee36425657ac42223061c6898e19925bc1c9bcd9fe53",
-          "size": 20225
+          "sha256": "7379645932329f59f6349bde91a5338edfa29361c4026de24cfa4d2a337e3337",
+          "size": 20396
         },
         {
           "path": "fb/track_traces_generated.h",
-          "sha256": "bd791ba52f9e9cb543c0b949b58a9e9287850da90677473c642fe8b051a2962c",
-          "size": 19591
+          "sha256": "828acc9a54f8908d68894de63a173fa26f4f6d139486bdc8e70d0ec97b12e91a",
+          "size": 19762
         },
         {
           "path": "fb/tracking_generated.h",
-          "sha256": "257fd5022737200871c78015b58996d4e9fc42424aa61d35d15d204d871335ab",
-          "size": 23835
+          "sha256": "e47b686222faec8519ac330930d28009fde4a6ef72ab1767592575d555d72944",
+          "size": 23992
         },
         {
           "path": "fb/turn_detections_generated.h",
-          "sha256": "777533596c5cd09386bf8a87a4f92bcbe7b7f1c13edcbb638706a9706258f58f",
-          "size": 20978
+          "sha256": "421aa9e7025956ffbb8e888bf8e5f4650455d066072a3f1468f85641575116ef",
+          "size": 21149
         },
         {
           "path": "fb/voice_activity_detections_generated.h",
-          "sha256": "63afdedfe81680383e0089c0e64193b227cb0ec47b08c06803597285ecd6df15",
-          "size": 22480
+          "sha256": "0e1d2b0c95aaf246ab684a2ae6f92d15c4cc57439e3e8ce7beb1ac70b8966edd",
+          "size": 22651
         },
         {
           "path": "meson/open_perception_kit/meson.build",
-          "sha256": "d2b4fd9a3397ca6b1ae8113b1f559328fb089b9549f07e2cc4b76e92650ccc4a",
-          "size": 3479
+          "sha256": "b8f8c794c3621781ca5a41a125c20d4215a9159f675516ee4df2eb2153e403f5",
+          "size": 3483
         },
         {
           "path": "meson/open_perception_kit/python_bridge/meson.build",
@@ -2209,8 +2210,8 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "800811671261c5433fcd7d2914bdb163864acb9bb35c84eab422936ab42e97a9",
-          "size": 35746
+          "sha256": "13011983ec2e6b958dc41b8f607cec389327e42e5eeded27658aa9f020c04ded",
+          "size": 35747
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
@@ -2227,7 +2228,7 @@
         {
           "language": "cpp",
           "package": "flatbuffers",
-          "version_requirement": "==25.9.23"
+          "version_requirement": "==25.12.19"
         },
         {
           "language": "python",
@@ -2236,8 +2237,8 @@
         }
       ],
       "flatc": {
-        "semantic_version": "25.9.23",
-        "version": "flatc version 25.9.23",
+        "semantic_version": "25.12.19",
+        "version": "flatc version 25.12.19",
         "version_requirement": ">=24.3.25,<26.0.0"
       },
       "generator": {
@@ -2443,19 +2444,19 @@
       "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "1.0.0"
+        "version": "1.0.1"
       }
     },
     "python": {
       "files": [
         {
           "path": "pyproject.toml",
-          "sha256": "c24b2c050bc8ba3350f063f6c54ecaae3c660833554b000a668a0b6ca6534f4e",
+          "sha256": "65d245cfdc4eef930037b27d4ede573010eb3b4dda1848c065b198672accefc1",
           "size": 488
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "35c924ca0cc2e59583c7c8f4cf597fd33039cd333b0fa629df9705c69890dd6b",
+          "sha256": "d47488d87ace1d5f369d2e05008df84d2d57dfbb04c12addb9090f48f06d0a00",
           "size": 506
         },
         {
@@ -2790,7 +2791,7 @@
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "922ab81a14f33ff3a20bf38d5e3da2e1cdd8e3dfa23bc58c9c58a0d2f0d3741f",
+          "sha256": "13e0261021e824d1e4bd0b78aa4f394b720860b98aae55fc390030b63fffed89",
           "size": 14823
         }
       ],
@@ -2802,8 +2803,8 @@
         }
       ],
       "flatc": {
-        "semantic_version": "25.9.23",
-        "version": "flatc version 25.9.23",
+        "semantic_version": "25.12.19",
+        "version": "flatc version 25.12.19",
         "version_requirement": ">=24.3.25,<26.0.0"
       },
       "generator": {
@@ -2919,7 +2920,7 @@
             "src/open_perception_kit/guest.pyi"
           ]
         },
-        "version": "1.0.0",
+        "version": "1.0.1",
         "wheel_tag": "py3-none-any"
       },
       "schema_files": [
@@ -3012,15 +3013,15 @@
       "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "1.0.0"
+        "version": "1.0.1"
       }
     },
     "rust": {
       "files": [
         {
           "path": "Cargo.toml",
-          "sha256": "f7b6028c141560aa460f16d0564d35794392bdbf344836b7ec528e0d4316ce9a",
-          "size": 170
+          "sha256": "429607d660c956d9558d881b1e18ecc861acd5a4f1ccac4921e2fe2a42d07269",
+          "size": 171
         },
         {
           "path": "src/fb/mod.rs",
@@ -3029,128 +3030,128 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/audio_frame_context_generated.rs",
-          "sha256": "949f00b295aa1721b2c2cd80f1f1efce3124fb77fac9d1dcfd5a937349ab8abf",
-          "size": 12297
+          "sha256": "0f1ead0b357affd1b33990aa803abed6c1243ff53fe40df26442e11d0d114ec1",
+          "size": 12227
         },
         {
           "path": "src/fb/open_perception_kit/metadata/bitmap_data_generated.rs",
-          "sha256": "bd5b9ab3c4341a49c7d66808de9087c1b4e4390b18a32bbfd48a72e311a4769a",
-          "size": 8576
+          "sha256": "521674c60213859a0375157add405f2826f241c8eb1378bc78843e48e4c0b70d",
+          "size": 8504
         },
         {
           "path": "src/fb/open_perception_kit/metadata/bitmap_encoding_generated.rs",
-          "sha256": "2a1816648024eed3a772713a154e06d73ed5ae7cc2ccbd21a28c18991ad7977f",
-          "size": 3209
+          "sha256": "1364e5c33fba500079177b13bed4727c0c711935cf0fae756c1f79b384bb5f5f",
+          "size": 2974
         },
         {
           "path": "src/fb/open_perception_kit/metadata/bounding_box_generated.rs",
-          "sha256": "7a979990a716900b8f38e164550b14f4b75fa61e67908b95c9bcde54c8adf3c2",
-          "size": 8660
+          "sha256": "9dd07a8a6ba5b1c638d35b06f57633c89df93c58f634a86e356d9273080cfcdb",
+          "size": 8558
         },
         {
           "path": "src/fb/open_perception_kit/metadata/box_detection_generated.rs",
-          "sha256": "f756caae727860756b5b31b2970577ecf4476e3479598e5228f00026174cfa79",
-          "size": 8705
+          "sha256": "419afbca77ca7c437e4bf95f3decaa90b94f1cacc7878b8c8b0653084eb9b6ad",
+          "size": 8751
         },
         {
           "path": "src/fb/open_perception_kit/metadata/box_detections_generated.rs",
-          "sha256": "3c1271d7e5544e07d580b338a0400621e3d8f5275da3403a15c57ef754725bd2",
-          "size": 12141
+          "sha256": "e43f0247be9acc532f8e625cc24a81183c20210b2dba22867dbc0cb45e80370a",
+          "size": 12262
         },
         {
           "path": "src/fb/open_perception_kit/metadata/camera_contact_generated.rs",
-          "sha256": "da4cc71f8a64525437cceafee18fe3822bddcfe763e048dc46b8ab92ae7480ad",
-          "size": 6994
+          "sha256": "c8f4028354946113c7b26c13bda2b0640c0174444818392995936c849d1de098",
+          "size": 6924
         },
         {
           "path": "src/fb/open_perception_kit/metadata/camera_contact_result_generated.rs",
-          "sha256": "95956ac33884c4afa4bf718aeec2449c824926d922f56a4bce0aefa5bcad2623",
-          "size": 6678
+          "sha256": "d61be2f7807673504360677b10033891b60be42c8862cdb1376a5970106f2964",
+          "size": 6532
         },
         {
           "path": "src/fb/open_perception_kit/metadata/camera_contacts_generated.rs",
-          "sha256": "502ec49231a28e6e0deecb159f2c90ad3710900b206e910fe38e6ca1f84c5840",
-          "size": 12163
+          "sha256": "ee283c9b17f209b6f6944d816c6d9e0399119f97028cd0bbc043d1d13d69c4e4",
+          "size": 12277
         },
         {
           "path": "src/fb/open_perception_kit/metadata/classification_candidate_generated.rs",
-          "sha256": "2896dedfbe0b309476e165e9a9c0411e19b55e43f97ea6164092d397cd54121b",
-          "size": 6719
+          "sha256": "fd0af4b1f9d4d4b0cd79373c5958ee2b102f4a2b934f6833c4ac114af0bce218",
+          "size": 6644
         },
         {
           "path": "src/fb/open_perception_kit/metadata/classification_generated.rs",
-          "sha256": "ea08f6473976a10d9655cf36c22e10587969b0cd8936e26ecdb3b1249dd7956d",
-          "size": 9970
+          "sha256": "64e9b3acb84c7e2b3256c10d05f6bea3b7092d115a5b340b50f7b88ae627b3b4",
+          "size": 10028
         },
         {
           "path": "src/fb/open_perception_kit/metadata/classification_kind_generated.rs",
-          "sha256": "fb3ae061e02170d191b35e8fdec027bd854835a75e5e3a8cfc87bf1c04991d4a",
-          "size": 3341
+          "sha256": "78b4dcf1085b18641ffbf8d5da202f3f2fb1a00627841e646d189b4f31031f72",
+          "size": 3106
         },
         {
           "path": "src/fb/open_perception_kit/metadata/classifications_generated.rs",
-          "sha256": "d242cfde53ae029a4f5d571f4529cb4fdfe38023a03e4cc78558f365bf789508",
-          "size": 12457
+          "sha256": "2171e2db4a0bd26f3320515171b8e94a8897cc57e76fd7a9e62ffc11ebeb3995",
+          "size": 12524
         },
         {
           "path": "src/fb/open_perception_kit/metadata/coordinate_units_generated.rs",
-          "sha256": "bb510cf74f96712886148d1bb6f0fdd0760b7635520aea9422355b750de8f062",
-          "size": 3083
+          "sha256": "3dc2db7b565841bc5eeb39621feb87c5358c23facfb691bc7ae12b263f6455e0",
+          "size": 2848
         },
         {
           "path": "src/fb/open_perception_kit/metadata/embedding_metric_generated.rs",
-          "sha256": "343293950e1a8ae5e4fc8af67e6fdd29d54ba8acf4230b1ef19bd24526ad2791",
-          "size": 3088
+          "sha256": "afd75c377b6f9d1ff978fcdd7f8d51b4aef795b1c090147288335b01d713c91e",
+          "size": 2853
         },
         {
           "path": "src/fb/open_perception_kit/metadata/embedding_space_generated.rs",
-          "sha256": "39e2858f763344f0fa1dad3cc26b3d8722fdafc47aab4f38f5a6d8f933f22c6b",
-          "size": 6510
+          "sha256": "95b99f6048525d806127dc132bfec9f55f0f470a97b8765a3e11381fabc92555",
+          "size": 6413
         },
         {
           "path": "src/fb/open_perception_kit/metadata/frame_context_generated.rs",
-          "sha256": "191e24d5028b45f1f7431f0548f7985677dcb0b37820db13c578b7030b69f8ec",
-          "size": 12953
+          "sha256": "5f51cc54af71082c9db9c08324a012ee42708ce5afb354f3e7635531fbb98ad2",
+          "size": 13051
         },
         {
           "path": "src/fb/open_perception_kit/metadata/frame_rate_generated.rs",
-          "sha256": "93071e87dc110a9e9cd25eb8145183e4917a7adcb63486ccf16433a484dc5b9d",
-          "size": 3833
+          "sha256": "7274116ae087177d07e38b117e726283ef161a2f223ca67a2e02a8490d3534a9",
+          "size": 3698
         },
         {
           "path": "src/fb/open_perception_kit/metadata/gaze_angles_generated.rs",
-          "sha256": "f2809a2e0110c98f5a2cf5ab71c7dcb195c4d5c26b6de9535835fc3030408cc2",
-          "size": 5238
+          "sha256": "de64b58c3bac14255b67df5b28393ceb35763420f95baca68313f2b102d0482a",
+          "size": 5090
         },
         {
           "path": "src/fb/open_perception_kit/metadata/gaze_measurement_generated.rs",
-          "sha256": "d4ea83c440d3c16badf2974029028781627c9a834d5a38de7454113efb128242",
-          "size": 7924
+          "sha256": "25e36c0f6be11b2c172d6fd719a8502541695cb62ef90d9a670badb6d1504cf8",
+          "size": 7856
         },
         {
           "path": "src/fb/open_perception_kit/metadata/gaze_measurements_generated.rs",
-          "sha256": "faab70a3f919e62986322e31abe4296bc87aecf6c1b39c8d42f69323044bb35b",
-          "size": 12490
+          "sha256": "6da1d7ed430fe81d74037f4c21654df1e86ad6490221b40439efe21b06dd463d",
+          "size": 12568
         },
         {
           "path": "src/fb/open_perception_kit/metadata/image_space_generated.rs",
-          "sha256": "e26d5bca649d9d926e3a81da43192c791ce71b21baf4d303361a3a6fb464c2ca",
-          "size": 9666
+          "sha256": "02ae9b1d5c1e387f382cf8acc05e2a62d45281f38e81178e2c882657ef38cca9",
+          "size": 9528
         },
         {
           "path": "src/fb/open_perception_kit/metadata/instance_segmentation_mask_generated.rs",
-          "sha256": "8a8757d226d182dabe29be6d712c29351277e4f25613523db771c55e904879ce",
-          "size": 10922
+          "sha256": "3395a5d4d68f62743fb52aaf02a132f2ef6bd6704537ea376ab124d54caa4692",
+          "size": 11063
         },
         {
           "path": "src/fb/open_perception_kit/metadata/instance_segmentation_masks_generated.rs",
-          "sha256": "8ac84bd9af195b6e0b1a0a1362ac4763809a4aee8952e697d507d099c88b379e",
-          "size": 13132
+          "sha256": "69cdc74d4b5cedfa2ccc11fd23fcf0f76b5021dc0380504ebe80b24a5a8e825b",
+          "size": 13210
         },
         {
           "path": "src/fb/open_perception_kit/metadata/layer_info_generated.rs",
-          "sha256": "4868d02a99f68012dc4fa4ba0d49fbf26ec45694f651556472f1c4b33180f450",
-          "size": 12146
+          "sha256": "f51c8e2b4e67721aba351fba648b063b87083203c31b9eb7a7139b9e4a93edfe",
+          "size": 12433
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
@@ -3159,153 +3160,153 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
-          "sha256": "998050b252ca552729f23e3f810bcada4c83303c83dac0c67f5b113b720d6390",
-          "size": 8388
+          "sha256": "84773fb4a429205b06038676e9640b3d2daede99cd3172a693533d126c315096",
+          "size": 8352
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embeddings_generated.rs",
-          "sha256": "3a375bf6072b4015a7dc5fe782793d93f1f91a6718d576722f41e5f33f34e879",
-          "size": 12444
+          "sha256": "99d26feec4e191dcbdf2f8158aa6c1b7cd1d5cd91ba843c725ecb4a62d1da369",
+          "size": 12522
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_meta_generated.rs",
-          "sha256": "e0c6403626b4498aea6345c6b7956ad36b764cc136f099ce98d3b376aff606e5",
-          "size": 5910
+          "sha256": "09304c17717d30d862879125644b745a8704625473a03eaf47a730f6e801fe31",
+          "size": 5764
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_track_generated.rs",
-          "sha256": "a4663e0600c3990e651ee4bbd4843bbd5c0eb919981ad89cf5a09b66f7e85288",
-          "size": 15155
+          "sha256": "a304af2fc00303de0ba24aa22a88e777344737271bcc8a93692f84aec7c0dde4",
+          "size": 15457
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_tracks_generated.rs",
-          "sha256": "e979a61fa16ef570e4022831900e0d708fd0eef49c649dca051356e9e49357d9",
-          "size": 13068
+          "sha256": "5b8b49877d0111dcea6b7d5c3bf9bfec87323a31c57b4e1638e0f1122e313a35",
+          "size": 13144
         },
         {
           "path": "src/fb/open_perception_kit/metadata/opacity_meaning_generated.rs",
-          "sha256": "8ab2885ac5389ebef296d2f89387cacc3da4de3027ca5eedb37c9a202a241655",
-          "size": 3325
+          "sha256": "8e04829a41ecff26cd987f133f36d32b3bff00798bb56ccf0b3a995044c4f933",
+          "size": 3090
         },
         {
           "path": "src/fb/open_perception_kit/metadata/performance_measurements_generated.rs",
-          "sha256": "d113b2ba27a07ba733b3aa143cce7f463f21a45934a29b3f94ce6e732f408182",
-          "size": 15933
+          "sha256": "6bb6250bcad7a90224e110a55630c0b2884771467806a54a91fd4d30f05fe648",
+          "size": 16116
         },
         {
           "path": "src/fb/open_perception_kit/metadata/person_presence_generated.rs",
-          "sha256": "9cc355659348d9f5b9ca34b0e582fd92580a5cc720eb91704c472a4e83a56851",
-          "size": 7035
+          "sha256": "97bd768775a73a5afd98ffae0714dfcd7c3f65ca5af7a94240ca3e86b0a2ade8",
+          "size": 6965
         },
         {
           "path": "src/fb/open_perception_kit/metadata/person_presence_result_generated.rs",
-          "sha256": "2a9e661cfdfd32d8aec0bbfef8817c6e5123ebef1cf57922396bf4106d467dbb",
-          "size": 6608
+          "sha256": "9afdb0900c5769aa5ac8b548b1a3595a1c83c082087913a0ea4d3bb266f1d347",
+          "size": 6462
         },
         {
           "path": "src/fb/open_perception_kit/metadata/person_presences_generated.rs",
-          "sha256": "0fa81e343fed9dd5fca24bb51af8b707cf8201fdaad16c664edbe0d499214d3b",
-          "size": 12338
+          "sha256": "372cc66a5112b1e2d3e0ded7440f8841c9975bf3122acb317496a5508808c95f",
+          "size": 12405
         },
         {
           "path": "src/fb/open_perception_kit/metadata/producer_info_generated.rs",
-          "sha256": "cb65e8f585f5e4a1555835c2e594baa79b218b65f653e71ed6f80998b5314048",
-          "size": 7274
+          "sha256": "0cf1934b99bc0ad707e78fc54db40d1c7d855b9115157c5cfcb5bc5fe594f37d",
+          "size": 7353
         },
         {
           "path": "src/fb/open_perception_kit/metadata/scope_timing_generated.rs",
-          "sha256": "0b0534c4111c7c90c29194d91e1a4d26cf282b7ed45f4c8ed733d094b6472818",
-          "size": 7362
+          "sha256": "eead12992263c6cfcdabb5e3090966f6a5b06ece442b88c84ebd3c893f49be46",
+          "size": 7342
         },
         {
           "path": "src/fb/open_perception_kit/metadata/segmentation_mask_generated.rs",
-          "sha256": "5ea9d527a8c058757492966bf3cd892b4d9d40e1c0197582a99eaefc7f3022ea",
-          "size": 7168
+          "sha256": "d827c1a2eca4c6006124d4d469c3bd2c0058eb0d968dc91af51c61ed1f85c708",
+          "size": 7158
         },
         {
           "path": "src/fb/open_perception_kit/metadata/segmentation_masks_generated.rs",
-          "sha256": "5a94a2f4cf20949bbe0ee64852811715106f3217f87698424b03cb5b5534fc42",
-          "size": 12364
+          "sha256": "5c669a42b8ac90604acd578a1c29489c1722816ebcaa92935a73f8e0fdba6b92",
+          "size": 12442
         },
         {
           "path": "src/fb/open_perception_kit/metadata/semantic_segmentation_mask_generated.rs",
-          "sha256": "3cd571945ab0cc2f50a0d4b2d8fea422ac46c5a9d2bb238f9547b559b4628240",
-          "size": 8684
+          "sha256": "23c3eb799eae590f49219a961249b2b87850da7cb329d1a70ad46123fe08d490",
+          "size": 8691
         },
         {
           "path": "src/fb/open_perception_kit/metadata/semantic_segmentation_masks_generated.rs",
-          "sha256": "b41a69c8a8f00d38357bbb53b335d61d8b2859ed2e088f4aeee501167af6b68a",
-          "size": 13132
+          "sha256": "85e8e9ff75cd21ff0ff29f0548c41d56afb061bcf21dd6201cc81ad493e64dc1",
+          "size": 13210
         },
         {
           "path": "src/fb/open_perception_kit/metadata/track_association_generated.rs",
-          "sha256": "a3f8de63b1f978e193c43f7a06c76338e06f5eb2605a7c6d3c5158fa7b90d7e2",
-          "size": 5307
+          "sha256": "65ce7b68a1cab52b2527f27b4ef5c63c4a23ffc723a1060af330ae3dd7f2ea9f",
+          "size": 5159
         },
         {
           "path": "src/fb/open_perception_kit/metadata/track_association_kind_generated.rs",
-          "sha256": "8e0b1126cf8992c464841f1d4cd982df6ba89d578c3fad40bb2936cafa8a2c56",
-          "size": 3650
+          "sha256": "4a77007103130563eaddf2ebc9a2448eaa6fcad5e7e4fe849342d4489e890266",
+          "size": 3415
         },
         {
           "path": "src/fb/open_perception_kit/metadata/track_identity_generated.rs",
-          "sha256": "bcb71d9c0d47ddc72643c465e6377007682fa4dcbe528aee012f9dd8a61fdd8e",
-          "size": 6849
+          "sha256": "68e8c3ea839fb965afddf5e0c3fa288d6d1a8c6748ce7423fe4cb16e08e9df2e",
+          "size": 6853
         },
         {
           "path": "src/fb/open_perception_kit/metadata/track_observation_state_generated.rs",
-          "sha256": "98d9306b5b3ee461766d401c43458da88b163c8a3c1779170355736d3736eca3",
-          "size": 3344
+          "sha256": "2fcb41850933dae642ff4d79b080f8c1c77d71875f1c227618d10856ec33aeac",
+          "size": 3109
         },
         {
           "path": "src/fb/open_perception_kit/metadata/track_trace_generated.rs",
-          "sha256": "5b0413129014a940d2b4471ff3dc98c40778a60bc2402e118a7f20c99f10a3a5",
-          "size": 8802
+          "sha256": "8facc5f9f37ec118239a663386319ae41ba845cb4cb15943b1a934ed84ea1800",
+          "size": 8877
         },
         {
           "path": "src/fb/open_perception_kit/metadata/track_trace_point_generated.rs",
-          "sha256": "2cb56bfd0a2705e70f426ba01cebf723190f3aa5c310557e6e322dc4f8f8aa08",
-          "size": 6125
+          "sha256": "f23fd9d766c4b9cd1fed3b5719d3e5b5d89c102e995a37950331979038279e9d",
+          "size": 6017
         },
         {
           "path": "src/fb/open_perception_kit/metadata/track_traces_generated.rs",
-          "sha256": "324ea50b5c6140c407ab6f66dffd6ba975b19d697f598be8e5a70b1b387ab037",
-          "size": 11861
+          "sha256": "52da4c29e3ab39b86aededb9d3e245bd492d83a4e41df501fdf79f2a3b20cd0d",
+          "size": 11935
         },
         {
           "path": "src/fb/open_perception_kit/metadata/tracking_sample_generated.rs",
-          "sha256": "315dee16fbc6d5757857c635139d8d2cd2067eaf7a144aa883ec68a58766b1b5",
-          "size": 7807
+          "sha256": "6f3e3bced6a557a0ed39aa3c38096bbdbb618f1b781265113f4c996b6474d51d",
+          "size": 7663
         },
         {
           "path": "src/fb/open_perception_kit/metadata/tracking_time_source_generated.rs",
-          "sha256": "b6f3c1bed0ca18126f6db121d0d87d356c8bde80e45438d96af21d082c60c721",
-          "size": 3334
+          "sha256": "7debeff85bae339c39580180721df1d8a8ddb9bcc199c73c5b3a782fcbd5e45b",
+          "size": 3099
         },
         {
           "path": "src/fb/open_perception_kit/metadata/turn_detection_generated.rs",
-          "sha256": "efbc33f897d89b827366d79345e315717d0917224847a030c1315f8f93d54967",
-          "size": 12565
+          "sha256": "bef74782e1543820ff31749aee91532bbcfd094200593238c3be878d6578ebbd",
+          "size": 12467
         },
         {
           "path": "src/fb/open_perception_kit/metadata/turn_detections_generated.rs",
-          "sha256": "2fff4e592245afb584bf6e3a20b54d27dd25558f3653cebaaa3798956bbd4468",
-          "size": 12231
+          "sha256": "1349747212cbe5ad535f424fcfe075733e3a3c1061e505c70788847516f1f580",
+          "size": 12345
         },
         {
           "path": "src/fb/open_perception_kit/metadata/video_frame_context_generated.rs",
-          "sha256": "6c13d9cf7bd08861064059055f32c018d5587e2870baccda0d9e904f0748ef81",
-          "size": 8087
+          "sha256": "36c9221990894249ec4b0c50ee0e5b4ff62cc2a2a7e948ad116045ef641336be",
+          "size": 8011
         },
         {
           "path": "src/fb/open_perception_kit/metadata/voice_activity_detection_generated.rs",
-          "sha256": "4871d0fb94123fb90a35b495a337218255847fe0350e4b2cb08a740b8496b396",
-          "size": 13208
+          "sha256": "9c1676e729bf2199a69a179b9c200aa3512e2c58d036342ccce0010af4371288",
+          "size": 13110
         },
         {
           "path": "src/fb/open_perception_kit/metadata/voice_activity_detections_generated.rs",
-          "sha256": "717f4c0c2427784701033d40bcf51b9f7721e50d81e69789654e771fbeec72dc",
-          "size": 13100
+          "sha256": "1ca1af82898ada8a5e0cacc87406113aadc29b79d405d8e6dc6e1ac2a53a85c1",
+          "size": 13174
         },
         {
           "path": "src/fb/open_perception_kit/mod.rs",
@@ -3319,13 +3320,13 @@
         },
         {
           "path": "src/flowdata_internal/internalfb/wire_envelope_generated.rs",
-          "sha256": "e1021b7aedfb67be11339775a153f23ab075e3d8ce9bd3ec94356cc70031f240",
-          "size": 13758
+          "sha256": "e081de42c9cc73ad40224cfe23049454a825593cd66e9b52e278171a51473710",
+          "size": 13986
         },
         {
           "path": "src/flowdata_internal/internalfb/wire_payload_generated.rs",
-          "sha256": "1ddea51a9901d5b3bf558cd7cd638c686c35c51a5a30dcb320e677ef108fa35f",
-          "size": 5106
+          "sha256": "d8e2f17320d1632b6f0f63297941fef4a5f4ee9a0df8216b73c1c1b4a77d616d",
+          "size": 4990
         },
         {
           "path": "src/flowdata_internal/mod.rs",
@@ -3334,20 +3335,20 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "c7269281693177c417ace1a4076d3efaf169e07f8f8918e65777ae53f12ccb6b",
-          "size": 57955
+          "sha256": "ceb6a62758f078b75c80e0563c9d154812e29c43a51df3e9fc14ddac2c5c4a10",
+          "size": 57956
         }
       ],
       "flatbuffers_runtimes": [
         {
           "language": "rust",
           "package": "flatbuffers",
-          "version_requirement": "==25.9.23"
+          "version_requirement": "==25.12.19"
         }
       ],
       "flatc": {
-        "semantic_version": "25.9.23",
-        "version": "flatc version 25.9.23",
+        "semantic_version": "25.12.19",
+        "version": "flatc version 25.12.19",
         "version_requirement": ">=24.3.25,<26.0.0"
       },
       "generator": {
@@ -3541,19 +3542,19 @@
       "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "1.0.0"
+        "version": "1.0.1"
       }
     },
     "ts": {
       "files": [
         {
           "path": "package.json",
-          "sha256": "5e40161a5d343699f2d6c74524955f582d0b31ee5bf92cce2249c05e99bdf1a0",
+          "sha256": "5c85619b3463366d3012343f2fb5419382a99587ee6a07d1aa9caafa44a64b7c",
           "size": 750
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "f548dbc8d38704c2e710eda9542d50a2f38313f9bd335bd2d907257ca53427b6",
+          "sha256": "9c0a94527bc27b6aee4f65a8f67cd0a6705409898c1b8cddcbf5b663d7f22275",
           "size": 12045
         },
         {
@@ -3853,7 +3854,7 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "22a2d27f33d94b20366bc7c57dde861705f6c4b2b2fd5f259515406665a0f5dc",
+          "sha256": "039c3ab0958db7e1ebbd47ce35b60232f7853123b7c6cf7e57d9adf59db9a195",
           "size": 535
         },
         {
@@ -3875,8 +3876,8 @@
         }
       ],
       "flatc": {
-        "semantic_version": "25.9.23",
-        "version": "flatc version 25.9.23",
+        "semantic_version": "25.12.19",
+        "version": "flatc version 25.12.19",
         "version_requirement": ">=24.3.25,<26.0.0"
       },
       "generator": {
@@ -4070,7 +4071,7 @@
       "schema_set_sha256": "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "1.0.0"
+        "version": "1.0.1"
       }
     }
   }

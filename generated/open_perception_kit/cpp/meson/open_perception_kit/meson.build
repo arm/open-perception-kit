@@ -28,8 +28,8 @@
 #   executable('host', 'host.cpp', dependencies: [open_perception_kit_python_bridge_dep])
 
 _open_perception_kit_cpp = meson.get_compiler('cpp')
-open_perception_kit_version = '1.0.0'
-open_perception_kit_flatbuffers_version_requirement = '==25.9.23'
+open_perception_kit_version = '1.0.1'
+open_perception_kit_flatbuffers_version_requirement = '==25.12.19'
 open_perception_kit_python_version_requirement = '>=3.10'
 open_perception_kit_python_bridge_available = true
 open_perception_kit_python_bridge_module = 'open_perception_kit_bridge'
@@ -55,15 +55,15 @@ else
   _open_perception_kit_flatbuffers_version_check = '''
     #include <flatbuffers/base.h>
     static_assert(FLATBUFFERS_VERSION_MAJOR == 25);
-    static_assert(FLATBUFFERS_VERSION_MINOR == 9);
-    static_assert(FLATBUFFERS_VERSION_REVISION == 23);
+    static_assert(FLATBUFFERS_VERSION_MINOR == 12);
+    static_assert(FLATBUFFERS_VERSION_REVISION == 19);
     int main() { return 0; }
   '''
   if not _open_perception_kit_cpp.compiles(
     _open_perception_kit_flatbuffers_version_check,
-    name : 'open_perception_kit FlatBuffers 25.9.23 compatibility',
+    name : 'open_perception_kit FlatBuffers 25.12.19 compatibility',
   )
-    error('open_perception_kit requires FlatBuffers 25.9.23 headers')
+    error('open_perception_kit requires FlatBuffers 25.12.19 headers')
   endif
 endif
 

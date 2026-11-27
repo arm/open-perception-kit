@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -379,14 +379,14 @@ inline void TurnDetection::UnPackTo(TurnDetectionT *_o,
 }
 
 inline ::flatbuffers::Offset<TurnDetection>
-TurnDetection::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateTurnDetection(::flatbuffers::FlatBufferBuilder &_fbb,
                     const TurnDetectionT *_o,
                     const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateTurnDetection(_fbb, _o, _rehasher);
+    return TurnDetection::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<TurnDetection>
-CreateTurnDetection(::flatbuffers::FlatBufferBuilder &_fbb,
+TurnDetection::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                     const TurnDetectionT *_o,
                     const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -487,14 +487,14 @@ inline void TurnDetections::UnPackTo(TurnDetectionsT *_o,
 }
 
 inline ::flatbuffers::Offset<TurnDetections>
-TurnDetections::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateTurnDetections(::flatbuffers::FlatBufferBuilder &_fbb,
                      const TurnDetectionsT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateTurnDetections(_fbb, _o, _rehasher);
+    return TurnDetections::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<TurnDetections>
-CreateTurnDetections(::flatbuffers::FlatBufferBuilder &_fbb,
+TurnDetections::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                      const TurnDetectionsT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

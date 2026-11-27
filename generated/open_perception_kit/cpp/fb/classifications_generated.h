@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -450,14 +450,14 @@ ClassificationCandidate::UnPackTo(ClassificationCandidateT *_o,
 }
 
 inline ::flatbuffers::Offset<ClassificationCandidate>
-ClassificationCandidate::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateClassificationCandidate(::flatbuffers::FlatBufferBuilder &_fbb,
                               const ClassificationCandidateT *_o,
                               const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateClassificationCandidate(_fbb, _o, _rehasher);
+    return ClassificationCandidate::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ClassificationCandidate>
-CreateClassificationCandidate(::flatbuffers::FlatBufferBuilder &_fbb,
+ClassificationCandidate::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                               const ClassificationCandidateT *_o,
                               const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -553,14 +553,14 @@ inline void Classification::UnPackTo(ClassificationT *_o,
 }
 
 inline ::flatbuffers::Offset<Classification>
-Classification::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateClassification(::flatbuffers::FlatBufferBuilder &_fbb,
                      const ClassificationT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateClassification(_fbb, _o, _rehasher);
+    return Classification::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<Classification>
-CreateClassification(::flatbuffers::FlatBufferBuilder &_fbb,
+Classification::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                      const ClassificationT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -662,14 +662,14 @@ inline void Classifications::UnPackTo(ClassificationsT *_o,
 }
 
 inline ::flatbuffers::Offset<Classifications>
-Classifications::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateClassifications(::flatbuffers::FlatBufferBuilder &_fbb,
                       const ClassificationsT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateClassifications(_fbb, _o, _rehasher);
+    return Classifications::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<Classifications>
-CreateClassifications(::flatbuffers::FlatBufferBuilder &_fbb,
+Classifications::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                       const ClassificationsT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

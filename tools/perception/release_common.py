@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path, PurePosixPath
 
@@ -35,6 +36,23 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def validate_typescript_runtime(version: str, runtimes: object) -> None:
+    """Check the pinned npm runtime against FlowData's declared dynamic range."""
+    records = [entry for entry in runtimes if isinstance(entry, dict)
+               and entry.get("language") == "typescript"
+               and entry.get("package") == "flatbuffers"] if isinstance(runtimes, list) else []
+    requirement = records[0].get("version_requirement") if len(records) == 1 else None
+    match = re.fullmatch(r">=(\d+\.\d+\.\d+),<(\d+\.\d+\.\d+)",
+                         requirement if isinstance(requirement, str) else "")
+    if match is None:
+        raise RuntimeError("missing or unsupported TypeScript FlatBuffers runtime contract")
+    if not isinstance(version, str) or re.fullmatch(r"\d+\.\d+\.\d+", version) is None:
+        raise RuntimeError("invalid TypeScript FlatBuffers runtime version")
+    lower, upper = (tuple(map(int, bound.split("."))) for bound in match.groups())
+    if not lower <= tuple(map(int, version.split("."))) < upper:
+        raise RuntimeError(f"TypeScript FlatBuffers {version} does not satisfy {requirement}")
 
 
 def load_json(path: Path) -> dict[str, object]:

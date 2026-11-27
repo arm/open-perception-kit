@@ -273,6 +273,20 @@ class SemanticVersionTests(unittest.TestCase):
 
 
 class SdkDescriptorTests(unittest.TestCase):
+    def test_typescript_runtime_uses_generated_range_instead_of_compiler_equality(self) -> None:
+        records = [{"language": "typescript", "package": "flatbuffers",
+                    "version_requirement": ">=24.3.25,<26.0.0"}]
+        for version in ("24.3.25", "25.9.23", "25.12.19"):
+            release_package.validate_typescript_runtime(version, records)
+        for version in ("24.3.24", "26.0.0", "invalid", None):
+            with self.subTest(version=version), self.assertRaises(RuntimeError):
+                release_package.validate_typescript_runtime(version, records)
+        for invalid in (None, [], records * 2,
+                        [{**records[0], "version_requirement": 123}],
+                        [{**records[0], "version_requirement": ">=24.3.25"}]):
+            with self.subTest(contract=invalid), self.assertRaisesRegex(RuntimeError, "contract"):
+                release_package.validate_typescript_runtime("25.9.23", invalid)
+
     def test_descriptor_owns_the_sdk_release_configuration(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         descriptor = json.loads(config.descriptor_path.read_text(encoding="utf-8"))
@@ -298,7 +312,8 @@ class SdkDescriptorTests(unittest.TestCase):
             ["pip", "setuptools", "wheel"],
         )
         self.assertEqual(config.typescript_runtime.name, "flatbuffers")
-        self.assertEqual(config.typescript_runtime.version, config.flatbuffers_version)
+        self.assertEqual(config.typescript_runtime.version,
+                         descriptor["typescript_build"]["flatbuffers_runtime"]["version"])
         self.assertEqual(config.typescript_compiler.name, "typescript")
         self.assertGreaterEqual(config.node_minimum_major, 20)
         for artifact in (
@@ -613,6 +628,10 @@ class LocalSourceReceiptTests(unittest.TestCase):
             "distribution_name": config.public_name,
             "import_name": config.public_name,
         }
+        receipts["ts"]["flatbuffers_runtimes"] = [{
+            "language": "typescript", "package": "flatbuffers",
+            "version_requirement": ">=24.3.25,<26.0.0",
+        }]
         receipts["cpp"]["python_bridge"] = {
             "sdk_import_name": config.public_name,
         }
@@ -1157,6 +1176,11 @@ class BundleVerificationTests(unittest.TestCase):
                 },
                 "runtimes": [
                     {
+                        "language": "typescript",
+                        "package": "flatbuffers",
+                        "version_requirement": ">=24.3.25,<26.0.0",
+                    },
+                    {
                         "language": "rust",
                         "package": "flatbuffers",
                         "version_requirement": "==25.9.23",
@@ -1650,6 +1674,27 @@ class BundleVerificationTests(unittest.TestCase):
 
 
 class GeneratedSdkTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("c++"), "C++ compiler is unavailable")
+    def test_cpp_verifier_addresses_preserve_sdk_1_0_api(self) -> None:
+        config = release_package.perception_config.load_sdk_config()
+        source = """
+#include <open_perception_kit.h>
+#include <type_traits>
+namespace meta = open_perception_kit::metadata;
+auto member = &meta::Classifications::Verify;
+auto root = &meta::VerifyClassificationsBuffer;
+auto prefixed = &meta::VerifySizePrefixedClassificationsBuffer;
+static_assert(std::is_same_v<decltype(member),
+    bool (meta::Classifications::*)(flatbuffers::Verifier &) const>);
+static_assert(std::is_same_v<decltype(root), bool (*)(flatbuffers::Verifier &)>);
+static_assert(std::is_same_v<decltype(prefixed), bool (*)(flatbuffers::Verifier &)>);
+"""
+        subprocess.run(
+            ["c++", "-std=c++20", "-x", "c++", "-fsyntax-only", "-",
+             "-I" + str(config.generated_root / "cpp")],
+            input=source, text=True, check=True,
+        )
+
     def test_sdk_release_requires_licence_page_and_original_notices(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

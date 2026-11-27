@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -347,14 +347,14 @@ inline void GazeAngles::UnPackTo(GazeAnglesT *_o,
 }
 
 inline ::flatbuffers::Offset<GazeAngles>
-GazeAngles::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateGazeAngles(::flatbuffers::FlatBufferBuilder &_fbb,
                  const GazeAnglesT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateGazeAngles(_fbb, _o, _rehasher);
+    return GazeAngles::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<GazeAngles>
-CreateGazeAngles(::flatbuffers::FlatBufferBuilder &_fbb,
+GazeAngles::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                  const GazeAnglesT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -432,14 +432,14 @@ inline void GazeMeasurement::UnPackTo(GazeMeasurementT *_o,
 }
 
 inline ::flatbuffers::Offset<GazeMeasurement>
-GazeMeasurement::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateGazeMeasurement(::flatbuffers::FlatBufferBuilder &_fbb,
                       const GazeMeasurementT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateGazeMeasurement(_fbb, _o, _rehasher);
+    return GazeMeasurement::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<GazeMeasurement>
-CreateGazeMeasurement(::flatbuffers::FlatBufferBuilder &_fbb,
+GazeMeasurement::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                       const GazeMeasurementT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -529,14 +529,14 @@ inline void GazeMeasurements::UnPackTo(GazeMeasurementsT *_o,
 }
 
 inline ::flatbuffers::Offset<GazeMeasurements>
-GazeMeasurements::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateGazeMeasurements(::flatbuffers::FlatBufferBuilder &_fbb,
                        const GazeMeasurementsT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateGazeMeasurements(_fbb, _o, _rehasher);
+    return GazeMeasurements::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<GazeMeasurements>
-CreateGazeMeasurements(::flatbuffers::FlatBufferBuilder &_fbb,
+GazeMeasurements::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                        const GazeMeasurementsT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

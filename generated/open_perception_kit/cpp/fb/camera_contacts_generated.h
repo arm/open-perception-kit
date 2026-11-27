@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -358,14 +358,14 @@ CameraContactResult::UnPackTo(CameraContactResultT *_o,
 }
 
 inline ::flatbuffers::Offset<CameraContactResult>
-CameraContactResult::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateCameraContactResult(::flatbuffers::FlatBufferBuilder &_fbb,
                           const CameraContactResultT *_o,
                           const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateCameraContactResult(_fbb, _o, _rehasher);
+    return CameraContactResult::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<CameraContactResult>
-CreateCameraContactResult(::flatbuffers::FlatBufferBuilder &_fbb,
+CameraContactResult::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                           const CameraContactResultT *_o,
                           const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -440,14 +440,14 @@ inline void CameraContact::UnPackTo(CameraContactT *_o,
 }
 
 inline ::flatbuffers::Offset<CameraContact>
-CameraContact::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateCameraContact(::flatbuffers::FlatBufferBuilder &_fbb,
                     const CameraContactT *_o,
                     const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateCameraContact(_fbb, _o, _rehasher);
+    return CameraContact::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<CameraContact>
-CreateCameraContact(::flatbuffers::FlatBufferBuilder &_fbb,
+CameraContact::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                     const CameraContactT *_o,
                     const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -534,14 +534,14 @@ inline void CameraContacts::UnPackTo(CameraContactsT *_o,
 }
 
 inline ::flatbuffers::Offset<CameraContacts>
-CameraContacts::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateCameraContacts(::flatbuffers::FlatBufferBuilder &_fbb,
                      const CameraContactsT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateCameraContacts(_fbb, _o, _rehasher);
+    return CameraContacts::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<CameraContacts>
-CreateCameraContacts(::flatbuffers::FlatBufferBuilder &_fbb,
+CameraContacts::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                      const CameraContactsT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

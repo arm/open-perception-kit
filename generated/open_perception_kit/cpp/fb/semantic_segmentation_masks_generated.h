@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -332,14 +332,14 @@ SemanticSegmentationMask::UnPackTo(SemanticSegmentationMaskT *_o,
 }
 
 inline ::flatbuffers::Offset<SemanticSegmentationMask>
-SemanticSegmentationMask::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateSemanticSegmentationMask(::flatbuffers::FlatBufferBuilder &_fbb,
                                const SemanticSegmentationMaskT *_o,
                                const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateSemanticSegmentationMask(_fbb, _o, _rehasher);
+    return SemanticSegmentationMask::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<SemanticSegmentationMask>
-CreateSemanticSegmentationMask(::flatbuffers::FlatBufferBuilder &_fbb,
+SemanticSegmentationMask::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                                const SemanticSegmentationMaskT *_o,
                                const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -431,14 +431,14 @@ SemanticSegmentationMasks::UnPackTo(SemanticSegmentationMasksT *_o,
 }
 
 inline ::flatbuffers::Offset<SemanticSegmentationMasks>
-SemanticSegmentationMasks::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateSemanticSegmentationMasks(::flatbuffers::FlatBufferBuilder &_fbb,
                                 const SemanticSegmentationMasksT *_o,
                                 const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateSemanticSegmentationMasks(_fbb, _o, _rehasher);
+    return SemanticSegmentationMasks::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<SemanticSegmentationMasks>
-CreateSemanticSegmentationMasks(::flatbuffers::FlatBufferBuilder &_fbb,
+SemanticSegmentationMasks::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                                 const SemanticSegmentationMasksT *_o,
                                 const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

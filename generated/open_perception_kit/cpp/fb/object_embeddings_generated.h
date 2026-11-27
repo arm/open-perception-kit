@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -411,14 +411,14 @@ inline void EmbeddingSpace::UnPackTo(EmbeddingSpaceT *_o,
 }
 
 inline ::flatbuffers::Offset<EmbeddingSpace>
-EmbeddingSpace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateEmbeddingSpace(::flatbuffers::FlatBufferBuilder &_fbb,
                      const EmbeddingSpaceT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateEmbeddingSpace(_fbb, _o, _rehasher);
+    return EmbeddingSpace::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<EmbeddingSpace>
-CreateEmbeddingSpace(::flatbuffers::FlatBufferBuilder &_fbb,
+EmbeddingSpace::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                      const EmbeddingSpaceT *_o,
                      const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -504,14 +504,14 @@ inline void ObjectEmbedding::UnPackTo(ObjectEmbeddingT *_o,
 }
 
 inline ::flatbuffers::Offset<ObjectEmbedding>
-ObjectEmbedding::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateObjectEmbedding(::flatbuffers::FlatBufferBuilder &_fbb,
                       const ObjectEmbeddingT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateObjectEmbedding(_fbb, _o, _rehasher);
+    return ObjectEmbedding::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ObjectEmbedding>
-CreateObjectEmbedding(::flatbuffers::FlatBufferBuilder &_fbb,
+ObjectEmbedding::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                       const ObjectEmbeddingT *_o,
                       const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -601,14 +601,14 @@ inline void ObjectEmbeddings::UnPackTo(ObjectEmbeddingsT *_o,
 }
 
 inline ::flatbuffers::Offset<ObjectEmbeddings>
-ObjectEmbeddings::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateObjectEmbeddings(::flatbuffers::FlatBufferBuilder &_fbb,
                        const ObjectEmbeddingsT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateObjectEmbeddings(_fbb, _o, _rehasher);
+    return ObjectEmbeddings::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<ObjectEmbeddings>
-CreateObjectEmbeddings(::flatbuffers::FlatBufferBuilder &_fbb,
+ObjectEmbeddings::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                        const ObjectEmbeddingsT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;

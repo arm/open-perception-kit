@@ -24,8 +24,8 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 9 &&
-                  FLATBUFFERS_VERSION_REVISION == 23,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 25 && FLATBUFFERS_VERSION_MINOR == 12 &&
+                  FLATBUFFERS_VERSION_REVISION == 19,
               "Non-compatible flatbuffers version included");
 
 #include "common_generated.h"
@@ -326,14 +326,14 @@ inline void SegmentationMask::UnPackTo(SegmentationMaskT *_o,
 }
 
 inline ::flatbuffers::Offset<SegmentationMask>
-SegmentationMask::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateSegmentationMask(::flatbuffers::FlatBufferBuilder &_fbb,
                        const SegmentationMaskT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateSegmentationMask(_fbb, _o, _rehasher);
+    return SegmentationMask::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<SegmentationMask>
-CreateSegmentationMask(::flatbuffers::FlatBufferBuilder &_fbb,
+SegmentationMask::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                        const SegmentationMaskT *_o,
                        const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
@@ -421,14 +421,14 @@ inline void SegmentationMasks::UnPackTo(SegmentationMasksT *_o,
 }
 
 inline ::flatbuffers::Offset<SegmentationMasks>
-SegmentationMasks::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+CreateSegmentationMasks(::flatbuffers::FlatBufferBuilder &_fbb,
                         const SegmentationMasksT *_o,
                         const ::flatbuffers::rehasher_function_t *_rehasher) {
-    return CreateSegmentationMasks(_fbb, _o, _rehasher);
+    return SegmentationMasks::Pack(_fbb, _o, _rehasher);
 }
 
 inline ::flatbuffers::Offset<SegmentationMasks>
-CreateSegmentationMasks(::flatbuffers::FlatBufferBuilder &_fbb,
+SegmentationMasks::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
                         const SegmentationMasksT *_o,
                         const ::flatbuffers::rehasher_function_t *_rehasher) {
     (void)_rehasher;
