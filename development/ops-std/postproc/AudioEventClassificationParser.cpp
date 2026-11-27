@@ -107,12 +107,13 @@ opk::Result<std::vector<Candidate>> decodeCandidates(const opk::TensorParser::In
         if (!std::isfinite(score) || (!configuration.sigmoid && (score < 0 || score > 1)))
             return invalidInput(
                 "AudioEventClassificationParser requires finite logits or scores in [0,1]");
-        // Stable sigmoid keeps independent event probabilities, including extreme logits.
-        const float exponential = std::exp(-std::abs(score));
-        const float probability =
-            configuration.sigmoid
-                ? (score >= 0 ? 1.0f / (1.0f + exponential) : exponential / (1.0f + exponential))
-                : score;
+        float probability = score;
+        if (configuration.sigmoid) {
+            // Stable sigmoid keeps independent event probabilities, including extreme logits.
+            const float exponential = std::exp(-std::abs(score));
+            probability =
+                score >= 0 ? 1.0f / (1.0f + exponential) : exponential / (1.0f + exponential);
+        }
         if (!labels[index].isNull() && probability >= configuration.threshold)
             candidates.push_back({index, probability});
     }
