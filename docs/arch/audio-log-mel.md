@@ -86,15 +86,17 @@ algorithm, implement this supported frontend family:
 1. An unnormalized real FFT, with a configurable periodic Hann window centered
    inside it (floor of half the difference on the left). Generate its coefficients
    with Float32 phase and cosine arithmetic, consistent with the Float32 frontend.
-2. No waveform centering, reflection, end padding, dither or pre-emphasis.
-3. Squared complex magnitude, then HTK triangular mel filters over a configured frequency range,
+2. No waveform padding by default. Optional centered reflection pads half an FFT
+   on each side without repeating boundary samples. No dither or pre-emphasis.
+3. Squared complex magnitude by default, or magnitude when configured, then
+   HTK triangular mel filters over a configured frequency range,
    without filter-area normalization.
-4. Natural logarithm of `mel_power + logOffset`.
+4. Natural logarithm of `mel_value + logOffset`.
 5. The selected normalization below.
 
 The 16 kHz input rate is the existing audio runtime contract. Periodic Hann,
-HTK, power-squared, natural logarithm and no padding define the supported
-algorithm; this is not a promise to reproduce every possible frontend dialect.
+HTK and natural logarithm define the supported algorithm; this is not a promise
+to reproduce every possible frontend dialect.
 Model-specific dimensions, frequency limits and normalization settings belong
 in model-local opchains. Use GStreamer's existing
 `gstreamer-fft-1.0` float FFT facility. Allocate the FFT plan, window and mel
@@ -124,7 +126,14 @@ new FFT implementation/dependency.
 `contextSampleCount` remains available only for PCM. Bins come from the
 configured layout's mel axis, and frames must equal
 `1 + floor((windowSampleCount - fftSize) / frameHopSamples)`; all preceding
-dimensions are singleton. Support 1–512 mel bins and at most 1,048,576 output
+dimensions are singleton. With `centerPadding: "reflect"`, the available frame count is
+`1 + floor(windowSampleCount / frameHopSamples)`. Optional `frameCount` selects
+that many leading frames, must be positive, and cannot exceed the available
+count. Omission emits all available frames. Reflection is local to each scheduled
+PCM window; it does not retain context from previous windows.
+Optional `spectrum` accepts `power` (default) or `magnitude`; the latter takes
+the square root of FFT power before mel projection. `centerPadding` defaults
+to `none`. These options do not change existing configurations. Support 1–512 mel bins and at most 1,048,576 output
 values. These bounds limit resource use, not model identities. The opchain and model schemas validate these contracts, while bind
 checks tensor agreement with the loaded model. `OpChain` obtains the scheduled
 PCM window from the adjacent preprocessor for log-mel inference; bare log-mel
@@ -140,7 +149,7 @@ Float64 reductions avoid cancellation artifacts on constant features.
 Rolling normalization computes global mean and population variance over all
 bins of the latest `historyFrames` frames, including the current frame. Accumulate moments in
 float64, clamp roundoff below zero before sqrt, and add `epsilon` to the standard
-deviation. Require `windowSampleCount == fftSize`. On a new stream use only
+deviation. Require `windowSampleCount == fftSize` and `centerPadding: "none"`. On a new stream use only
 observed frames; reset statistics and ONNX recurrent feedback on discontinuity.
 Require the scheduler hop to equal `frameHopSamples` and contiguous frame
 positions; invalid cadence is an error. Allocate history only at configuration.
@@ -170,6 +179,31 @@ the configured label-set identity, the input subject and producer/model identity
 Parser IDs name the operation rather than a model. Model names belong in
 model-local descriptors, runnable profiles and artifact integration tests.
 Shared algorithms and their unit tests use algorithm or payload-based filenames.
+
+### Audio event classifications
+
+`AudioEventClassificationParser` publishes typed `Classifications` payloads with
+categorical kind. It requires `outputTensorIndex`, `activation` (`sigmoid` for
+logits or `none` for probabilities), `confidenceThreshold`, positive `topK`, a
+nonempty `labelSet` identifying the class vocabulary, and a `labels` array
+matching the Float32 class vector. The configured `labelSet` is published as the
+classification's `label_set`; YAMNet uses `audioset:yamnet-521`.
+
+Leading tensor dimensions must be singleton. Labels are nonempty strings or
+null, with at least one string. Null suppresses that class independently.
+
+All scores must be finite; `none` additionally requires [0,1]. Sigmoid is computed
+stably per class, without normalizing across classes. Candidates at or above the
+Float32 threshold are sorted by descending probability, ties by ascending class
+index, and limited to `topK`. Every successful assessment publishes one typed
+`Classifications` payload. If no classes qualify (including when qualifying classes
+have null labels), its classification retains its kind, label set and subject
+identity with an empty candidate list. This distinguishes an empty assessment from
+disabled, skipped or unavailable output. Each payload preserves model, inference
+element, producer and parent-object identity. Invalid input still returns an error
+without appending a payload.
+Classification results do not carry audio-window bounds. See the
+[YAMNet model](../../config/models/yamnet-esc/index.md) for its frontend and artifacts.
 
 ## Conversation audio and metadata
 
@@ -247,3 +281,75 @@ meson test -C development/build-active cpu_log_mel_spectrogram_tests --print-err
 
 The generator records its library versions in the header. Repeating generation
 and formatting with Torch/torchaudio 2.9.1 produced identical contents.
+
+## PCM window normalization
+
+OpChain 2.2 adds optional `pcmNormalization` to `GenericAudioPreprocess`.
+Omission or `{ "kind": "none" }` retains the raw PCM copy behavior.
+`{ "kind": "window", "epsilon": 1e-10 }` subtracts the mean of the scheduled
+window and divides by `max(sample_stddev, epsilon)`, using N−1 variance and
+double-precision reductions. This is the waveform normalization required by
+CREPE; it differs from log-mel normalization's additive epsilon.
+
+Window normalization requires at least two samples, a finite positive epsilon,
+and zero PCM context. It cannot be combined with `logMel`. Constant windows
+produce zero; nonfinite input is rejected before writing the tensor. Normalization
+has no history and preserves scheduler timing. The original PCM view remains
+unchanged for downstream signal-level measurements.
+
+For CREPE tiny, use a `[1,1024]` Float32 `AudioPcm` tensor, the window mode above,
+and `audio-hop-samples=160`. The scheduler supplies complete, unpadded 64 ms
+windows every 10 ms, matching the reference's `pad=False` framing. This step
+prepares model inputs only; pitch decoding is a separate integration step.
+
+## Pitch postprocessing
+
+`opk-std-ops/GenericPostprocess` supports `PitchEstimationParser` for monophonic
+pitch scores. This parser consumes raw PCM model outputs; it does not require
+log-mel preprocessing. See `config/models/crepe-tiny/opchain.json` for a complete
+PCM normalization → ONNX inference → pitch result chain.
+
+The decoding and gating attributes below are required:
+
+| Attribute | Meaning |
+| --- | --- |
+| `outputTensorIndex`, `binCount` | Float32 output vector selection and size; leading dimensions must be singleton. |
+| `activation` | `none` for probabilities in [0,1], or stable independent `sigmoid` for logits. |
+| `centsOffset`, `centsPerBin`, `referenceFrequencyHz` | Bin `i` maps to `referenceFrequencyHz * 2^((centsOffset + centsPerBin*i)/1200)`. |
+| `minFrequencyHz`, `maxFrequencyHz` | Inclusive candidate-bin frequency limits. |
+| `decoder` | `argmax`, or `weightedArgmax` for a score-weighted mean in cents around the strongest bin. |
+| `weightedRadius` | Neighbor radius for weighted decoding, clipped to the vector and frequency limits; ignored by argmax. |
+| `periodicityThreshold` | Minimum strongest eligible score for a voiced result. All-zero scores remain unvoiced. |
+| `minimumRms` | Minimum original PCM RMS for a voiced result; zero disables this gate. |
+
+Optional `log: true` prints each voiced estimate to stderr with the model name,
+frequency and periodicity, regardless of the global log level. It defaults to
+false; the CREPE opchain enables it for debugging.
+
+Equal maxima select the lowest eligible bin. There is no temporal smoothing,
+Viterbi decoding or random dithering. Periodicity is the maximum eligible score,
+not a calibrated probability that the frequency is correct. Malformed tensors,
+nonfinite values and invalid scheduling metadata fail without appending results.
+
+`GenericAudioPreprocess` records RMS over the scheduled PCM window before any
+model normalization in the inference context. It resets this value on each
+attempt, so failed preprocessing cannot leave a stale level. A positive RMS gate
+requires this value; it rejects missing metadata instead of assuming silence.
+The parser emits one `PitchEstimate` with window bounds, optional timestamps,
+discontinuity and producer identity. Unvoiced results retain periodicity and
+omit frequency. Voiced includes periodic instrumental sounds as well as speech.
+
+The CREPE tiny configuration uses 360 bins, 20 cents per bin, a 10 Hz reference,
+1997.3794084376191 cents offset and a weighted radius of four bins. Its exported
+ONNX output already contains sigmoid scores, so activation is `none`. Initial
+voicing settings are periodicity ≥ 0.21 and RMS ≥ 0.001 (−60 dBFS for full-scale
+PCM); tune these for the source. They are configuration choices, not model
+accuracy guarantees. Use mono 16 kHz audio, 1024-sample full windows and a
+160-sample hop for 10 ms updates. Windows are unpadded; timestamps describe the
+actual input window rather than an inferred point event.
+
+After downloading `crepe-tiny` and building the native runtime, run the opt-in
+`development/tests/crepe_integration_test.py` in the development container. It
+checks the actual model and serialized results for silence, a 440 Hz tone and a
+quiet tone below the RMS gate. This smoke test does not measure general pitch
+accuracy or realtime throughput.

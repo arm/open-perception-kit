@@ -23,8 +23,8 @@ type NativePayload = {
     constructor: Function;
 };
 export declare const SDK_NAME = "open_perception_kit";
-export declare const SDK_VERSION = "1.0.0";
-export declare const SCHEMA_SET_SHA256 = "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5";
+export declare const SDK_VERSION = "1.1.0";
+export declare const SCHEMA_SET_SHA256 = "4ccb3562b7ecb91baf667f9e0eee7d5fc06fbac6b0bf79d7d5d19f42de1bf11c";
 export declare const EXTERNAL_KEY_MIN: bigint;
 export declare enum ProducerIdentityStatus {
     NameMismatch = "name_mismatch",

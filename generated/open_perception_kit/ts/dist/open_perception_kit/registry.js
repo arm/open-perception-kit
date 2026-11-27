@@ -27,6 +27,7 @@ import { ObjectEmbeddings as ObjectEmbeddings_6121378805478677067, ObjectEmbeddi
 import { ObjectTracks as ObjectTracks_5316059591418463553, ObjectTracksT as ObjectTracksT_5316059591418463553 } from './fb/open-perception-kit/metadata/object-tracks.js';
 import { PerformanceMeasurements as PerformanceMeasurements_2630163151625760217, PerformanceMeasurementsT as PerformanceMeasurementsT_2630163151625760217 } from './fb/open-perception-kit/metadata/performance-measurements.js';
 import { PersonPresences as PersonPresences_7550522492754457054, PersonPresencesT as PersonPresencesT_7550522492754457054 } from './fb/open-perception-kit/metadata/person-presences.js';
+import { PitchEstimates as PitchEstimates_4206868447697726802, PitchEstimatesT as PitchEstimatesT_4206868447697726802 } from './fb/open-perception-kit/metadata/pitch-estimates.js';
 import { SegmentationMasks as SegmentationMasks_3128408959875976772, SegmentationMasksT as SegmentationMasksT_3128408959875976772 } from './fb/open-perception-kit/metadata/segmentation-masks.js';
 import { SemanticSegmentationMasks as SemanticSegmentationMasks_133049182594848948, SemanticSegmentationMasksT as SemanticSegmentationMasksT_133049182594848948 } from './fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import { TrackTraces as TrackTraces_7618457940451616939, TrackTracesT as TrackTracesT_7618457940451616939 } from './fb/open-perception-kit/metadata/track-traces.js';
@@ -52,6 +53,8 @@ const decode_2630163151625760217 = (blob) => PerformanceMeasurements_26301631516
 const verify_2630163151625760217 = (blob) => PerformanceMeasurements_2630163151625760217.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_7550522492754457054 = (blob) => PersonPresences_7550522492754457054.getRootAsPersonPresences(new ByteBuffer(blob)).unpack();
 const verify_7550522492754457054 = (blob) => PersonPresences_7550522492754457054.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_4206868447697726802 = (blob) => PitchEstimates_4206868447697726802.getRootAsPitchEstimates(new ByteBuffer(blob)).unpack();
+const verify_4206868447697726802 = (blob) => PitchEstimates_4206868447697726802.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_3128408959875976772 = (blob) => SegmentationMasks_3128408959875976772.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
 const verify_3128408959875976772 = (blob) => SegmentationMasks_3128408959875976772.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_133049182594848948 = (blob) => SemanticSegmentationMasks_133049182594848948.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
@@ -143,6 +146,14 @@ export const _TYPE_REGISTRY = new Map([
             decode: decode_7550522492754457054,
             verify: verify_7550522492754457054,
         }],
+    [4206868447697726802n, {
+            name: 'open_perception_kit::metadata::PitchEstimates',
+            root_type: 'PitchEstimates',
+            qualified_root_type: 'open_perception_kit.metadata.PitchEstimates',
+            file_identifier: 'PTCH',
+            decode: decode_4206868447697726802,
+            verify: verify_4206868447697726802,
+        }],
     [3128408959875976772n, {
             name: 'open_perception_kit::metadata::SegmentationMasks',
             root_type: 'SegmentationMasks',
@@ -195,6 +206,7 @@ export const _CLASS_TO_ID = new Map([
     [ObjectTracksT_5316059591418463553, 5316059591418463553n],
     [PerformanceMeasurementsT_2630163151625760217, 2630163151625760217n],
     [PersonPresencesT_7550522492754457054, 7550522492754457054n],
+    [PitchEstimatesT_4206868447697726802, 4206868447697726802n],
     [SegmentationMasksT_3128408959875976772, 3128408959875976772n],
     [SemanticSegmentationMasksT_133049182594848948, 133049182594848948n],
     [TrackTracesT_7618457940451616939, 7618457940451616939n],

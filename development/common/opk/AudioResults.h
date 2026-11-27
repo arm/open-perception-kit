@@ -36,4 +36,14 @@ inline bool valid(const open_perception_kit::metadata::TurnDetectionT &value) no
            std::isfinite(*value.turn_probability) && *value.turn_probability >= 0 &&
            *value.turn_probability <= 1;
 }
+inline bool valid(const open_perception_kit::metadata::PitchEstimateT &value) noexcept {
+    if (!validWindow(value) || !value.voiced.has_value())
+        return false;
+    if (value.periodicity &&
+        (!std::isfinite(*value.periodicity) || *value.periodicity < 0 || *value.periodicity > 1))
+        return false;
+    if (!*value.voiced)
+        return !value.frequency_hz.has_value();
+    return value.frequency_hz && std::isfinite(*value.frequency_hz) && *value.frequency_hz > 0;
+}
 } // namespace opk::audio_results

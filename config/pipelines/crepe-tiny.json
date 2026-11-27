@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "description": "CREPE tiny monophonic pitch detection on a browser microphone, with WebRTC playback and WebSocket pitch results.",
+  "sourceInfo": "opksrc video and browser microphone over WebRTC",
+  "loop": false,
+  "pipeline": [
+    "opksrc name=source ws-port=8003",
+    "source.video ! queue ! opksink name=sink",
+    "source.src ! queue !",
+    "opkinfer name=pitch active=true audio-hop-samples=160",
+    "opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/crepe-tiny/opchain.json\" !",
+    "opkcomm method=websocket endpoint=/ws ! sink.audiosink"
+  ]
+}

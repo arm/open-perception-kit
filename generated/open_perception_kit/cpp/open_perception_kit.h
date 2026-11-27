@@ -45,6 +45,7 @@
 #include "fb/object_tracks_generated.h"
 #include "fb/performance_measurements_generated.h"
 #include "fb/person_presences_generated.h"
+#include "fb/pitch_estimates_generated.h"
 #include "fb/segmentation_masks_generated.h"
 #include "fb/semantic_segmentation_masks_generated.h"
 #include "fb/track_traces_generated.h"
@@ -54,10 +55,10 @@
 
 namespace open_perception_kit {
 
-inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "1.0.0";
+inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "1.1.0";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5";
+    "4ccb3562b7ecb91baf667f9e0eee7d5fc06fbac6b0bf79d7d5d19f42de1bf11c";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -236,6 +237,23 @@ template <> struct native_traits<open_perception_kit::metadata::PersonPresencesT
     }
 };
 
+template <> struct native_traits<open_perception_kit::metadata::PitchEstimatesT> {
+    using table_type = open_perception_kit::metadata::PitchEstimates;
+    using native_type = open_perception_kit::metadata::PitchEstimatesT;
+
+    static constexpr id_t id = 4206868447697726802ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.PitchEstimates";
+
+    static constexpr const char *file_identifier() {
+        return "PTCH";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreatePitchEstimates(builder, obj);
+    }
+};
+
 template <> struct native_traits<open_perception_kit::metadata::SegmentationMasksT> {
     using table_type = open_perception_kit::metadata::SegmentationMasks;
     using native_type = open_perception_kit::metadata::SegmentationMasksT;
@@ -336,6 +354,7 @@ using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::ObjectTracksT,
                                   open_perception_kit::metadata::PerformanceMeasurementsT,
                                   open_perception_kit::metadata::PersonPresencesT,
+                                  open_perception_kit::metadata::PitchEstimatesT,
                                   open_perception_kit::metadata::SegmentationMasksT,
                                   open_perception_kit::metadata::SemanticSegmentationMasksT,
                                   open_perception_kit::metadata::TrackTracesT,

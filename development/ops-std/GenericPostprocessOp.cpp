@@ -28,6 +28,7 @@
 #include <perf/PerformanceMetrics.h>
 
 // parser class headers
+#include "postproc/AudioEventClassificationParser.h"
 #include "postproc/CameraContactParser.h"
 #include "postproc/DummyParser.h"
 #include "postproc/GazeDetectionParser.h"
@@ -39,6 +40,7 @@
 #include "postproc/PaddleOcrRecognitionParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
+#include "postproc/PitchEstimationParser.h"
 #include "postproc/RetinaFaceParser.h"
 #include "postproc/RvmParser.h"
 #include "postproc/ScrfdParser.h"
@@ -64,6 +66,9 @@ template <class T> ParserCreator make() {
 // parser registry
 const std::map<std::string, ParserCreator> &getParserRegistry() {
     static const std::map<std::string, ParserCreator> registry = {
+        {"PitchEstimationParser", make<opk::stdop::postproc::PitchEstimationParser>()},
+        {"AudioEventClassificationParser",
+         make<opk::stdop::postproc::AudioEventClassificationParser>()},
         {"CameraContactParser", make<opk::stdop::postproc::CameraContactParser>()},
         {"DummyParser", make<opk::stdop::postproc::DummyParser>()},
         {"GazeDetectionParser", make<opk::stdop::postproc::GazeDetectionParser>()},

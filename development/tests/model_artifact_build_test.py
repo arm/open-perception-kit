@@ -24,6 +24,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -41,6 +42,73 @@ RETIRED_MODEL_SUFFIXES = {".hef"}
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
+    def test_archive_download_verifies_all_members_and_repairs_missing_weights(self) -> None:
+        downloader = runpy.run_path(str(DOWNLOAD_SCRIPT))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "model.zip"
+            graph, weights = b"new graph", b"new external weights"
+            with zipfile.ZipFile(archive, "w") as output:
+                output.writestr("export/model.onnx", graph)
+                output.writestr("export/model.data", weights)
+                output.writestr("../unselected.txt", b"must never be extracted")
+            manifest = root / "assets.json"
+            entry = {"url": archive.as_uri(),
+                     "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+                     "archive": {
+                         "model.onnx": {"member": "export/model.onnx", "sha256": hashlib.sha256(graph).hexdigest()},
+                         "model.data": {"member": "export/model.data", "sha256": hashlib.sha256(weights).hexdigest()},
+            }}
+            manifest.write_text(json.dumps({"model": entry}))
+            models = root / "models"
+            downloader["_download_files"](manifest, models)
+            self.assertEqual((models / "model/model.onnx").read_bytes(), graph)
+            self.assertEqual((models / "model/model.data").read_bytes(), weights)
+            self.assertFalse((root / "unselected.txt").exists())
+            (models / "model/model.data").unlink()
+            downloader["_download_files"](manifest, models)
+            self.assertEqual((models / "model/model.data").read_bytes(), weights)
+            archive.unlink()
+            downloader["_download_files"](manifest, models)  # Verified files need no network.
+
+    def test_bad_archive_preserves_existing_pair_and_rejects_escaping_paths(self) -> None:
+        downloader = runpy.run_path(str(DOWNLOAD_SCRIPT))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            models = root / "models"
+            model = models / "model"
+            model.mkdir(parents=True)
+            (model / "model.onnx").write_bytes(b"old graph")
+            (model / "model.data").write_bytes(b"old weights")
+            archive = root / "model.zip"
+            with zipfile.ZipFile(archive, "w") as output:
+                output.writestr("graph", b"new graph")
+                output.writestr("weights", b"new weights")
+            source = {"url": archive.as_uri(),
+                      "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+                      "archive": {
+                          "model.onnx": {"member": "graph", "sha256": hashlib.sha256(b"new graph").hexdigest()},
+                          "model.data": {"member": "weights", "sha256": "0" * 64},
+            }}
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                downloader["_download_archive"](source, model)
+            self.assertEqual((model / "model.onnx").read_bytes(), b"old graph")
+            self.assertEqual((model / "model.data").read_bytes(), b"old weights")
+            self.assertEqual(list(models.glob(".opk-model-archive-*")), [])
+            source["sha256"] = "0" * 64
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                downloader["_download_archive"](source, model)
+            for bad in ("../escape", "/tmp/escape", "a/../../escape", "a\\escape"):
+                with self.subTest(path=bad):
+                    source["archive"] = {bad: {"member": "graph", "sha256": "0" * 64}}
+                    with self.assertRaises(ValueError):
+                        downloader["_download_archive"](source, model)
+            (model / "linked").symlink_to(root, target_is_directory=True)
+            source["archive"] = {"linked/escape": {"member": "graph", "sha256": "0" * 64}}
+            with self.assertRaisesRegex(ValueError, "outside"):
+                downloader["_download_archive"](source, model)
+            self.assertFalse((root / "escape").exists())
+
     def test_downloader_uses_shared_supported_version(self) -> None:
         downloader = runpy.run_path(str(DOWNLOAD_SCRIPT))
 
@@ -613,6 +681,9 @@ for arg in sys.argv:
             "config/models/**/*.vgf.part",
             "config/models/licenses/",
             "config/models/pp-ocrv6-tiny-rec/characters.txt*",
+            "config/models/yamnet-esc/yamnet.data*",
+            "config/models/yamnet-esc/metadata.json",
+            "config/models/yamnet-esc/labels.txt",
         ]
         rules = [
             line
@@ -622,6 +693,9 @@ for arg in sys.argv:
         self.assertEqual(rules, expected)
         dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
         self.assertIn("config/models/licenses/", dockerignore)
+        for pattern in expected[-3:] + ["**/.opk-model-archive-*"]:
+            self.assertIn(pattern, dockerignore)
+        self.assertIn("**/.opk-model-archive-*/", (REPO_ROOT / ".gitignore").read_text().splitlines())
         for pattern in ("**/*.bin", "**/*.bin.part", "**/*.hef", "**/*.onnx", "**/*.onnx.data", "**/*.pte", "**/*.vgf", "**/*.vgf.part", "**/*.onnx.part", "**/*.pte.part"):
             self.assertIn(pattern, dockerignore)
 

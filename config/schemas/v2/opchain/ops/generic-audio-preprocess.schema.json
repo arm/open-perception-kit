@@ -253,8 +253,60 @@
                     }
                   }
                 ]
+              },
+              "spectrum": {
+                "enum": [
+                  "power",
+                  "magnitude"
+                ],
+                "default": "power"
+              },
+              "centerPadding": {
+                "enum": [
+                  "none",
+                  "reflect"
+                ],
+                "default": "none"
+              },
+              "frameCount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1048576
               }
             }
+          },
+          "pcmNormalization": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "none"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "epsilon"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "window"
+                  },
+                  "epsilon": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                }
+              }
+            ]
           }
         },
         "allOf": [
@@ -269,6 +321,43 @@
                 "required": [
                   "contextSampleCount"
                 ]
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "pcmNormalization"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "logMel"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "pcmNormalization"
+              ],
+              "properties": {
+                "pcmNormalization": {
+                  "properties": {
+                    "kind": {
+                      "const": "window"
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "contextSampleCount": {
+                  "const": 0
+                }
               }
             }
           }

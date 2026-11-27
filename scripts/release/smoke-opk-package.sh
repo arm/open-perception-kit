@@ -47,8 +47,9 @@ done
 
 cp "$python_operation" "$smoke_root/runtime_environment.py"
 python3 -c \
-    'import json, os, sys; json.dump({"version": "2.0.0", "name": "Python runtime smoke", "description": "Check PythonScript with host dependencies.", "ops": [{"id": "opk-python-ops/PythonScript", "attributes": {"script": os.path.abspath(sys.argv[2])}}]}, open(sys.argv[1], "w", encoding="utf-8"))' \
-    "$smoke_root/opchain-python-smoke.json" "$smoke_root/runtime_environment.py"
+    'import json, os, sys; schema = json.load(open(sys.argv[3], encoding="utf-8")); json.dump({"version": schema["x-opk-supported-version"], "name": "Python runtime smoke", "description": "Check PythonScript with host dependencies.", "ops": [{"id": "opk-python-ops/PythonScript", "attributes": {"script": os.path.abspath(sys.argv[2])}}]}, open(sys.argv[1], "w", encoding="utf-8"))' \
+    "$smoke_root/opchain-python-smoke.json" "$smoke_root/runtime_environment.py" \
+    "$package_root/share/opk/schemas/json/v2/opchain.schema.json"
 env -u OPK_DEVTOOLS_VENV \
     timeout 120s gst-launch-1.0 -q \
     videotestsrc pattern=ball num-buffers=1 ! \

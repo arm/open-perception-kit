@@ -22,12 +22,76 @@
 
 namespace opk::config::detail {
 
+std::set<std::filesystem::path> modelArtifactPaths(const std::filesystem::path &root,
+                                                   ValidationReport &report) {
+    std::set<std::filesystem::path> paths;
+    const std::string source = "config/model-assets.json";
+    const auto manifest = root / source;
+    if (!std::filesystem::exists(manifest))
+        return paths;
+    const auto content = readText(manifest);
+    if (!content) {
+        report.issues.push_back(
+            makeIssue("json.read", ValidationPhase::Parse, source, "", content.error()));
+        return paths;
+    }
+    const auto parsed = parseJson(*content, source);
+    if (!parsed) {
+        append(report, parsed.error());
+        return paths;
+    }
+    const auto invalidManifest = [&] {
+        report.issues.push_back(
+            makeIssue("repository.artifacts",
+                      ValidationPhase::Parse,
+                      source,
+                      "",
+                      "artifact manifest requires objects and relative destination paths"));
+    };
+    const auto add = [&](const std::filesystem::path &relative) {
+        if (relative.empty() || relative.is_absolute() ||
+            std::ranges::find(relative, std::filesystem::path("..")) != relative.end()) {
+            invalidManifest();
+            return;
+        }
+        const auto name = relative.filename().string();
+        // A manifest entry must never exempt an OPK descriptor from validation.
+        if (name == "model.json" || name == "opchain.json" || name.starts_with("model-") ||
+            name.starts_with("opchain-"))
+            return;
+        paths.insert((root / "config/models" / relative).lexically_normal());
+    };
+    if (!parsed->is_object()) {
+        invalidManifest();
+        return paths;
+    }
+    for (const auto &entry : parsed->object_range()) {
+        if (!entry.value().is_object()) {
+            invalidManifest();
+            continue;
+        }
+        if (!entry.value().contains("archive")) {
+            add(std::filesystem::path(entry.key()));
+            continue;
+        }
+        const auto &archive = entry.value().at("archive");
+        if (!archive.is_object()) {
+            invalidManifest();
+            continue;
+        }
+        for (const auto &member : archive.object_range())
+            add(std::filesystem::path(entry.key()) / std::filesystem::path(member.key()));
+    }
+    return paths;
+}
+
 ValidationReport validateRepository(const std::filesystem::path &root) {
     ValidationReport report;
     auto schemas = loadSchemaBundle(root);
     if (!schemas.has_value())
         return std::move(schemas.error());
 
+    const auto artifacts = modelArtifactPaths(root, report);
     std::vector<std::filesystem::path> descriptors;
     for (const auto &relativeDirectory : {std::filesystem::path("config/models"),
                                           std::filesystem::path("config/opchains"),
@@ -47,7 +111,8 @@ ValidationReport validateRepository(const std::filesystem::path &root) {
             directory, std::filesystem::directory_options::skip_permission_denied, error);
         const std::filesystem::recursive_directory_iterator end;
         while (!error && iterator != end) {
-            if (iterator->is_regular_file(error) && iterator->path().extension() == ".json")
+            if (iterator->is_regular_file(error) && iterator->path().extension() == ".json" &&
+                !artifacts.contains(iterator->path().lexically_normal()))
                 descriptors.push_back(iterator->path());
             iterator.increment(error);
         }

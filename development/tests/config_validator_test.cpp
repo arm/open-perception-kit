@@ -477,6 +477,57 @@ TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {
     EXPECT_TRUE(hasRule(modelDescriptorResult.error(), "opchain.v2.model-descriptor-control"));
 }
 
+TEST(ConfigValidator, PcmWindowNormalizationContract) {
+    nlohmann::json document{
+        {"version", "2.2.0"},
+        {"name", "pcm-normalization"},
+        {"description", "Normalize scheduled PCM windows"},
+        {"ops",
+         {{{"id", "opk-std-ops/GenericAudioPreprocess"},
+           {"attributes", {{"pcmNormalization", {{"kind", "window"}, {"epsilon", 1e-10}}}}}}}}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    auto &attributes = document["ops"][0]["attributes"];
+    attributes["pcmNormalization"]["epsilon"] = 0;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["pcmNormalization"]["epsilon"] = 1e-10;
+    attributes["contextSampleCount"] = 1;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["contextSampleCount"] = 0;
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    attributes["pcmNormalization"]["unexpected"] = true;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["pcmNormalization"] = {{"kind", "none"}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+}
+
+TEST(ConfigValidator, AudioEventParserRequiresIndependentActivationAndPositiveTopK) {
+    nlohmann::json document{{"version", "2.1.0"},
+                            {"name", "events"},
+                            {"description", "Audio event classification"},
+                            {"ops",
+                             {{{"id", "opk-std-ops/GenericPostprocess"},
+                               {"attributes",
+                                {{"parser", "AudioEventClassificationParser"},
+                                 {"labelSet", "test:audio-events"},
+                                 {"outputTensorIndex", 0},
+                                 {"activation", "sigmoid"},
+                                 {"confidenceThreshold", 0.5},
+                                 {"topK", 5},
+                                 {"labels", {"speech", "music"}}}}}}}};
+    EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    auto &attributes = document["ops"][0]["attributes"];
+    attributes["activation"] = "softmax";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["activation"] = "none";
+    attributes["topK"] = 0;
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["topK"] = 5;
+    attributes.erase("labelSet");
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    attributes["labelSet"] = "";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+}
+
 } // namespace
 
 TEST(ConfigValidator, AudioPcmRequiresFloat32AndPositiveSampleShape) {
@@ -513,4 +564,102 @@ TEST(ConfigValidator, AcceptsExactInt64ValueConstants) {
     EXPECT_TRUE(opk::config::validateModelJson(model("16000")));
     EXPECT_FALSE(opk::config::validateModelJson(model("16000.5")));
     EXPECT_FALSE(opk::config::validateModelJson(model("16777217")));
+}
+
+TEST(ConfigValidator, PitchParserRequiresExplicitGridDecoderAndThresholds) {
+    nlohmann::json attributes{{"parser", "PitchEstimationParser"},
+                              {"outputTensorIndex", 0},
+                              {"binCount", 360},
+                              {"weightedRadius", 4},
+                              {"activation", "none"},
+                              {"decoder", "weightedArgmax"},
+                              {"centsOffset", 1997.3794084376191},
+                              {"centsPerBin", 20},
+                              {"referenceFrequencyHz", 10},
+                              {"minFrequencyHz", 32},
+                              {"maxFrequencyHz", 2000},
+                              {"periodicityThreshold", 0.21},
+                              {"minimumRms", 0.001}};
+    const auto valid = [](const nlohmann::json &a) {
+        const nlohmann::json doc{
+            {"version", "2.3.0"},
+            {"name", "pitch"},
+            {"description", "Pitch estimation"},
+            {"ops", {{{"id", "opk-std-ops/GenericPostprocess"}, {"attributes", a}}}}};
+        return static_cast<bool>(opk::config::validateOpChainJson(doc.dump()));
+    };
+    EXPECT_TRUE(valid(attributes));
+    for (const auto *const key :
+         {"binCount", "weightedRadius", "centsOffset", "minimumRms", "decoder"}) {
+        auto missing = attributes;
+        missing.erase(key);
+        EXPECT_FALSE(valid(missing)) << key;
+    }
+    const nlohmann::json invalidAttributes{{"activation", "softmax"},
+                                           {"decoder", "viterbi"},
+                                           {"binCount", 0},
+                                           {"weightedRadius", -1},
+                                           {"periodicityThreshold", 1.1},
+                                           {"minimumRms", -1}};
+    for (const auto &[key, value] : invalidAttributes.items()) {
+        auto bad = attributes;
+        bad[key] = value;
+        EXPECT_FALSE(valid(bad)) << key;
+    }
+}
+
+TEST(ConfigValidator, PitchFrequencyLimitsRequireMaximumAtLeastMinimum) {
+    std::ifstream input(std::filesystem::path(OPK_REPOSITORY_ROOT) /
+                        "config/models/crepe-tiny/opchain.json");
+    auto document = nlohmann::json::parse(input);
+    ASSERT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    auto &attributes = document["ops"][2]["attributes"];
+    for (const double maximum : {439.5, 440.0, 440.5}) {
+        attributes["minFrequencyHz"] = 440.0;
+        attributes["maxFrequencyHz"] = maximum;
+        const auto result = opk::config::validateOpChainJson(document.dump());
+        if (maximum >= 440.0) {
+            EXPECT_TRUE(result) << maximum;
+            continue;
+        }
+        ASSERT_FALSE(result);
+        ASSERT_EQ(result.error().issues.size(), 1u) << result.error().toText();
+        EXPECT_EQ(result.error().issues[0].rule, "opchain.v2.pitch-frequency-order");
+        EXPECT_EQ(result.error().issues[0].phase, opk::config::ValidationPhase::Descriptor);
+        EXPECT_EQ(result.error().issues[0].instanceLocation, "/ops/2/attributes/maxFrequencyHz");
+    }
+}
+
+TEST(ConfigValidator, YamnetIntegerAttributesRejectDecimalAndExponentNotation) {
+    std::ifstream input(std::filesystem::path(OPK_REPOSITORY_ROOT) /
+                        "config/models/yamnet-esc/opchain.json");
+    const auto original = nlohmann::json::parse(input);
+    ASSERT_TRUE(opk::config::validateOpChainJson(original.dump()));
+    struct Case {
+        const char *location;
+        const char *rule;
+    };
+    for (const auto &test :
+         {Case{"/ops/2/attributes/outputTensorIndex", "opchain.v2.audio-parser-integer"},
+          Case{"/ops/2/attributes/topK", "opchain.v2.audio-parser-integer"},
+          Case{"/ops/0/attributes/logMel/frameCount", "opchain.v2.log-mel-integer"}}) {
+        const nlohmann::json::json_pointer pointer(test.location);
+        const auto integer = original.at(pointer).dump();
+        for (const auto *const suffix : {".0", "e0"}) {
+            auto document = original;
+            document[pointer] = "INTEGER_NOTATION_PLACEHOLDER";
+            auto text = document.dump();
+            const std::string placeholder = "\"INTEGER_NOTATION_PLACEHOLDER\"";
+            text.replace(text.find(placeholder), placeholder.size(), integer + suffix);
+            const auto result = opk::config::validateOpChainJson(text);
+            ASSERT_FALSE(result) << test.location << ": " << integer << suffix;
+            ASSERT_EQ(result.error().issues.size(), 1u) << result.error().toText();
+            EXPECT_EQ(result.error().issues[0].rule, test.rule);
+            EXPECT_EQ(result.error().issues[0].phase, opk::config::ValidationPhase::Descriptor);
+            EXPECT_EQ(result.error().issues[0].instanceLocation, test.location);
+        }
+    }
+    auto withoutFrameCount = original;
+    withoutFrameCount["ops"][0]["attributes"]["logMel"].erase("frameCount");
+    EXPECT_TRUE(opk::config::validateOpChainJson(withoutFrameCount.dump()));
 }

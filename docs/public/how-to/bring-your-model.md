@@ -113,6 +113,19 @@ its pinned notices too.
 Companion files such as OCR dictionaries are listed in `config/model-assets.json`,
 with model-tree-relative destinations, pinned URLs, and SHA-256 digests. The same
 downloader verifies and installs them into `config/models/` before packaging.
+Repository validation excludes these explicitly declared companion files (including
+archive destinations) from descriptor discovery. Unknown JSON files remain errors,
+and reserved `model`/`opchain` descriptor filenames are always validated.
+
+For models distributed as ZIP bundles, an entry can instead name a destination
+directory and include an `archive` object. Each key in `archive` is a relative
+destination filename, with `member` naming the ZIP entry and `sha256` verifying
+its contents. The outer `url` and `sha256` pin the whole ZIP. See the YAMNet entry
+in `config/model-assets.json` for a graph with external weights. The downloader
+fetches the archive once, verifies every selected member before replacing existing
+files, and ignores unlisted entries. Verified local files are reused; a missing or
+corrupt member triggers a fresh download. Archive failures stop the build. Exclude
+downloaded files from Git and the Docker build context when adding a bundle.
 
 Public models, including all standard OPK models, download without a Hugging
 Face account or token. For your own private or gated model, export a read-only

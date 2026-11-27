@@ -128,3 +128,30 @@ def valid_audio_result(data, probability, decision):
         return False
     first, last = data.get("windowStartTsNs"), data.get("windowEndTsNs")
     return first is None and last is None or isinstance(first, int) and isinstance(last, int) and 0 <= first < last
+
+
+def distance_pitch(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item: dict) -> float:
+    gt, out = gt_item["data"], out_item["data"]
+    for data in (gt, out):
+        # Reuse audio interval checks; periodicity itself is optional for pitch.
+        if not valid_audio_result({**data, "score": 0}, "score", "voiced"):
+            return 1.0
+        score, hz = data.get("periodicity"), data.get("frequencyHz")
+        if score is not None and not _valid_probability(score):
+            return 1.0
+        if data["voiced"]:
+            if not isinstance(hz, (int, float)) or not math.isfinite(hz) or hz <= 0:
+                return 1.0
+        elif hz is not None:
+            return 1.0
+    for key in ("voiced", "windowStartSample", "windowEndSample",
+                "windowStartTsNs", "windowEndTsNs", "discontinuity"):
+        if gt[key] != out[key]:
+            return 1.0
+    a, b = gt.get("periodicity"), out.get("periodicity")
+    if (a is None) != (b is None):
+        return 1.0
+    score_distance = 0.0 if a is None else abs(a - b)
+    # Semitone distance: threshold 0.01 permits one cent of frequency difference.
+    pitch_distance = abs(12 * (math.log2(gt["frequencyHz"]) - math.log2(out["frequencyHz"]))) if gt["voiced"] else 0.0
+    return max(score_distance, pitch_distance)

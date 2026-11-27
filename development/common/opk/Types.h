@@ -273,6 +273,8 @@ struct AudioInferenceMetadata {
     uint64_t windowEndSample = 0;
     std::optional<uint64_t> windowStartTimestampNs;
     std::optional<uint64_t> windowEndTimestampNs;
+    /// RMS of the scheduled PCM before model normalization; absent until preprocessing succeeds.
+    std::optional<double> pcmRms;
 };
 
 /**

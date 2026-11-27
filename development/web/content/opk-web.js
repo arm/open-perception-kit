@@ -7760,6 +7760,250 @@ var PersonPresencesT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimate.js
+var PitchEstimate = class _PitchEstimate {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPitchEstimate(bb, obj) {
+    return (obj || new _PitchEstimate()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPitchEstimate(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PitchEstimate()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  frequencyHz() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  periodicity() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : null;
+  }
+  voiced() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : null;
+  }
+  windowStartSample() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  windowEndSample() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  windowStartTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  windowEndTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 18);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  discontinuity() {
+    const offset = this.bb.__offset(this.bb_pos, 20);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  static startPitchEstimate(builder) {
+    builder.startObject(9);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addFrequencyHz(builder, frequencyHz) {
+    builder.addFieldFloat32(1, frequencyHz, null);
+  }
+  static addPeriodicity(builder, periodicity) {
+    builder.addFieldFloat32(2, periodicity, null);
+  }
+  static addVoiced(builder, voiced) {
+    builder.addFieldInt8(3, +voiced, null);
+  }
+  static addWindowStartSample(builder, windowStartSample) {
+    builder.addFieldInt64(4, windowStartSample, BigInt("0"));
+  }
+  static addWindowEndSample(builder, windowEndSample) {
+    builder.addFieldInt64(5, windowEndSample, BigInt("0"));
+  }
+  static addWindowStartTsNs(builder, windowStartTsNs) {
+    builder.addFieldInt64(6, windowStartTsNs, null);
+  }
+  static addWindowEndTsNs(builder, windowEndTsNs) {
+    builder.addFieldInt64(7, windowEndTsNs, null);
+  }
+  static addDiscontinuity(builder, discontinuity) {
+    builder.addFieldInt8(8, +discontinuity, 0);
+  }
+  static endPitchEstimate(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createPitchEstimate(builder, objectOffset, frequencyHz, periodicity, voiced, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
+    _PitchEstimate.startPitchEstimate(builder);
+    _PitchEstimate.addObject(builder, objectOffset);
+    if (frequencyHz !== null)
+      _PitchEstimate.addFrequencyHz(builder, frequencyHz);
+    if (periodicity !== null)
+      _PitchEstimate.addPeriodicity(builder, periodicity);
+    if (voiced !== null)
+      _PitchEstimate.addVoiced(builder, voiced);
+    _PitchEstimate.addWindowStartSample(builder, windowStartSample);
+    _PitchEstimate.addWindowEndSample(builder, windowEndSample);
+    if (windowStartTsNs !== null)
+      _PitchEstimate.addWindowStartTsNs(builder, windowStartTsNs);
+    if (windowEndTsNs !== null)
+      _PitchEstimate.addWindowEndTsNs(builder, windowEndTsNs);
+    _PitchEstimate.addDiscontinuity(builder, discontinuity);
+    return _PitchEstimate.endPitchEstimate(builder);
+  }
+  unpack() {
+    return new PitchEstimateT(this.object() !== null ? this.object().unpack() : null, this.frequencyHz(), this.periodicity(), this.voiced(), this.windowStartSample(), this.windowEndSample(), this.windowStartTsNs(), this.windowEndTsNs(), this.discontinuity());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.frequencyHz = this.frequencyHz();
+    _o.periodicity = this.periodicity();
+    _o.voiced = this.voiced();
+    _o.windowStartSample = this.windowStartSample();
+    _o.windowEndSample = this.windowEndSample();
+    _o.windowStartTsNs = this.windowStartTsNs();
+    _o.windowEndTsNs = this.windowEndTsNs();
+    _o.discontinuity = this.discontinuity();
+  }
+};
+var PitchEstimateT = class {
+  constructor(object = null, frequencyHz = null, periodicity = null, voiced = null, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+    this.object = object;
+    this.frequencyHz = frequencyHz;
+    this.periodicity = periodicity;
+    this.voiced = voiced;
+    this.windowStartSample = windowStartSample;
+    this.windowEndSample = windowEndSample;
+    this.windowStartTsNs = windowStartTsNs;
+    this.windowEndTsNs = windowEndTsNs;
+    this.discontinuity = discontinuity;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    return PitchEstimate.createPitchEstimate(builder, object, this.frequencyHz, this.periodicity, this.voiced, this.windowStartSample, this.windowEndSample, this.windowStartTsNs, this.windowEndTsNs, this.discontinuity);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pitch-estimates.js
+var PitchEstimates = class _PitchEstimates {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsPitchEstimates(bb, obj) {
+    return (obj || new _PitchEstimates()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsPitchEstimates(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _PitchEstimates()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("PTCH");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  estimates(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new PitchEstimate()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  estimatesLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startPitchEstimates(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addEstimates(builder, estimatesOffset) {
+    builder.addFieldOffset(3, estimatesOffset, 0);
+  }
+  static createEstimatesVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startEstimatesVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endPitchEstimates(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishPitchEstimatesBuffer(builder, offset) {
+    builder.finish(offset, "PTCH");
+  }
+  static finishSizePrefixedPitchEstimatesBuffer(builder, offset) {
+    builder.finish(offset, "PTCH", true);
+  }
+  unpack() {
+    return new PitchEstimatesT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.estimates.bind(this), this.estimatesLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.estimates = this.bb.createObjList(this.estimates.bind(this), this.estimatesLength());
+  }
+};
+var PitchEstimatesT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, estimates = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.estimates = estimates;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const estimates = PitchEstimates.createEstimatesVector(builder, builder.createObjectOffsetList(this.estimates));
+    PitchEstimates.startPitchEstimates(builder);
+    PitchEstimates.addSchemaMajor(builder, this.schemaMajor);
+    PitchEstimates.addSchemaMinor(builder, this.schemaMinor);
+    PitchEstimates.addLayer(builder, layer2);
+    PitchEstimates.addEstimates(builder, estimates);
+    return PitchEstimates.endPitchEstimates(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/opacity-meaning.js
 var OpacityMeaning;
 (function(OpacityMeaning2) {
@@ -8895,6 +9139,8 @@ var decode_2630163151625760217 = (blob) => PerformanceMeasurements.getRootAsPerf
 var verify_2630163151625760217 = (blob) => PerformanceMeasurements.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_7550522492754457054 = (blob) => PersonPresences.getRootAsPersonPresences(new ByteBuffer(blob)).unpack();
 var verify_7550522492754457054 = (blob) => PersonPresences.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_4206868447697726802 = (blob) => PitchEstimates.getRootAsPitchEstimates(new ByteBuffer(blob)).unpack();
+var verify_4206868447697726802 = (blob) => PitchEstimates.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_3128408959875976772 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
 var verify_3128408959875976772 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_133049182594848948 = (blob) => SemanticSegmentationMasks.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
@@ -8986,6 +9232,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_7550522492754457054,
     verify: verify_7550522492754457054
   }],
+  [4206868447697726802n, {
+    name: "open_perception_kit::metadata::PitchEstimates",
+    root_type: "PitchEstimates",
+    qualified_root_type: "open_perception_kit.metadata.PitchEstimates",
+    file_identifier: "PTCH",
+    decode: decode_4206868447697726802,
+    verify: verify_4206868447697726802
+  }],
   [3128408959875976772n, {
     name: "open_perception_kit::metadata::SegmentationMasks",
     root_type: "SegmentationMasks",
@@ -9038,6 +9292,7 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [ObjectTracksT, 5316059591418463553n],
   [PerformanceMeasurementsT, 2630163151625760217n],
   [PersonPresencesT, 7550522492754457054n],
+  [PitchEstimatesT, 4206868447697726802n],
   [SegmentationMasksT, 3128408959875976772n],
   [SemanticSegmentationMasksT, 133049182594848948n],
   [TrackTracesT, 7618457940451616939n],
@@ -9059,8 +9314,8 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 };
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
-var SDK_VERSION = "1.0.0";
-var SCHEMA_SET_SHA256 = "8fdcc9e52844769d208eb920a883b23527f556c1709572007bb770e9367839a5";
+var SDK_VERSION = "1.1.0";
+var SCHEMA_SET_SHA256 = "4ccb3562b7ecb91baf667f9e0eee7d5fc06fbac6b0bf79d7d5d19f42de1bf11c";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");

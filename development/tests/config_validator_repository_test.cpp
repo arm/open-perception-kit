@@ -74,6 +74,37 @@ TEST(ConfigValidator, RepositoryRejectsUnknownDescriptorFilename) {
     EXPECT_TRUE(hasRule(report, "dispatch.filename"));
 }
 
+TEST(ConfigValidator, RepositoryExcludesOnlyDeclaredModelArtifacts) {
+    TemporaryRepository repository;
+    std::ofstream(repository.root() / "config/model-assets.json") << R"({
+        "first": {"archive": {"metadata.json": {"member": "upstream/metadata.json"}}},
+        "second/vocabulary.json": {"url": "https://example.invalid/vocabulary.json"}
+    })";
+    std::ofstream(repository.root() / "config/models/first/metadata.json") << "{}";
+    std::ofstream(repository.root() / "config/models/second/vocabulary.json") << "[]";
+    EXPECT_TRUE(opk::config::detail::validateRepository(repository.root()).ok());
+    std::ofstream(repository.root() / "config/models/second/metadata.json") << "{}";
+    EXPECT_TRUE(
+        hasRule(opk::config::detail::validateRepository(repository.root()), "dispatch.filename"));
+}
+
+TEST(ConfigValidator, ArtifactManifestCannotHideDescriptorsOrInvalidPaths) {
+    TemporaryRepository repository;
+    std::ofstream(repository.root() / "config/model-assets.json") << R"({
+        "first": {"archive": {"model.json": {}, "opchain-.json": {}}},
+        "../pipelines/invalid.json": {}
+    })";
+    std::ofstream(repository.root() / "config/models/first/model.json") << "{}";
+    std::ofstream(repository.root() / "config/models/first/opchain-.json") << "{}";
+    const auto report = opk::config::detail::validateRepository(repository.root());
+    EXPECT_TRUE(hasRule(report, "repository.artifacts"));
+    EXPECT_TRUE(hasRule(report, "dispatch.version"));
+    EXPECT_TRUE(hasRule(report, "dispatch.filename"));
+    EXPECT_FALSE(report.ok());
+    std::ofstream(repository.root() / "config/model-assets.json") << "{";
+    EXPECT_FALSE(opk::config::detail::validateRepository(repository.root()).ok());
+}
+
 TEST(ConfigValidator, RepositoryRejectsEmptyOpChainVariant) {
     TemporaryRepository repository;
     std::ofstream(repository.root() / "config/opchains/opchain-.json") << "{}";
@@ -128,12 +159,17 @@ TEST(ConfigValidator, CheckedInRepositoryIsValidAndCanonicalRoundTrips) {
     const auto report = opk::config::detail::validateRepository(OPK_REPOSITORY_ROOT);
 
     ASSERT_TRUE(report.ok()) << report.toText();
+    opk::config::ValidationReport artifactReport;
+    const auto artifacts =
+        opk::config::detail::modelArtifactPaths(OPK_REPOSITORY_ROOT, artifactReport);
+    ASSERT_TRUE(artifactReport.ok()) << artifactReport.toText();
     for (const auto *directory :
          {"config/models", "config/opchains", "development/examples/byom-blazeface"}) {
         for (const auto &entry : std::filesystem::recursive_directory_iterator(
                  std::filesystem::path(OPK_REPOSITORY_ROOT) / directory)) {
             const auto &path = entry.path();
-            if (!entry.is_regular_file() || path.extension() != ".json")
+            if (!entry.is_regular_file() || path.extension() != ".json" ||
+                artifacts.contains(path.lexically_normal()))
                 continue;
 
             std::ifstream input(path);

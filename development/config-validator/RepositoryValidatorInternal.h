@@ -20,8 +20,13 @@
 #include "Validator.h"
 
 #include <filesystem>
+#include <set>
 
 namespace opk::config::detail {
+
+// Explicit downloader-owned files, excluding reserved OPK descriptor names.
+[[nodiscard]] std::set<std::filesystem::path> modelArtifactPaths(const std::filesystem::path &root,
+                                                                 ValidationReport &report);
 
 [[nodiscard]] ValidationReport validateRepository(const std::filesystem::path &root);
 

@@ -464,3 +464,47 @@ softmax before SSD decoding and confidence filtering. Existing probability
 outputs retain their behavior. Chains adopting this option use version `1.9.0`.
 Rebuild the runtime and its embedded configuration schemas before using it;
 older readers reject the new attribute.
+
+## OpChain 2.1: audio event classification
+
+OpChain reader schema `2.1.0` adds `AudioEventClassificationParser` and optional
+log-mel `spectrum`, `centerPadding`, and `frameCount` attributes. Existing chains
+retain power spectra, no waveform padding, and all available frames. Rebuild
+native readers and runtime before using the new attributes.
+
+YAMNet uses magnitude spectra, centered reflection, a leading frame prefix, and
+sigmoid postprocessing. Its Model descriptor uses `2.0.0` without `contentType`;
+its OpChain uses `2.1.0`. The parser declares typed `Classifications` output and
+requires a nonempty `labelSet` identifying the class vocabulary. It emits
+categorical classifications with optional scores and class IDs using the existing
+SDK 1.0 schema. No additional payload schema change is required.
+
+Optional boolean `log` (default `false`) prints every accepted candidate to stderr
+with its model, label, class ID and confidence, independently of the global log level.
+
+## OpChain 2.2: PCM normalization
+
+OpChain schema `2.2.0` adds optional `pcmNormalization` to
+`GenericAudioPreprocess`. Existing descriptors retain raw PCM copying. Select
+`{ "kind": "window", "epsilon": 1e-10 }` for CREPE-compatible per-window
+mean subtraction and sample-standard-deviation scaling with a clamped denominator.
+Use an OpChain version of `2.2.0` and rebuild native readers before adopting the
+attribute. Window normalization requires at least two PCM samples, no retained
+context, and cannot be combined with log-mel processing. No payload schema changes
+are required.
+
+## OpChain 2.3: pitch postprocessing
+
+OpChain schema `2.3.0` adds `PitchEstimationParser` to `GenericPostprocess`.
+Its required attributes explicitly configure the score tensor, activation,
+pitch-bin frequency grid, decoder and voicing thresholds. Use version `2.3.0`
+and rebuild native readers before adopting this parser. Existing opchains keep
+their behavior; older readers cannot validate the new parser contract.
+
+## OpChain 2.4: pitch debug logging
+
+OpChain schema `2.4.0` adds optional boolean `log` to `PitchEstimationParser`.
+It defaults to false. When enabled, each voiced estimate prints its model,
+frequency in Hz and periodicity to stderr, independently of the global log
+level. Unvoiced estimates are still published but do not print. Rebuild native
+readers before using this attribute; no payload schema changes are required.

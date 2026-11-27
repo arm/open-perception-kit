@@ -106,5 +106,25 @@
   "retinaface-LICENSE.txt": {
     "url": "https://raw.githubusercontent.com/yakhyo/retinaface-pytorch/97a0b04622a90f6bc4b40c1305c206260ec90b5a/LICENSE",
     "sha256": "a4f7998feb5c90555daae4329db61caf7049e6b2706991dc1d9eb2a0923847ae"
+  },
+  "yamnet-README.md": {
+    "url": "https://huggingface.co/qualcomm/YamNet/raw/2105a5e3e546b80c484a7084fcae435683a1c205/README.md",
+    "sha256": "17ca36f6fa2b7be035021c719341873f5d754a22d6ff367007a3914bbc42d699"
+  },
+  "yamnet-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/w-hc/torch_audioset/e8852c5/LICENSE",
+    "sha256": "d3a4edfce36af367508ee5ed8a2127daa9d9e749343bb38471bc198bd8caf782"
+  },
+  "crepe-tiny-README.md": {
+    "url": "https://huggingface.co/FredrikKarlssonSpeech/torchcrepe-onnx/raw/5768ab3ad99977bc83b15dd69a91b4d6e20987e8/README.md",
+    "sha256": "ad82d1d632082aa6b239bc4732c4db741e02afb39c4389c0d90100bc067148c7"
+  },
+  "crepe-tiny-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/maxrmorrison/torchcrepe/19e2ec3d494c0797a5ff2a11408ec5838fba6681/LICENSE",
+    "sha256": "2e1d0b22e64e0f0937cb213dbe45b0b02c97d278c4db8bae926ae031325b2417"
+  },
+  "crepe-original-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/marl/crepe/c9b71ce61491454125a0693f584f7244f29d9884/LICENSE",
+    "sha256": "72b2e8b7b1f8f21b667eb241275d4b57cb504d17c0fc624421ec306ef4edc4ac"
   }
 }

@@ -102,6 +102,7 @@ opk::Result<void> GenericAudioPreprocessOp::bind(const size_t index,
 }
 
 opk::Result<opk::op::OpSignal> GenericAudioPreprocessOp::process(opk::op::OpChainContext &context) {
+    context.inferenceInfo.audio.pcmRms.reset();
     if (!inference) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "GenericAudioPreprocess is not bound"));
@@ -113,10 +114,11 @@ opk::Result<opk::op::OpSignal> GenericAudioPreprocessOp::process(opk::op::OpChai
                       "GenericAudioPreprocess requires its scheduled PCM source"));
     auto *const destination = inference->getTensorDataAddress(boundAudioTensorIndex);
     const auto &audio = context.inferenceInfo.audio;
-    if (const auto result =
-            tensorBuilder.build(*window, destination, audio.hopSampleCount, audio.discontinuity);
-        !result)
+    const auto result =
+        tensorBuilder.build(*window, destination, audio.hopSampleCount, audio.discontinuity);
+    if (!result)
         return tl::unexpected(result.error());
+    context.inferenceInfo.audio.pcmRms = *result;
     const auto &model = inference->getModel();
     context.inferenceInfo.modelName = model.name;
     context.inferenceInfo.parentId = 0;

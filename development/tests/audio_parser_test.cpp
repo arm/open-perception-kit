@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
+#include "opk/AudioResults.h"
+#include "postproc/AudioEventClassificationParser.h"
 #include "postproc/KeywordClassificationParser.h"
+#include "postproc/PitchEstimationParser.h"
 #include "postproc/VoiceActivityParser.h"
 
 #include <array>
@@ -247,6 +250,110 @@ TEST(VoiceActivityParser, RoundTripsZeroAndAbsentTimestamps) {
         }
     });
     EXPECT_EQ(count, 2u);
+}
+
+TEST(PitchEstimates, RoundTripsVoicedUnvoicedAndUnavailableValues) {
+    using Pitch = open_perception_kit::metadata::PitchEstimateT;
+    using Payload = open_perception_kit::metadata::PitchEstimatesT;
+    Payload payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = "pitch-model", .inferElementId = "pitch"});
+    auto voiced = std::make_unique<Pitch>();
+    voiced->object = open_perception_kit::makeObjectMeta(41U, 9U);
+    voiced->voiced = true;
+    voiced->frequency_hz = 440.f;
+    voiced->periodicity = 1.f;
+    voiced->window_end_sample = 1024;
+    voiced->window_start_ts_ns = 0;
+    voiced->window_end_ts_ns = 64'000'000;
+    voiced->discontinuity = true;
+    ASSERT_TRUE(opk::audio_results::valid(*voiced));
+    payload.estimates.push_back(std::move(voiced));
+    auto unvoiced = std::make_unique<Pitch>();
+    unvoiced->voiced = false;
+    unvoiced->periodicity = 0.f;
+    unvoiced->window_start_sample = 160;
+    unvoiced->window_end_sample = 1184;
+    ASSERT_TRUE(opk::audio_results::valid(*unvoiced));
+    payload.estimates.push_back(std::move(unvoiced));
+    payload.estimates.push_back(std::make_unique<Pitch>()); // Structural absence is preserved.
+    Results results;
+    results.add(std::move(payload));
+    const auto bytes = open_perception_kit::serialize(results);
+    const Results decoded{std::span<const uint8_t>(bytes)};
+    const auto result = decoded.get<Payload>();
+    ASSERT_TRUE(result);
+    const auto &value = result->value();
+    EXPECT_EQ(value.layer->model, "pitch-model");
+    ASSERT_EQ(value.estimates.size(), 3u);
+    const auto &first = *value.estimates[0];
+    EXPECT_TRUE(opk::audio_results::valid(first));
+    EXPECT_EQ(first.frequency_hz, 440.f);
+    EXPECT_EQ(first.periodicity, 1.f);
+    EXPECT_EQ(first.object->id, 41u);
+    EXPECT_EQ(first.object->parent_id, 9u);
+    EXPECT_EQ(first.window_start_ts_ns, 0u);
+    EXPECT_EQ(first.window_end_ts_ns, 64'000'000u);
+    EXPECT_TRUE(first.discontinuity);
+    const auto &second = *value.estimates[1];
+    EXPECT_TRUE(opk::audio_results::valid(second));
+    EXPECT_EQ(second.voiced, false);
+    EXPECT_EQ(second.periodicity, 0.f);
+    EXPECT_FALSE(second.frequency_hz);
+    EXPECT_FALSE(second.window_start_ts_ns);
+    EXPECT_FALSE(second.window_end_ts_ns);
+    EXPECT_FALSE(value.estimates[2]->voiced);
+    EXPECT_FALSE(value.estimates[2]->periodicity);
+    EXPECT_FALSE(opk::audio_results::valid(*value.estimates[2]));
+    Results empty;
+    empty.add(Payload{});
+    const auto emptyBytes = open_perception_kit::serialize(empty);
+    const Results emptyDecoded{std::span<const uint8_t>(emptyBytes)};
+    const auto emptyPayload = emptyDecoded.get<Payload>();
+    ASSERT_TRUE(emptyPayload);
+    EXPECT_TRUE(emptyPayload->value().estimates.empty());
+    EXPECT_FALSE(emptyPayload->value().layer);
+}
+
+TEST(PitchEstimates, ValidatesFrequencyPeriodicityAndWindowSemantics) {
+    open_perception_kit::metadata::PitchEstimateT value;
+    value.voiced = true;
+    value.frequency_hz = 440.f;
+    value.window_end_sample = 1024;
+    EXPECT_TRUE(opk::audio_results::valid(value)); // Periodicity may be unavailable.
+    for (const float invalid : {0.f,
+                                -1.f,
+                                std::numeric_limits<float>::infinity(),
+                                std::numeric_limits<float>::quiet_NaN()}) {
+        value.frequency_hz = invalid;
+        EXPECT_FALSE(opk::audio_results::valid(value));
+    }
+    value.frequency_hz.reset();
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.voiced = false;
+    EXPECT_TRUE(opk::audio_results::valid(value));
+    value.frequency_hz = 440.f;
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.frequency_hz.reset();
+    for (const float invalid : {-1.f,
+                                1.01f,
+                                std::numeric_limits<float>::infinity(),
+                                std::numeric_limits<float>::quiet_NaN()}) {
+        value.periodicity = invalid;
+        EXPECT_FALSE(opk::audio_results::valid(value));
+    }
+    value.periodicity.reset();
+    value.window_end_sample = 0;
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.window_end_sample = 1024;
+    value.window_start_ts_ns = 0;
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.window_end_ts_ns = 0;
+    EXPECT_FALSE(opk::audio_results::valid(value));
+    value.window_end_ts_ns = 64'000'000;
+    EXPECT_TRUE(opk::audio_results::valid(value));
+    value.window_start_ts_ns.reset();
+    EXPECT_FALSE(opk::audio_results::valid(value));
 }
 
 TEST(VoiceActivityDetections, EmptyPayloadAndOptionalLayerRoundTrip) {
@@ -531,4 +638,350 @@ TEST(KeywordClassificationParser, RejectsInvalidScoresAndTensorShapes) {
     EXPECT_EQ(results.size(), 0u);
 }
 
+struct EventFixture : KeywordFixture {
+    opk::stdop::postproc::AudioEventClassificationParser eventParser;
+    EventFixture() {
+        attributes.set("activation", "sigmoid");
+        attributes.set("topK", int64_t{3});
+        attributes.set("confidenceThreshold", 0.5);
+        input.producerInfo.implementation = "AudioEventClassificationParser";
+    }
+};
+
+TEST(AudioEventClassificationParser, PreservesIndependentScoresAndIdentityThroughSerialization) {
+    EventFixture fixture;
+    fixture.scores = {2, 1000, 2, 0};
+    Results results;
+    ASSERT_TRUE(fixture.eventParser.parse(fixture.input, results));
+    const auto bytes = open_perception_kit::serialize(results);
+    const Results decoded{std::span<const uint8_t>(bytes)};
+    ASSERT_EQ(decoded.size(), 1u);
+    decoded.for_each<KeywordPayload>([](const auto &payload) {
+        EXPECT_EQ(payload.classifications[0]->label_set, "test:commands-v1");
+        EXPECT_EQ(payload.classifications[0]->kind,
+                  open_perception_kit::metadata::ClassificationKind::Categorical);
+        EXPECT_EQ(payload.layer->model, "synthetic-command-scores");
+        EXPECT_EQ(payload.layer->infer_element_id, "commands");
+        EXPECT_EQ(payload.layer->producer->implementation, "AudioEventClassificationParser");
+        ASSERT_EQ(payload.classifications.size(), 1u);
+        const auto &candidates = payload.classifications[0]->candidates;
+        ASSERT_EQ(candidates.size(), 3u);
+        EXPECT_EQ(candidates[0]->class_id, 0);
+        EXPECT_EQ(candidates[1]->class_id, 2);
+        EXPECT_EQ(candidates[2]->text, "hold");
+        EXPECT_NEAR(candidates[0]->confidence.value_or(-1), 0.880797f, 1e-6f);
+        EXPECT_EQ(candidates[0]->confidence, candidates[1]->confidence);
+        EXPECT_EQ(candidates[2]->confidence, 0.5f);
+    });
+}
+
+TEST(AudioEventClassificationParser, HandlesExtremesAndTopK) {
+    EventFixture fixture;
+    fixture.scores = {-1000, 0, 1000, 2};
+    fixture.attributes.set("topK", int64_t{1});
+    Results results;
+    ASSERT_TRUE(fixture.eventParser.parse(fixture.input, results));
+    results.for_each<KeywordPayload>([](const auto &payload) {
+        const auto &candidates = payload.classifications[0]->candidates;
+        ASSERT_EQ(candidates.size(), 1u);
+        EXPECT_EQ(candidates[0]->class_id, 2);
+        EXPECT_EQ(candidates[0]->confidence, 1.0f);
+    });
+}
+
+TEST(AudioEventClassificationParser, PublishesEmptyAssessmentWithIdentityThroughSerialization) {
+    for (const float suppressedScore : {0.1f, 1.0f}) {
+        EventFixture fixture;
+        fixture.attributes.set("activation", "none");
+        // No class passes, or only the class with a null label passes.
+        fixture.scores = {.1f, suppressedScore, .2f, .3f};
+        Results results;
+        ASSERT_TRUE(fixture.eventParser.parse(fixture.input, results));
+        ASSERT_EQ(results.size(), 1u);
+        const auto bytes = open_perception_kit::serialize(results);
+        const Results decoded{std::span<const uint8_t>(bytes)};
+        ASSERT_EQ(decoded.size(), 1u);
+        const auto payload = decoded.get<KeywordPayload>();
+        ASSERT_TRUE(payload);
+        const auto &assessment = payload->value();
+        ASSERT_TRUE(assessment.layer);
+        EXPECT_EQ(assessment.layer->model, "synthetic-command-scores");
+        EXPECT_EQ(assessment.layer->infer_element_id, "commands");
+        ASSERT_TRUE(assessment.layer->producer);
+        EXPECT_EQ(assessment.layer->producer->instance_id, "commands/post");
+        EXPECT_EQ(assessment.layer->producer->implementation, "AudioEventClassificationParser");
+        ASSERT_EQ(assessment.classifications.size(), 1u);
+        const auto &classification = *assessment.classifications[0];
+        EXPECT_EQ(classification.kind,
+                  open_perception_kit::metadata::ClassificationKind::Categorical);
+        EXPECT_EQ(classification.label_set, "test:commands-v1");
+        ASSERT_TRUE(classification.object);
+        EXPECT_EQ(classification.object->parent_id, 29u);
+        EXPECT_EQ(classification.subject_id, 29u);
+        EXPECT_TRUE(classification.candidates.empty());
+    }
+}
+
+TEST(AudioEventClassificationParser, RejectsInvalidScoresConfigurationAndShapeAtomically) {
+    EventFixture fixture;
+    for (const float score :
+         {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()}) {
+        fixture.scores = {2, 3, 4, score};
+        Results results;
+        EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+        EXPECT_EQ(results.size(), 0u);
+    }
+    fixture.scores = {0, 0, 0, 0};
+    fixture.attributes.set("activation", "softmax");
+    Results results;
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("activation", "none");
+    fixture.scores[0] = 1.1f;
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.scores[0] = 0;
+    fixture.attributes.set("topK", int64_t{0});
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("topK", int64_t{3});
+    fixture.attributes.set("labelSet", "");
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("labelSet", int64_t{1});
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.attributes.set("labelSet", "test:commands-v1");
+    fixture.attributes.setArray("labels", {"wrong", "count"});
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    fixture.input.tensors[1] = nullptr;
+    EXPECT_FALSE(fixture.eventParser.parse(fixture.input, results));
+    EXPECT_EQ(results.size(), 0u);
+}
+
 } // namespace
+
+namespace {
+struct PitchFixture {
+    opk::stdop::postproc::PitchEstimationParser parser;
+    opk::AttributeMap attributes;
+    std::array<float, 3> scores{0, 1, 0};
+    opk::TensorView tensor{
+        scores.data(), sizeof(scores), opk::Shape(1, 3), opk::Dtype::Float32, 1, 0};
+    opk::TensorParser::Input input{attributes};
+    Results results;
+    PitchFixture() {
+        attributes.set("outputTensorIndex", int64_t{0});
+        attributes.set("binCount", int64_t{3});
+        attributes.set("weightedRadius", int64_t{1});
+        attributes.set("activation", "none");
+        attributes.set("decoder", "argmax");
+        attributes.set("centsOffset", 0.0);
+        attributes.set("centsPerBin", 1200.0);
+        attributes.set("referenceFrequencyHz", 440.0);
+        attributes.set("minFrequencyHz", 400.0);
+        attributes.set("maxFrequencyHz", 2000.0);
+        attributes.set("periodicityThreshold", 0.5);
+        attributes.set("minimumRms", 0.001);
+        input.tensors[0] = &tensor;
+        input.inferenceInfo.modelName = "pitch-test";
+        input.inferenceInfo.parentId = 17;
+        input.producerInfo.instance_id = "pitch/post";
+        auto &audio = input.inferenceInfo.audio;
+        audio.hopSampleCount = 160;
+        audio.windowEndSample = 1024;
+        audio.windowStartTimestampNs = 0;
+        audio.windowEndTimestampNs = 64'000'000;
+        audio.discontinuity = true;
+        audio.pcmRms = 0.1;
+    }
+    void expect(const bool voiced, const double hz, const float periodicity) {
+        ASSERT_TRUE(parser.parse(input, results));
+        ASSERT_EQ(results.size(), 1u);
+        results.for_each<open_perception_kit::metadata::PitchEstimatesT>([&](const auto &p) {
+            ASSERT_EQ(p.estimates.size(), 1u);
+            const auto &e = *p.estimates[0];
+            EXPECT_EQ(e.voiced, voiced);
+            EXPECT_EQ(e.frequency_hz.has_value(), voiced);
+            if (voiced) {
+                EXPECT_NEAR(*e.frequency_hz, hz, 0.001);
+            }
+            EXPECT_FLOAT_EQ(e.periodicity.value_or(-1), periodicity);
+            EXPECT_EQ(e.window_start_sample, 0u);
+            EXPECT_EQ(e.window_end_sample, 1024u);
+            EXPECT_EQ(e.window_start_ts_ns, 0u);
+            EXPECT_EQ(e.window_end_ts_ns, 64'000'000u);
+            EXPECT_TRUE(e.discontinuity);
+            ASSERT_TRUE(e.object);
+            EXPECT_EQ(e.object->parent_id, 17u);
+            EXPECT_EQ(p.layer->model, "pitch-test");
+            EXPECT_EQ(p.layer->producer->instance_id, "pitch/post");
+        });
+    }
+};
+TEST(PitchEstimationParser, ArgmaxPreservesWindowAndProducer) {
+    PitchFixture f;
+    f.expect(true, 880, 1);
+}
+TEST(PitchEstimationParser, ReusesStorageWithoutRetainingScoresAfterFailure) {
+    PitchFixture f;
+    f.attributes.set("decoder", "weightedArgmax");
+    f.expect(true, 880, 1);
+    f.results = Results{};
+    f.scores = {1, 0, std::numeric_limits<float>::quiet_NaN()};
+    EXPECT_FALSE(f.parser.parse(f.input, f.results));
+    EXPECT_EQ(f.results.size(), 0u);
+    f.scores = {0, 0, 1};
+    f.expect(true, 1760, 1);
+    f.results = Results{};
+    f.scores = {0, 0, 0};
+    f.expect(false, 0, 0);
+}
+TEST(PitchEstimationParser, RefreshesCachedConfigurationAndRecoversFromInvalidGrid) {
+    PitchFixture f;
+    f.expect(true, 880, 1);
+    f.results = Results{};
+    f.attributes.set("referenceFrequencyHz", 220.0);
+    f.expect(true, 440, 1);
+    f.results = Results{};
+    f.attributes.set("minFrequencyHz", 800.0);
+    f.scores = {0, 1, 0.75f};
+    f.expect(true, 880, 0.75f);
+    f.results = Results{};
+    f.attributes.set("minFrequencyHz", 1900.0);
+    EXPECT_FALSE(f.parser.parse(f.input, f.results));
+    EXPECT_EQ(f.results.size(), 0u);
+    f.attributes.set("minFrequencyHz", 800.0);
+    f.expect(true, 880, 0.75f);
+    f.results = Results{};
+    f.attributes.set("activation", "sigmoid");
+    f.scores = {-1000, -1000, 1000};
+    f.expect(true, 880, 1);
+    f.results = Results{};
+    f.attributes.set("minimumRms", 0.2);
+    f.expect(false, 0, 1);
+}
+TEST(PitchEstimationParser, ResizesCachedBuffersWhenBinCountChanges) {
+    PitchFixture f;
+    f.expect(true, 880, 1);
+    f.results = Results{};
+    std::array<float, 2> scores{1, 0};
+    opk::TensorView tensor{
+        scores.data(), sizeof(scores), opk::Shape(1, 2), opk::Dtype::Float32, 1, 0};
+    f.input.tensors[0] = &tensor;
+    f.attributes.set("binCount", int64_t{2});
+    f.expect(true, 440, 1);
+    f.results = Results{};
+    f.input.tensors[0] = &f.tensor;
+    f.attributes.set("binCount", int64_t{3});
+    f.expect(true, 880, 1);
+}
+TEST(PitchEstimationParser, WeightedDecoderInterpolatesInCents) {
+    PitchFixture f;
+    f.attributes.set("decoder", "weightedArgmax");
+    f.scores = {0.5f, 1, 0};
+    f.expect(true, 440 * std::exp2(2.0 / 3.0), 1);
+}
+TEST(PitchEstimationParser, FrequencyLimitsAndTiesSelectLowestEligiblePeak) {
+    PitchFixture f;
+    f.scores = {1, 0.75f, 0.75f};
+    f.attributes.set("minFrequencyHz", 800.0);
+    f.expect(true, 880, 0.75f);
+}
+TEST(PitchEstimationParser, WeightedNeighborhoodClipsToFrequencyRange) {
+    PitchFixture f;
+    f.scores = {1, 0.75f, 0};
+    f.attributes.set("decoder", "weightedArgmax");
+    f.attributes.set("minFrequencyHz", 800.0);
+    f.expect(true, 880, 0.75f);
+}
+TEST(PitchEstimationParser, EmitsUnvoicedForLowPeriodicitySilenceAndZeroScores) {
+    for (int mode = 0; mode < 3; ++mode) {
+        PitchFixture f;
+        if (mode == 0)
+            f.scores = {0, 0.25f, 0};
+        if (mode == 1)
+            f.input.inferenceInfo.audio.pcmRms = 0.0001;
+        if (mode == 2) {
+            f.scores = {0, 0, 0};
+            f.attributes.set("periodicityThreshold", 0.0);
+        }
+        f.expect(false, 0, mode == 0 ? 0.25f : mode == 1 ? 1.0f : 0.0f);
+    }
+}
+TEST(PitchEstimationParser, ExplicitSigmoidIsStableForExtremeLogits) {
+    PitchFixture f;
+    f.attributes.set("activation", "sigmoid");
+    f.scores = {-1000, 1000, -1000};
+    f.expect(true, 880, 1);
+}
+TEST(PitchEstimationParser, MissingRmsIsAllowedOnlyWhenGateDisabled) {
+    PitchFixture f;
+    f.input.inferenceInfo.audio.pcmRms.reset();
+    EXPECT_FALSE(f.parser.parse(f.input, f.results));
+    EXPECT_EQ(f.results.size(), 0u);
+    f.attributes.set("minimumRms", 0.0);
+    f.expect(true, 880, 1);
+}
+TEST(PitchEstimationParser, RejectsMalformedScoresWithoutAppending) {
+    for (const float value : {-1.0f,
+                              1.01f,
+                              std::numeric_limits<float>::infinity(),
+                              std::numeric_limits<float>::quiet_NaN()}) {
+        PitchFixture f;
+        ASSERT_TRUE(f.parser.parse(f.input, f.results));
+        f.scores[0] = value;
+        EXPECT_FALSE(f.parser.parse(f.input, f.results));
+        EXPECT_EQ(f.results.size(), 1u);
+    }
+}
+TEST(PitchEstimationParser, RejectsInvalidConfigurationShapesAndTiming) {
+    for (int mode = 0; mode < 9; ++mode) {
+        PitchFixture f;
+        switch (mode) {
+        case 0:
+            f.attributes.set("binCount", int64_t{4});
+            break;
+        case 1:
+            f.attributes.set("weightedRadius", int64_t{-1});
+            break;
+        case 2:
+            f.attributes.set("periodicityThreshold", 2.0);
+            break;
+        case 3:
+            f.attributes.set("minFrequencyHz", 1900.0);
+            break;
+        case 4:
+            f.attributes.set("centsOffset", 1e300);
+            break;
+        case 5:
+            f.input.inferenceInfo.audio.windowEndSample = 0;
+            break;
+        case 6:
+            f.input.inferenceInfo.audio.windowEndTimestampNs.reset();
+            break;
+        case 7:
+            f.input.inferenceInfo.audio.pcmRms = -1;
+            break;
+        case 8:
+            f.input.tensors[0] = nullptr;
+            break;
+        default:
+            // intentionally does nothing
+            break;
+        }
+        EXPECT_FALSE(f.parser.parse(f.input, f.results)) << mode;
+        EXPECT_EQ(f.results.size(), 0u);
+    }
+}
+} // namespace
+
+TEST(PitchEstimationParser, RejectsNonSingletonBatchAndNonFloatStorage) {
+    PitchFixture f;
+    const std::array<float, 6> batch{};
+    opk::TensorView batched{
+        batch.data(), sizeof(batch), opk::Shape(2, 3), opk::Dtype::Float32, 1, 0};
+    f.input.tensors[0] = &batched;
+    EXPECT_FALSE(f.parser.parse(f.input, f.results));
+    const std::array<uint8_t, 3> bytes{0, 1, 0};
+    opk::TensorView quantized{
+        bytes.data(), sizeof(bytes), opk::Shape(1, 3), opk::Dtype::Uint8, 1, 0};
+    f.input.tensors[0] = &quantized;
+    EXPECT_FALSE(f.parser.parse(f.input, f.results));
+    EXPECT_EQ(f.results.size(), 0u);
+}

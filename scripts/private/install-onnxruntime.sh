@@ -21,6 +21,8 @@ architecture="${2:-$(uname -m)}"
 destination="${3:-/opt/opk-deps/onnxruntime}"
 # NuGet remains the default while the GitHub release assets are unavailable.
 source="${OPK_ONNXRUNTIME_SOURCE:-nuget}"
+# The lock lives in requirements/; local release archives live beside it in var/.
+archive_cache="${ONNXRUNTIME_ARCHIVE_DIR:-$(dirname -- "${descriptor}")/../var}"
 
 case "${architecture}" in
     amd64 | x86_64)
@@ -61,7 +63,13 @@ temporary_directory="$(mktemp -d)"
 trap 'rm -rf "${temporary_directory}"' EXIT
 
 archive="${temporary_directory}/${archive_url##*/}"
-curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 -o "${archive}" "${archive_url}"
+local_archive="${archive_cache}/${archive_url##*/}"
+if [[ -f "${local_archive}" ]]; then
+    echo "Using local ONNX Runtime archive: ${local_archive}"
+    cp "${local_archive}" "${archive}"
+else
+    curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 -o "${archive}" "${archive_url}"
+fi
 echo "${archive_sha256}  ${archive}" | sha256sum -c -
 install_directory="${temporary_directory}/install"
 mkdir -p "${install_directory}"/{include,lib,share/doc/onnxruntime}

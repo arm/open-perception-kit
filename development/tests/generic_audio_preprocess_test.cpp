@@ -59,6 +59,111 @@ class Inference : public opk::op::Op, public opk::op::OpInterfaceInference {
     }
 };
 
+opk::AttributeMap pcmNormalization(const double epsilon = 1e-10) {
+    opk::AttributeMap attributes;
+    auto normalization = std::make_shared<opk::AttributeMap>();
+    normalization->set("kind", "window");
+    normalization->set("epsilon", epsilon);
+    attributes.setObject("pcmNormalization", normalization);
+    return attributes;
+}
+
+TEST(GenericAudioPreprocess, NormalizesWrappedPcmIntoUnalignedStorage) {
+    Inference inference;
+    std::array<uint8_t, 17> storage{};
+    inference.destinationOverride = storage.data() + 1;
+    opk::stdop::GenericAudioPreprocessOp pre;
+    ASSERT_TRUE(pre.configure(pcmNormalization()));
+    ASSERT_TRUE(pre.bind(0, {&pre, &inference}));
+    opk::PcmRingBuffer ring(5);
+    ASSERT_TRUE(ring.append(std::array<float, 4>{0, 1, 2, 3}));
+    ASSERT_TRUE(ring.append(std::array<float, 3>{4, 5, 6}));
+    const auto window = ring.window(3, 4);
+    ASSERT_TRUE(window);
+    opk::op::OpChainContext ctx;
+    ctx.pcmViews.emplace("pipelineAudioData", *window);
+    ctx.inferenceInfo.audio.hopSampleCount = 2;
+    ctx.inferenceInfo.audio.windowStartTimestampNs = 123;
+    ASSERT_TRUE(pre.process(ctx));
+    std::array<float, 4> actual{};
+    std::memcpy(actual.data(), storage.data() + 1, 16);
+    ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms, std::sqrt(21.5), 1e-12);
+    // [3,4,5,6]: mean 4.5, unbiased variance 5/3 (not population variance).
+    const std::array<float, 4> expected{-1.161895004f, -0.387298335f, 0.387298335f, 1.161895004f};
+    for (size_t i = 0; i < actual.size(); ++i)
+        EXPECT_NEAR(actual[i], expected[i], 1e-6f);
+    EXPECT_EQ(ctx.inferenceInfo.audio.windowStartTimestampNs, 123);
+    EXPECT_EQ(ctx.inferenceInfo.audio.hopSampleCount, 2);
+    ASSERT_TRUE(pre.process(ctx)); // No persistent normalization history.
+}
+
+TEST(GenericAudioPreprocess, NormalizesCrepeWindowAndHandlesConstantAndTinySignals) {
+    Inference inference;
+    inference.model.inputs[0].shape = opk::Shape(1, 1024);
+    inference.data.resize(1024);
+    opk::stdop::GenericAudioPreprocessOp pre;
+    ASSERT_TRUE(pre.configure(pcmNormalization()));
+    ASSERT_TRUE(pre.bind(0, {&pre, &inference}));
+    for (const float amplitude : {0.0f, 1.0f, 1e-12f, std::numeric_limits<float>::max()}) {
+        std::vector<float> input(1024);
+        for (size_t i = 0; i < input.size(); ++i)
+            input[i] = i % 2 ? amplitude : -amplitude;
+        opk::PcmRingBuffer ring(1024);
+        ASSERT_TRUE(ring.append(input));
+        opk::op::OpChainContext ctx;
+        ctx.pcmViews.emplace("pipelineAudioData", ring.view());
+        ctx.inferenceInfo.audio.hopSampleCount = 160;
+        ASSERT_TRUE(pre.process(ctx));
+        ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+        // Summing 1024 squared samples introduces small relative rounding error.
+        EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms,
+                    static_cast<double>(amplitude),
+                    static_cast<double>(amplitude) * 1e-12);
+        const float expected = amplitude == 0 ? 0 : amplitude < 1e-10f ? .01f : .999511599f;
+        for (size_t i = 0; i < input.size(); ++i) {
+            EXPECT_TRUE(std::isfinite(inference.data[i]));
+            EXPECT_NEAR(inference.data[i], i % 2 ? expected : -expected, 1e-6f);
+        }
+    }
+    opk::PcmRingBuffer constant(1024);
+    ASSERT_TRUE(constant.append(std::vector<float>(1024, 7.0f)));
+    opk::op::OpChainContext ctx;
+    ctx.pcmViews.emplace("pipelineAudioData", constant.view());
+    ASSERT_TRUE(pre.process(ctx));
+    EXPECT_EQ(inference.data, std::vector<float>(1024, 0));
+}
+
+TEST(GenericAudioPreprocess, RejectsInvalidPcmNormalization) {
+    Inference inference;
+    opk::stdop::GenericAudioPreprocessOp pre;
+    for (const double epsilon : {0.0,
+                                 -1.0,
+                                 std::numeric_limits<double>::infinity(),
+                                 std::numeric_limits<double>::quiet_NaN()})
+        EXPECT_FALSE(pre.configure(pcmNormalization(epsilon)));
+    auto attributes = pcmNormalization();
+    attributes.set("contextSampleCount", int64_t{1});
+    EXPECT_FALSE(pre.configure(attributes));
+    attributes = pcmNormalization();
+    attributes.setObject("logMel", std::make_shared<opk::AttributeMap>());
+    EXPECT_FALSE(pre.configure(attributes));
+    ASSERT_TRUE(pre.configure(pcmNormalization()));
+    inference.model.inputs[0].shape = opk::Shape(1, 1);
+    EXPECT_FALSE(pre.bind(0, {&pre, &inference}));
+    inference.model.inputs[0].shape = opk::Shape(1, 4);
+    ASSERT_TRUE(pre.bind(0, {&pre, &inference}));
+    opk::PcmRingBuffer ring(4);
+    ASSERT_TRUE(ring.append(std::array<float, 4>{1, 2, 3, std::numeric_limits<float>::infinity()}));
+    opk::op::OpChainContext ctx;
+    ctx.pcmViews.emplace("pipelineAudioData", ring.view());
+    const auto original = inference.data;
+    ctx.inferenceInfo.audio.pcmRms = 1.0;
+    EXPECT_FALSE(pre.process(ctx));
+    EXPECT_FALSE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_EQ(inference.data, original);
+}
+
 TEST(GenericAudioPreprocess, CopiesWrappedWindowAndPreservesTiming) {
     Inference inference;
     opk::stdop::GenericAudioPreprocessOp pre;
@@ -77,6 +182,8 @@ TEST(GenericAudioPreprocess, CopiesWrappedWindowAndPreservesTiming) {
     ctx.inferenceInfo.audio.discontinuity = true;
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::vector<float>{3, 4, 5, 6}));
+    ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms, std::sqrt(21.5), 1e-12);
     EXPECT_EQ(ctx.inferenceInfo.modelName, "audio");
     EXPECT_EQ(ctx.inferenceInfo.audio.hopSampleCount, 2);
     EXPECT_EQ(ctx.inferenceInfo.audio.windowStartTimestampNs, 0);
@@ -174,6 +281,8 @@ TEST(GenericAudioPreprocess, PrependsContextAndResetsAtDiscontinuity) {
     ctx.pcmViews.emplace("pipelineAudioData", *window4);
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::vector<float>{0, 1, 2, 3}));
+    ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms, std::sqrt(14.0 / 3), 1e-12);
     ASSERT_TRUE(ring.append(std::array<float, 3>{4, 5, 6}));
     const auto window5 = ring.latest(3);
     if (!window5.has_value())
@@ -182,7 +291,10 @@ TEST(GenericAudioPreprocess, PrependsContextAndResetsAtDiscontinuity) {
     ctx.inferenceInfo.audio.discontinuity = false;
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::vector<float>{3, 4, 5, 6}));
+    ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms, std::sqrt(77.0 / 3), 1e-12);
     EXPECT_FALSE(pre.process(ctx)); // Duplicate window must not advance model context.
+    EXPECT_FALSE(ctx.inferenceInfo.audio.pcmRms);
     ctx.inferenceInfo.audio.discontinuity = true;
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::vector<float>{0, 4, 5, 6}));
@@ -288,6 +400,8 @@ TEST(GenericAudioPreprocess, BuildsWindowLogMelAndPreservesSchedulerMetadata) {
     EXPECT_EQ(context.inferenceInfo.audio.windowEndTimestampNs, 125000123u);
     EXPECT_EQ(context.inferenceInfo.audio.hopSampleCount, 128u);
     EXPECT_TRUE(context.inferenceInfo.audio.discontinuity);
+    ASSERT_TRUE(context.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*context.inferenceInfo.audio.pcmRms, std::sqrt(1.0 / 2000), 1e-12);
 }
 
 TEST(GenericAudioPreprocess, RollingCadenceAndDiscontinuityControlHistory) {
@@ -394,14 +508,17 @@ TEST(GenericAudioPreprocess, FailedPcmProcessingPreservesContextUntilSuccessfulR
     context.inferenceInfo.audio.discontinuity = true;
     inference.missing = true;
     EXPECT_FALSE(pre.process(context));
+    EXPECT_FALSE(context.inferenceInfo.audio.pcmRms);
     inference.missing = false;
     context.inferenceInfo.audio.hopSampleCount = 2;
     EXPECT_FALSE(pre.process(context));
+    EXPECT_FALSE(context.inferenceInfo.audio.pcmRms);
     context.inferenceInfo.audio.hopSampleCount = 3;
     opk::PcmRingBuffer invalid(3);
     ASSERT_TRUE(invalid.append(std::array<float, 3>{1, std::numeric_limits<float>::infinity(), 2}));
     context.pcmViews.insert_or_assign("pipelineAudioData", invalid.view());
     EXPECT_FALSE(pre.process(context));
+    EXPECT_FALSE(context.inferenceInfo.audio.pcmRms);
     EXPECT_EQ(inference.data, initialOutput);
     context.pcmViews.insert_or_assign("pipelineAudioData", *second);
     context.inferenceInfo.audio.discontinuity = false;
@@ -596,4 +713,25 @@ TEST(GenericAudioPreprocess, BindsGenericMelMajorTensorAndPreservesRawFeatureOrd
             EXPECT_EQ(inference.data[bin * 10 + frame], timeMajor[frame * 23 + bin]);
     }
 }
+TEST(GenericAudioPreprocess, ConfiguresCenteredMagnitudePrefixAndRejectsInvalidOptions) {
+    opk::stdop::GenericAudioPreprocessOp pre;
+    auto attributes = logMelAttributes(15680, 160, "none");
+    const auto frontend = attributes.getObject("logMel");
+    frontend->set("fftSize", int64_t{512});
+    frontend->set("windowLengthSamples", int64_t{400});
+    frontend->set("spectrum", "magnitude");
+    frontend->set("centerPadding", "reflect");
+    frontend->set("frameCount", int64_t{96});
+    ASSERT_TRUE(pre.configure(attributes));
+    for (const auto *const name : {"spectrum", "centerPadding", "frameCount"}) {
+        auto invalid = attributes.cloneDeep();
+        invalid.getObject("logMel")->set(name, true);
+        EXPECT_FALSE(pre.configure(invalid));
+    }
+    frontend->set("frameCount", int64_t{100});
+    EXPECT_FALSE(pre.configure(attributes));
+    frontend->set("frameCount", int64_t{0});
+    EXPECT_FALSE(pre.configure(attributes));
+}
+
 } // namespace

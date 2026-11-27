@@ -3,6 +3,89 @@
   "$id": "urn:arm:opk:schema:generic-postprocess-op:v2",
   "title": "GenericPostprocess Op v2",
   "$defs": {
+    "pitchEstimation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "outputTensorIndex",
+        "binCount",
+        "weightedRadius",
+        "activation",
+        "decoder",
+        "centsOffset",
+        "centsPerBin",
+        "referenceFrequencyHz",
+        "minFrequencyHz",
+        "maxFrequencyHz",
+        "periodicityThreshold",
+        "minimumRms"
+      ],
+      "properties": {
+        "parser": {
+          "const": "PitchEstimationParser"
+        },
+        "outputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "binCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "weightedRadius": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "activation": {
+          "enum": [
+            "none",
+            "sigmoid"
+          ]
+        },
+        "decoder": {
+          "enum": [
+            "argmax",
+            "weightedArgmax"
+          ]
+        },
+        "centsOffset": {
+          "type": "number"
+        },
+        "centsPerBin": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "referenceFrequencyHz": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minFrequencyHz": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maxFrequencyHz": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "periodicityThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "minimumRms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "log": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
     "cameraContact": {
       "title": "CameraContactParser attributes v2",
       "type": "object",
@@ -671,6 +754,72 @@
           }
         }
       }
+    },
+    "audioEventClassification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "outputTensorIndex",
+        "activation",
+        "confidenceThreshold",
+        "labels",
+        "topK",
+        "labelSet"
+      ],
+      "properties": {
+        "labelSet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parser": {
+          "const": "AudioEventClassificationParser"
+        },
+        "outputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "activation": {
+          "enum": [
+            "sigmoid",
+            "none"
+          ]
+        },
+        "confidenceThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "labels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contains": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "topK": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "log": {
+          "type": "boolean",
+          "default": false
+        }
+      }
     }
   },
   "if": {
@@ -749,6 +898,12 @@
           },
           {
             "$ref": "#/$defs/keywordClassification"
+          },
+          {
+            "$ref": "#/$defs/pitchEstimation"
+          },
+          {
+            "$ref": "#/$defs/audioEventClassification"
           }
         ]
       }

@@ -637,3 +637,41 @@ The optional score/decision migration is part of the breaking SDK 1.0
 contract. Root identities remain unchanged; generated bindings must be upgraded
 together. Construction and serialization tests cover positive/negative results,
 repeated assessments, empty payloads and optional/zero timestamps.
+
+## Pitch estimates
+
+`PitchEstimates` (`PTCH`) contains model-independent monophonic `PitchEstimate`
+items in `estimates`, with standard layer, producer and object metadata. Each
+item describes one complete inference window, not a note event or speech segment.
+
+- `voiced` must be present for a valid runtime result. True means a usable
+  periodic pitch, including instrumental sounds; it does not mean speech.
+- `frequency_hz` must be finite and positive when voiced, and absent otherwise.
+  Emit an explicit unvoiced item rather than dropping a completed inference.
+- `periodicity` is optional, finite and in [0,1]. Zero is a real measurement.
+  The score is model-dependent, not a calibrated probability of correct pitch.
+- Sample bounds use mono 16 kHz positions with an exclusive end greater than
+  the start. Timestamp bounds use media PTS; both must be present and increasing,
+  or both absent. A timestamp of zero is valid. Consumers may use the midpoint
+  to plot pitch while retaining the actual window bounds.
+- `discontinuity` marks the first window after reset, following the existing
+  audio scheduler convention. Empty payloads and absent layer metadata can be
+  serialized; they do not represent a measured unvoiced window.
+
+`opk::audio_results::valid` checks item semantics; FlatBuffers verification alone
+checks structure, not signal values. Producers must apply semantic validation.
+`PitchEstimationParser` emits one estimate per scheduled audio window, including
+explicit unvoiced results. See the [audio processing guide](audio-log-mel.md#pitch-postprocessing)
+for decoding and signal-level gating. The CREPE tiny model-local opchain connects
+PCM normalization, ONNX inference and this parser.
+
+This is an additive schema change: existing root identities and fields remain
+unchanged. Older SDKs can forward the new root as an unknown payload, while typed
+pitch access requires SDK 1.1.0 or later. The new root is a backward-compatible
+addition to SDK 1.0.0, which shipped with OPK 0.1.4. It therefore increments the
+independent SDK minor version to 1.1.0; the OPK product version is unchanged.
+
+Plumber normalizes pitch items and compares window bounds, timestamp presence,
+discontinuity and voiced decisions exactly. Frequencies allow one cent of error;
+periodicity allows 0.01 absolute error and must have matching presence. Invalid
+measurements fail comparison even when both packets contain the same invalid value.

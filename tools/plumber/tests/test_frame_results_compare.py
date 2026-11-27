@@ -291,6 +291,40 @@ class FrameResultsCompareTests(unittest.TestCase):
                     invalid = frame(999, **changes)
                     self.assertFalse(compare_frame_results_frame(self.args, invalid, invalid)[0])
 
+    def test_pitch_roundtrip_comparison_and_invalid_measurements(self):
+        from open_perception_kit.fb.open_perception_kit.metadata.PitchEstimate import PitchEstimateT
+        from open_perception_kit.fb.open_perception_kit.metadata.PitchEstimates import PitchEstimatesT
+
+        def frame(**changes):
+            values = {"frequencyHz": 440.0, "periodicity": 0.8, "voiced": True,
+                      "windowStartSample": 0, "windowEndSample": 1024,
+                      "windowStartTsNs": 0, "windowEndTsNs": 64000000,
+                      "discontinuity": True, **changes}
+            result = FrameResults()
+            result.add(PitchEstimatesT(layer=layer("pitch0"), estimates=[PitchEstimateT(**values)]))
+            return frame_results_frame(FrameResults(result.serialize()))
+
+        reference = frame()
+        self.assertTrue(compare_frame_results_frame(self.args, reference, frame())[0])
+        self.assertTrue(compare_frame_results_frame(self.args, reference, frame(frequencyHz=440.1))[0])
+        for changes in ({"frequencyHz": 880.0}, {"periodicity": 0.5},
+                        {"windowEndSample": 1184}, {"discontinuity": False},
+                        {"windowStartTsNs": None, "windowEndTsNs": None}):
+            self.assertFalse(compare_frame_results_frame(self.args, reference, frame(**changes))[0])
+        for changes in ({"frequencyHz": None}, {"frequencyHz": 0}, {"frequencyHz": float("nan")},
+                        {"frequencyHz": float("inf")}, {"periodicity": -1}, {"periodicity": 1.1},
+                        {"voiced": None}, {"voiced": False}, {"windowEndSample": 0},
+                        {"windowStartTsNs": None}):
+            invalid = frame(**changes)
+            self.assertFalse(compare_frame_results_frame(self.args, invalid, invalid)[0])
+        for score in (None, 0, 1):
+            unvoiced = frame(voiced=False, frequencyHz=None, periodicity=score,
+                             windowStartTsNs=None, windowEndTsNs=None)
+            self.assertTrue(compare_frame_results_frame(self.args, unvoiced, unvoiced)[0])
+        unknown_score = frame(periodicity=None)
+        self.assertTrue(compare_frame_results_frame(self.args, unknown_score, unknown_score)[0])
+        self.assertFalse(compare_frame_results_frame(self.args, reference, unknown_score)[0])
+
     def test_unsupported_payloads_do_not_disappear_into_a_successful_comparison(self):
         from open_perception_kit.packet import external_key
         opaque = FrameResults()
