@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "description": "UltraFace RFB-320 INT8 face detection on a browser webcam with optional microphone passthrough.",
+  "sourceInfo": "browser webcam and optional microphone over WebRTC",
+  "loop": false,
+  "pipeline": [
+    "opksrc name=source ws-port=8003",
+    "source.video ! queue !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/ultraface-rfb-320/opchain.json\" active=true !",
+    "opkperformance show-all-metrics=true update-interval=1 !",
+    "opkcomm method=websocket endpoint=/ws !",
+    "opksink name=sink",
+    "source.src ! queue ! sink.audiosink"
+  ]
+}
