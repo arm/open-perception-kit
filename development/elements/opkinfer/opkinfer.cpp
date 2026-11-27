@@ -805,9 +805,8 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
                           (nullptr));
         return GST_FLOW_ERROR;
     }
-    if (!opk::FrameResultsMeta::get(buffer)) {
-        if (!opk::FrameResultsMeta::add(buffer,
-                                        std::make_shared<open_perception_kit::FrameResults>()))
+    if (!opk::FrameResultsMeta::has(buffer)) {
+        if (!opk::FrameResultsMeta::add(buffer))
             return GST_FLOW_ERROR;
     }
     // Source context describes this original buffer, not a model window that may
@@ -868,9 +867,8 @@ static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuf
         return GST_FLOW_OK;
 
     // Keep the downstream metadata contract even when QoS skips inference.
-    if (auto frameResultsMeta = opk::FrameResultsMeta::get(buffer); !frameResultsMeta) {
-        auto frameResults = std::make_shared<open_perception_kit::FrameResults>();
-        if (!opk::FrameResultsMeta::add(buffer, frameResults)) {
+    if (!opk::FrameResultsMeta::has(buffer)) {
+        if (!opk::FrameResultsMeta::add(buffer)) {
             GST_WARNING_OBJECT(self, "Failed to attach FrameResultsMeta");
             return GST_FLOW_OK;
         }

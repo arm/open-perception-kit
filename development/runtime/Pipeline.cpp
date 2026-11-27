@@ -36,6 +36,7 @@
 #include <mutex>
 #include <optional>
 #include <source_location>
+#include <span>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -139,7 +140,7 @@ void logQosMessage(GstMessage *message) {
                     qosValue(dropped));
 }
 
-std::string serializeFrameResultsJson(const std::vector<std::uint8_t> &packet) {
+std::string serializeFrameResultsJson(const std::span<const std::uint8_t> packet) {
     nlohmann::json wrapper;
     wrapper["frame_results_encoding"] = "perception-frame-results+base64";
     wrapper["frame_results_packet_b64"] = opk::base64Encode(packet);
@@ -1048,8 +1049,8 @@ class Pipeline::Impl {
         probes.push_back(ProbeHandle{GST_PAD(gst_object_ref(pad)), id});
     }
 
-    // This is the only place that touches GstBuffer metadata. It converts the
-    // hidden GStreamer world back into the runtime JSON callback.
+    // Keep exceptions, including exceptions from application error callbacks,
+    // inside the GStreamer callback boundary.
     static GstPadProbeReturn perceptionProbe(GstPad *, GstPadProbeInfo *info, gpointer userData) {
         auto *self = static_cast<Pipeline::Impl *>(userData);
         if (!self || !(GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_BUFFER)) {
@@ -1061,42 +1062,47 @@ class Pipeline::Impl {
             return GST_PAD_PROBE_OK;
         }
 
-        auto frameResults = opk::FrameResultsMeta::read(buffer);
-        if (!frameResults) {
-            return GST_PAD_PROBE_OK;
+        try {
+            self->emitPerception(buffer);
+        } catch (const std::exception &error) {
+            GST_ERROR("FrameResults error reporting failed: %s", error.what());
+        } catch (...) {
+            GST_ERROR("FrameResults error reporting failed: unknown exception");
         }
-
-        self->emitPerception(*frameResults);
         return GST_PAD_PROBE_OK;
     }
 
     // Copy std::function under the mutex, then call it unlocked. This avoids
     // holding our lock while user code runs.
-    void emitPerception(const open_perception_kit::FrameResults &frameResults) {
-        Pipeline::FrameResultsCallback callback;
-        Pipeline::FrameResultsPacketCallback packetCallback;
-        {
-            std::lock_guard lock(callbackMutex);
-            callback = frameResultsCallback;
-            packetCallback = frameResultsPacketCallback;
-        }
-
-        if (!callback && !packetCallback) {
-            return;
-        }
-
+    void emitPerception(GstBuffer *const buffer) {
         try {
-            const auto packet = open_perception_kit::serialize(frameResults);
+            Pipeline::FrameResultsCallback callback;
+            Pipeline::FrameResultsPacketCallback packetCallback;
+            {
+                const std::lock_guard lock(callbackMutex);
+                callback = frameResultsCallback;
+                packetCallback = frameResultsPacketCallback;
+            }
+            if (!callback && !packetCallback)
+                return;
+            const auto frameResults = opk::FrameResultsMeta::readCached(buffer);
+            if (!frameResults)
+                return;
+            const auto bytes = frameResults->view();
             if (packetCallback) {
-                packetCallback(packet);
+                // Preserve the public callback's vector contract; do not reserialize.
+                packetCallback(std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
             }
             if (callback) {
-                callback(serializeFrameResultsJson(packet));
+                callback(serializeFrameResultsJson(bytes));
             }
         } catch (const std::exception &e) {
             emitError(
                 makeError(ErrorFlag::RuntimeError,
-                          fmt::format("Failed to serialize FrameResults metadata: {}", e.what())));
+                          fmt::format("Failed to deliver FrameResults metadata: {}", e.what())));
+        } catch (...) {
+            emitError(makeError(ErrorFlag::RuntimeError,
+                                "Failed to deliver FrameResults metadata: unknown exception"));
         }
     }
 

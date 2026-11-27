@@ -27,6 +27,7 @@
 #include <fstream>
 #include <future>
 #include <limits>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -419,6 +420,31 @@ TEST(RuntimePipelinePlayback, ReportsProgressCallbacksWhileRunning) {
     auto waitResult = pipelineResult->wait();
     EXPECT_TRUE(waitResult.has_value()) << waitResult.error().toString();
     EXPECT_GT(progressCount.load(), 0U);
+}
+
+TEST(RuntimePipelineErrors, MetadataAndErrorCallbackExceptionsStayInsideTheProbe) {
+    RuntimeLoggingGuard loggingGuard;
+    std::atomic<int> deliveries = 0;
+    std::atomic<int> errors = 0;
+    ASSERT_TRUE(opk::runtime::Pipeline::addPluginPath(
+                    std::filesystem::path(OPK_PERFORMANCE_PLUGIN_PATH).parent_path().string())
+                    .has_value());
+    auto pipeline = opk::runtime::Pipeline::fromString(
+        "videotestsrc num-buffers=3 ! video/x-raw,format=BGRA,width=16,height=16 ! "
+        "opkperformance ! fakesink sync=false");
+    ASSERT_TRUE(pipeline.has_value()) << pipeline.error().toString();
+    pipeline->onFrameResultsPacket([&deliveries](const auto &) {
+        ++deliveries;
+        throw std::runtime_error("test metadata callback failure");
+    });
+    pipeline->onError([&errors](const auto &) {
+        ++errors;
+        throw 17; // Exercise containment of a non-standard exception from user code too.
+    });
+    ASSERT_TRUE(pipeline->start().has_value());
+    EXPECT_TRUE(pipeline->wait().has_value());
+    EXPECT_GE(deliveries.load(), 3);
+    EXPECT_EQ(errors.load(), deliveries.load());
 }
 
 TEST(RuntimePipelinePlayback, LoopsSeekableMediaWithoutReportingEos) {

@@ -16,6 +16,7 @@
  */
 
 #include <cstdint>
+#include <exception>
 #include <fcntl.h>
 #include <memory>
 #include <mutex>
@@ -46,6 +47,7 @@ G_DECLARE_FINAL_TYPE(GstOpkComm, gst_opk_comm, GST, OPK_COMM, GstBaseTransform)
 
 typedef enum {
 
+    GST_OPK_COMM_METHOD_NONE = 0,
     GST_OPK_COMM_METHOD_FILE = 1,
     GST_OPK_COMM_METHOD_WEBSOCKET = 2,
     GST_OPK_COMM_METHOD_TCP = 3,
@@ -102,6 +104,7 @@ enum class PropertyId : guint {
 static GType gst_opk_comm_method_get_type(void) {
     static GType methodType = 0;
     static std::vector<GEnumValue> values = {
+        {GST_OPK_COMM_METHOD_NONE, "none", "none"},
         {GST_OPK_COMM_METHOD_FILE, "file", "file"},
         {GST_OPK_COMM_METHOD_WEBSOCKET, "websocket", "websocket"},
         {GST_OPK_COMM_METHOD_TCP, "tcp", "tcp"},
@@ -118,6 +121,8 @@ static GType gst_opk_comm_method_get_type(void) {
 
 static const char *gst_opk_comm_method_name(GstOpkCommMethod method) {
     switch (method) {
+    case GST_OPK_COMM_METHOD_NONE:
+        return "none";
     case GST_OPK_COMM_METHOD_FILE:
         return "file";
     case GST_OPK_COMM_METHOD_WEBSOCKET:
@@ -148,6 +153,9 @@ static bool gst_opk_comm_open_io(GstOpkComm *self) {
 
     auto success = false;
     switch (self->method) {
+    case GST_OPK_COMM_METHOD_NONE:
+        self->priv->writer.reset();
+        return true;
     case GST_OPK_COMM_METHOD_FILE:
         self->priv->writer = std::make_unique<FileWriter>(self, self->file_name, 5);
         success = self->priv->writer->start();
@@ -219,28 +227,77 @@ static gboolean gst_opk_comm_stop(GstBaseTransform *selfInParentType) {
 static GstFlowReturn gst_opk_comm_transform_ip(GstBaseTransform *selfInParentType,
                                                GstBuffer *buffer) {
     GstOpkComm *self = GST_OPK_COMM(selfInParentType);
-    const std::scoped_lock lock(self->priv->writer_mutex);
+    try {
+        const std::scoped_lock lock(self->priv->writer_mutex);
+        if (self->method == GST_OPK_COMM_METHOD_NONE) {
+            ++self->frame_counter;
+            return GST_FLOW_OK;
+        }
 
-    if (!self->priv->writer_open)
-        return GST_FLOW_ERROR;
+        if (!self->priv->writer_open)
+            return GST_FLOW_ERROR;
 
-    if (self->priv->writer && self->priv->writer->check_running()) {
-        auto frameResults = opk::FrameResultsMeta::read(buffer);
-        OpkCommJob job = {
-            .frame_counter = self->frame_counter,
-            .frameResults = frameResults,
-        };
+        if (self->priv->writer && self->priv->writer->check_running()) {
+            const auto frameResults = opk::FrameResultsMeta::readCached(buffer);
+            OpkCommJob job = {
+                .frame_counter = self->frame_counter,
+                .frameResults = frameResults,
+            };
+            self->priv->writer->send(std::move(job));
+        }
 
-        self->priv->writer->send(std::move(job));
+        ++self->frame_counter;
+        /* passthrough: do not modify buffer */
+        return GST_FLOW_OK;
+    } catch (const std::exception &error) {
+        // Unwind the writer lock before a synchronous bus handler can stop us.
+        GST_ELEMENT_ERROR(
+            self, STREAM, FAILED, ("Failed to queue FrameResults: %s", error.what()), (nullptr));
+    } catch (...) {
+        GST_ELEMENT_ERROR(
+            self, STREAM, FAILED, ("Failed to queue FrameResults: unknown failure"), (nullptr));
     }
-
-    ++self->frame_counter;
-
-    /* passthrough: do not modify buffer */
-    return GST_FLOW_OK;
+    return GST_FLOW_ERROR;
 }
 
 /* ----------------------- GObject plumbing ----------------------- */
+
+static GstStructure *gst_opk_comm_serialization_error(const char *const status,
+                                                      const char *const message) {
+    return gst_structure_new("opk-serialized-results",
+                             "status",
+                             G_TYPE_STRING,
+                             status,
+                             "message",
+                             G_TYPE_STRING,
+                             message,
+                             nullptr);
+}
+
+static GstStructure *gst_opk_comm_serialize_results(GstOpkComm *const, GstBuffer *const buffer) {
+    try {
+        if (!buffer || !GST_IS_BUFFER(buffer))
+            return gst_opk_comm_serialization_error("error", "A GstBuffer is required");
+        const auto results = opk::FrameResultsMeta::readCached(buffer);
+        if (!results)
+            return gst_opk_comm_serialization_error("no-metadata",
+                                                    "No FrameResults on this buffer");
+        const auto packet = results->bytes();
+        return gst_structure_new("opk-serialized-results",
+                                 "status",
+                                 G_TYPE_STRING,
+                                 "ok",
+                                 "packet",
+                                 G_TYPE_BYTES,
+                                 packet.get(),
+                                 nullptr);
+    } catch (const std::exception &error) {
+        return gst_opk_comm_serialization_error("error", error.what());
+    } catch (...) {
+        return gst_opk_comm_serialization_error("error",
+                                                "Unknown FrameResults serialization failure");
+    }
+}
 
 static void gst_opk_comm_set_property(GObject *object,
                                       guint propertyId,
@@ -371,12 +428,23 @@ static void gst_opk_comm_class_init(GstOpkCommClass *self) {
     objectClass->get_property = gst_opk_comm_get_property;
     objectClass->finalize = gst_opk_comm_finalize;
 
+    g_signal_new_class_handler("serialize-results",
+                               G_TYPE_FROM_CLASS(self),
+                               static_cast<GSignalFlags>(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+                               G_CALLBACK(gst_opk_comm_serialize_results),
+                               nullptr,
+                               nullptr,
+                               g_cclosure_marshal_generic,
+                               GST_TYPE_STRUCTURE,
+                               1,
+                               GST_TYPE_BUFFER);
+
     g_object_class_install_property(
         objectClass,
         static_cast<guint>(PropertyId::Method),
         g_param_spec_enum("method",
                           "Method",
-                          "Publishing method: file, websocket, or tcp"
+                          "Publishing method: none (action only), file, websocket, or tcp"
                           "; Changeable while playing; synchronous reopen disconnects clients and "
                           "may discard queued output",
                           gst_opk_comm_method_get_type(),

@@ -178,7 +178,7 @@ class EventFlowMonitor:
         # FrameResultsMeta is registered when the pipeline starts processing, so its
         # GObject type cannot be resolved when this monitor is constructed.
         frame_results_meta_api = self._gobject.type_from_name(
-            "com_arm_opk_meta_FrameResultsAPI_v1"
+            "com_arm_opk_meta_FrameResultsAPI_v2"
         )
         buffer = info.get_buffer()
         self.infer_has_frame_results_meta = bool(

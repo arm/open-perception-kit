@@ -18,6 +18,7 @@ common = shared_library(
   sources: [
 
     'gst/Tools.cpp',
+    'gst/FrameResultsPacket.cpp',
     'gst/PipelineControl.cpp',
     'gst/TensorMeta.cpp',
 
