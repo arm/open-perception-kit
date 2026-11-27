@@ -182,6 +182,8 @@ TEST(GenericAudioPreprocess, CopiesWrappedWindowAndPreservesTiming) {
     ctx.inferenceInfo.audio.discontinuity = true;
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::vector<float>{3, 4, 5, 6}));
+    ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms, std::sqrt(21.5), 1e-12);
     EXPECT_EQ(ctx.inferenceInfo.modelName, "audio");
     EXPECT_EQ(ctx.inferenceInfo.audio.hopSampleCount, 2);
     EXPECT_EQ(ctx.inferenceInfo.audio.windowStartTimestampNs, 0);
@@ -279,6 +281,8 @@ TEST(GenericAudioPreprocess, PrependsContextAndResetsAtDiscontinuity) {
     ctx.pcmViews.emplace("pipelineAudioData", *window4);
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::vector<float>{0, 1, 2, 3}));
+    ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms, std::sqrt(14.0 / 3), 1e-12);
     ASSERT_TRUE(ring.append(std::array<float, 3>{4, 5, 6}));
     const auto window5 = ring.latest(3);
     if (!window5.has_value())
@@ -287,7 +291,10 @@ TEST(GenericAudioPreprocess, PrependsContextAndResetsAtDiscontinuity) {
     ctx.inferenceInfo.audio.discontinuity = false;
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::vector<float>{3, 4, 5, 6}));
+    ASSERT_TRUE(ctx.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*ctx.inferenceInfo.audio.pcmRms, std::sqrt(77.0 / 3), 1e-12);
     EXPECT_FALSE(pre.process(ctx)); // Duplicate window must not advance model context.
+    EXPECT_FALSE(ctx.inferenceInfo.audio.pcmRms);
     ctx.inferenceInfo.audio.discontinuity = true;
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::vector<float>{0, 4, 5, 6}));
@@ -393,6 +400,8 @@ TEST(GenericAudioPreprocess, BuildsWindowLogMelAndPreservesSchedulerMetadata) {
     EXPECT_EQ(context.inferenceInfo.audio.windowEndTimestampNs, 125000123u);
     EXPECT_EQ(context.inferenceInfo.audio.hopSampleCount, 128u);
     EXPECT_TRUE(context.inferenceInfo.audio.discontinuity);
+    ASSERT_TRUE(context.inferenceInfo.audio.pcmRms);
+    EXPECT_NEAR(*context.inferenceInfo.audio.pcmRms, std::sqrt(1.0 / 2000), 1e-12);
 }
 
 TEST(GenericAudioPreprocess, RollingCadenceAndDiscontinuityControlHistory) {
@@ -499,14 +508,17 @@ TEST(GenericAudioPreprocess, FailedPcmProcessingPreservesContextUntilSuccessfulR
     context.inferenceInfo.audio.discontinuity = true;
     inference.missing = true;
     EXPECT_FALSE(pre.process(context));
+    EXPECT_FALSE(context.inferenceInfo.audio.pcmRms);
     inference.missing = false;
     context.inferenceInfo.audio.hopSampleCount = 2;
     EXPECT_FALSE(pre.process(context));
+    EXPECT_FALSE(context.inferenceInfo.audio.pcmRms);
     context.inferenceInfo.audio.hopSampleCount = 3;
     opk::PcmRingBuffer invalid(3);
     ASSERT_TRUE(invalid.append(std::array<float, 3>{1, std::numeric_limits<float>::infinity(), 2}));
     context.pcmViews.insert_or_assign("pipelineAudioData", invalid.view());
     EXPECT_FALSE(pre.process(context));
+    EXPECT_FALSE(context.inferenceInfo.audio.pcmRms);
     EXPECT_EQ(inference.data, initialOutput);
     context.pcmViews.insert_or_assign("pipelineAudioData", *second);
     context.inferenceInfo.audio.discontinuity = false;

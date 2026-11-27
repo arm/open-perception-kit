@@ -16,7 +16,6 @@
  */
 
 #include "GenericAudioPreprocessOp.h"
-#include <cmath>
 
 using namespace opk::stdop;
 
@@ -115,15 +114,11 @@ opk::Result<opk::op::OpSignal> GenericAudioPreprocessOp::process(opk::op::OpChai
                       "GenericAudioPreprocess requires its scheduled PCM source"));
     auto *const destination = inference->getTensorDataAddress(boundAudioTensorIndex);
     const auto &audio = context.inferenceInfo.audio;
-    if (const auto result =
-            tensorBuilder.build(*window, destination, audio.hopSampleCount, audio.discontinuity);
-        !result)
+    const auto result =
+        tensorBuilder.build(*window, destination, audio.hopSampleCount, audio.discontinuity);
+    if (!result)
         return tl::unexpected(result.error());
-    double squared = 0;
-    for (const auto segment : {window->first(), window->second()})
-        for (const float sample : segment)
-            squared += static_cast<double>(sample) * sample;
-    context.inferenceInfo.audio.pcmRms = std::sqrt(squared / static_cast<double>(window->size()));
+    context.inferenceInfo.audio.pcmRms = *result;
     const auto &model = inference->getModel();
     context.inferenceInfo.modelName = model.name;
     context.inferenceInfo.parentId = 0;

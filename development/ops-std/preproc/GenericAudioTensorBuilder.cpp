@@ -53,10 +53,7 @@ class PcmCopy {
             return false;
         const auto first = pcm.first();
         const auto second = pcm.second();
-        const auto finite = [](const float sample) { return std::isfinite(sample); };
-        if (!std::all_of(first.begin(), first.end(), finite) ||
-            !std::all_of(second.begin(), second.end(), finite))
-            return false;
+        // The builder validates finite PCM and computes its RMS before conversion.
         if (normalizationEpsilon_ > 0) {
             // Double reductions avoid overflow for finite Float32 input. Read the
             // borrowed window without modifying it or assuming tensor alignment.
@@ -361,27 +358,38 @@ size_t GenericAudioTensorBuilder::getRequiredAudioSamples() const {
         *impl_->conversion);
 }
 
-opk::Result<void> GenericAudioTensorBuilder::build(const PcmRingBuffer::View &pcm,
-                                                   uint8_t *const destination,
-                                                   const size_t hopSampleCount,
-                                                   const bool discontinuity) {
+opk::Result<double> GenericAudioTensorBuilder::build(const PcmRingBuffer::View &pcm,
+                                                     uint8_t *const destination,
+                                                     const size_t hopSampleCount,
+                                                     const bool discontinuity) {
+    double squared = 0;
     const bool success =
         destination && impl_->conversion &&
         std::visit(
             [&](auto &conversion) {
-                return conversion.kernel &&
-                       conversion.kernel->process(
-                           pcm,
-                           {destination, conversion.kernel->getOutputCount() * sizeof(float)},
-                           hopSampleCount,
-                           discontinuity);
+                if (!conversion.kernel || pcm.size() == 0 ||
+                    pcm.size() != conversion.kernel->getRequiredAudioSamples())
+                    return false;
+                // Combine validation and RMS over the original scheduled samples,
+                // excluding retained context and before any normalization.
+                for (const auto segment : {pcm.first(), pcm.second()})
+                    for (const float sample : segment) {
+                        if (!std::isfinite(sample))
+                            return false;
+                        squared += static_cast<double>(sample) * sample;
+                    }
+                return conversion.kernel->process(
+                    pcm,
+                    {destination, conversion.kernel->getOutputCount() * sizeof(float)},
+                    hopSampleCount,
+                    discontinuity);
             },
             *impl_->conversion);
     if (!success)
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
                                         "Audio preprocessing requires a complete finite PCM "
                                         "window, writable tensor and valid scheduled cadence"));
-    return {};
+    return std::sqrt(squared / static_cast<double>(pcm.size()));
 }
 
 } // namespace opk::stdop::preproc

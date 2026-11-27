@@ -34,10 +34,11 @@ class GenericAudioTensorBuilder {
     opk::Result<void> bind(const opk::ModelInput &input);
     void resetBinding();
     size_t getRequiredAudioSamples() const;
-    opk::Result<void> build(const PcmRingBuffer::View &pcm,
-                            uint8_t *const destination,
-                            const size_t hopSampleCount,
-                            const bool discontinuity);
+    /// Returns the original scheduled PCM window's RMS after successful conversion.
+    opk::Result<double> build(const PcmRingBuffer::View &pcm,
+                              uint8_t *const destination,
+                              const size_t hopSampleCount,
+                              const bool discontinuity);
 
   private:
     struct Impl;
