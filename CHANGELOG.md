@@ -23,6 +23,21 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Restore YAMNet audio-event classification with model downloads, log-mel
+  preprocessing and typed `Classifications` results carrying label-set identity.
+  Include a browser microphone pipeline with WebRTC playback and WebSocket results.
+- Add CREPE tiny monophonic pitch detection with pinned model downloads, PCM
+  normalization and configurable pitch decoding and voicing thresholds. Publish
+  typed `PitchEstimates` results and provide a browser microphone pipeline with
+  WebRTC playback, WebSocket results and optional terminal logging.
+
+### Changed
+
+- Bump the independent SDK version to 1.1.0 for the backward-compatible
+  `PitchEstimates` payload addition and regenerate all language SDKs and integrations.
+
 ## [0.1.4]
 
 [Release-version exception](https://github.com/arm/open-perception-kit/pull/305#discussion_r4697027647):
