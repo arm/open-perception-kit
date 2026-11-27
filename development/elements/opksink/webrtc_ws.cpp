@@ -104,6 +104,10 @@ static std::shared_ptr<SessionContext> lock_session_callback_data(gpointer user_
     return weak_ctx->lock();
 }
 
+static void report_frame_metadata_failure(GstElement *const element, const char *const detail) {
+    GST_ERROR_OBJECT(element, "Dropping frame metadata: %s", detail);
+}
+
 static void send_frame_metadata(const std::shared_ptr<SessionContext> &ctx, GstBuffer *buffer) {
     GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
     if (!gst_rtp_buffer_map(buffer, GST_MAP_READ, &rtp)) {
@@ -152,10 +156,9 @@ static void send_frame_metadata(const std::shared_ptr<SessionContext> &ctx, GstB
                 if (ec && ctx->owner)
                     ctx->owner->cleanup_session(ctx->hdl, "frame metadata send failure");
             } catch (const std::exception &error) {
-                GST_ERROR_OBJECT(ctx->webrtcbin, "Dropping frame metadata: %s", error.what());
+                report_frame_metadata_failure(ctx->webrtcbin, error.what());
             } catch (...) {
-                GST_ERROR_OBJECT(ctx->webrtcbin,
-                                 "Dropping frame metadata: unknown publishing failure");
+                report_frame_metadata_failure(ctx->webrtcbin, "unknown publishing failure");
             }
         });
     } catch (...) {

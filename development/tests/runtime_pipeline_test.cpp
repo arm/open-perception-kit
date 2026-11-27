@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <gst/gst.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -426,9 +427,12 @@ TEST(RuntimePipelineErrors, MetadataAndErrorCallbackExceptionsStayInsideTheProbe
     RuntimeLoggingGuard loggingGuard;
     std::atomic<int> deliveries = 0;
     std::atomic<int> errors = 0;
-    ASSERT_TRUE(opk::runtime::Pipeline::addPluginPath(
-                    std::filesystem::path(OPK_PERFORMANCE_PLUGIN_PATH).parent_path().string())
-                    .has_value());
+    // Load only the fixture's plugin. Scanning the whole build directory also
+    // forks a scanner for helper libraries, leaving exec-only Valgrind logs.
+    gst_init(nullptr, nullptr);
+    g_autoptr(GError) error = nullptr;
+    g_autoptr(GstPlugin) plugin = gst_plugin_load_file(OPK_PERFORMANCE_PLUGIN_PATH, &error);
+    ASSERT_NE(plugin, nullptr) << (error ? error->message : "plugin load failed");
     auto pipeline = opk::runtime::Pipeline::fromString(
         "videotestsrc num-buffers=3 ! video/x-raw,format=BGRA,width=16,height=16 ! "
         "opkperformance ! fakesink sync=false");

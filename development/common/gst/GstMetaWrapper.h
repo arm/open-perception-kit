@@ -206,7 +206,7 @@ template <class Traits, class ReadCache = void> class Meta {
   private:
     static MetaType *get(GstBuffer *const buf) {
         g_return_val_if_fail(GST_IS_BUFFER(buf), nullptr);
-        return (MetaType *)gst_buffer_get_meta(buf, api_type());
+        return reinterpret_cast<MetaType *>(gst_buffer_get_meta(buf, api_type()));
     }
 
     // init/free/transform for GstMeta

@@ -32,12 +32,13 @@ FrameResultsPacket::FrameResultsPacket(
 std::shared_ptr<GBytes> FrameResultsPacket::bytes() const {
     std::call_once(m_once, [this] {
         auto packet = std::make_unique<flatbuffers::DetachedBuffer>(m_results->serialize());
+        const auto *const packetData = packet->data();
+        const auto packetSize = packet->size();
         auto *const bytes = g_bytes_new_with_free_func(
-            packet->data(),
-            packet->size(),
+            packetData,
+            packetSize,
             [](gpointer data) { delete static_cast<flatbuffers::DetachedBuffer *>(data); },
-            packet.get());
-        packet.release(); // GBytes now owns the serializer's allocation.
+            packet.release()); // Transfer the allocation to GBytes.
         m_bytes = std::shared_ptr<GBytes>(bytes, g_bytes_unref);
         // The packet is independent of the source; retain the source only when
         // serialization fails and call_once may need to retry.

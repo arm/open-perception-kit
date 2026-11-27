@@ -1079,7 +1079,7 @@ class Pipeline::Impl {
             Pipeline::FrameResultsCallback callback;
             Pipeline::FrameResultsPacketCallback packetCallback;
             {
-                const std::lock_guard lock(callbackMutex);
+                const std::scoped_lock lock(callbackMutex);
                 callback = frameResultsCallback;
                 packetCallback = frameResultsPacketCallback;
             }

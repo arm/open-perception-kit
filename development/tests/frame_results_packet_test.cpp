@@ -215,9 +215,9 @@ TEST_F(FrameResultsPacketTest, AcquiringSnapshotIsLazyAndFailuresDoNotReturnPack
     std::shared_ptr<const opk::FrameResultsPacket> invalid;
     ASSERT_NO_THROW(invalid = Meta::readCached(buffer));
     ASSERT_NE(invalid, nullptr);
-    EXPECT_THROW(invalid->bytes(), std::logic_error);
-    EXPECT_THROW(invalid->bytes(), std::logic_error);
-    EXPECT_THROW(invalid->view(), std::logic_error);
+    EXPECT_THROW(static_cast<void>(invalid->bytes()), std::logic_error);
+    EXPECT_THROW(static_cast<void>(invalid->bytes()), std::logic_error);
+    EXPECT_THROW(static_cast<void>(invalid->view()), std::logic_error);
 
     Meta::mutate<bool>(buffer, [](auto &results) {
         results = Results{};
@@ -227,7 +227,7 @@ TEST_F(FrameResultsPacketTest, AcquiringSnapshotIsLazyAndFailuresDoNotReturnPack
     EXPECT_TRUE(empty.valid());
     EXPECT_TRUE(empty.empty());
     EXPECT_FALSE(source.expired()); // Failed serialization must retain its retry input.
-    EXPECT_THROW(invalid->bytes(), std::logic_error);
+    EXPECT_THROW(static_cast<void>(invalid->bytes()), std::logic_error);
     invalid.reset();
     EXPECT_TRUE(source.expired());
 }

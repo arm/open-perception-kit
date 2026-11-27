@@ -97,7 +97,15 @@ class SerializeResultsTest : public ::testing::Test {
 };
 
 TEST_F(SerializeResultsTest, ActionReturnsOwnedCachedBytesWithoutStartingWriter) {
-    GSignalQuery query{};
+    GSignalQuery query{
+        .signal_id = 0,
+        .signal_name = nullptr,
+        .itype = G_TYPE_INVALID,
+        .signal_flags = G_SIGNAL_RUN_LAST,
+        .return_type = G_TYPE_INVALID,
+        .n_params = 0,
+        .param_types = nullptr,
+    };
     g_signal_query(g_signal_lookup("serialize-results", G_OBJECT_TYPE(comm)), &query);
     ASSERT_NE(query.signal_id, 0U);
     EXPECT_TRUE(query.signal_flags & G_SIGNAL_ACTION);

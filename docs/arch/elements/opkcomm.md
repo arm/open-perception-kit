@@ -72,8 +72,9 @@ argument and a caller-owned `GstStructure` return value named
 | `error` | `message`: string | Invalid input or serialization failure; no partial packet. |
 
 The structure owns a reference to the immutable bytes. Native callers retain
-them with `g_bytes_ref()` before freeing the structure; PyGObject retains the
-boxed values returned by `get_value()`. The packet can outlive both the sample
+them with `g_bytes_ref()` before freeing the structure. In Python, call `.ref()`
+on the boxed value returned by `get_value()` before discarding the response.
+The packet can outlive both the sample
 and pipeline. Keep the sample separately while using its image memory.
 
 Standard Python GStreamer bindings are sufficient; this function assumes the
@@ -92,7 +93,7 @@ def pull_frame(pipeline, timeout_ns):
         raise RuntimeError(response.get_value("message"))
     if status == "no-metadata":
         return sample, None
-    return sample, response.get_value("packet")
+    return sample, response.get_value("packet").ref()
 ```
 
 Cairn retains the returned sample and packet together for transport delivery.

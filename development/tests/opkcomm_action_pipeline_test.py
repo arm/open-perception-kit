@@ -67,7 +67,8 @@ class OpkCommActionPipelineTest(unittest.TestCase):
     def packet(self, comm, sample):
         response = comm.emit("serialize-results", sample.get_buffer())
         self.assertEqual(response.get_value("status"), "ok")
-        packet = response.get_value("packet")
+        # get_value() exposes a borrowed boxed value; retain it before response dies.
+        packet = response.get_value("packet").ref()
         self.assertIsInstance(packet, self.GLib.Bytes)
         return packet  # The response structure is no longer retained by this helper.
 
