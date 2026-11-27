@@ -32,6 +32,7 @@ struct Configuration {
     size_t tensorIndex, binCount, radius;
     bool sigmoid, weighted;
     double centsOffset, centsPerBin, referenceHz, minHz, maxHz, threshold, minimumRms;
+    bool operator==(const Configuration &) const = default;
 };
 opk::Result<Configuration> configure(const opk::AttributeMap &a) {
     for (const auto *const key : {"outputTensorIndex", "binCount", "weightedRadius"})
@@ -81,6 +82,16 @@ opk::Result<Configuration> configure(const opk::AttributeMap &a) {
 }
 } // namespace
 
+struct PitchEstimationParser::State {
+    Configuration configuration{};
+    std::vector<double> frequencies;
+    std::vector<double> scores;
+    size_t first = 0, last = 0;
+};
+
+PitchEstimationParser::PitchEstimationParser() = default;
+PitchEstimationParser::~PitchEstimationParser() = default;
+
 opk::Result<void> PitchEstimationParser::parse(const opk::TensorParser::Input &input,
                                                open_perception_kit::FrameResults &results) {
     const auto configuration = configure(input.attributes);
@@ -108,8 +119,31 @@ opk::Result<void> PitchEstimationParser::parse(const opk::TensorParser::Input &i
     const auto frequency = [&c](const double bin) {
         return c.referenceHz * std::exp2((c.centsOffset + c.centsPerBin * bin) / 1200.0);
     };
-    std::vector<double> scores(c.binCount);
-    size_t first = c.binCount, last = 0, peak = 0;
+    // Attributes can change between calls. Commit a new cache only after validating
+    // the complete grid, and overwrite every score on each successful parse.
+    if (!state_ || state_->configuration != c) {
+        auto next = std::make_unique<State>();
+        next->configuration = c;
+        next->frequencies.resize(c.binCount);
+        next->scores.resize(c.binCount);
+        next->first = c.binCount;
+        for (size_t i = 0; i < c.binCount; ++i) {
+            const double hz = frequency(static_cast<double>(i));
+            if (!std::isfinite(hz) || hz <= 0)
+                return invalid("Pitch parser grid produces invalid frequencies");
+            next->frequencies[i] = hz;
+            if (hz < c.minHz || hz > c.maxHz)
+                continue;
+            next->first = std::min(next->first, i);
+            next->last = i;
+        }
+        if (next->first == c.binCount)
+            return invalid("Pitch parser frequency range contains no pitch bins");
+        state_ = std::move(next);
+    }
+    auto &scores = state_->scores;
+    const size_t first = state_->first, last = state_->last;
+    size_t peak = first;
     double maximum = -1;
     for (size_t i = 0; i < c.binCount; ++i) {
         const double value = tensor->get(i);
@@ -121,20 +155,13 @@ opk::Result<void> PitchEstimationParser::parse(const opk::TensorParser::Input &i
         } else {
             scores[i] = value;
         }
-        const double hz = frequency(static_cast<double>(i));
-        if (!std::isfinite(hz) || hz <= 0)
-            return invalid("Pitch parser grid produces invalid frequencies");
-        if (hz < c.minHz || hz > c.maxHz)
+        if (i < first || i > last)
             continue;
-        first = std::min(first, i);
-        last = i;
         if (scores[i] > maximum) { // Stable ties choose the lowest eligible bin.
             maximum = scores[i];
             peak = i;
         }
     }
-    if (first == c.binCount)
-        return invalid("Pitch parser frequency range contains no pitch bins");
     auto estimate = std::make_unique<open_perception_kit::metadata::PitchEstimateT>();
     estimate->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
     estimate->periodicity = static_cast<float>(maximum);
@@ -153,7 +180,8 @@ opk::Result<void> PitchEstimationParser::parse(const opk::TensorParser::Input &i
             }
             bin = weightedSum / sum;
         }
-        estimate->frequency_hz = static_cast<float>(frequency(bin));
+        estimate->frequency_hz =
+            static_cast<float>(c.weighted ? frequency(bin) : state_->frequencies[peak]);
     }
     estimate->window_start_sample = audio.windowStartSample;
     estimate->window_end_sample = audio.windowEndSample;

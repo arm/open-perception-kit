@@ -17,13 +17,20 @@
 
 #pragma once
 #include "opk/TensorParser.h"
+#include <memory>
 namespace opk::stdop::postproc {
 /// Decodes independent scores on a logarithmic pitch-bin grid.
 struct PitchEstimationParser : public opk::TensorParser {
+    PitchEstimationParser();
+    ~PitchEstimationParser() override;
     std::vector<opk::OutputCapability> getProvidedOutputs() const override {
         return {opk::outputCapability<open_perception_kit::metadata::PitchEstimatesT>()};
     }
     opk::Result<void> parse(const opk::TensorParser::Input &input,
                             open_perception_kit::FrameResults &results) override;
+
+  private:
+    struct State;
+    std::unique_ptr<State> state_;
 };
 } // namespace opk::stdop::postproc

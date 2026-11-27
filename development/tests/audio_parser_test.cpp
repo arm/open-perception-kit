@@ -811,6 +811,59 @@ TEST(PitchEstimationParser, ArgmaxPreservesWindowAndProducer) {
     PitchFixture f;
     f.expect(true, 880, 1);
 }
+TEST(PitchEstimationParser, ReusesStorageWithoutRetainingScoresAfterFailure) {
+    PitchFixture f;
+    f.attributes.set("decoder", "weightedArgmax");
+    f.expect(true, 880, 1);
+    f.results = Results{};
+    f.scores = {1, 0, std::numeric_limits<float>::quiet_NaN()};
+    EXPECT_FALSE(f.parser.parse(f.input, f.results));
+    EXPECT_EQ(f.results.size(), 0u);
+    f.scores = {0, 0, 1};
+    f.expect(true, 1760, 1);
+    f.results = Results{};
+    f.scores = {0, 0, 0};
+    f.expect(false, 0, 0);
+}
+TEST(PitchEstimationParser, RefreshesCachedConfigurationAndRecoversFromInvalidGrid) {
+    PitchFixture f;
+    f.expect(true, 880, 1);
+    f.results = Results{};
+    f.attributes.set("referenceFrequencyHz", 220.0);
+    f.expect(true, 440, 1);
+    f.results = Results{};
+    f.attributes.set("minFrequencyHz", 800.0);
+    f.scores = {0, 1, 0.75f};
+    f.expect(true, 880, 0.75f);
+    f.results = Results{};
+    f.attributes.set("minFrequencyHz", 1900.0);
+    EXPECT_FALSE(f.parser.parse(f.input, f.results));
+    EXPECT_EQ(f.results.size(), 0u);
+    f.attributes.set("minFrequencyHz", 800.0);
+    f.expect(true, 880, 0.75f);
+    f.results = Results{};
+    f.attributes.set("activation", "sigmoid");
+    f.scores = {-1000, -1000, 1000};
+    f.expect(true, 880, 1);
+    f.results = Results{};
+    f.attributes.set("minimumRms", 0.2);
+    f.expect(false, 0, 1);
+}
+TEST(PitchEstimationParser, ResizesCachedBuffersWhenBinCountChanges) {
+    PitchFixture f;
+    f.expect(true, 880, 1);
+    f.results = Results{};
+    std::array<float, 2> scores{1, 0};
+    opk::TensorView tensor{
+        scores.data(), sizeof(scores), opk::Shape(1, 2), opk::Dtype::Float32, 1, 0};
+    f.input.tensors[0] = &tensor;
+    f.attributes.set("binCount", int64_t{2});
+    f.expect(true, 440, 1);
+    f.results = Results{};
+    f.input.tensors[0] = &f.tensor;
+    f.attributes.set("binCount", int64_t{3});
+    f.expect(true, 880, 1);
+}
 TEST(PitchEstimationParser, WeightedDecoderInterpolatesInCents) {
     PitchFixture f;
     f.attributes.set("decoder", "weightedArgmax");
