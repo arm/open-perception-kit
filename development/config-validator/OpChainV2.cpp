@@ -392,6 +392,28 @@ void validateThresholds(ValidationReport &report,
     }
 }
 
+void validatePitchFrequencyLimits(ValidationReport &report,
+                                  const opk::op::OpChainDescriptor &descriptor,
+                                  const std::string_view source) {
+    for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
+        const auto &op = descriptor.ops[index];
+        if (op.id != Postprocess ||
+            stringAttribute(op.attributes, "parser") != "PitchEstimationParser")
+            continue;
+        const auto minimum = numberAttribute(op.attributes, "minFrequencyHz");
+        const auto maximum = numberAttribute(op.attributes, "maxFrequencyHz");
+        if (!minimum.has_value() || !maximum.has_value() || *maximum >= *minimum)
+            continue;
+        report.issues.push_back(
+            makeIssue("opchain.v2.pitch-frequency-order",
+                      ValidationPhase::Descriptor,
+                      source,
+                      std::format("/ops/{}/attributes/maxFrequencyHz", index),
+                      "maxFrequencyHz must be greater than or equal to minFrequencyHz",
+                      std::format("/ops/{}/attributes/minFrequencyHz", index)));
+    }
+}
+
 void validateLogMelIntegers(ValidationReport &report,
                             const opk::op::OpChainDescriptor &descriptor,
                             const std::string_view source) {
@@ -454,6 +476,7 @@ ValidationReport validateOpChainV2(const opk::op::OpChainDescriptor &descriptor,
     validateOnnxThreadCount(report, descriptor, source);
     validateTurnDetectorIntegers(report, descriptor, source);
     validateThresholds(report, descriptor, source);
+    validatePitchFrequencyLimits(report, descriptor, source);
     validateAudioParserIntegers(report, descriptor, source);
     validateLogMelIntegers(report, descriptor, source);
     report.sort();

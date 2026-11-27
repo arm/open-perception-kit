@@ -602,6 +602,28 @@ TEST(ConfigValidator, PitchParserRequiresExplicitGridDecoderAndThresholds) {
     }
 }
 
+TEST(ConfigValidator, PitchFrequencyLimitsRequireMaximumAtLeastMinimum) {
+    std::ifstream input(std::filesystem::path(OPK_REPOSITORY_ROOT) /
+                        "config/models/crepe-tiny/opchain.json");
+    auto document = nlohmann::json::parse(input);
+    ASSERT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    auto &attributes = document["ops"][2]["attributes"];
+    for (const double maximum : {439.5, 440.0, 440.5}) {
+        attributes["minFrequencyHz"] = 440.0;
+        attributes["maxFrequencyHz"] = maximum;
+        const auto result = opk::config::validateOpChainJson(document.dump());
+        if (maximum >= 440.0) {
+            EXPECT_TRUE(result) << maximum;
+            continue;
+        }
+        ASSERT_FALSE(result);
+        ASSERT_EQ(result.error().issues.size(), 1u) << result.error().toText();
+        EXPECT_EQ(result.error().issues[0].rule, "opchain.v2.pitch-frequency-order");
+        EXPECT_EQ(result.error().issues[0].phase, opk::config::ValidationPhase::Descriptor);
+        EXPECT_EQ(result.error().issues[0].instanceLocation, "/ops/2/attributes/maxFrequencyHz");
+    }
+}
+
 TEST(ConfigValidator, YamnetIntegerAttributesRejectDecimalAndExponentNotation) {
     std::ifstream input(std::filesystem::path(OPK_REPOSITORY_ROOT) /
                         "config/models/yamnet-esc/opchain.json");
